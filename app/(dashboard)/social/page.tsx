@@ -5,10 +5,13 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
-import { createBrowserClient } from "@supabase/ssr";
+import {
+  createBrowserClient,
+} from "@supabase/ssr";
 
 import {
   AnimatePresence,
@@ -16,11 +19,14 @@ import {
 } from "framer-motion";
 
 import {
+  AlertCircle,
   ArrowRight,
   CalendarDays,
   Check,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  CircleDashed,
   Clock,
   Eye,
   Facebook,
@@ -35,15 +41,19 @@ import {
   Music,
   Plus,
   RefreshCcw,
+  RotateCcw,
   Send,
   Sparkles,
   Trash2,
   Upload,
   Wand2,
   X,
+  XCircle,
 } from "lucide-react";
 
-import { toast } from "sonner";
+import {
+  toast,
+} from "sonner";
 
 // ============================================================
 // TYPES
@@ -51,47 +61,106 @@ import { toast } from "sonner";
 
 interface SocialPost {
   id: string;
+
   caption: string;
+
   platform: string;
-  hashtags?: string | null;
-  media_url?: string | null;
-  scheduled_for: string;
-  status: string;
-  format: string;
-  platform_post_id?: string | null;
-  error?: string | null;
-  last_error?: string | null;
-  attempts?: number;
-  analytics?: unknown;
-  platform_response?: unknown;
+
+  hashtags?:
+    string | null;
+
+  media_url?:
+    string | null;
+
+  scheduled_for:
+    string;
+
+  status:
+    string;
+
+  format:
+    string;
+
+  platform_post_id?:
+    string | null;
+
+  error?:
+    string | null;
+
+  last_error?:
+    string | null;
+
+  attempts?:
+    number;
+
+  analytics?:
+    unknown;
+
+  platform_response?:
+    unknown;
 }
 
 interface SocialAccount {
-  id: string;
-  platform: string;
-  platform_user_id?: string | null;
-  page_id?: string | null;
-  page_name?: string | null;
-  page_access_token?: string | null;
-  instagram_business_account_id?: string | null;
-  display_name?: string | null;
+  id:
+    string;
+
+  platform:
+    string;
+
+  platform_user_id?:
+    string | null;
+
+  page_id?:
+    string | null;
+
+  page_name?:
+    string | null;
+
+  page_access_token?:
+    string | null;
+
+  instagram_business_account_id?:
+    string | null;
+
+  display_name?:
+    string | null;
 }
 
 interface BusinessProfile {
-  name: string;
-  description: string;
-  audience: string;
-  services: string;
-  tone: string;
-  goals: string;
-  rawContext: string;
+  name:
+    string;
+
+  description:
+    string;
+
+  audience:
+    string;
+
+  services:
+    string;
+
+  tone:
+    string;
+
+  goals:
+    string;
+
+  rawContext:
+    string;
 }
 
 interface ContentConcept {
-  id: string;
-  title: string;
-  hook: string;
-  whyItWorks: string;
+  id:
+    string;
+
+  title:
+    string;
+
+  hook:
+    string;
+
+  whyItWorks:
+    string;
 
   format:
     | "Reel"
@@ -99,11 +168,20 @@ interface ContentConcept {
     | "Post"
     | "Carousel";
 
-  platforms: string[];
-  script: string;
-  caption: string;
-  hashtags: string;
-  recommendedAudio: string;
+  platforms:
+    string[];
+
+  script:
+    string;
+
+  caption:
+    string;
+
+  hashtags:
+    string;
+
+  recommendedAudio:
+    string;
 }
 
 type PlatformId =
@@ -112,16 +190,63 @@ type PlatformId =
   | "tiktok"
   | "linkedin";
 
+type PublishResultStatus =
+  | "published"
+  | "processing"
+  | "scheduled"
+  | "failed";
+
+type PublishResult = {
+  id:
+    string;
+
+  platform:
+    PlatformId | string;
+
+  status:
+    PublishResultStatus;
+
+  message:
+    string;
+
+  error?:
+    string | null;
+
+  platformPostId?:
+    string | null;
+};
+
+type PublishSummary = {
+  mode:
+    "instant"
+    | "scheduled";
+
+  createdAt:
+    string;
+
+  results:
+    PublishResult[];
+};
+
 // ============================================================
 // POST STATUS
 // ============================================================
 
 const POST_STATUS = {
-  DRAFT: "draft",
-  SCHEDULED: "scheduled",
-  PROCESSING: "processing",
-  PUBLISHED: "published",
-  FAILED: "failed",
+  DRAFT:
+    "draft",
+
+  SCHEDULED:
+    "scheduled",
+
+  PROCESSING:
+    "processing",
+
+  PUBLISHED:
+    "published",
+
+  FAILED:
+    "failed",
 } as const;
 
 // ============================================================
@@ -129,29 +254,57 @@ const POST_STATUS = {
 // ============================================================
 
 const PLATFORM_OPTIONS: Array<{
-  id: PlatformId;
-  name: string;
-  description: string;
+  id:
+    PlatformId;
+
+  name:
+    string;
+
+  description:
+    string;
 }> = [
   {
-    id: "facebook",
-    name: "Facebook",
-    description: "Page posts",
+    id:
+      "facebook",
+
+    name:
+      "Facebook",
+
+    description:
+      "Page posts",
   },
+
   {
-    id: "instagram",
-    name: "Instagram",
-    description: "Posts & Reels",
+    id:
+      "instagram",
+
+    name:
+      "Instagram",
+
+    description:
+      "Posts & Reels",
   },
+
   {
-    id: "tiktok",
-    name: "TikTok",
-    description: "Video",
+    id:
+      "tiktok",
+
+    name:
+      "TikTok",
+
+    description:
+      "Video",
   },
+
   {
-    id: "linkedin",
-    name: "LinkedIn",
-    description: "Posts",
+    id:
+      "linkedin",
+
+    name:
+      "LinkedIn",
+
+    description:
+      "Posts",
   },
 ];
 
@@ -159,160 +312,391 @@ const PLATFORM_OPTIONS: Array<{
 // HELPERS
 // ============================================================
 
-const isSameDay = (
-  dateStr: string,
-  day: number,
-  month: number,
-  year: number
-) => {
-  if (!dateStr) {
-    return false;
-  }
+const sleep =
+  (
+    milliseconds:
+      number
+  ) =>
+    new Promise<void>(
+      (
+        resolve
+      ) => {
+        window.setTimeout(
+          resolve,
+          milliseconds
+        );
+      }
+    );
 
-  const date = new Date(
-    dateStr
+// ============================================================
+
+const isSameDay =
+  (
+    dateStr:
+      string,
+
+    day:
+      number,
+
+    month:
+      number,
+
+    year:
+      number
+  ) => {
+    if (
+      !dateStr
+    ) {
+      return false;
+    }
+
+    const date =
+      new Date(
+        dateStr
+      );
+
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return false;
+    }
+
+    return (
+      date.getDate() ===
+        day &&
+      date.getMonth() ===
+        month &&
+      date.getFullYear() ===
+        year
+    );
+  };
+
+// ============================================================
+
+const getStatusColor =
+  (
+    status?:
+      string
+  ) => {
+    switch (
+      status ||
+      ""
+    ) {
+      case "published":
+        return "bg-emerald-500";
+
+      case "scheduled":
+        return "bg-blue-400";
+
+      case "processing":
+        return "bg-amber-400";
+
+      case "failed":
+        return "bg-red-500";
+
+      case "draft":
+        return "bg-stone-300";
+
+      default:
+        return "bg-stone-200";
+    }
+  };
+
+// ============================================================
+
+const getStatusTextColor =
+  (
+    status?:
+      string
+  ) => {
+    switch (
+      status ||
+      ""
+    ) {
+      case "published":
+        return "text-emerald-600";
+
+      case "scheduled":
+        return "text-blue-500";
+
+      case "processing":
+        return "text-amber-600";
+
+      case "failed":
+        return "text-red-500";
+
+      default:
+        return "text-stone-400";
+    }
+  };
+
+// ============================================================
+
+const getStatusBackground =
+  (
+    status?:
+      string
+  ) => {
+    switch (
+      status ||
+      ""
+    ) {
+      case "published":
+        return "border-emerald-200 bg-emerald-50";
+
+      case "scheduled":
+        return "border-blue-100 bg-blue-50";
+
+      case "processing":
+        return "border-amber-200 bg-amber-50";
+
+      case "failed":
+        return "border-red-200 bg-red-50";
+
+      default:
+        return "border-stone-200 bg-stone-50";
+    }
+  };
+
+// ============================================================
+
+const getPlatformLabel =
+  (
+    platform:
+      string
+  ) => {
+    return (
+      PLATFORM_OPTIONS.find(
+        (
+          item
+        ) =>
+          item.id ===
+          platform
+      )?.name ||
+      platform
   );
+};
+
+// ============================================================
+
+const getPostError =
+  (
+    post:
+      SocialPost
+  ) => {
+    return (
+      post.last_error ||
+      post.error ||
+      null
+    );
+  };
+
+// ============================================================
+
+const isVideoUrl =
+  (
+    url?:
+      string | null
+  ) => {
+    if (
+      !url
+    ) {
+      return false;
+    }
+
+    const cleanUrl =
+      url
+        .toLowerCase()
+        .split(
+          "?"
+        )[0];
+
+    return [
+      ".mp4",
+      ".mov",
+      ".m4v",
+      ".webm",
+      ".avi",
+    ].some(
+      (
+        extension
+      ) =>
+        cleanUrl.endsWith(
+          extension
+        )
+    );
+  };
+
+// ============================================================
+
+const cleanPlatform =
+  (
+    value?:
+      string | null
+  ) => {
+    return String(
+      value ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
+  };
+
+// ============================================================
+// COMING SOON
+// ============================================================
+
+const isComingSoonPlatform =
+  (
+    platform:
+      PlatformId
+  ) => {
+    return (
+      platform ===
+      "tiktok"
+    );
+  };
+
+// ============================================================
+
+const compactText =
+  (
+    values:
+      unknown[]
+  ) => {
+    return values
+      .filter(
+        (
+          value
+        ): value is string =>
+          typeof value ===
+            "string" &&
+          Boolean(
+            value.trim()
+          )
+      )
+      .map(
+        (
+          value
+        ) =>
+          value.trim()
+      )
+      .filter(
+        (
+          value,
+          index,
+          array
+        ) =>
+          array.indexOf(
+            value
+          ) ===
+          index
+      )
+      .join(
+        "\n"
+      );
+  };
+
+// ============================================================
+
+function resultFromPost(
+  post:
+    SocialPost
+): PublishResult {
+  const status =
+    cleanPlatform(
+      post.status
+    );
 
   if (
-    Number.isNaN(
-      date.getTime()
-    )
+    status ===
+    POST_STATUS.PUBLISHED
   ) {
-    return false;
+    return {
+      id:
+        post.id,
+
+      platform:
+        post.platform,
+
+      status:
+        "published",
+
+      message:
+        `${getPlatformLabel(
+          post.platform
+        )} published successfully.`,
+
+      platformPostId:
+        post.platform_post_id,
+    };
   }
 
-  return (
-    date.getDate() === day &&
-    date.getMonth() === month &&
-    date.getFullYear() === year
-  );
-};
-
-// ============================================================
-
-const getStatusColor = (
-  status?: string
-) => {
-  switch (
-    status || ""
+  if (
+    status ===
+    POST_STATUS.FAILED
   ) {
-    case "published":
-      return "bg-emerald-500";
+    return {
+      id:
+        post.id,
 
-    case "scheduled":
-      return "bg-blue-400";
+      platform:
+        post.platform,
 
-    case "processing":
-      return "bg-amber-400";
+      status:
+        "failed",
 
-    case "failed":
-      return "bg-red-500";
+      message:
+        `${getPlatformLabel(
+          post.platform
+        )} failed to publish.`,
 
-    case "draft":
-      return "bg-stone-300";
-
-    default:
-      return "bg-stone-200";
+      error:
+        getPostError(
+          post
+        ),
+    };
   }
-};
 
-// ============================================================
-
-const getStatusTextColor = (
-  status?: string
-) => {
-  switch (
-    status || ""
+  if (
+    status ===
+    POST_STATUS.PROCESSING
   ) {
-    case "published":
-      return "text-emerald-600";
+    return {
+      id:
+        post.id,
 
-    case "scheduled":
-      return "text-blue-500";
+      platform:
+        post.platform,
 
-    case "processing":
-      return "text-amber-600";
+      status:
+        "processing",
 
-    case "failed":
-      return "text-red-500";
-
-    default:
-      return "text-stone-400";
-  }
-};
-
-// ============================================================
-
-const isVideoUrl = (
-  url?: string | null
-) => {
-  if (!url) {
-    return false;
+      message:
+        `${getPlatformLabel(
+          post.platform
+        )} is still processing.`,
+    };
   }
 
-  const cleanUrl =
-    url
-      .toLowerCase()
-      .split("?")[0];
+  return {
+    id:
+      post.id,
 
-  return [
-    ".mp4",
-    ".mov",
-    ".m4v",
-    ".webm",
-    ".avi",
-  ].some(
-    (extension) =>
-      cleanUrl.endsWith(
-        extension
-      )
-  );
-};
+    platform:
+      post.platform,
 
-// ============================================================
+    status:
+      "scheduled",
 
-const cleanPlatform = (
-  value?: string | null
-) => {
-  return String(
-    value || ""
-  )
-    .trim()
-    .toLowerCase();
-};
-
-// ============================================================
-
-const compactText = (
-  values: unknown[]
-) => {
-  return values
-    .filter(
-      (
-        value
-      ): value is string =>
-        typeof value ===
-          "string" &&
-        Boolean(
-          value.trim()
-        )
-    )
-    .map(
-      (value) =>
-        value.trim()
-    )
-    .filter(
-      (
-        value,
-        index,
-        array
-      ) =>
-        array.indexOf(
-          value
-        ) === index
-    )
-    .join("\n");
-};
+    message:
+      `${getPlatformLabel(
+        post.platform
+      )} is queued for publishing.`,
+  };
+}
 
 // ============================================================
 // PAGE
@@ -326,9 +710,14 @@ export default function SocialStudioUnified() {
   const [
     viewMode,
     setViewMode,
-  ] = useState<
-    "create" | "ideas" | "planner"
-  >("create");
+  ] =
+    useState<
+      "create" |
+      "ideas" |
+      "planner"
+    >(
+      "create"
+    );
 
   const [
     status,
@@ -411,7 +800,9 @@ export default function SocialStudioUnified() {
   ] =
     useState<
       ContentConcept[]
-    >([]);
+    >(
+      []
+    );
 
   const [
     generatingIdeas,
@@ -457,7 +848,9 @@ export default function SocialStudioUnified() {
   ] =
     useState<
       PlatformId[]
-    >([]);
+    >(
+      []
+    );
 
   const [
     format,
@@ -535,6 +928,26 @@ export default function SocialStudioUnified() {
       false
     );
 
+  const [
+    retryingPostId,
+    setRetryingPostId,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+  const [
+    publishSummary,
+    setPublishSummary,
+  ] =
+    useState<
+      PublishSummary | null
+    >(
+      null
+    );
+
   // ==========================================================
   // POSTS
   // ==========================================================
@@ -545,7 +958,9 @@ export default function SocialStudioUnified() {
   ] =
     useState<
       SocialPost[]
-    >([]);
+    >(
+      []
+    );
 
   const [
     accounts,
@@ -553,7 +968,9 @@ export default function SocialStudioUnified() {
   ] =
     useState<
       SocialAccount[]
-    >([]);
+    >(
+      []
+    );
 
   const [
     previewPost,
@@ -583,7 +1000,18 @@ export default function SocialStudioUnified() {
   ] =
     useState<
       SocialPost[]
-    >([]);
+    >(
+      []
+    );
+
+  // ==========================================================
+  // REFS
+  // ==========================================================
+
+  const mountedRef =
+    useRef(
+      true
+    );
 
   // ==========================================================
   // SUPABASE
@@ -610,12 +1038,32 @@ export default function SocialStudioUnified() {
         }
 
         return createBrowserClient(
-          url || "",
-          key || ""
+          url ||
+            "",
+
+          key ||
+            ""
         );
       },
       []
     );
+
+  // ==========================================================
+  // MOUNT
+  // ==========================================================
+
+  useEffect(
+    () => {
+      mountedRef.current =
+        true;
+
+      return () => {
+        mountedRef.current =
+          false;
+      };
+    },
+    []
+  );
 
   // ==========================================================
   // AUTH
@@ -629,7 +1077,15 @@ export default function SocialStudioUnified() {
             data,
             error,
           } =
-            await supabase.auth.getUser();
+            await supabase
+              .auth
+              .getUser();
+
+          if (
+            !mountedRef.current
+          ) {
+            return;
+          }
 
           if (
             error ||
@@ -642,6 +1098,10 @@ export default function SocialStudioUnified() {
 
             setStatus(
               "Not authenticated"
+            );
+
+            toast.error(
+              "You must be signed in to use Social Studio."
             );
 
             return;
@@ -867,9 +1327,11 @@ export default function SocialStudioUnified() {
 
           try {
             storedClarity =
-              window.localStorage.getItem(
-                "tots-clarity-business-context"
-              ) ||
+              window
+                .localStorage
+                .getItem(
+                  "tots-clarity-business-context"
+                ) ||
               "";
           } catch {
             storedClarity =
@@ -903,6 +1365,12 @@ export default function SocialStudioUnified() {
               storedClarity,
             ]);
 
+          if (
+            !mountedRef.current
+          ) {
+            return;
+          }
+
           setBusinessProfile({
             name:
               businessName,
@@ -931,13 +1399,21 @@ export default function SocialStudioUnified() {
             error
           );
 
-          setBusinessLoaded(
-            true
-          );
+          if (
+            mountedRef.current
+          ) {
+            setBusinessLoaded(
+              true
+            );
+          }
         } finally {
-          setBusinessLoading(
-            false
-          );
+          if (
+            mountedRef.current
+          ) {
+            setBusinessLoading(
+              false
+            );
+          }
         }
       },
       [
@@ -968,82 +1444,113 @@ export default function SocialStudioUnified() {
 
   const syncPosts =
     useCallback(
-      async () => {
+      async (
+        quiet =
+          false
+      ) => {
         if (
           !user?.id
         ) {
-          return;
+          return [];
         }
 
-        setStatus(
-          "Syncing"
-        );
-
-        const {
-          data,
-          error,
-        } =
-          await supabase
-            .from(
-              "socials"
-            )
-            .select(`
-              id,
-              caption,
-              platform,
-              hashtags,
-              media_url,
-              scheduled_for,
-              status,
-              format,
-              platform_post_id,
-              error,
-              last_error,
-              attempts,
-              analytics,
-              platform_response
-            `)
-            .eq(
-              "user_id",
-              user.id
-            )
-            .order(
-              "scheduled_for",
-              {
-                ascending:
-                  true,
-              }
-            );
-
         if (
-          error
+          !quiet
+        ) {
+          setStatus(
+            "Syncing"
+          );
+        }
+
+        try {
+          const {
+            data,
+            error,
+          } =
+            await supabase
+              .from(
+                "socials"
+              )
+              .select(`
+                id,
+                caption,
+                platform,
+                hashtags,
+                media_url,
+                scheduled_for,
+                status,
+                format,
+                platform_post_id,
+                error,
+                last_error,
+                attempts,
+                analytics,
+                platform_response
+              `)
+              .eq(
+                "user_id",
+                user.id
+              )
+              .order(
+                "scheduled_for",
+                {
+                  ascending:
+                    true,
+                }
+              );
+
+          if (
+            error
+          ) {
+            throw error;
+          }
+
+          const loadedPosts =
+            (
+              data ||
+              []
+            ) as SocialPost[];
+
+          if (
+            mountedRef.current
+          ) {
+            setPosts(
+              loadedPosts
+            );
+          }
+
+          return loadedPosts;
+        } catch (
+          error:
+            unknown
         ) {
           console.error(
             "Social posts fetch error:",
             error
           );
 
-          toast.error(
-            `Could not load posts: ${error.message}`
-          );
+          if (
+            !quiet
+          ) {
+            toast.error(
+              error instanceof
+                Error
+                ? `Could not load posts: ${error.message}`
+                : "Could not load posts."
+            );
+          }
 
-          setStatus(
-            "Ready"
-          );
-
-          return;
+          return [];
+        } finally {
+          if (
+            !quiet &&
+            mountedRef.current
+          ) {
+            setStatus(
+              "Ready"
+            );
+          }
         }
-
-        setPosts(
-          (
-            data ||
-            []
-          ) as SocialPost[]
-        );
-
-        setStatus(
-          "Ready"
-        );
       },
       [
         supabase,
@@ -1068,12 +1575,15 @@ export default function SocialStudioUnified() {
   );
 
   // ==========================================================
-  // LOAD CONNECTED ACCOUNTS
+  // LOAD ACCOUNTS
   // ==========================================================
 
   const loadAccounts =
     useCallback(
-      async () => {
+      async (
+        quiet =
+          false
+      ) => {
         if (
           !user?.id
         ) {
@@ -1084,50 +1594,66 @@ export default function SocialStudioUnified() {
           return;
         }
 
-        const {
-          data,
-          error,
-        } =
-          await supabase
-            .from(
-              "social_accounts"
-            )
-            .select(`
-              id,
-              platform,
-              platform_user_id,
-              page_id,
-              page_name,
-              page_access_token,
-              instagram_business_account_id,
-              display_name
-            `)
-            .eq(
-              "user_id",
-              user.id
-            );
+        try {
+          const {
+            data,
+            error,
+          } =
+            await supabase
+              .from(
+                "social_accounts"
+              )
+              .select(`
+                id,
+                platform,
+                platform_user_id,
+                page_id,
+                page_name,
+                page_access_token,
+                instagram_business_account_id,
+                display_name
+              `)
+              .eq(
+                "user_id",
+                user.id
+              );
 
-        if (
-          error
+          if (
+            error
+          ) {
+            throw error;
+          }
+
+          if (
+            mountedRef.current
+          ) {
+            setAccounts(
+              (
+                data ||
+                []
+              ) as SocialAccount[]
+            );
+          }
+        } catch (
+          error:
+            unknown
         ) {
           console.error(
             "Social accounts error:",
             error
           );
 
-          toast.error(
-            `Could not load social connections: ${error.message}`
-          );
-
-          return;
+          if (
+            !quiet
+          ) {
+            toast.error(
+              error instanceof
+                Error
+                ? `Could not load social connections: ${error.message}`
+                : "Could not load social connections."
+            );
+          }
         }
-
-        setAccounts(
-          (
-            data ||
-            []
-          ) as SocialAccount[]
-        );
       },
       [
         supabase,
@@ -1145,14 +1671,20 @@ export default function SocialStudioUnified() {
   );
 
   // ==========================================================
-  // REFRESH CONNECTIONS ON FOCUS
+  // FOCUS REFRESH
   // ==========================================================
 
   useEffect(
     () => {
       const handleFocus =
         () => {
-          void loadAccounts();
+          void loadAccounts(
+            true
+          );
+
+          void syncPosts(
+            true
+          );
         };
 
       window.addEventListener(
@@ -1169,6 +1701,7 @@ export default function SocialStudioUnified() {
     },
     [
       loadAccounts,
+      syncPosts,
     ]
   );
 
@@ -1205,15 +1738,18 @@ export default function SocialStudioUnified() {
                 `user_id=eq.${user.id}`,
             },
             () => {
-              void syncPosts();
+              void syncPosts(
+                true
+              );
             }
           )
           .subscribe();
 
       return () => {
-        void supabase.removeChannel(
-          channel
-        );
+        void supabase
+          .removeChannel(
+            channel
+          );
       };
     },
     [
@@ -1243,6 +1779,25 @@ export default function SocialStudioUnified() {
         return;
       }
 
+      const maximumSize =
+        250 *
+        1024 *
+        1024;
+
+      if (
+        file.size >
+        maximumSize
+      ) {
+        toast.error(
+          "Please choose a file smaller than 250 MB."
+        );
+
+        event.target.value =
+          "";
+
+        return;
+      }
+
       if (
         mediaPreview
       ) {
@@ -1262,7 +1817,7 @@ export default function SocialStudioUnified() {
       );
 
       toast.success(
-        `${file.name} ready`
+        `${file.name} is ready to upload`
       );
     };
 
@@ -1333,19 +1888,8 @@ export default function SocialStudioUnified() {
         ?.page_access_token
     );
 
-  const tiktokConnected =
-    accounts.some(
-      (
-        account
-      ) =>
-        cleanPlatform(
-          account.platform
-        ) ===
-        "tiktok"
-    );
-
-  const linkedinConnected =
-    accounts.some(
+  const linkedinAccount =
+    accounts.find(
       (
         account
       ) =>
@@ -1353,6 +1897,11 @@ export default function SocialStudioUnified() {
           account.platform
         ) ===
         "linkedin"
+    );
+
+  const linkedinConnected =
+    Boolean(
+      linkedinAccount
     );
 
   const isConnected =
@@ -1369,11 +1918,11 @@ export default function SocialStudioUnified() {
         case "instagram":
           return instagramConnected;
 
-        case "tiktok":
-          return tiktokConnected;
-
         case "linkedin":
           return linkedinConnected;
+
+        case "tiktok":
+          return false;
 
         default:
           return false;
@@ -1387,7 +1936,7 @@ export default function SocialStudioUnified() {
     ) => {
       if (
         platform ===
-        "facebook" &&
+          "facebook" &&
         facebookConnected
       ) {
         return (
@@ -1399,7 +1948,7 @@ export default function SocialStudioUnified() {
 
       if (
         platform ===
-        "instagram" &&
+          "instagram" &&
         instagramConnected
       ) {
         return "Instagram Business connected";
@@ -1407,25 +1956,28 @@ export default function SocialStudioUnified() {
 
       if (
         platform ===
-        "tiktok" &&
-        tiktokConnected
+          "linkedin" &&
+        linkedinConnected
       ) {
-        return "TikTok connected";
+        return (
+          linkedinAccount
+            ?.display_name ||
+          "LinkedIn connected"
+        );
       }
 
       if (
         platform ===
-        "linkedin" &&
-        linkedinConnected
+        "tiktok"
       ) {
-        return "LinkedIn connected";
+        return "TikTok connection coming soon";
       }
 
       return "Not connected";
     };
 
   // ==========================================================
-  // TOGGLE PLATFORM
+  // PLATFORM TOGGLE
   // ==========================================================
 
   const togglePlatform =
@@ -1434,22 +1986,26 @@ export default function SocialStudioUnified() {
         PlatformId
     ) => {
       if (
+        isComingSoonPlatform(
+          platform
+        )
+      ) {
+        toast.info(
+          "TikTok publishing is coming soon."
+        );
+
+        return;
+      }
+
+      if (
         !isConnected(
           platform
         )
       ) {
-        const label =
-          PLATFORM_OPTIONS.find(
-            (
-              item
-            ) =>
-              item.id ===
-              platform
-          )?.name ||
-          platform;
-
         toast.error(
-          `${label} is not connected yet`
+          `${getPlatformLabel(
+            platform
+          )} is not connected. Connect it in Settings first.`
         );
 
         return;
@@ -1477,7 +2033,7 @@ export default function SocialStudioUnified() {
     };
 
   // ==========================================================
-  // VALIDATE CONNECTIONS
+  // VALIDATION
   // ==========================================================
 
   const validateConnections =
@@ -1487,22 +2043,26 @@ export default function SocialStudioUnified() {
         platforms
       ) {
         if (
+          isComingSoonPlatform(
+            platform
+          )
+        ) {
+          toast.info(
+            "TikTok publishing is coming soon."
+          );
+
+          return false;
+        }
+
+        if (
           !isConnected(
             platform
           )
         ) {
-          const label =
-            PLATFORM_OPTIONS.find(
-              (
-                item
-              ) =>
-                item.id ===
-                platform
-            )?.name ||
-            platform;
-
           toast.error(
-            `${label} is not connected`
+            `${getPlatformLabel(
+              platform
+            )} is not connected.`
           );
 
           return false;
@@ -1513,7 +2073,7 @@ export default function SocialStudioUnified() {
     };
 
   // ==========================================================
-  // IDEA GENERATION
+  // IDEAS
   // ==========================================================
 
   const generateBusinessIdeas =
@@ -1601,7 +2161,7 @@ export default function SocialStudioUnified() {
                 `3 things I wish every ${audience} knew...`,
 
               whyItWorks:
-                "Educational list content is easy to save, share and repurpose into carousels.",
+                "Educational list content is easy to save, share and repurpose.",
 
               format:
                 "Carousel",
@@ -1616,7 +2176,7 @@ export default function SocialStudioUnified() {
                 `SLIDE 1:\n3 things I wish every customer knew.\n\nSLIDE 2:\nA common misconception about ${services}.\n\nSLIDE 3:\nA mistake customers often make before working with ${name}.\n\nSLIDE 4:\nWhat they should focus on instead.\n\nSLIDE 5:\nA simple CTA to save the post or contact ${name}.`,
 
               caption:
-                `If you are trying to get better results, these are the things we wish more people knew before getting started.\n\nSave this for later — it might save you a lot of time.`,
+                "If you are trying to get better results, these are the things we wish more people knew before getting started.\n\nSave this for later — it might save you a lot of time.",
 
               hashtags:
                 "#businesstips #smallbusinessuk #marketingtips #education #businessadvice",
@@ -1636,7 +2196,7 @@ export default function SocialStudioUnified() {
                 `What running ${name} actually looks like behind the scenes...`,
 
               whyItWorks:
-                "Founder and behind-the-scenes content builds familiarity and trust without feeling overly promotional.",
+                "Founder and behind-the-scenes content builds familiarity and trust.",
 
               format:
                 "Reel",
@@ -1671,7 +2231,7 @@ export default function SocialStudioUnified() {
                 `If you are ${audience}, stop doing this...`,
 
               whyItWorks:
-                "A strong contrarian hook creates curiosity while letting the business demonstrate expertise.",
+                "A strong contrarian hook creates curiosity while demonstrating expertise.",
 
               format:
                 "TikTok",
@@ -1688,7 +2248,7 @@ export default function SocialStudioUnified() {
                 "Sometimes doing more is not the answer. Sometimes you need to stop doing the thing creating the problem in the first place.",
 
               hashtags:
-                "#businessadvice #tips #smallbusinessowner #learnontiktok #businessgrowth",
+                "#businessadvice #tips #smallbusinessowner #businessgrowth",
 
               recommendedAudio:
                 "Original audio. Keep the spoken hook clear.",
@@ -1705,7 +2265,7 @@ export default function SocialStudioUnified() {
                 "Before → after, but make it about the result.",
 
               whyItWorks:
-                "Outcome-led content shows value without needing a hard sales pitch.",
+                "Outcome-led content shows value without requiring a hard sales pitch.",
 
               format:
                 "Reel",
@@ -1720,7 +2280,7 @@ export default function SocialStudioUnified() {
                 `BEFORE:\nShow the customer's situation before using ${services}.\n\nMIDDLE:\nShow one or two parts of the process.\n\nAFTER:\nShow the end result or improvement.\n\nTEXT OVERLAY:\n“From [problem] → [result].”\n\nENDING:\n“This is exactly why we built ${name}.”`,
 
               caption:
-                `This is the bit we love most — seeing the difference between where someone started and where they ended up.\n\nThat transformation is the whole point.`,
+                "This is the bit we love most — seeing the difference between where someone started and where they ended up.\n\nThat transformation is the whole point.",
 
               hashtags:
                 "#transformation #clientresults #smallbusiness #results #businessgrowth",
@@ -1740,7 +2300,7 @@ export default function SocialStudioUnified() {
                 `Unpopular opinion: ${audience} do not need more complexity.`,
 
               whyItWorks:
-                "Opinion content encourages comments and lets the brand establish a recognisable point of view.",
+                "Opinion content encourages comments and establishes a recognisable point of view.",
 
               format:
                 "Post",
@@ -1832,22 +2392,27 @@ export default function SocialStudioUnified() {
       );
 
       const connected =
-        concept.platforms.filter(
-          (
-            platform
-          ): platform is PlatformId =>
-            [
-              "facebook",
-              "instagram",
-              "tiktok",
-              "linkedin",
-            ].includes(
+        concept
+          .platforms
+          .filter(
+            (
               platform
-            ) &&
-            isConnected(
-              platform
-            )
-        );
+            ): platform is PlatformId =>
+              [
+                "facebook",
+                "instagram",
+                "tiktok",
+                "linkedin",
+              ].includes(
+                platform
+              ) &&
+              !isComingSoonPlatform(
+                platform as PlatformId
+              ) &&
+              isConnected(
+                platform
+              )
+          );
 
       setPlatforms(
         connected
@@ -1863,6 +2428,218 @@ export default function SocialStudioUnified() {
     };
 
   // ==========================================================
+  // RUN WORKER
+  // ==========================================================
+
+  const runPublishingWorker =
+    useCallback(
+      async () => {
+        const response =
+          await fetch(
+            "/api/social/worker/run",
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              cache:
+                "no-store",
+            }
+          );
+
+        const result =
+          await response
+            .json()
+            .catch(
+              () =>
+                null
+            );
+
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            result
+              ?.error ||
+            result
+              ?.details
+              ?.error ||
+            "The publishing worker could not run."
+          );
+        }
+
+        return result;
+      },
+      []
+    );
+
+  // ==========================================================
+  // FETCH SPECIFIC POSTS
+  // ==========================================================
+
+  const fetchPostsByIds =
+    useCallback(
+      async (
+        ids:
+          string[]
+      ) => {
+        if (
+          !ids.length
+        ) {
+          return [];
+        }
+
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "socials"
+            )
+            .select(`
+              id,
+              caption,
+              platform,
+              hashtags,
+              media_url,
+              scheduled_for,
+              status,
+              format,
+              platform_post_id,
+              error,
+              last_error,
+              attempts,
+              analytics,
+              platform_response
+            `)
+            .in(
+              "id",
+              ids
+            );
+
+        if (
+          error
+        ) {
+          throw error;
+        }
+
+        return (
+          data ||
+          []
+        ) as SocialPost[];
+      },
+      [
+        supabase,
+      ]
+    );
+
+  // ==========================================================
+  // WAIT FOR PUBLISH RESULT
+  // ==========================================================
+
+  const waitForPublishResults =
+    useCallback(
+      async (
+        ids:
+          string[]
+      ) => {
+        const maxChecks =
+          6;
+
+        let latest:
+          SocialPost[] =
+          [];
+
+        for (
+          let check = 0;
+          check < maxChecks;
+          check += 1
+        ) {
+          latest =
+            await fetchPostsByIds(
+              ids
+            );
+
+          const settled =
+            latest.every(
+              (
+                post
+              ) =>
+                post.status ===
+                  POST_STATUS.PUBLISHED ||
+                post.status ===
+                  POST_STATUS.FAILED ||
+                post.status ===
+                  POST_STATUS.PROCESSING
+            );
+
+          if (
+            settled
+          ) {
+            break;
+          }
+
+          if (
+            check <
+            maxChecks -
+              1
+          ) {
+            await sleep(
+              1000
+            );
+          }
+        }
+
+        return latest;
+      },
+      [
+        fetchPostsByIds,
+      ]
+    );
+
+  // ==========================================================
+  // RESET COMPOSER
+  // ==========================================================
+
+  const resetComposer =
+    () => {
+      setCaption(
+        ""
+      );
+
+      setHashtags(
+        ""
+      );
+
+      setMetaScript(
+        ""
+      );
+
+      setMetaAudio(
+        ""
+      );
+
+      setScheduledTime(
+        ""
+      );
+
+      setSelectedConcept(
+        null
+      );
+
+      setPlatforms(
+        []
+      );
+
+      clearMedia();
+    };
+
+  // ==========================================================
   // CREATE POST
   // ==========================================================
 
@@ -1873,6 +2650,13 @@ export default function SocialStudioUnified() {
       instant:
         boolean;
     }) => {
+      if (
+        isPosting ||
+        isUploadingMedia
+      ) {
+        return false;
+      }
+
       if (
         !user?.id
       ) {
@@ -1910,48 +2694,10 @@ export default function SocialStudioUnified() {
         return false;
       }
 
-      const hasTikTok =
-        platforms.includes(
-          "tiktok"
-        );
-
       const hasInstagram =
         platforms.includes(
           "instagram"
         );
-
-      // ========================================================
-      // TIKTOK VALIDATION
-      // ========================================================
-
-      if (
-        hasTikTok &&
-        !mediaFile
-      ) {
-        toast.error(
-          "TikTok requires a video."
-        );
-
-        return false;
-      }
-
-      if (
-        hasTikTok &&
-        mediaFile &&
-        !mediaFile.type.startsWith(
-          "video/"
-        )
-      ) {
-        toast.error(
-          "TikTok requires a video file."
-        );
-
-        return false;
-      }
-
-      // ========================================================
-      // INSTAGRAM VALIDATION
-      // ========================================================
 
       if (
         hasInstagram &&
@@ -1964,10 +2710,6 @@ export default function SocialStudioUnified() {
         return false;
       }
 
-      // ========================================================
-      // SCHEDULE VALIDATION
-      // ========================================================
-
       if (
         !instant &&
         !scheduledTime
@@ -1979,15 +2721,55 @@ export default function SocialStudioUnified() {
         return false;
       }
 
+      if (
+        !instant
+      ) {
+        const scheduledDate =
+          new Date(
+            scheduledTime
+          );
+
+        if (
+          Number.isNaN(
+            scheduledDate.getTime()
+          )
+        ) {
+          toast.error(
+            "The scheduled date is invalid."
+          );
+
+          return false;
+        }
+
+        if (
+          scheduledDate.getTime() <=
+          Date.now()
+        ) {
+          toast.error(
+            "Choose a future time for a scheduled post."
+          );
+
+          return false;
+        }
+      }
+
       setIsPosting(
         true
       );
 
+      setPublishSummary(
+        null
+      );
+
       setStatus(
         instant
-          ? "Publishing..."
+          ? "Preparing post..."
           : "Scheduling..."
       );
+
+      let insertedIds:
+        string[] =
+        [];
 
       try {
         let finalMediaUrl:
@@ -1995,7 +2777,7 @@ export default function SocialStudioUnified() {
           null;
 
         // ======================================================
-        // UPLOAD MEDIA
+        // UPLOAD
         // ======================================================
 
         if (
@@ -2006,12 +2788,15 @@ export default function SocialStudioUnified() {
           );
 
           setStatus(
-            "Uploading..."
+            "Uploading media..."
           );
 
           const extension =
-            mediaFile.name
-              .split(".")
+            mediaFile
+              .name
+              .split(
+                "."
+              )
               .pop()
               ?.toLowerCase() ||
             "bin";
@@ -2023,7 +2808,8 @@ export default function SocialStudioUnified() {
             error:
               uploadError,
           } =
-            await supabase.storage
+            await supabase
+              .storage
               .from(
                 "social-assets"
               )
@@ -2038,7 +2824,8 @@ export default function SocialStudioUnified() {
                     false,
 
                   contentType:
-                    mediaFile.type ||
+                    mediaFile
+                      .type ||
                     undefined,
                 }
               );
@@ -2055,7 +2842,8 @@ export default function SocialStudioUnified() {
             data:
               publicData,
           } =
-            supabase.storage
+            supabase
+              .storage
               .from(
                 "social-assets"
               )
@@ -2072,9 +2860,13 @@ export default function SocialStudioUnified() {
             !finalMediaUrl
           ) {
             throw new Error(
-              "Could not create a public media URL."
+              "The uploaded media URL could not be created."
             );
           }
+
+          setIsUploadingMedia(
+            false
+          );
         }
 
         // ======================================================
@@ -2099,13 +2891,14 @@ export default function SocialStudioUnified() {
         }
 
         // ======================================================
-        // CREATE ONE ROW PER DESTINATION
-        //
-        // IMPORTANT:
-        //
-        // Facebook and Instagram are deliberately stored
-        // separately here.
+        // INSERT
         // ======================================================
+
+        setStatus(
+          instant
+            ? "Saving post..."
+            : "Saving schedule..."
+        );
 
         const rows =
           platforms.map(
@@ -2121,23 +2914,21 @@ export default function SocialStudioUnified() {
               platform,
 
               hashtags:
-                hashtags.trim() ||
+                hashtags
+                  .trim() ||
                 null,
 
               media_url:
                 finalMediaUrl,
 
               scheduled_for:
-                publishDate.toISOString(),
+                publishDate
+                  .toISOString(),
 
               status:
                 POST_STATUS.SCHEDULED,
 
-              format:
-                platform ===
-                "tiktok"
-                  ? "Video"
-                  : format,
+              format,
 
               attempts:
                 0,
@@ -2179,14 +2970,29 @@ export default function SocialStudioUnified() {
             .insert(
               rows
             )
-            .select(
-              "id,platform,status,media_url"
-            );
+            .select(`
+              id,
+              caption,
+              platform,
+              hashtags,
+              media_url,
+              scheduled_for,
+              status,
+              format,
+              platform_post_id,
+              error,
+              last_error,
+              attempts,
+              analytics,
+              platform_response
+            `);
 
         if (
           insertError
         ) {
-          throw insertError;
+          throw new Error(
+            `The post could not be saved: ${insertError.message}`
+          );
         }
 
         if (
@@ -2198,115 +3004,284 @@ export default function SocialStudioUnified() {
           );
         }
 
+        const createdPosts =
+          insertedPosts as SocialPost[];
+
+        insertedIds =
+          createdPosts.map(
+            (
+              post
+            ) =>
+              post.id
+          );
+
+        // ======================================================
+        // SCHEDULE ONLY
+        // ======================================================
+
+        if (
+          !instant
+        ) {
+          const results =
+            createdPosts.map(
+              (
+                post
+              ): PublishResult => ({
+                id:
+                  post.id,
+
+                platform:
+                  post.platform,
+
+                status:
+                  "scheduled",
+
+                message:
+                  `${getPlatformLabel(
+                    post.platform
+                  )} scheduled for ${publishDate.toLocaleString()}.`,
+              })
+            );
+
+          setPublishSummary({
+            mode:
+              "scheduled",
+
+            createdAt:
+              new Date()
+                .toISOString(),
+
+            results,
+          });
+
+          toast.success(
+            platforms.length >
+              1
+              ? `${platforms.length} posts scheduled successfully`
+              : `${getPlatformLabel(
+                  platforms[0]
+                )} post scheduled successfully`
+          );
+
+          resetComposer();
+
+          await syncPosts(
+            true
+          );
+
+          return true;
+        }
+
         // ======================================================
         // PUBLISH NOW
         // ======================================================
 
-        if (
-          instant
+        setStatus(
+          "Publishing..."
+        );
+
+        try {
+          await runPublishingWorker();
+        } catch (
+          workerError:
+            unknown
         ) {
-          setStatus(
-            "Sending..."
+          /*
+           * IMPORTANT:
+           *
+           * The database rows are already saved.
+           *
+           * Do not pretend the post disappeared simply because
+           * the worker request itself failed.
+           */
+
+          console.error(
+            "Publishing worker error:",
+            workerError
           );
 
-          const response =
-            await fetch(
-              "/api/social/worker/run",
-              {
-                method:
-                  "POST",
-
-                headers: {
-                  "Content-Type":
-                    "application/json",
-                },
-              }
+          const fallbackPosts =
+            await fetchPostsByIds(
+              insertedIds
             );
 
-          const result =
-            await response
-              .json()
-              .catch(
-                () =>
-                  null
-              );
+          const fallbackResults =
+            fallbackPosts.length
+              ? fallbackPosts.map(
+                  resultFromPost
+                )
+              : createdPosts.map(
+                  (
+                    post
+                  ): PublishResult => ({
+                    id:
+                      post.id,
 
-          if (
-            !response.ok
-          ) {
-            throw new Error(
-              result?.error ||
-                "Post saved, but publishing failed."
-            );
-          }
+                    platform:
+                      post.platform,
 
-          const labels =
-            platforms
-              .map(
-                (
-                  platform
-                ) =>
-                  PLATFORM_OPTIONS.find(
-                    (
-                      option
-                    ) =>
-                      option.id ===
-                      platform
-                  )?.name ||
-                  platform
-              )
-              .join(
-                " & "
-              );
+                    status:
+                      "scheduled",
 
-          toast.success(
-            `Post sent to ${labels}`
+                    message:
+                      `${getPlatformLabel(
+                        post.platform
+                      )} was saved but the publishing worker could not be confirmed.`,
+
+                    error:
+                      workerError instanceof
+                        Error
+                        ? workerError.message
+                        : "Publishing worker failed.",
+                  })
+                );
+
+          setPublishSummary({
+            mode:
+              "instant",
+
+            createdAt:
+              new Date()
+                .toISOString(),
+
+            results:
+              fallbackResults,
+          });
+
+          toast.error(
+            "Your post was saved, but TOTS-OS could not confirm publishing. Check the result panel below."
           );
-        } else {
-          toast.success(
-            "Post scheduled"
+
+          await syncPosts(
+            true
           );
+
+          return false;
         }
 
         // ======================================================
-        // RESET
+        // VERIFY RESULT
         // ======================================================
 
-        setCaption(
-          ""
+        setStatus(
+          "Checking result..."
         );
 
-        setHashtags(
-          ""
+        const finalPosts =
+          await waitForPublishResults(
+            insertedIds
+          );
+
+        const results =
+          finalPosts.length
+            ? finalPosts.map(
+                resultFromPost
+              )
+            : createdPosts.map(
+                resultFromPost
+              );
+
+        setPublishSummary({
+          mode:
+            "instant",
+
+          createdAt:
+            new Date()
+              .toISOString(),
+
+          results,
+        });
+
+        const publishedCount =
+          results.filter(
+            (
+              result
+            ) =>
+              result.status ===
+              "published"
+          ).length;
+
+        const failedCount =
+          results.filter(
+            (
+              result
+            ) =>
+              result.status ===
+              "failed"
+          ).length;
+
+        const pendingCount =
+          results.filter(
+            (
+              result
+            ) =>
+              result.status ===
+                "processing" ||
+              result.status ===
+                "scheduled"
+          ).length;
+
+        if (
+          publishedCount ===
+          results.length
+        ) {
+          toast.success(
+            results.length >
+              1
+              ? "All selected platforms published successfully"
+              : `${getPlatformLabel(
+                  results[0]
+                    .platform
+                )} published successfully`
+          );
+
+          resetComposer();
+        } else if (
+          publishedCount >
+          0
+        ) {
+          toast.warning(
+            `${publishedCount} published, ${failedCount} failed, ${pendingCount} still pending.`
+          );
+
+          /*
+           * Don't clear the composer on partial failure.
+           * The user may want to correct/retry the failed copy.
+           */
+        } else if (
+          failedCount >
+          0 &&
+          pendingCount ===
+          0
+        ) {
+          toast.error(
+            "The post could not be published. See the error below."
+          );
+        } else {
+          toast.info(
+            "Your post has been submitted and is still being processed."
+          );
+
+          /*
+           * Pending isn't a failure. It is safe to clear because
+           * the database contains the queued copy.
+           */
+          resetComposer();
+        }
+
+        await syncPosts(
+          true
         );
 
-        setMetaScript(
-          ""
+        return (
+          publishedCount >
+            0 ||
+          pendingCount >
+            0
         );
-
-        setMetaAudio(
-          ""
-        );
-
-        setScheduledTime(
-          ""
-        );
-
-        setSelectedConcept(
-          null
-        );
-
-        setPlatforms(
-          []
-        );
-
-        clearMedia();
-
-        await syncPosts();
-
-        return true;
       } catch (
-        error
+        error:
+          unknown
       ) {
         console.error(
           "Social post error:",
@@ -2317,17 +3292,261 @@ export default function SocialStudioUnified() {
           error instanceof
             Error
             ? error.message
-            : "Something went wrong"
+            : "Something went wrong while creating the post."
         );
+
+        if (
+          insertedIds.length
+        ) {
+          await syncPosts(
+            true
+          );
+        }
 
         return false;
       } finally {
-        setIsPosting(
-          false
+        if (
+          mountedRef.current
+        ) {
+          setIsPosting(
+            false
+          );
+
+          setIsUploadingMedia(
+            false
+          );
+
+          setStatus(
+            "Ready"
+          );
+        }
+      }
+    };
+
+  // ==========================================================
+  // RETRY / PUBLISH EXISTING POST
+  // ==========================================================
+
+  const retryPost =
+    async (
+      postId:
+        string
+    ) => {
+      if (
+        retryingPostId ||
+        isPosting
+      ) {
+        return;
+      }
+
+      setRetryingPostId(
+        postId
+      );
+
+      setStatus(
+        "Retrying..."
+      );
+
+      try {
+        const {
+          data:
+            currentPost,
+
+          error:
+            currentPostError,
+        } =
+          await supabase
+            .from(
+              "socials"
+            )
+            .select(`
+              id,
+              caption,
+              platform,
+              hashtags,
+              media_url,
+              scheduled_for,
+              status,
+              format,
+              platform_post_id,
+              error,
+              last_error,
+              attempts,
+              analytics,
+              platform_response
+            `)
+            .eq(
+              "id",
+              postId
+            )
+            .maybeSingle();
+
+        if (
+          currentPostError
+        ) {
+          throw currentPostError;
+        }
+
+        if (
+          !currentPost
+        ) {
+          throw new Error(
+            "The post could not be found."
+          );
+        }
+
+        const platform =
+          cleanPlatform(
+            currentPost.platform
+          ) as PlatformId;
+
+        if (
+          isComingSoonPlatform(
+            platform
+          )
+        ) {
+          throw new Error(
+            "TikTok publishing is coming soon."
+          );
+        }
+
+        if (
+          !isConnected(
+            platform
+          )
+        ) {
+          throw new Error(
+            `${getPlatformLabel(
+              platform
+            )} is no longer connected. Reconnect it before retrying.`
+          );
+        }
+
+        const {
+          error:
+            updateError,
+        } =
+          await supabase
+            .from(
+              "socials"
+            )
+            .update({
+              status:
+                POST_STATUS.SCHEDULED,
+
+              scheduled_for:
+                new Date()
+                  .toISOString(),
+
+              last_error:
+                null,
+
+              error:
+                null,
+            })
+            .eq(
+              "id",
+              postId
+            );
+
+        if (
+          updateError
+        ) {
+          throw updateError;
+        }
+
+        await runPublishingWorker();
+
+        const finalPosts =
+          await waitForPublishResults([
+            postId,
+          ]);
+
+        const finalPost =
+          finalPosts[0];
+
+        if (
+          !finalPost
+        ) {
+          throw new Error(
+            "TOTS-OS could not confirm the publishing result."
+          );
+        }
+
+        const result =
+          resultFromPost(
+            finalPost
+          );
+
+        setPublishSummary({
+          mode:
+            "instant",
+
+          createdAt:
+            new Date()
+              .toISOString(),
+
+          results: [
+            result,
+          ],
+        });
+
+        if (
+          result.status ===
+          "published"
+        ) {
+          toast.success(
+            `${getPlatformLabel(
+              finalPost.platform
+            )} published successfully`
+          );
+
+          setPreviewPost(
+            null
+          );
+        } else if (
+          result.status ===
+          "failed"
+        ) {
+          toast.error(
+            result.error ||
+            `${getPlatformLabel(
+              finalPost.platform
+            )} publishing failed`
+          );
+        } else {
+          toast.info(
+            `${getPlatformLabel(
+              finalPost.platform
+            )} is still processing`
+          );
+        }
+
+        await syncPosts(
+          true
+        );
+      } catch (
+        error:
+          unknown
+      ) {
+        console.error(
+          "Retry error:",
+          error
         );
 
-        setIsUploadingMedia(
-          false
+        toast.error(
+          error instanceof
+            Error
+            ? error.message
+            : "The post could not be retried."
+        );
+
+        await syncPosts(
+          true
+        );
+      } finally {
+        setRetryingPostId(
+          null
         );
 
         setStatus(
@@ -2345,6 +3564,28 @@ export default function SocialStudioUnified() {
       postId:
         string
     ) => {
+      await retryPost(
+        postId
+      );
+    };
+
+  // ==========================================================
+  // DELETE
+  // ==========================================================
+
+  const deletePost =
+    async (
+      postId:
+        string
+    ) => {
+      if (
+        !window.confirm(
+          "Delete this post? This removes it from the TOTS-OS planner."
+        )
+      ) {
+        return;
+      }
+
       try {
         const {
           error,
@@ -2353,19 +3594,7 @@ export default function SocialStudioUnified() {
             .from(
               "socials"
             )
-            .update({
-              status:
-                "scheduled",
-
-              scheduled_for:
-                new Date().toISOString(),
-
-              last_error:
-                null,
-
-              error:
-                null,
-            })
+            .delete()
             .eq(
               "id",
               postId
@@ -2377,121 +3606,82 @@ export default function SocialStudioUnified() {
           throw error;
         }
 
-        const response =
-          await fetch(
-            "/api/social/worker/run",
-            {
-              method:
-                "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-            }
-          );
-
-        const result =
-          await response
-            .json()
-            .catch(
-              () =>
-                null
-            );
+        setSelectedDayPosts(
+          (
+            previous
+          ) =>
+            previous.filter(
+              (
+                post
+              ) =>
+                post.id !==
+                postId
+            )
+        );
 
         if (
-          !response.ok
+          previewPost
+            ?.id ===
+          postId
         ) {
-          throw new Error(
-            result?.error ||
-              "Failed to publish post"
+          setPreviewPost(
+            null
           );
         }
 
         toast.success(
-          "Post sent for publishing"
+          "Post deleted"
         );
 
-        setPreviewPost(
-          null
+        await syncPosts(
+          true
         );
-
-        await syncPosts();
       } catch (
-        error
+        error:
+          unknown
       ) {
-        console.error(
-          "Approval error:",
-          error
-        );
-
         toast.error(
           error instanceof
             Error
             ? error.message
-            : "Approval failed"
+            : "Post could not be deleted."
         );
       }
     };
 
   // ==========================================================
-  // DELETE POST
+  // MANUAL REFRESH
   // ==========================================================
 
-  const deletePost =
-    async (
-      postId:
-        string
-    ) => {
-      if (
-        !window.confirm(
-          "Delete this post?"
-        )
-      ) {
-        return;
-      }
+  const refreshEverything =
+    async () => {
+      setStatus(
+        "Refreshing..."
+      );
 
-      const {
-        error,
-      } =
-        await supabase
-          .from(
-            "socials"
-          )
-          .delete()
-          .eq(
-            "id",
-            postId
-          );
+      try {
+        await Promise.all([
+          syncPosts(
+            true
+          ),
 
-      if (
-        error
-      ) {
-        toast.error(
-          error.message
+          loadAccounts(
+            true
+          ),
+        ]);
+
+        toast.success(
+          "Social Studio refreshed"
         );
-
-        return;
+      } catch {
+        toast.error(
+          "Could not fully refresh Social Studio."
+        );
+      } finally {
+        setStatus(
+          "Ready"
+        );
       }
-
-      setSelectedDayPosts(
-        (
-          previous
-        ) =>
-          previous.filter(
-            (
-              post
-            ) =>
-              post.id !==
-              postId
-          )
-      );
-
-      toast.success(
-        "Post deleted"
-      );
-
-      await syncPosts();
     };
 
   // ==========================================================
@@ -2502,10 +3692,12 @@ export default function SocialStudioUnified() {
     useMemo(
       () => {
         const year =
-          currentDate.getFullYear();
+          currentDate
+            .getFullYear();
 
         const month =
-          currentDate.getMonth();
+          currentDate
+            .getMonth();
 
         const firstDay =
           new Date(
@@ -2517,7 +3709,8 @@ export default function SocialStudioUnified() {
         const daysInMonth =
           new Date(
             year,
-            month + 1,
+            month +
+              1,
             0
           ).getDate();
 
@@ -2567,8 +3760,12 @@ export default function SocialStudioUnified() {
 
       const clickedDate =
         new Date(
-          currentDate.getFullYear(),
-          currentDate.getMonth(),
+          currentDate
+            .getFullYear(),
+
+          currentDate
+            .getMonth(),
+
           day
         );
 
@@ -2577,12 +3774,19 @@ export default function SocialStudioUnified() {
           (
             post
           ) =>
-            post.scheduled_for &&
+            post
+              .scheduled_for &&
             isSameDay(
-              post.scheduled_for,
+              post
+                .scheduled_for,
+
               day,
-              currentDate.getMonth(),
-              currentDate.getFullYear()
+
+              currentDate
+                .getMonth(),
+
+              currentDate
+                .getFullYear()
             )
         );
 
@@ -2608,11 +3812,13 @@ export default function SocialStudioUnified() {
       );
 
       const year =
-        clickedDate.getFullYear();
+        clickedDate
+          .getFullYear();
 
       const month =
         String(
-          clickedDate.getMonth() +
+          clickedDate
+            .getMonth() +
             1
         ).padStart(
           2,
@@ -2621,7 +3827,8 @@ export default function SocialStudioUnified() {
 
       const date =
         String(
-          clickedDate.getDate()
+          clickedDate
+            .getDate()
         ).padStart(
           2,
           "0"
@@ -2646,12 +3853,14 @@ export default function SocialStudioUnified() {
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-stone-900">
+
       {/* ======================================================
           HEADER
       ====================================================== */}
 
       <header className="sticky top-0 z-50 border-b border-stone-200/70 bg-[#faf9f6]/95 px-4 py-4 backdrop-blur-xl md:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+
           <div className="flex items-center gap-4">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-stone-900 text-[#a9b897]">
               <Layers
@@ -2673,6 +3882,7 @@ export default function SocialStudioUnified() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-stone-200 bg-white p-1.5">
+
             <button
               type="button"
               onClick={() =>
@@ -2739,7 +3949,10 @@ export default function SocialStudioUnified() {
                     status ===
                     "Ready"
                       ? "bg-[#a9b897]"
-                      : "bg-amber-400"
+                      : status ===
+                          "Not authenticated"
+                        ? "bg-red-400"
+                        : "bg-amber-400"
                   }`}
                 />
 
@@ -2751,15 +3964,26 @@ export default function SocialStudioUnified() {
 
             <button
               type="button"
-              onClick={() => {
-                void syncPosts();
-                void loadAccounts();
-              }}
-              className="rounded-xl border border-stone-200 bg-white p-3 text-stone-400 hover:text-stone-900"
+              disabled={
+                isPosting
+              }
+              onClick={() =>
+                void refreshEverything()
+              }
+              className="rounded-xl border border-stone-200 bg-white p-3 text-stone-400 transition hover:text-stone-900 disabled:opacity-50"
             >
               <RefreshCcw
                 size={
                   15
+                }
+                className={
+                  status.includes(
+                    "Refresh"
+                  ) ||
+                  status ===
+                    "Syncing"
+                    ? "animate-spin"
+                    : ""
                 }
               />
             </button>
@@ -2772,6 +3996,190 @@ export default function SocialStudioUnified() {
       ====================================================== */}
 
       <main className="mx-auto max-w-7xl p-4 md:p-8 lg:p-10">
+
+        {/* ====================================================
+            LATEST RESULT
+        ==================================================== */}
+
+        <AnimatePresence>
+          {publishSummary && (
+            <motion.section
+              initial={{
+                opacity:
+                  0,
+
+                y:
+                  -10,
+              }}
+              animate={{
+                opacity:
+                  1,
+
+                y:
+                  0,
+              }}
+              exit={{
+                opacity:
+                  0,
+
+                y:
+                  -10,
+              }}
+              className="mb-8 rounded-[2rem] border border-stone-200 bg-white p-5 shadow-sm md:p-6"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#829473]">
+                    Latest publishing result
+                  </p>
+
+                  <h2 className="mt-2 font-serif text-2xl italic text-stone-800">
+                    {publishSummary.mode ===
+                    "scheduled"
+                      ? "Schedule saved"
+                      : "Publishing report"}
+                  </h2>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPublishSummary(
+                      null
+                    )
+                  }
+                  className="rounded-full bg-stone-50 p-2 text-stone-400 hover:text-stone-700"
+                >
+                  <X
+                    size={
+                      14
+                    }
+                  />
+                </button>
+              </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {publishSummary
+                  .results
+                  .map(
+                    (
+                      result
+                    ) => (
+                      <div
+                        key={
+                          result.id
+                        }
+                        className={`rounded-2xl border p-4 ${getStatusBackground(
+                          result.status
+                        )}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5">
+                            {result.status ===
+                            "published" ? (
+                              <CheckCircle2
+                                size={
+                                  17
+                                }
+                                className="text-emerald-600"
+                              />
+                            ) : result.status ===
+                              "failed" ? (
+                              <XCircle
+                                size={
+                                  17
+                                }
+                                className="text-red-500"
+                              />
+                            ) : result.status ===
+                              "processing" ? (
+                              <CircleDashed
+                                size={
+                                  17
+                                }
+                                className="animate-spin text-amber-500"
+                              />
+                            ) : (
+                              <CalendarDays
+                                size={
+                                  17
+                                }
+                                className="text-blue-500"
+                              />
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-stone-700">
+                              {getPlatformLabel(
+                                result.platform
+                              )}
+                            </p>
+
+                            <p
+                              className={`mt-1 text-[9px] font-black uppercase tracking-[0.14em] ${getStatusTextColor(
+                                result.status
+                              )}`}
+                            >
+                              {
+                                result.status
+                              }
+                            </p>
+
+                            <p className="mt-2 text-[10px] leading-5 text-stone-500">
+                              {
+                                result.message
+                              }
+                            </p>
+
+                            {result.error && (
+                              <p className="mt-2 break-words text-[10px] leading-5 text-red-600">
+                                {
+                                  result.error
+                                }
+                              </p>
+                            )}
+
+                            {result.status ===
+                              "failed" && (
+                              <button
+                                type="button"
+                                disabled={
+                                  retryingPostId ===
+                                  result.id
+                                }
+                                onClick={() =>
+                                  void retryPost(
+                                    result.id
+                                  )
+                                }
+                                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-600 shadow-sm disabled:opacity-50"
+                              >
+                                <RotateCcw
+                                  size={
+                                    11
+                                  }
+                                  className={
+                                    retryingPostId ===
+                                    result.id
+                                      ? "animate-spin"
+                                      : ""
+                                  }
+                                />
+
+                                Retry
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  )}
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
+
         <AnimatePresence
           mode="wait"
         >
@@ -2810,17 +4218,13 @@ export default function SocialStudioUnified() {
                   </p>
 
                   <h2 className="font-serif text-5xl italic tracking-tight md:text-7xl">
-                    What are we
-                    posting?
+                    What are we posting?
                   </h2>
 
                   <p className="mt-4 max-w-xl text-sm leading-relaxed text-stone-500">
-                    Create once and
-                    choose exactly where
-                    it goes. Facebook
-                    and Instagram are
-                    completely separate
-                    options.
+                    Choose exactly where your post should go.
+                    TOTS-OS will track each platform separately
+                    so you can see exactly what succeeded and what failed.
                   </p>
                 </div>
 
@@ -2850,18 +4254,19 @@ export default function SocialStudioUnified() {
               </div>
 
               <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+
                 {/* ==============================================
                     COMPOSER
                 ============================================== */}
 
                 <section className="space-y-5 rounded-[2.5rem] border border-stone-200 bg-white p-6 shadow-sm md:p-8">
+
                   {selectedConcept && (
                     <div className="rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-5">
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#71805f]">
-                            Created from
-                            idea
+                            Created from idea
                           </p>
 
                           <p className="mt-2 text-sm font-black">
@@ -2932,10 +4337,13 @@ export default function SocialStudioUnified() {
 
                           <button
                             type="button"
+                            disabled={
+                              isPosting
+                            }
                             onClick={
                               clearMedia
                             }
-                            className="absolute right-4 top-4 rounded-full bg-stone-900 p-3 text-white shadow-xl"
+                            className="absolute right-4 top-4 rounded-full bg-stone-900 p-3 text-white shadow-xl disabled:opacity-50"
                           >
                             <X
                               size={
@@ -2960,12 +4368,14 @@ export default function SocialStudioUnified() {
                           </p>
 
                           <p className="mt-2 text-xs text-stone-400">
-                            Upload an image
-                            or video
+                            Upload an image or video
                           </p>
 
                           <input
                             type="file"
+                            disabled={
+                              isPosting
+                            }
                             accept="image/*,video/*"
                             onChange={
                               handleMediaUpload
@@ -2994,6 +4404,9 @@ export default function SocialStudioUnified() {
                     </div>
 
                     <textarea
+                      disabled={
+                        isPosting
+                      }
                       value={
                         caption
                       }
@@ -3007,7 +4420,7 @@ export default function SocialStudioUnified() {
                         )
                       }
                       placeholder="What do you want to say?"
-                      className="min-h-[220px] w-full resize-y rounded-[2rem] border border-stone-200 bg-[#faf9f6] p-6 text-base leading-8 outline-none transition focus:border-[#a9b897]"
+                      className="min-h-[220px] w-full resize-y rounded-[2rem] border border-stone-200 bg-[#faf9f6] p-6 text-base leading-8 outline-none transition focus:border-[#a9b897] disabled:opacity-60"
                     />
                   </div>
 
@@ -3025,6 +4438,9 @@ export default function SocialStudioUnified() {
                     </label>
 
                     <input
+                      disabled={
+                        isPosting
+                      }
                       value={
                         hashtags
                       }
@@ -3038,7 +4454,7 @@ export default function SocialStudioUnified() {
                         )
                       }
                       placeholder="#smallbusiness #marketing"
-                      className="w-full rounded-2xl border border-stone-200 bg-[#faf9f6] p-4 text-sm outline-none focus:border-[#a9b897]"
+                      className="w-full rounded-2xl border border-stone-200 bg-[#faf9f6] p-4 text-sm outline-none focus:border-[#a9b897] disabled:opacity-60"
                     />
                   </div>
 
@@ -3055,8 +4471,7 @@ export default function SocialStudioUnified() {
                         />
 
                         <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">
-                          Filming /
-                          Content Guide
+                          Filming / Content Guide
                         </p>
                       </div>
 
@@ -3097,34 +4512,55 @@ export default function SocialStudioUnified() {
                 ============================================== */}
 
                 <aside className="space-y-5">
-                  {/* ============================================
-                      PLATFORM SELECTOR
-                  ============================================ */}
+
+                  {/* CONNECTIONS */}
 
                   <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
-                    <p className="mb-1 text-sm font-black">
-                      Where should it
-                      go?
-                    </p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black">
+                          Where should it go?
+                        </p>
 
-                    <p className="mb-5 text-[10px] leading-5 text-stone-400">
-                      Pick one or more.
-                      Facebook and
-                      Instagram publish
-                      independently.
-                    </p>
+                        <p className="mt-1 text-[10px] leading-5 text-stone-400">
+                          Each platform is published and tracked separately.
+                        </p>
+                      </div>
 
-                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void loadAccounts()
+                        }
+                        className="rounded-lg bg-stone-50 p-2 text-stone-400"
+                      >
+                        <RefreshCcw
+                          size={
+                            12
+                          }
+                        />
+                      </button>
+                    </div>
+
+                    <div className="mt-5 space-y-2">
                       {PLATFORM_OPTIONS.map(
                         (
                           platform
                         ) => {
-                          const connected =
-                            isConnected(
+                          const comingSoon =
+                            isComingSoonPlatform(
                               platform.id
                             );
 
+                          const connected =
+                            comingSoon
+                              ? false
+                              : isConnected(
+                                  platform.id
+                                );
+
                           const selected =
+                            !comingSoon &&
                             platforms.includes(
                               platform.id
                             );
@@ -3135,19 +4571,23 @@ export default function SocialStudioUnified() {
                                 platform.id
                               }
                               type="button"
+                              disabled={
+                                comingSoon ||
+                                isPosting
+                              }
                               onClick={() =>
                                 togglePlatform(
                                   platform.id
                                 )
                               }
-                              className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition ${
+                              className={`relative flex w-full items-center justify-between overflow-hidden rounded-2xl border p-4 text-left transition ${
                                 selected
                                   ? "border-[#a9b897] bg-[#a9b897]/10"
-                                  : "border-stone-100 bg-stone-50 hover:border-stone-200"
-                              } ${
-                                !connected
-                                  ? "opacity-55"
-                                  : ""
+                                  : comingSoon
+                                    ? "cursor-not-allowed border-stone-100 bg-stone-50/70"
+                                    : connected
+                                      ? "border-stone-100 bg-stone-50 hover:border-stone-200"
+                                      : "border-stone-100 bg-stone-50 opacity-55"
                               }`}
                             >
                               <div className="flex min-w-0 items-center gap-3">
@@ -3155,7 +4595,9 @@ export default function SocialStudioUnified() {
                                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
                                     selected
                                       ? "bg-[#a9b897] text-white"
-                                      : "bg-white text-stone-500"
+                                      : comingSoon
+                                        ? "bg-stone-100 text-stone-300"
+                                        : "bg-white text-stone-500"
                                   }`}
                                 >
                                   {platform.id ===
@@ -3196,11 +4638,26 @@ export default function SocialStudioUnified() {
                                 </div>
 
                                 <div className="min-w-0">
-                                  <p className="text-xs font-black">
-                                    {
-                                      platform.name
-                                    }
-                                  </p>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-xs font-black">
+                                      {
+                                        platform.name
+                                      }
+                                    </p>
+
+                                    {comingSoon && (
+                                      <span className="rounded-full bg-[#edf3e7] px-2 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-[#71805f]">
+                                        Coming soon
+                                      </span>
+                                    )}
+
+                                    {!comingSoon &&
+                                      connected && (
+                                      <span className="rounded-full bg-emerald-50 px-2 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-emerald-600">
+                                        Connected
+                                      </span>
+                                    )}
+                                  </div>
 
                                   <p
                                     className={`mt-1 truncate text-[9px] ${
@@ -3209,16 +4666,22 @@ export default function SocialStudioUnified() {
                                         : "text-stone-400"
                                     }`}
                                   >
-                                    {connected
-                                      ? getPlatformConnectionText(
-                                          platform.id
-                                        )
-                                      : "Not connected"}
+                                    {comingSoon
+                                      ? "TikTok publishing coming soon"
+                                      : connected
+                                        ? getPlatformConnectionText(
+                                            platform.id
+                                          )
+                                        : "Not connected — connect in Settings"}
                                   </p>
                                 </div>
                               </div>
 
-                              {selected ? (
+                              {comingSoon ? (
+                                <div className="rounded-full border border-stone-200 bg-white px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.12em] text-stone-400">
+                                  Soon
+                                </div>
+                              ) : selected ? (
                                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#a9b897] text-white">
                                   <Check
                                     size={
@@ -3234,8 +4697,6 @@ export default function SocialStudioUnified() {
                         }
                       )}
                     </div>
-
-                    {/* SELECTED SUMMARY */}
 
                     {platforms.length >
                       0 && (
@@ -3255,15 +4716,9 @@ export default function SocialStudioUnified() {
                                 }
                                 className="rounded-full bg-white px-3 py-1.5 text-[8px] font-black uppercase tracking-wider text-stone-600 shadow-sm"
                               >
-                                {
-                                  PLATFORM_OPTIONS.find(
-                                    (
-                                      item
-                                    ) =>
-                                      item.id ===
-                                      platform
-                                  )?.name
-                                }
+                                {getPlatformLabel(
+                                  platform
+                                )}
                               </span>
                             )
                           )}
@@ -3280,6 +4735,9 @@ export default function SocialStudioUnified() {
                     </p>
 
                     <select
+                      disabled={
+                        isPosting
+                      }
                       value={
                         format
                       }
@@ -3292,7 +4750,7 @@ export default function SocialStudioUnified() {
                             .value
                         )
                       }
-                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs font-bold outline-none"
+                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs font-bold outline-none disabled:opacity-60"
                     >
                       <option value="Post">
                         Post
@@ -3300,10 +4758,6 @@ export default function SocialStudioUnified() {
 
                       <option value="Reel">
                         Reel
-                      </option>
-
-                      <option value="TikTok">
-                        TikTok
                       </option>
 
                       <option value="Carousel">
@@ -3330,14 +4784,16 @@ export default function SocialStudioUnified() {
                         </p>
 
                         <p className="text-[9px] text-stone-400">
-                          Optional if
-                          posting now
+                          Required only when scheduling
                         </p>
                       </div>
                     </div>
 
                     <input
                       type="datetime-local"
+                      disabled={
+                        isPosting
+                      }
                       value={
                         scheduledTime
                       }
@@ -3350,9 +4806,37 @@ export default function SocialStudioUnified() {
                             .value
                         )
                       }
-                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none"
+                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs outline-none disabled:opacity-60"
                     />
                   </div>
+
+                  {/* ACTIVE OPERATION */}
+
+                  {(isPosting ||
+                    isUploadingMedia) && (
+                    <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                      <div className="flex items-center gap-3">
+                        <Loader2
+                          size={
+                            15
+                          }
+                          className="shrink-0 animate-spin text-amber-500"
+                        />
+
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-wider text-amber-700">
+                            Please wait
+                          </p>
+
+                          <p className="mt-1 text-[10px] leading-5 text-amber-700">
+                            {
+                              status
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* POST NOW */}
 
@@ -3360,7 +4844,9 @@ export default function SocialStudioUnified() {
                     type="button"
                     disabled={
                       isPosting ||
-                      isUploadingMedia
+                      isUploadingMedia ||
+                      platforms.length ===
+                        0
                     }
                     onClick={() =>
                       void createPost({
@@ -3368,7 +4854,7 @@ export default function SocialStudioUnified() {
                           true,
                       })
                     }
-                    className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-6 py-5 text-[10px] font-black uppercase tracking-widest text-stone-900 shadow-lg disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-6 py-5 text-[10px] font-black uppercase tracking-widest text-stone-900 shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {isPosting ? (
                       <Loader2
@@ -3385,7 +4871,9 @@ export default function SocialStudioUnified() {
                       />
                     )}
 
-                    Post Now
+                    {isPosting
+                      ? "Publishing..."
+                      : "Post Now"}
                   </button>
 
                   {/* SCHEDULE */}
@@ -3394,7 +4882,9 @@ export default function SocialStudioUnified() {
                     type="button"
                     disabled={
                       isPosting ||
-                      isUploadingMedia
+                      isUploadingMedia ||
+                      platforms.length ===
+                        0
                     }
                     onClick={() =>
                       void createPost({
@@ -3402,7 +4892,7 @@ export default function SocialStudioUnified() {
                           false,
                       })
                     }
-                    className="flex w-full items-center justify-center gap-3 rounded-2xl bg-stone-900 px-6 py-5 text-[10px] font-black uppercase tracking-widest text-[#a9b897] shadow-lg disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-3 rounded-2xl bg-stone-900 px-6 py-5 text-[10px] font-black uppercase tracking-widest text-[#a9b897] shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {isPosting ? (
                       <Loader2
@@ -3461,16 +4951,12 @@ export default function SocialStudioUnified() {
                   </p>
 
                   <h2 className="font-serif text-5xl italic md:text-7xl">
-                    What should we
-                    post?
+                    What should we post?
                   </h2>
 
                   <p className="mt-4 max-w-xl text-sm leading-7 text-stone-500">
-                    TOTS-OS uses what it
-                    already knows about
-                    your business to give
-                    you practical content
-                    starting points.
+                    TOTS-OS uses what it already knows about your business
+                    to give you practical content starting points.
                   </p>
                 </div>
 
@@ -3514,12 +5000,9 @@ export default function SocialStudioUnified() {
                     className="animate-spin"
                   />
 
-                  Loading business
-                  context...
+                  Loading business context...
                 </div>
               )}
-
-              {/* EMPTY */}
 
               {generatedConcepts.length ===
                 0 && (
@@ -3543,15 +5026,10 @@ export default function SocialStudioUnified() {
                   </p>
 
                   <p className="mt-3 max-w-md text-sm leading-6 text-stone-500">
-                    Generate a few ideas
-                    that fit your
-                    business and your
-                    audience.
+                    Generate a few ideas that fit your business and audience.
                   </p>
                 </button>
               )}
-
-              {/* IDEAS GRID */}
 
               {generatedConcepts.length >
                 0 && (
@@ -3613,22 +5091,34 @@ export default function SocialStudioUnified() {
                         </p>
 
                         <div className="mt-4 flex flex-wrap gap-2">
-                          {concept.platforms.map(
-                            (
-                              platform
-                            ) => (
-                              <span
-                                key={
-                                  platform
-                                }
-                                className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-wider text-stone-500"
-                              >
-                                {
-                                  platform
-                                }
-                              </span>
-                            )
-                          )}
+                          {concept
+                            .platforms
+                            .map(
+                              (
+                                platform
+                              ) => (
+                                <span
+                                  key={
+                                    platform
+                                  }
+                                  className={`rounded-full px-2.5 py-1 text-[7px] font-black uppercase tracking-wider ${
+                                    platform ===
+                                    "tiktok"
+                                      ? "bg-stone-50 text-stone-300"
+                                      : "bg-stone-100 text-stone-500"
+                                  }`}
+                                >
+                                  {
+                                    platform
+                                  }
+
+                                  {platform ===
+                                    "tiktok"
+                                    ? " · soon"
+                                    : ""}
+                                </span>
+                              )
+                            )}
                         </div>
 
                         <button
@@ -3703,7 +5193,8 @@ export default function SocialStudioUnified() {
 
                     <span className="font-serif text-2xl italic text-stone-300">
                       {
-                        currentDate.getFullYear()
+                        currentDate
+                          .getFullYear()
                       }
                     </span>
                   </div>
@@ -3715,9 +5206,13 @@ export default function SocialStudioUnified() {
                     onClick={() =>
                       setCurrentDate(
                         new Date(
-                          currentDate.getFullYear(),
-                          currentDate.getMonth() -
+                          currentDate
+                            .getFullYear(),
+
+                          currentDate
+                            .getMonth() -
                             1,
+
                           1
                         )
                       )
@@ -3736,9 +5231,13 @@ export default function SocialStudioUnified() {
                     onClick={() =>
                       setCurrentDate(
                         new Date(
-                          currentDate.getFullYear(),
-                          currentDate.getMonth() +
+                          currentDate
+                            .getFullYear(),
+
+                          currentDate
+                            .getMonth() +
                             1,
+
                           1
                         )
                       )
@@ -3795,10 +5294,16 @@ export default function SocialStudioUnified() {
                                 post
                               ) =>
                                 isSameDay(
-                                  post.scheduled_for,
+                                  post
+                                    .scheduled_for,
+
                                   day,
-                                  currentDate.getMonth(),
-                                  currentDate.getFullYear()
+
+                                  currentDate
+                                    .getMonth(),
+
+                                  currentDate
+                                    .getFullYear()
                                 )
                             )
                           : [];
@@ -3838,7 +5343,7 @@ export default function SocialStudioUnified() {
                                 {dayPosts
                                   .slice(
                                     0,
-                                    2
+                                    3
                                   )
                                   .map(
                                     (
@@ -3848,7 +5353,12 @@ export default function SocialStudioUnified() {
                                         key={
                                           post.id
                                         }
-                                        className="rounded-lg bg-stone-100 p-2"
+                                        className={`rounded-lg border p-2 ${
+                                          post.status ===
+                                          "failed"
+                                            ? "border-red-100 bg-red-50"
+                                            : "border-transparent bg-stone-100"
+                                        }`}
                                       >
                                         <div className="flex items-center gap-1">
                                           <span
@@ -3868,11 +5378,11 @@ export default function SocialStudioUnified() {
                                   )}
 
                                 {dayPosts.length >
-                                  2 && (
+                                  3 && (
                                   <p className="text-[7px] font-black text-stone-300">
                                     +
                                     {dayPosts.length -
-                                      2}{" "}
+                                      3}{" "}
                                     more
                                   </p>
                                 )}
@@ -3965,103 +5475,159 @@ export default function SocialStudioUnified() {
                 {selectedDayPosts.map(
                   (
                     post
-                  ) => (
-                    <div
-                      key={
-                        post.id
-                      }
-                      className="rounded-[2rem] border border-stone-100 bg-stone-50 p-5"
-                    >
-                      <div className="mb-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                  ) => {
+                    const error =
+                      getPostError(
+                        post
+                      );
+
+                    return (
+                      <div
+                        key={
+                          post.id
+                        }
+                        className={`rounded-[2rem] border p-5 ${getStatusBackground(
+                          post.status
+                        )}`}
+                      >
+                        <div className="mb-4 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`h-2 w-2 rounded-full ${getStatusColor(
+                                post.status
+                              )}`}
+                            />
+
+                            <p className="text-[8px] font-black uppercase tracking-wider text-stone-500">
+                              {
+                                post.platform
+                              }
+                            </p>
+                          </div>
+
                           <span
-                            className={`h-2 w-2 rounded-full ${getStatusColor(
+                            className={`text-[8px] font-black uppercase ${getStatusTextColor(
                               post.status
                             )}`}
-                          />
-
-                          <p className="text-[8px] font-black uppercase tracking-wider text-stone-500">
+                          >
                             {
-                              post.platform
+                              post.status
                             }
-                          </p>
+                          </span>
                         </div>
 
-                        <span
-                          className={`text-[8px] font-black uppercase ${getStatusTextColor(
-                            post.status
-                          )}`}
-                        >
+                        <p className="line-clamp-3 text-sm leading-6 text-stone-600">
                           {
-                            post.status
+                            post.caption
                           }
-                        </span>
-                      </div>
+                        </p>
 
-                      <p className="line-clamp-3 text-sm leading-6 text-stone-600">
-                        {
-                          post.caption
-                        }
-                      </p>
-
-                      <div className="mt-5 flex items-center justify-between border-t border-stone-200 pt-4">
-                        <span className="flex items-center gap-2 text-[9px] text-stone-400">
-                          <Clock
-                            size={
-                              11
-                            }
-                          />
-
-                          {new Date(
-                            post.scheduled_for
-                          ).toLocaleTimeString(
-                            [],
-                            {
-                              hour:
-                                "2-digit",
-
-                              minute:
-                                "2-digit",
-                            }
-                          )}
-                        </span>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPreviewPost(
-                                post
-                              )
-                            }
-                            className="rounded-lg p-2 text-stone-400 hover:bg-white"
-                          >
-                            <Eye
+                        {error && (
+                          <div className="mt-4 flex items-start gap-2 rounded-xl bg-white/70 p-3">
+                            <AlertCircle
                               size={
-                                14
+                                13
+                              }
+                              className="mt-0.5 shrink-0 text-red-500"
+                            />
+
+                            <p className="break-words text-[9px] leading-4 text-red-600">
+                              {
+                                error
+                              }
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="mt-5 flex items-center justify-between border-t border-stone-200/70 pt-4">
+                          <span className="flex items-center gap-2 text-[9px] text-stone-400">
+                            <Clock
+                              size={
+                                11
                               }
                             />
-                          </button>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void deletePost(
-                                post.id
-                              )
-                            }
-                            className="rounded-lg p-2 text-red-400 hover:bg-red-50"
-                          >
-                            <Trash2
-                              size={
-                                14
+                            {new Date(
+                              post
+                                .scheduled_for
+                            ).toLocaleTimeString(
+                              [],
+                              {
+                                hour:
+                                  "2-digit",
+
+                                minute:
+                                  "2-digit",
                               }
-                            />
-                          </button>
+                            )}
+                          </span>
+
+                          <div className="flex items-center gap-2">
+                            {post.status ===
+                              "failed" && (
+                              <button
+                                type="button"
+                                disabled={
+                                  retryingPostId ===
+                                  post.id
+                                }
+                                onClick={() =>
+                                  void retryPost(
+                                    post.id
+                                  )
+                                }
+                                className="rounded-lg p-2 text-amber-600 hover:bg-white disabled:opacity-50"
+                              >
+                                <RotateCcw
+                                  size={
+                                    14
+                                  }
+                                  className={
+                                    retryingPostId ===
+                                    post.id
+                                      ? "animate-spin"
+                                      : ""
+                                  }
+                                />
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewPost(
+                                  post
+                                )
+                              }
+                              className="rounded-lg p-2 text-stone-400 hover:bg-white"
+                            >
+                              <Eye
+                                size={
+                                  14
+                                }
+                              />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void deletePost(
+                                  post.id
+                                )
+                              }
+                              className="rounded-lg p-2 text-red-400 hover:bg-white"
+                            >
+                              <Trash2
+                                size={
+                                  14
+                                }
+                              />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )
+                    );
+                  }
                 )}
               </div>
 
@@ -4153,14 +5719,17 @@ export default function SocialStudioUnified() {
               {previewPost.media_url &&
                 (
                   isVideoUrl(
-                    previewPost.media_url
+                    previewPost
+                      .media_url
                   ) ||
-                  previewPost.platform ===
+                  previewPost
+                    .platform ===
                     "tiktok"
                 ) && (
                   <video
                     src={
-                      previewPost.media_url
+                      previewPost
+                        .media_url
                     }
                     controls
                     playsInline
@@ -4170,21 +5739,24 @@ export default function SocialStudioUnified() {
 
               {previewPost.media_url &&
                 !isVideoUrl(
-                  previewPost.media_url
+                  previewPost
+                    .media_url
                 ) &&
-                previewPost.platform !==
+                previewPost
+                  .platform !==
                   "tiktok" && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={
-                      previewPost.media_url
+                      previewPost
+                        .media_url
                     }
                     alt="Post preview"
                     className="mb-6 max-h-[450px] w-full rounded-[2rem] object-contain"
                   />
                 )}
 
-              <div className="mb-5 flex items-center gap-2">
+              <div className="mb-5 flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-stone-100 px-3 py-1.5 text-[8px] font-black uppercase tracking-wider text-stone-500">
                   {
                     previewPost.platform
@@ -4200,6 +5772,26 @@ export default function SocialStudioUnified() {
                     previewPost.status
                   }
                 </span>
+
+                {typeof previewPost
+                  .attempts ===
+                  "number" &&
+                  previewPost
+                    .attempts >
+                    0 && (
+                  <span className="rounded-full bg-stone-50 px-3 py-1.5 text-[8px] font-black uppercase tracking-wider text-stone-400">
+                    {
+                      previewPost
+                        .attempts
+                    }{" "}
+                    attempt
+                    {previewPost
+                      .attempts ===
+                    1
+                      ? ""
+                      : "s"}
+                  </span>
+                )}
               </div>
 
               <p className="whitespace-pre-wrap text-sm leading-7 text-stone-600">
@@ -4216,11 +5808,73 @@ export default function SocialStudioUnified() {
                 </p>
               )}
 
-              {previewPost.last_error && (
-                <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs text-red-600">
-                  {
-                    previewPost.last_error
-                  }
+              {previewPost.status ===
+                "published" && (
+                <div className="mt-5 flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                  <CheckCircle2
+                    size={
+                      16
+                    }
+                    className="mt-0.5 shrink-0 text-emerald-600"
+                  />
+
+                  <div>
+                    <p className="text-xs font-bold text-emerald-700">
+                      Published successfully
+                    </p>
+
+                    {previewPost
+                      .platform_post_id && (
+                      <p className="mt-1 break-all text-[9px] text-emerald-600">
+                        Platform post ID:{" "}
+                        {
+                          previewPost
+                            .platform_post_id
+                        }
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {previewPost.status ===
+                "processing" && (
+                <div className="mt-5 flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                  <Loader2
+                    size={
+                      16
+                    }
+                    className="mt-0.5 shrink-0 animate-spin text-amber-500"
+                  />
+
+                  <p className="text-xs leading-5 text-amber-700">
+                    The platform has accepted this post and it is still processing.
+                  </p>
+                </div>
+              )}
+
+              {getPostError(
+                previewPost
+              ) && (
+                <div className="mt-5 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4">
+                  <AlertCircle
+                    size={
+                      16
+                    }
+                    className="mt-0.5 shrink-0 text-red-500"
+                  />
+
+                  <div>
+                    <p className="text-xs font-bold text-red-700">
+                      Publishing failed
+                    </p>
+
+                    <p className="mt-1 break-words text-[10px] leading-5 text-red-600">
+                      {getPostError(
+                        previewPost
+                      )}
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -4237,22 +5891,71 @@ export default function SocialStudioUnified() {
                   Close
                 </button>
 
-                {previewPost.status !==
-                  "published" && (
+                {previewPost.status ===
+                  "failed" && (
                   <button
                     type="button"
+                    disabled={
+                      retryingPostId ===
+                      previewPost.id
+                    }
+                    onClick={() =>
+                      void retryPost(
+                        previewPost.id
+                      )
+                    }
+                    className="flex items-center justify-center gap-2 rounded-xl bg-amber-100 px-6 py-3 text-[9px] font-black uppercase tracking-wider text-amber-800 disabled:opacity-50"
+                  >
+                    {retryingPostId ===
+                    previewPost.id ? (
+                      <Loader2
+                        size={
+                          13
+                        }
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <RotateCcw
+                        size={
+                          13
+                        }
+                      />
+                    )}
+
+                    Retry Post
+                  </button>
+                )}
+
+                {previewPost.status ===
+                  "scheduled" && (
+                  <button
+                    type="button"
+                    disabled={
+                      retryingPostId ===
+                      previewPost.id
+                    }
                     onClick={() =>
                       void approvePost(
                         previewPost.id
                       )
                     }
-                    className="flex items-center justify-center gap-2 rounded-xl bg-[#a9b897] px-6 py-3 text-[9px] font-black uppercase tracking-wider text-stone-900"
+                    className="flex items-center justify-center gap-2 rounded-xl bg-[#a9b897] px-6 py-3 text-[9px] font-black uppercase tracking-wider text-stone-900 disabled:opacity-50"
                   >
-                    <ArrowRight
-                      size={
-                        13
-                      }
-                    />
+                    {retryingPostId ===
+                    previewPost.id ? (
+                      <Loader2
+                        size={
+                          13
+                        }
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <ArrowRight
+                        size={
+                          13
+                        }
+                      />
+                    )}
 
                     Publish Now
                   </button>

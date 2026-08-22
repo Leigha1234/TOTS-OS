@@ -21,7 +21,9 @@ import {
 } from "framer-motion";
 
 import {
+  Clock3,
   Loader2,
+  Music2,
 } from "lucide-react";
 
 import {
@@ -43,10 +45,6 @@ import {
 import {
   useSocialConnections,
 } from "./hooks/useSocialConnections";
-
-import {
-  useTikTokOAuthResult,
-} from "./hooks/useTikTokOAuthResult";
 
 // ============================================================
 // CONSTANTS
@@ -364,37 +362,6 @@ function SettingsInner() {
     );
 
   // ==========================================================
-  // VOID WRAPPERS
-  //
-  // Some OAuth hooks expect:
-  //
-  // () => Promise<void>
-  //
-  // verifyConnections now returns connection health, so we
-  // intentionally discard its return value here.
-  // ==========================================================
-
-  const refreshConnectionsVoid =
-    useCallback(
-      async (): Promise<void> => {
-        await refreshConnections();
-      },
-      [
-        refreshConnections,
-      ]
-    );
-
-  const verifyConnectionsVoid =
-    useCallback(
-      async (): Promise<void> => {
-        await verifyConnections();
-      },
-      [
-        verifyConnections,
-      ]
-    );
-
-  // ==========================================================
   // REFRESH SOCIAL CONNECTION STATE
   // ==========================================================
 
@@ -433,35 +400,6 @@ function SettingsInner() {
     );
 
   // ==========================================================
-  // TIKTOK OAUTH RESULT
-  // ==========================================================
-
-  const handleTikTokConnected =
-    useCallback(
-      () => {
-        setConnectedPlatformModal(
-          "tiktok"
-        );
-
-        setShowConnectedModal(
-          true
-        );
-      },
-      []
-    );
-
-  useTikTokOAuthResult({
-    refreshConnections:
-      refreshConnectionsVoid,
-
-    verifyConnections:
-      verifyConnectionsVoid,
-
-    onConnected:
-      handleTikTokConnected,
-  });
-
-  // ==========================================================
   // META / LINKEDIN OAUTH RESULT
   //
   // Supported URL formats:
@@ -469,6 +407,8 @@ function SettingsInner() {
   // NEW:
   // ?oauth=meta_success
   // ?oauth=meta_failed
+  // ?oauth=linkedin_success
+  // ?oauth=linkedin_failed
   //
   // OLD:
   // ?connected=meta
@@ -476,6 +416,9 @@ function SettingsInner() {
   //
   // Also supports:
   // ?social_error=...
+  //
+  // TikTok is intentionally not handled here while its
+  // connection is marked Coming Soon.
   // ==========================================================
 
   useEffect(
@@ -558,6 +501,35 @@ function SettingsInner() {
                   socialError
                 ) ||
                   "Social account connection failed"
+              );
+
+              return;
+            }
+
+            // =================================================
+            // TIKTOK - COMING SOON
+            // =================================================
+
+            if (
+              oauth ===
+                "tiktok_success" ||
+              oauth ===
+                "tiktok_failed" ||
+              connected ===
+                "tiktok"
+            ) {
+              clearOAuthStorage(
+                "tiktok"
+              );
+
+              if (
+                cancelled
+              ) {
+                return;
+              }
+
+              toast.info(
+                "TikTok connection is coming soon."
               );
 
               return;
@@ -969,6 +941,49 @@ function SettingsInner() {
               ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
+
+                {/* ================================================
+                    TIKTOK COMING SOON NOTICE
+                ================================================ */}
+
+                <div className="mb-6 overflow-hidden rounded-[1.75rem] border border-[#dfe6d7] bg-gradient-to-r from-[#f4f7f0] to-[#fafbf8] p-5 sm:p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-stone-900 text-[#a9b897]">
+                      <Music2
+                        size={
+                          18
+                        }
+                      />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-bold text-stone-800">
+                          TikTok integration
+                        </p>
+
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#dfe8d5] px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.16em] text-[#647356]">
+                          <Clock3
+                            size={
+                              9
+                            }
+                          />
+
+                          Coming soon
+                        </span>
+                      </div>
+
+                      <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-500">
+                        TikTok account connection and direct
+                        publishing are being finalised for
+                        TOTS-OS. Facebook, Instagram and
+                        LinkedIn can continue to be managed
+                        below.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <SocialSettings
                   socialAccounts={
                     socialAccounts

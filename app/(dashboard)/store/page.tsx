@@ -1313,6 +1313,14 @@ export default function StorePage() {
       null
     );
 
+  const [
+    selectedOrder,
+    setSelectedOrder,
+  ] =
+    useState<Order | null>(
+      null
+    );
+
   // ==========================================================
   // DISCOUNTS
   // ==========================================================
@@ -3442,7 +3450,7 @@ if (orderError) {
             organisationId
           )
           .select(
-            "id"
+            "id, fulfilment_status"
           )
           .maybeSingle();
 
@@ -3456,9 +3464,36 @@ if (orderError) {
         !data
       ) {
         throw new Error(
-          "The order could not be updated. Check the store_orders RLS UPDATE policy."
+          "The order status was not changed. Supabase did not return the updated order. Check the store_orders UPDATE RLS policy."
         );
       }
+
+      setOrders(
+        (previous) =>
+          previous.map(
+            (existingOrder) =>
+              existingOrder.id ===
+              order.id
+                ? {
+                    ...existingOrder,
+                    status:
+                      nextStatus,
+                  }
+                : existingOrder
+          )
+      );
+
+      setSelectedOrder(
+        (previous) =>
+          previous?.id ===
+          order.id
+            ? {
+                ...previous,
+                status:
+                  nextStatus,
+              }
+            : previous
+      );
 
       await loadData(
         true
@@ -5655,7 +5690,13 @@ if (orderError) {
 
                               <button
                                 type="button"
-                                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-stone-400"
+                                onClick={() =>
+                                  setSelectedOrder(
+                                    order
+                                  )
+                                }
+                                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
+                                aria-label={`View ${order.number}`}
                               >
                                 <Eye
                                   size={14}
@@ -6705,6 +6746,215 @@ if (orderError) {
           )}
         </AnimatePresence>
       </section>
+
+      {/* =====================================================
+          ORDER DETAILS MODAL
+      ===================================================== */}
+
+      <AnimatePresence>
+        {selectedOrder && (
+          <ModalShell
+            onClose={() =>
+              setSelectedOrder(
+                null
+              )
+            }
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <SectionEyebrow>
+                  Order details
+                </SectionEyebrow>
+
+                <h2 className="mt-1 font-serif text-3xl italic">
+                  {selectedOrder.number}
+                </h2>
+
+                <p className="mt-2 text-xs text-stone-400">
+                  {selectedOrder.createdAt}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedOrder(
+                    null
+                  )
+                }
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-50 text-stone-500"
+              >
+                <X
+                  size={15}
+                />
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl bg-stone-50 p-4">
+                <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                  Customer
+                </p>
+
+                <p className="mt-2 text-sm font-semibold text-stone-700">
+                  {selectedOrder.customer}
+                </p>
+
+                <p className="mt-1 break-all text-xs text-stone-400">
+                  {selectedOrder.email}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-stone-50 p-4">
+                <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                  Order total
+                </p>
+
+                <p className="mt-2 font-serif text-3xl italic text-stone-900">
+                  {money(
+                    selectedOrder.total
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-stone-50 p-4">
+                <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                  Payment
+                </p>
+
+                <div className="mt-2">
+                  <PaymentBadge
+                    status={
+                      selectedOrder.paymentStatus
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-stone-50 p-4">
+                <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                  Fulfilment
+                </p>
+
+                <div className="mt-2">
+                  <OrderStatusBadge
+                    status={
+                      selectedOrder.status
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-stone-100 bg-white p-5">
+              <DetailRow
+                label="Items"
+                value={String(
+                  selectedOrder.items
+                )}
+              />
+
+              <DetailRow
+                label="Subtotal"
+                value={money(
+                  firstNumber(
+                    selectedOrder.raw.subtotal
+                  )
+                )}
+              />
+
+              <DetailRow
+                label="Discount"
+                value={money(
+                  firstNumber(
+                    selectedOrder.raw.discount_amount
+                  )
+                )}
+              />
+
+              <DetailRow
+                label="Shipping"
+                value={money(
+                  firstNumber(
+                    selectedOrder.raw.shipping_amount
+                  )
+                )}
+              />
+
+              <DetailRow
+                label="Total"
+                value={money(
+                  selectedOrder.total
+                )}
+              />
+            </div>
+
+            {![
+              "delivered",
+              "cancelled",
+            ].includes(
+              selectedOrder.status
+            ) && (
+              <button
+                type="button"
+                disabled={
+                  updatingOrderId ===
+                  selectedOrder.id
+                }
+                onClick={() =>
+                  void advanceOrder(
+                    selectedOrder
+                  )
+                }
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white disabled:opacity-50"
+              >
+                {updatingOrderId ===
+                selectedOrder.id ? (
+                  <>
+                    <Loader2
+                      size={14}
+                      className="animate-spin"
+                    />
+                    Saving...
+                  </>
+                ) : selectedOrder.status ===
+                  "new" ? (
+                  <>
+                    Start processing
+                    <ArrowRight
+                      size={13}
+                    />
+                  </>
+                ) : selectedOrder.status ===
+                  "processing" ? (
+                  <>
+                    Mark dispatched
+                    <ArrowRight
+                      size={13}
+                    />
+                  </>
+                ) : (
+                  <>
+                    Mark delivered
+                    <Check
+                      size={13}
+                    />
+                  </>
+                )}
+              </button>
+            )}
+
+            {selectedOrder.status ===
+              "delivered" && (
+              <div className="mt-6 rounded-2xl bg-[#edf1e8] p-4 text-center">
+                <p className="text-xs font-semibold text-[#687a59]">
+                  This order has been marked as delivered.
+                </p>
+              </div>
+            )}
+          </ModalShell>
+        )}
+      </AnimatePresence>
 
       {/* =====================================================
           PRODUCT MODAL

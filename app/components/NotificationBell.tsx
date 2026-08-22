@@ -41,8 +41,7 @@ import {
 // ============================================================
 
 function formatRelativeTime(
-  value:
-    string
+  value: string
 ) {
   const timestamp =
     new Date(
@@ -139,8 +138,7 @@ function formatRelativeTime(
 // ============================================================
 
 function getNotificationStyle(
-  type:
-    string
+  type: string
 ) {
   switch (
     String(
@@ -197,6 +195,7 @@ function getNotificationStyle(
       };
 
     case "finance":
+    case "invoice":
       return {
         wrapper:
           "bg-stone-100",
@@ -209,6 +208,8 @@ function getNotificationStyle(
       };
 
     case "calendar":
+    case "task":
+    case "project":
       return {
         wrapper:
           "bg-blue-50",
@@ -384,7 +385,8 @@ export default function NotificationBell() {
         TotsNotification
     ) => {
       if (
-        !notification.read
+        !notification
+          .is_read
       ) {
         await markAsRead(
           notification.id
@@ -413,7 +415,7 @@ export default function NotificationBell() {
       ref={
         containerRef
       }
-      className="fixed right-4 top-4 z-[160] md:right-8 md:top-6"
+      className="relative z-[160]"
     >
       {/* ======================================================
           BELL
@@ -435,15 +437,15 @@ export default function NotificationBell() {
               !current
           )
         }
-        className={`relative flex h-11 w-11 items-center justify-center rounded-2xl border shadow-sm backdrop-blur-xl transition-all duration-200 active:scale-95 ${
+        className={`relative flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition-all duration-200 active:scale-95 ${
           open
-            ? "border-stone-300 bg-stone-900 text-white shadow-lg"
-            : "border-stone-200 bg-white/95 text-stone-600 hover:border-stone-300 hover:text-stone-900"
+            ? "border-stone-300 bg-stone-900 text-white shadow-md"
+            : "border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-stone-900"
         }`}
       >
         <Bell
           size={
-            18
+            17
           }
           strokeWidth={
             1.8
@@ -463,7 +465,7 @@ export default function NotificationBell() {
               scale:
                 1,
             }}
-            className="absolute -right-1.5 -top-1.5 flex min-h-[19px] min-w-[19px] items-center justify-center rounded-full border-2 border-[#fcfaf7] bg-red-500 px-1 text-[7px] font-black text-white"
+            className="absolute -right-1.5 -top-1.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-stone-50 bg-red-500 px-1 text-[7px] font-black text-white"
           >
             {unreadCount >
             99
@@ -514,7 +516,26 @@ export default function NotificationBell() {
               duration:
                 0.16,
             }}
-            className="absolute right-0 top-[54px] flex max-h-[min(620px,calc(100vh-90px))] w-[calc(100vw-2rem)] max-w-[410px] flex-col overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-[0_30px_80px_rgba(28,25,23,0.18)]"
+            className="
+              absolute
+              left-0
+              top-[50px]
+              z-[1000]
+              flex
+              max-h-[min(620px,calc(100vh-90px))]
+              w-[calc(100vw-2rem)]
+              max-w-[410px]
+              flex-col
+              overflow-hidden
+              rounded-[2rem]
+              border
+              border-stone-200
+              bg-white
+              shadow-[0_30px_80px_rgba(28,25,23,0.18)]
+
+              md:left-auto
+              md:right-0
+            "
           >
             {/* =================================================
                 HEADER
@@ -551,7 +572,7 @@ export default function NotificationBell() {
                       false
                     )
                   }
-                  className="rounded-xl p-2 text-stone-300 transition hover:bg-stone-50 hover:text-stone-700 md:hidden"
+                  className="rounded-xl p-2 text-stone-300 transition hover:bg-stone-50 hover:text-stone-700"
                 >
                   <X
                     size={
@@ -613,7 +634,7 @@ export default function NotificationBell() {
                   (
                     item
                   ) =>
-                    item.read
+                    item.is_read
                 ) && (
                   <button
                     type="button"
@@ -721,6 +742,7 @@ export default function NotificationBell() {
               ================================================= */}
 
               {!loading &&
+                !error &&
                 notifications.length >
                   0 && (
                   <div className="divide-y divide-stone-100">
@@ -756,6 +778,7 @@ export default function NotificationBell() {
             ================================================= */}
 
             {!loading &&
+              !error &&
               notifications.length >
                 0 && (
                 <div className="border-t border-stone-100 bg-[#fcfaf7] px-5 py-3">
@@ -820,12 +843,13 @@ function NotificationItem({
   return (
     <div
       className={`group relative transition ${
-        notification.read
+        notification.is_read
           ? "bg-white"
           : "bg-[#fcfdfb]"
       }`}
     >
-      {!notification.read && (
+      {!notification
+        .is_read && (
         <span className="absolute left-0 top-0 h-full w-[3px] bg-[#a9b897]" />
       )}
 
@@ -859,7 +883,8 @@ function NotificationItem({
           <div className="flex items-start gap-2">
             <p
               className={`flex-1 text-[11px] leading-4 ${
-                notification.read
+                notification
+                  .is_read
                   ? "font-semibold text-stone-600"
                   : "font-black text-stone-800"
               }`}
@@ -869,7 +894,8 @@ function NotificationItem({
               }
             </p>
 
-            {!notification.read && (
+            {!notification
+              .is_read && (
               <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#829473]" />
             )}
           </div>
@@ -885,7 +911,8 @@ function NotificationItem({
           <div className="mt-2 flex items-center gap-2">
             <span className="text-[7px] font-bold uppercase tracking-[0.08em] text-stone-300">
               {formatRelativeTime(
-                notification.created_at
+                notification
+                  .created_at
               )}
             </span>
 
@@ -912,8 +939,9 @@ function NotificationItem({
           QUICK ACTIONS
       ====================================================== */}
 
-      <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
-        {!notification.read && (
+      <div className="absolute right-3 top-3 flex items-center gap-1 opacity-100 transition md:opacity-0 md:group-hover:opacity-100">
+        {!notification
+          .is_read && (
           <button
             type="button"
             title="Mark as read"

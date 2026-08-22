@@ -31,6 +31,8 @@ export type NotificationType =
   | "task"
   | "calendar"
   | "system"
+  | "order"
+  | "invoice"
   | string;
 
 export type TotsNotification = {
@@ -38,34 +40,55 @@ export type TotsNotification = {
 
   user_id: string;
 
-  organisation_id?:
-    string | null;
+  organisation_id:
+    | string
+    | null;
 
   title: string;
 
   message:
-    string | null;
+    | string
+    | null;
 
   type:
     NotificationType;
 
   link:
-    string | null;
+    | string
+    | null;
 
-  read:
+  is_read:
     boolean;
 
-  metadata?:
-    Record<
-      string,
-      unknown
-    > | null;
+  read_at:
+    | string
+    | null;
+
+  metadata:
+    | Record<
+        string,
+        unknown
+      >
+    | null;
 
   created_at:
     string;
 
-  read_at?:
-    string | null;
+  updated_at?:
+    | string
+    | null;
+
+  entity_type?:
+    | string
+    | null;
+
+  entity_id?:
+    | string
+    | null;
+
+  dedupe_key?:
+    | string
+    | null;
 };
 
 // ============================================================
@@ -88,6 +111,51 @@ function cleanString(
 
 // ============================================================
 
+function normaliseBoolean(
+  value:
+    unknown
+) {
+  if (
+    typeof value ===
+    "boolean"
+  ) {
+    return value;
+  }
+
+  if (
+    value ===
+      1 ||
+    value ===
+      "1" ||
+    value ===
+      "true"
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+// ============================================================
+// NORMALISE NOTIFICATION
+//
+// IMPORTANT:
+//
+// New system uses:
+//
+// - is_read
+// - read_at
+// - link
+//
+// Older rows may still contain:
+//
+// - read
+// - href
+// - content
+//
+// We support both so legacy notifications cannot crash the UI.
+// ============================================================
+
 function normaliseNotification(
   value:
     Record<
@@ -95,6 +163,40 @@ function normaliseNotification(
       unknown
     >
 ): TotsNotification {
+  const isRead =
+    value.is_read !==
+    undefined
+      ? normaliseBoolean(
+          value.is_read
+        )
+      : normaliseBoolean(
+          value.read
+        );
+
+  const title =
+    cleanString(
+      value.title
+    ) ||
+    "Notification";
+
+  const message =
+    cleanString(
+      value.message
+    ) ||
+    cleanString(
+      value.content
+    ) ||
+    null;
+
+  const link =
+    cleanString(
+      value.link
+    ) ||
+    cleanString(
+      value.href
+    ) ||
+    null;
+
   return {
     id:
       cleanString(
@@ -112,17 +214,9 @@ function normaliseNotification(
       ) ||
       null,
 
-    title:
-      cleanString(
-        value.title
-      ) ||
-      "Notification",
+    title,
 
-    message:
-      cleanString(
-        value.message
-      ) ||
-      null,
+    message,
 
     type:
       cleanString(
@@ -130,27 +224,30 @@ function normaliseNotification(
       ) ||
       "info",
 
-    link:
+    link,
+
+    is_read:
+      isRead,
+
+    read_at:
       cleanString(
-        value.link
+        value.read_at
       ) ||
       null,
 
-    read:
-      Boolean(
-        value.read
-      ),
-
     metadata:
-      (
-        value.metadata &&
-        typeof value.metadata ===
-          "object"
+      value.metadata &&
+      typeof value.metadata ===
+        "object" &&
+      !Array.isArray(
+        value.metadata
       )
-        ? value.metadata as Record<
-            string,
-            unknown
-          >
+        ? (
+            value.metadata as Record<
+              string,
+              unknown
+            >
+          )
         : null,
 
     created_at:
@@ -160,9 +257,27 @@ function normaliseNotification(
       new Date()
         .toISOString(),
 
-    read_at:
+    updated_at:
       cleanString(
-        value.read_at
+        value.updated_at
+      ) ||
+      null,
+
+    entity_type:
+      cleanString(
+        value.entity_type
+      ) ||
+      null,
+
+    entity_id:
+      cleanString(
+        value.entity_id
+      ) ||
+      null,
+
+    dedupe_key:
+      cleanString(
+        value.dedupe_key
       ) ||
       null,
   };
@@ -236,12 +351,13 @@ export function useNotifications() {
       null
     );
 
+  const refreshInProgressRef =
+    useRef(
+      false
+    );
+
   // ==========================================================
   // DATABASE CLIENT
-  //
-  // Using an untyped wrapper prevents stale generated Supabase
-  // types from incorrectly inferring notification payloads as
-  // `never`.
   // ==========================================================
 
   const db =
@@ -263,16 +379,15 @@ export function useNotifications() {
         async () => {
           try {
             const {
-              data: {
-                user,
-              },
+              data:
+                sessionData,
 
               error:
-                authError,
+                sessionError,
             } =
               await supabase
                 .auth
-                .getUser();
+                .getSession();
 
             if (
               cancelled
@@ -281,15 +396,15 @@ export function useNotifications() {
             }
 
             if (
-              authError
+              sessionError
             ) {
               console.error(
-                "[TOTS NOTIFICATIONS] User lookup failed:",
-                authError
+                "[TOTS NOTIFICATIONS] Session lookup failed:",
+                sessionError
               );
 
               setError(
-                "Notifications could not identify the signed-in user."
+                "Notifications could not identify your account."
               );
 
               setLoading(
@@ -299,13 +414,19 @@ export function useNotifications() {
               return;
             }
 
+            const currentUser =
+              sessionData
+                ?.session
+                ?.user;
+
             setUserId(
-              user?.id ??
+              currentUser
+                ?.id ??
               null
             );
 
             if (
-              !user
+              !currentUser
             ) {
               setNotifications(
                 []
@@ -339,12 +460,63 @@ export function useNotifications() {
 
       void loadUser();
 
+      // ======================================================
+      // AUTH STATE CHANGES
+      // ======================================================
+
+      const {
+        data:
+          authListener,
+      } =
+        supabase.auth.onAuthStateChange(
+          (
+            _event,
+            session
+          ) => {
+            if (
+              cancelled
+            ) {
+              return;
+            }
+
+            const nextUserId =
+              session
+                ?.user
+                ?.id ??
+              null;
+
+            setUserId(
+              nextUserId
+            );
+
+            if (
+              !nextUserId
+            ) {
+              setNotifications(
+                []
+              );
+
+              setError(
+                null
+              );
+
+              setLoading(
+                false
+              );
+            }
+          }
+        );
+
       return () => {
         cancelled =
           true;
 
         mountedRef.current =
           false;
+
+        authListener
+          ?.subscription
+          ?.unsubscribe();
       };
     },
     []
@@ -377,6 +549,15 @@ export function useNotifications() {
 
           return;
         }
+
+        if (
+          refreshInProgressRef.current
+        ) {
+          return;
+        }
+
+        refreshInProgressRef.current =
+          true;
 
         try {
           if (
@@ -413,10 +594,14 @@ export function useNotifications() {
                   message,
                   type,
                   link,
-                  read,
+                  is_read,
+                  read_at,
                   metadata,
                   created_at,
-                  read_at
+                  updated_at,
+                  entity_type,
+                  entity_id,
+                  dedupe_key
                 `
               )
               .eq(
@@ -505,6 +690,9 @@ export function useNotifications() {
             );
           }
         } finally {
+          refreshInProgressRef.current =
+            false;
+
           if (
             mountedRef.current
           ) {
@@ -571,12 +759,20 @@ export function useNotifications() {
           );
 
         if (
-          existing?.read
+          existing
+            ?.is_read
         ) {
           return true;
         }
 
-        // Optimistic UI
+        const now =
+          new Date()
+            .toISOString();
+
+        // ====================================================
+        // OPTIMISTIC UPDATE
+        // ====================================================
+
         setNotifications(
           (
             current
@@ -590,46 +786,52 @@ export function useNotifications() {
                   ? {
                       ...notification,
 
-                      read:
+                      is_read:
                         true,
 
                       read_at:
-                        new Date()
-                          .toISOString(),
+                        now,
                     }
                   : notification
             )
         );
 
-        const now =
-          new Date()
-            .toISOString();
+        try {
+          const {
+            error:
+              updateError,
+          } =
+            await db
+              .from(
+                "notifications"
+              )
+              .update({
+                is_read:
+                  true,
 
-        const {
-          error:
-            updateError,
-        } =
-          await db
-            .from(
-              "notifications"
-            )
-            .update({
-              read:
-                true,
+                read_at:
+                  now,
 
-              read_at:
-                now,
-            })
-            .eq(
-              "id",
-              notificationId
-            )
-            .eq(
-              "user_id",
-              userId
-            );
+                updated_at:
+                  now,
+              })
+              .eq(
+                "id",
+                notificationId
+              )
+              .eq(
+                "user_id",
+                userId
+              );
 
-        if (
+          if (
+            updateError
+          ) {
+            throw updateError;
+          }
+
+          return true;
+        } catch (
           updateError
         ) {
           console.error(
@@ -643,8 +845,6 @@ export function useNotifications() {
 
           return false;
         }
-
-        return true;
       },
       [
         db,
@@ -672,7 +872,8 @@ export function useNotifications() {
             (
               notification
             ) =>
-              !notification.read
+              !notification
+                .is_read
           );
 
         if (
@@ -686,7 +887,10 @@ export function useNotifications() {
           new Date()
             .toISOString();
 
-        // Optimistic UI
+        // ====================================================
+        // OPTIMISTIC UPDATE
+        // ====================================================
+
         setNotifications(
           (
             current
@@ -697,41 +901,57 @@ export function useNotifications() {
               ) => ({
                 ...notification,
 
-                read:
+                is_read:
                   true,
 
                 read_at:
-                  notification.read_at ||
+                  notification
+                    .read_at ||
                   now,
               })
             )
         );
 
-        const {
-          error:
-            updateError,
-        } =
-          await db
-            .from(
-              "notifications"
-            )
-            .update({
-              read:
-                true,
+        try {
+          const {
+            error:
+              updateError,
+          } =
+            await db
+              .from(
+                "notifications"
+              )
+              .update({
+                is_read:
+                  true,
 
-              read_at:
-                now,
-            })
-            .eq(
-              "user_id",
-              userId
-            )
-            .eq(
-              "read",
-              false
-            );
+                read_at:
+                  now,
 
-        if (
+                updated_at:
+                  now,
+              })
+              .eq(
+                "user_id",
+                userId
+              )
+              .eq(
+                "is_read",
+                false
+              );
+
+          if (
+            updateError
+          ) {
+            throw updateError;
+          }
+
+          toast.success(
+            "All notifications marked as read"
+          );
+
+          return true;
+        } catch (
           updateError
         ) {
           console.error(
@@ -749,12 +969,6 @@ export function useNotifications() {
 
           return false;
         }
-
-        toast.success(
-          "All notifications marked as read"
-        );
-
-        return true;
       },
       [
         db,
@@ -784,7 +998,6 @@ export function useNotifications() {
         const previous =
           notifications;
 
-        // Optimistic UI
         setNotifications(
           (
             current
@@ -798,25 +1011,33 @@ export function useNotifications() {
             )
         );
 
-        const {
-          error:
-            deleteError,
-        } =
-          await db
-            .from(
-              "notifications"
-            )
-            .delete()
-            .eq(
-              "id",
-              notificationId
-            )
-            .eq(
-              "user_id",
-              userId
-            );
+        try {
+          const {
+            error:
+              deleteError,
+          } =
+            await db
+              .from(
+                "notifications"
+              )
+              .delete()
+              .eq(
+                "id",
+                notificationId
+              )
+              .eq(
+                "user_id",
+                userId
+              );
 
-        if (
+          if (
+            deleteError
+          ) {
+            throw deleteError;
+          }
+
+          return true;
+        } catch (
           deleteError
         ) {
           console.error(
@@ -834,8 +1055,6 @@ export function useNotifications() {
 
           return false;
         }
-
-        return true;
       },
       [
         db,
@@ -868,29 +1087,42 @@ export function useNotifications() {
               (
                 notification
               ) =>
-                !notification.read
+                !notification
+                  .is_read
             )
         );
 
-        const {
-          error:
-            deleteError,
-        } =
-          await db
-            .from(
-              "notifications"
-            )
-            .delete()
-            .eq(
-              "user_id",
-              userId
-            )
-            .eq(
-              "read",
-              true
-            );
+        try {
+          const {
+            error:
+              deleteError,
+          } =
+            await db
+              .from(
+                "notifications"
+              )
+              .delete()
+              .eq(
+                "user_id",
+                userId
+              )
+              .eq(
+                "is_read",
+                true
+              );
 
-        if (
+          if (
+            deleteError
+          ) {
+            throw deleteError;
+          }
+
+          toast.success(
+            "Read notifications cleared"
+          );
+
+          return true;
+        } catch (
           deleteError
         ) {
           console.error(
@@ -908,12 +1140,6 @@ export function useNotifications() {
 
           return false;
         }
-
-        toast.success(
-          "Read notifications cleared"
-        );
-
-        return true;
       },
       [
         db,
@@ -934,6 +1160,10 @@ export function useNotifications() {
         return;
       }
 
+      // ======================================================
+      // REMOVE OLD CHANNEL
+      // ======================================================
+
       if (
         channelRef.current
       ) {
@@ -951,6 +1181,11 @@ export function useNotifications() {
           .channel(
             `notifications-${userId}`
           )
+
+          // ==================================================
+          // INSERT
+          // ==================================================
+
           .on(
             "postgres_changes",
             {
@@ -969,16 +1204,19 @@ export function useNotifications() {
             (
               payload
             ) => {
-              const raw =
-                payload.new as Record<
-                  string,
-                  unknown
-                >;
-
               const incoming =
                 normaliseNotification(
-                  raw
+                  payload.new as Record<
+                    string,
+                    unknown
+                  >
                 );
+
+              if (
+                !incoming.id
+              ) {
+                return;
+              }
 
               setNotifications(
                 (
@@ -1003,46 +1241,67 @@ export function useNotifications() {
                 }
               );
 
+              // ==============================================
+              // LIVE TOAST
+              // ==============================================
+
               if (
                 initialLoadCompleteRef.current
               ) {
+                const options = {
+                  description:
+                    incoming.message ||
+                    undefined,
+                };
+
                 if (
                   incoming.type ===
                   "error"
                 ) {
                   toast.error(
                     incoming.title,
-                    {
-                      description:
-                        incoming.message ||
-                        undefined,
-                    }
+                    options
                   );
-                } else if (
+
+                  return;
+                }
+
+                if (
                   incoming.type ===
                   "success"
                 ) {
                   toast.success(
                     incoming.title,
-                    {
-                      description:
-                        incoming.message ||
-                        undefined,
-                    }
+                    options
                   );
-                } else {
-                  toast.info(
-                    incoming.title,
-                    {
-                      description:
-                        incoming.message ||
-                        undefined,
-                    }
-                  );
+
+                  return;
                 }
+
+                if (
+                  incoming.type ===
+                  "warning"
+                ) {
+                  toast.warning(
+                    incoming.title,
+                    options
+                  );
+
+                  return;
+                }
+
+                toast.info(
+                  incoming.title,
+                  options
+                );
               }
             }
           )
+
+          // ==================================================
+          // UPDATE
+          // ==================================================
+
           .on(
             "postgres_changes",
             {
@@ -1069,6 +1328,12 @@ export function useNotifications() {
                   >
                 );
 
+              if (
+                !incoming.id
+              ) {
+                return;
+              }
+
               setNotifications(
                 (
                   current
@@ -1085,6 +1350,11 @@ export function useNotifications() {
               );
             }
           )
+
+          // ==================================================
+          // DELETE
+          // ==================================================
+
           .on(
             "postgres_changes",
             {
@@ -1108,7 +1378,8 @@ export function useNotifications() {
                         string,
                         unknown
                       >
-                  )?.id
+                  )
+                    ?.id
                 );
 
               if (
@@ -1131,6 +1402,7 @@ export function useNotifications() {
               );
             }
           )
+
           .subscribe(
             (
               realtimeStatus
@@ -1166,10 +1438,10 @@ export function useNotifications() {
   );
 
   // ==========================================================
-  // FALLBACK REFRESH
+  // FALLBACK POLLING
   //
-  // Realtime is useful, but the UI should not depend entirely
-  // on a WebSocket connection.
+  // Realtime remains primary.
+  // Polling protects against lost websocket connections.
   // ==========================================================
 
   useEffect(
@@ -1192,7 +1464,8 @@ export function useNotifications() {
               );
             }
           },
-          60_000
+
+          120_000
         );
 
       return () => {
@@ -1219,11 +1492,35 @@ export function useNotifications() {
         return;
       }
 
-      const handleFocus =
+      let lastRefresh =
+        0;
+
+      const triggerRefresh =
         () => {
+          const now =
+            Date.now();
+
+          // Avoid several Safari/browser events causing the
+          // exact same query in quick succession.
+          if (
+            now -
+              lastRefresh <
+            5000
+          ) {
+            return;
+          }
+
+          lastRefresh =
+            now;
+
           void refreshNotifications(
             true
           );
+        };
+
+      const handleFocus =
+        () => {
+          triggerRefresh();
         };
 
       const handleVisibility =
@@ -1232,9 +1529,7 @@ export function useNotifications() {
             document.visibilityState ===
             "visible"
           ) {
-            void refreshNotifications(
-              true
-            );
+            triggerRefresh();
           }
         };
 
@@ -1277,7 +1572,8 @@ export function useNotifications() {
           (
             notification
           ) =>
-            !notification.read
+            !notification
+              .is_read
         ).length,
       [
         notifications,
@@ -1288,12 +1584,46 @@ export function useNotifications() {
     unreadCount >
     0;
 
+  const unreadNotifications =
+    useMemo(
+      () =>
+        notifications.filter(
+          (
+            notification
+          ) =>
+            !notification
+              .is_read
+        ),
+      [
+        notifications,
+      ]
+    );
+
+  const readNotifications =
+    useMemo(
+      () =>
+        notifications.filter(
+          (
+            notification
+          ) =>
+            notification
+              .is_read
+        ),
+      [
+        notifications,
+      ]
+    );
+
   // ==========================================================
   // RETURN
   // ==========================================================
 
   return {
     notifications,
+
+    unreadNotifications,
+
+    readNotifications,
 
     unreadCount,
 

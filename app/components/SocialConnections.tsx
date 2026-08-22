@@ -102,6 +102,17 @@ type SocialAccountRow = {
     string | null;
 };
 
+type OAuthState = {
+  userId:
+    string;
+
+  platform:
+    PlatformId;
+
+  createdAt:
+    number;
+};
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -137,14 +148,16 @@ function getConnectionStorageKey(
   platform:
     PlatformId
 ) {
-  if (
-    platform ===
-    "meta"
-  ) {
-    return "oauth_pending_meta";
-  }
-
   return `oauth_pending_${platform}`;
+}
+
+// ============================================================
+
+function getStateStorageKey(
+  platform:
+    PlatformId
+) {
+  return `oauth_state_${platform}`;
 }
 
 // ============================================================
@@ -172,17 +185,10 @@ function platformLabel(
 
 // ============================================================
 
-function getConnectUrl(
+function getConnectPath(
   platform:
     PlatformId
 ) {
-  /*
-   * These should match your OAuth start routes.
-   *
-   * If one of your project routes uses a different pathname,
-   * only change it here.
-   */
-
   if (
     platform ===
     "meta"
@@ -201,6 +207,82 @@ function getConnectUrl(
 }
 
 // ============================================================
+
+function createOAuthState(
+  userId:
+    string,
+
+  platform:
+    PlatformId
+): {
+  raw:
+    string;
+
+  encoded:
+    string;
+} {
+  const payload:
+    OAuthState = {
+    userId,
+
+    platform,
+
+    createdAt:
+      Date.now(),
+  };
+
+  const raw =
+    JSON.stringify(
+      payload
+    );
+
+  return {
+    raw,
+
+    encoded:
+      encodeURIComponent(
+        raw
+      ),
+  };
+}
+
+// ============================================================
+
+function clearOAuthStorage(
+  platform:
+    PlatformId
+) {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  try {
+    window.sessionStorage.removeItem(
+      getConnectionStorageKey(
+        platform
+      )
+    );
+
+    window.sessionStorage.removeItem(
+      getStateStorageKey(
+        platform
+      )
+    );
+
+    window.sessionStorage.removeItem(
+      "oauth_started_at"
+    );
+  } catch {
+    /*
+     * Best effort only.
+     */
+  }
+}
+
+// ============================================================
 // COMPONENT
 // ============================================================
 
@@ -215,7 +297,9 @@ export default function SocialConnections() {
   ] =
     useState<
       string | null
-    >(null);
+    >(
+      null
+    );
 
   const [
     accounts,
@@ -249,7 +333,9 @@ export default function SocialConnections() {
   ] =
     useState<
       PlatformId | null
-    >(null);
+    >(
+      null
+    );
 
   const [
     error,
@@ -257,7 +343,9 @@ export default function SocialConnections() {
   ] =
     useState<
       string | null
-    >(null);
+    >(
+      null
+    );
 
   // ==========================================================
   // LOAD USER
@@ -270,52 +358,95 @@ export default function SocialConnections() {
 
       const loadUser =
         async () => {
-          const {
-            data: {
-              user,
-            },
+          try {
+            const {
+              data: {
+                user,
+              },
 
-            error:
-              authError,
-          } =
-            await supabase.auth.getUser();
+              error:
+                authError,
+            } =
+              await supabase.auth.getUser();
 
-          if (
-            cancelled
-          ) {
-            return;
-          }
+            if (
+              cancelled
+            ) {
+              return;
+            }
 
-          if (
-            authError
+            if (
+              authError
+            ) {
+              console.error(
+                "[TOTS SOCIAL CONNECTIONS] Auth user lookup failed:",
+                authError
+              );
+
+              setError(
+                "We couldn't identify the signed-in user."
+              );
+
+              setLoading(
+                false
+              );
+
+              return;
+            }
+
+            if (
+              !user?.id
+            ) {
+              console.warn(
+                "[TOTS SOCIAL CONNECTIONS] No authenticated user."
+              );
+
+              setUserId(
+                null
+              );
+
+              setError(
+                "You need to be signed in before connecting a social account."
+              );
+
+              setLoading(
+                false
+              );
+
+              return;
+            }
+
+            console.log(
+              "[TOTS SOCIAL CONNECTIONS] Authenticated user:",
+              user.id
+            );
+
+            setUserId(
+              user.id
+            );
+          } catch (
+            userError:
+              unknown
           ) {
             console.error(
-              "[TOTS SOCIAL CONNECTIONS] Auth user lookup failed:",
-              authError
+              "[TOTS SOCIAL CONNECTIONS] User loading failed:",
+              userError
             );
 
-            setError(
-              "We couldn't identify the signed-in user."
-            );
+            if (
+              !cancelled
+            ) {
+              setError(
+                userError instanceof
+                  Error
+                  ? userError.message
+                  : "The signed-in user could not be loaded."
+              );
 
-            setLoading(
-              false
-            );
-
-            return;
-          }
-
-          setUserId(
-            user?.id ||
-              null
-          );
-
-          if (
-            !user
-          ) {
-            setLoading(
-              false
-            );
+              setLoading(
+                false
+              );
+            }
           }
         };
 
@@ -364,6 +495,7 @@ export default function SocialConnections() {
         try {
           const {
             data,
+
             error:
               loadError,
           } =
@@ -431,7 +563,7 @@ export default function SocialConnections() {
           );
 
           console.log(
-            "[TOTS SOCIAL CONNECTIONS] Loaded:",
+            "[TOTS SOCIAL CONNECTIONS] Loaded accounts:",
             cleaned
           );
         } catch (
@@ -485,6 +617,56 @@ export default function SocialConnections() {
   );
 
   // ==========================================================
+  // CALLBACK RETURN REFRESH
+  // ==========================================================
+
+  useEffect(
+    () => {
+      if (
+        typeof window ===
+          "undefined" ||
+        !userId
+      ) {
+        return;
+      }
+
+      const params =
+        new URLSearchParams(
+          window.location.search
+        );
+
+      const oauth =
+        params.get(
+          "oauth"
+        );
+
+      const connected =
+        params.get(
+          "connected"
+        );
+
+      if (
+        oauth ===
+          "meta_success" ||
+        oauth ===
+          "linkedin_success" ||
+        connected ===
+          "meta" ||
+        connected ===
+          "linkedin"
+      ) {
+        void loadConnections(
+          true
+        );
+      }
+    },
+    [
+      userId,
+      loadConnections,
+    ]
+  );
+
+  // ==========================================================
   // REALTIME
   // ==========================================================
 
@@ -516,17 +698,72 @@ export default function SocialConnections() {
               filter:
                 `user_id=eq.${userId}`,
             },
-            () => {
+            (
+              payload
+            ) => {
+              console.log(
+                "[TOTS SOCIAL CONNECTIONS] Realtime update:",
+                payload
+              );
+
               void loadConnections(
                 true
               );
             }
           )
-          .subscribe();
+          .subscribe(
+            (
+              status
+            ) => {
+              console.log(
+                "[TOTS SOCIAL CONNECTIONS] Realtime status:",
+                status
+              );
+            }
+          );
 
       return () => {
         void supabase.removeChannel(
           channel
+        );
+      };
+    },
+    [
+      userId,
+      loadConnections,
+    ]
+  );
+
+  // ==========================================================
+  // REFRESH ON FOCUS
+  // ==========================================================
+
+  useEffect(
+    () => {
+      if (
+        typeof window ===
+          "undefined" ||
+        !userId
+      ) {
+        return;
+      }
+
+      const handleFocus =
+        () => {
+          void loadConnections(
+            true
+          );
+        };
+
+      window.addEventListener(
+        "focus",
+        handleFocus
+      );
+
+      return () => {
+        window.removeEventListener(
+          "focus",
+          handleFocus
         );
       };
     },
@@ -568,11 +805,6 @@ export default function SocialConnections() {
             platform ===
               "tiktok"
           ) {
-            /*
-             * Prefer the first row because the query is already
-             * ordered newest -> oldest.
-             */
-
             if (
               !map[
                 platform
@@ -649,7 +881,6 @@ export default function SocialConnections() {
       PlatformId
   ) {
     if (
-      !userId ||
       activePlatform
     ) {
       return;
@@ -659,11 +890,81 @@ export default function SocialConnections() {
       null
     );
 
+    // ========================================================
+    // VERIFY USER AGAIN IMMEDIATELY BEFORE OAUTH
+    // ========================================================
+
+    let authenticatedUserId =
+      userId;
+
+    try {
+      const {
+        data: {
+          user,
+        },
+
+        error:
+          authError,
+      } =
+        await supabase.auth.getUser();
+
+      if (
+        authError
+      ) {
+        throw authError;
+      }
+
+      authenticatedUserId =
+        user?.id ||
+        null;
+    } catch (
+      authError
+    ) {
+      console.error(
+        "[TOTS SOCIAL CONNECTIONS] OAuth auth verification failed:",
+        authError
+      );
+    }
+
+    if (
+      !authenticatedUserId
+    ) {
+      setError(
+        "Your login session could not be verified. Please refresh the page and sign in again."
+      );
+
+      return;
+    }
+
+    setUserId(
+      authenticatedUserId
+    );
+
     setActivePlatform(
       platform
     );
 
     try {
+      // ======================================================
+      // BUILD OAUTH STATE
+      // ======================================================
+
+      const {
+        raw:
+          rawState,
+
+        encoded:
+          encodedState,
+      } =
+        createOAuthState(
+          authenticatedUserId,
+          platform
+        );
+
+      // ======================================================
+      // SAVE PENDING STATE
+      // ======================================================
+
       if (
         typeof window !==
         "undefined"
@@ -677,28 +978,98 @@ export default function SocialConnections() {
           );
 
           window.sessionStorage.setItem(
+            getStateStorageKey(
+              platform
+            ),
+            rawState
+          );
+
+          window.sessionStorage.setItem(
             "oauth_started_at",
             String(
               Date.now()
             )
           );
-        } catch {
-          /*
-           * Storage is useful, but not required.
-           */
+        } catch (
+          storageError
+        ) {
+          console.warn(
+            "[TOTS SOCIAL CONNECTIONS] Could not save OAuth state:",
+            storageError
+          );
         }
       }
 
+      // ======================================================
+      // BUILD START URL
+      // ======================================================
+
+      const path =
+        getConnectPath(
+          platform
+        );
+
+      const connectUrl =
+        new URL(
+          path,
+          window.location.origin
+        );
+
       /*
-       * OAuth cannot complete in this function because the
-       * browser leaves this page and returns after Meta/
-       * LinkedIn/TikTok has authenticated.
+       * CRITICAL FIX:
+       *
+       * Your previous component redirected to:
+       *
+       * /api/oauth/meta
+       *
+       * with no authenticated user information.
+       *
+       * The OAuth start route now receives BOTH:
+       *
+       * userId
+       * state
+       * platform
+       *
+       * so either supported start-route implementation can
+       * resolve the authenticated user correctly.
        */
 
+      connectUrl.searchParams.set(
+        "userId",
+        authenticatedUserId
+      );
+
+      connectUrl.searchParams.set(
+        "platform",
+        platform
+      );
+
+      connectUrl.searchParams.set(
+        "state",
+        encodedState
+      );
+
+      console.log(
+        "[TOTS SOCIAL CONNECTIONS] Starting OAuth:",
+        {
+          platform,
+
+          userId:
+            authenticatedUserId,
+
+          path,
+
+          hasState:
+            true,
+        }
+      );
+
+      // ======================================================
+      // REDIRECT
+      // ======================================================
+
       window.location.assign(
-        getConnectUrl(
-          platform
-        )
+        connectUrl.toString()
       );
     } catch (
       connectError:
@@ -707,6 +1078,10 @@ export default function SocialConnections() {
       console.error(
         `[TOTS SOCIAL CONNECTIONS] ${platform} connect failed:`,
         connectError
+      );
+
+      clearOAuthStorage(
+        platform
       );
 
       setError(
@@ -772,12 +1147,10 @@ export default function SocialConnections() {
     );
 
     try {
-      /*
-       * Delete by ID rather than platform so this remains safe
-       * even if older duplicate social_accounts rows exist.
-       */
-
       const {
+        data:
+          deletedRows,
+
         error:
           deleteError,
       } =
@@ -793,6 +1166,9 @@ export default function SocialConnections() {
           .eq(
             "user_id",
             userId
+          )
+          .select(
+            "id"
           );
 
       if (
@@ -801,17 +1177,19 @@ export default function SocialConnections() {
         throw deleteError;
       }
 
-      try {
-        window.sessionStorage.removeItem(
-          getConnectionStorageKey(
-            platform
-          )
+      if (
+        !deletedRows ||
+        deletedRows.length ===
+          0
+      ) {
+        throw new Error(
+          "The social connection could not be removed. Check the social_accounts DELETE policy."
         );
-      } catch {
-        /*
-         * Best effort.
-         */
       }
+
+      clearOAuthStorage(
+        platform
+      );
 
       await loadConnections(
         true
@@ -1004,6 +1382,7 @@ export default function SocialConnections() {
                     </div>
 
                     <div className="min-w-0">
+
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-semibold text-stone-800">
                           {
@@ -1084,6 +1463,16 @@ export default function SocialConnections() {
                                 Meta login is connected, but no Facebook Page was returned.
                               </p>
                             )}
+
+                          {platform.id ===
+                            "meta" &&
+                            connected &&
+                            account.page_id &&
+                            !account.page_access_token && (
+                              <p className="text-[10px] leading-4 text-amber-600">
+                                Facebook Page found, but publishing access is unavailable. Reconnecting Meta may be required.
+                              </p>
+                            )}
                         </div>
                       )}
                     </div>
@@ -1096,39 +1485,37 @@ export default function SocialConnections() {
                   <div className="flex shrink-0 items-center gap-2 sm:pl-4">
 
                     {connected ? (
-                      <>
-                        <button
-                          type="button"
-                          disabled={
-                            buttonLoading
-                          }
-                          onClick={() =>
-                            void disconnect(
-                              platform.id
-                            )
-                          }
-                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.13em] text-stone-500 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {buttonLoading ? (
-                            <Loader2
-                              size={
-                                12
-                              }
-                              className="animate-spin"
-                            />
-                          ) : (
-                            <LogOut
-                              size={
-                                12
-                              }
-                            />
-                          )}
+                      <button
+                        type="button"
+                        disabled={
+                          buttonLoading
+                        }
+                        onClick={() =>
+                          void disconnect(
+                            platform.id
+                          )
+                        }
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.13em] text-stone-500 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {buttonLoading ? (
+                          <Loader2
+                            size={
+                              12
+                            }
+                            className="animate-spin"
+                          />
+                        ) : (
+                          <LogOut
+                            size={
+                              12
+                            }
+                          />
+                        )}
 
-                          {buttonLoading
-                            ? "Disconnecting"
-                            : "Disconnect"}
-                        </button>
-                      </>
+                        {buttonLoading
+                          ? "Disconnecting"
+                          : "Disconnect"}
+                      </button>
                     ) : (
                       <button
                         type="button"
@@ -1187,6 +1574,7 @@ export default function SocialConnections() {
         ) && (
           <div className="rounded-[1.5rem] border border-[#dce4d2] bg-[#f5f7f2] p-5">
             <div className="flex items-start gap-3">
+
               <CheckCircle2
                 size={
                   16

@@ -313,29 +313,24 @@ function DashboardLayoutInner({
       <main className="relative flex h-full min-w-0 flex-1 flex-col">
 
         {/* =========================================
-            GLOBAL TOP-RIGHT ACTIONS
+            GLOBAL NOTIFICATION ACTION
         ========================================= */}
 
         <div
           className="
             pointer-events-none
             fixed
-            right-4
+            right-[76px]
             top-4
-            z-[150]
-            flex
-            items-center
-            gap-2
-            sm:right-5
+            z-[160]
+
+            sm:right-[82px]
             sm:top-5
-            md:right-8
+
+            md:right-[88px]
             md:top-8
           "
         >
-          {/* =====================================
-              NOTIFICATION BELL
-          ===================================== */}
-
           <div className="pointer-events-auto">
             <NotificationBell />
           </div>
@@ -353,6 +348,7 @@ function DashboardLayoutInner({
             overflow-y-auto
             p-4
             pb-32
+
             md:p-12
             md:pb-12
           "
@@ -374,16 +370,22 @@ function DashboardLayoutInner({
             left-0
             right-0
             z-[90]
+
             flex
             h-14
             items-center
             justify-between
+
             border-t
             border-stone-100
+
             bg-white/90
+
             px-3
             pb-safe
+
             backdrop-blur-2xl
+
             md:hidden
           "
         >
@@ -427,7 +429,9 @@ function DashboardLayoutInner({
               flex-col
               items-center
               gap-1
+
               text-stone-400
+
               transition-colors
               active:scale-90
             "
@@ -468,7 +472,9 @@ function DashboardLayoutInner({
                 fixed
                 inset-0
                 z-[200]
+
                 overflow-y-auto
+
                 bg-[#fcfaf7]
               "
             >
@@ -480,6 +486,7 @@ function DashboardLayoutInner({
 
                 <div className="mb-6 flex items-center justify-between">
                   <div className="flex items-center gap-3">
+
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src="/icon.png"
@@ -501,12 +508,18 @@ function DashboardLayoutInner({
                     }
                     className="
                       rounded-[1.25rem]
+
                       border
                       border-stone-200
+
                       bg-white
+
                       p-3
+
                       shadow-sm
+
                       transition-transform
+
                       active:scale-95
                     "
                   >
@@ -583,9 +596,13 @@ function DashboardLayoutInner({
                                     h-20
                                     flex-col
                                     justify-between
+
                                     rounded-[1.4rem]
+
                                     border
+
                                     p-3
+
                                     transition-all
                                     duration-300
 
@@ -690,8 +707,10 @@ function MobileNavItem({
         flex-col
         items-center
         gap-1
+
         transition-all
         duration-300
+
         active:scale-90
       "
       style={{

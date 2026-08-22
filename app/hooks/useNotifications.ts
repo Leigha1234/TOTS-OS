@@ -96,8 +96,7 @@ export type TotsNotification = {
 // ============================================================
 
 function cleanString(
-  value:
-    unknown
+  value: unknown
 ) {
   if (
     typeof value !==
@@ -112,8 +111,7 @@ function cleanString(
 // ============================================================
 
 function normaliseBoolean(
-  value:
-    unknown
+  value: unknown
 ) {
   if (
     typeof value ===
@@ -123,12 +121,9 @@ function normaliseBoolean(
   }
 
   if (
-    value ===
-      1 ||
-    value ===
-      "1" ||
-    value ===
-      "true"
+    value === 1 ||
+    value === "1" ||
+    value === "true"
   ) {
     return true;
   }
@@ -138,30 +133,13 @@ function normaliseBoolean(
 
 // ============================================================
 // NORMALISE NOTIFICATION
-//
-// IMPORTANT:
-//
-// New system uses:
-//
-// - is_read
-// - read_at
-// - link
-//
-// Older rows may still contain:
-//
-// - read
-// - href
-// - content
-//
-// We support both so legacy notifications cannot crash the UI.
 // ============================================================
 
 function normaliseNotification(
-  value:
-    Record<
-      string,
-      unknown
-    >
+  value: Record<
+    string,
+    unknown
+  >
 ): TotsNotification {
   const isRead =
     value.is_read !==
@@ -769,10 +747,6 @@ export function useNotifications() {
           new Date()
             .toISOString();
 
-        // ====================================================
-        // OPTIMISTIC UPDATE
-        // ====================================================
-
         setNotifications(
           (
             current
@@ -790,6 +764,9 @@ export function useNotifications() {
                         true,
 
                       read_at:
+                        now,
+
+                      updated_at:
                         now,
                     }
                   : notification
@@ -887,10 +864,6 @@ export function useNotifications() {
           new Date()
             .toISOString();
 
-        // ====================================================
-        // OPTIMISTIC UPDATE
-        // ====================================================
-
         setNotifications(
           (
             current
@@ -907,6 +880,9 @@ export function useNotifications() {
                 read_at:
                   notification
                     .read_at ||
+                  now,
+
+                updated_at:
                   now,
               })
             )
@@ -1150,6 +1126,17 @@ export function useNotifications() {
 
   // ==========================================================
   // REALTIME
+  //
+  // IMPORTANT:
+  //
+  // A completely fresh channel name is generated each time.
+  //
+  // ALL postgres_changes listeners are attached BEFORE
+  // subscribe() is called.
+  //
+  // This prevents:
+  //
+  // "cannot add postgres_changes callbacks after subscribe()"
   // ==========================================================
 
   useEffect(
@@ -1160,268 +1147,419 @@ export function useNotifications() {
         return;
       }
 
+      let cancelled =
+        false;
+
       // ======================================================
-      // REMOVE OLD CHANNEL
+      // REMOVE PREVIOUS CHANNEL
       // ======================================================
+
+      const previousChannel =
+        channelRef.current;
 
       if (
-        channelRef.current
+        previousChannel
       ) {
-        void supabase
-          .removeChannel(
-            channelRef.current
-          );
-
         channelRef.current =
           null;
+
+        try {
+          void supabase
+            .removeChannel(
+              previousChannel
+            );
+        } catch (
+          removeError
+        ) {
+          console.warn(
+            "[TOTS NOTIFICATIONS] Previous realtime channel cleanup failed:",
+            removeError
+          );
+        }
       }
 
+      // ======================================================
+      // UNIQUE CHANNEL
+      // ======================================================
+
+      const uniqueId =
+        typeof crypto !==
+          "undefined" &&
+        typeof crypto.randomUUID ===
+          "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()
+              .toString(36)
+              .slice(2)}`;
+
+      const channelName =
+        `notifications-${userId}-${uniqueId}`;
+
       const channel =
-        supabase
-          .channel(
-            `notifications-${userId}`
-          )
+        supabase.channel(
+          channelName
+        );
 
-          // ==================================================
-          // INSERT
-          // ==================================================
+      // ======================================================
+      // INSERT
+      // ======================================================
 
-          .on(
-            "postgres_changes",
-            {
-              event:
-                "INSERT",
+      channel.on(
+        "postgres_changes",
+        {
+          event:
+            "INSERT",
 
-              schema:
-                "public",
+          schema:
+            "public",
 
-              table:
-                "notifications",
+          table:
+            "notifications",
 
-              filter:
-                `user_id=eq.${userId}`,
-            },
-            (
-              payload
-            ) => {
-              const incoming =
-                normaliseNotification(
-                  payload.new as Record<
-                    string,
-                    unknown
-                  >
-                );
+          filter:
+            `user_id=eq.${userId}`,
+        },
+        (
+          payload
+        ) => {
+          if (
+            cancelled
+          ) {
+            return;
+          }
 
-              if (
-                !incoming.id
-              ) {
-                return;
-              }
-
-              setNotifications(
-                (
-                  current
-                ) => {
-                  if (
-                    current.some(
-                      (
-                        notification
-                      ) =>
-                        notification.id ===
-                        incoming.id
-                    )
-                  ) {
-                    return current;
-                  }
-
-                  return [
-                    incoming,
-                    ...current,
-                  ];
-                }
+          try {
+            const incoming =
+              normaliseNotification(
+                payload.new as Record<
+                  string,
+                  unknown
+                >
               );
 
-              // ==============================================
-              // LIVE TOAST
-              // ==============================================
-
-              if (
-                initialLoadCompleteRef.current
-              ) {
-                const options = {
-                  description:
-                    incoming.message ||
-                    undefined,
-                };
-
-                if (
-                  incoming.type ===
-                  "error"
-                ) {
-                  toast.error(
-                    incoming.title,
-                    options
-                  );
-
-                  return;
-                }
-
-                if (
-                  incoming.type ===
-                  "success"
-                ) {
-                  toast.success(
-                    incoming.title,
-                    options
-                  );
-
-                  return;
-                }
-
-                if (
-                  incoming.type ===
-                  "warning"
-                ) {
-                  toast.warning(
-                    incoming.title,
-                    options
-                  );
-
-                  return;
-                }
-
-                toast.info(
-                  incoming.title,
-                  options
-                );
-              }
+            if (
+              !incoming.id
+            ) {
+              return;
             }
-          )
 
-          // ==================================================
-          // UPDATE
-          // ==================================================
-
-          .on(
-            "postgres_changes",
-            {
-              event:
-                "UPDATE",
-
-              schema:
-                "public",
-
-              table:
-                "notifications",
-
-              filter:
-                `user_id=eq.${userId}`,
-            },
-            (
-              payload
-            ) => {
-              const incoming =
-                normaliseNotification(
-                  payload.new as Record<
-                    string,
-                    unknown
-                  >
-                );
-
-              if (
-                !incoming.id
-              ) {
-                return;
-              }
-
-              setNotifications(
-                (
-                  current
-                ) =>
-                  current.map(
+            setNotifications(
+              (
+                current
+              ) => {
+                const exists =
+                  current.some(
                     (
                       notification
                     ) =>
                       notification.id ===
-                        incoming.id
-                        ? incoming
-                        : notification
-                  )
-              );
-            }
-          )
+                      incoming.id
+                  );
 
-          // ==================================================
-          // DELETE
-          // ==================================================
+                if (
+                  exists
+                ) {
+                  return current;
+                }
 
-          .on(
-            "postgres_changes",
-            {
-              event:
-                "DELETE",
-
-              schema:
-                "public",
-
-              table:
-                "notifications",
-            },
-            (
-              payload
-            ) => {
-              const deletedId =
-                cleanString(
-                  (
-                    payload.old as
-                      Record<
-                        string,
-                        unknown
-                      >
-                  )
-                    ?.id
+                return [
+                  incoming,
+                  ...current,
+                ].slice(
+                  0,
+                  100
                 );
+              }
+            );
+
+            // ================================================
+            // LIVE TOAST
+            // ================================================
+
+            if (
+              initialLoadCompleteRef.current
+            ) {
+              const options = {
+                description:
+                  incoming.message ||
+                  undefined,
+              };
+
+              const notificationType =
+                String(
+                  incoming.type ||
+                  ""
+                )
+                  .toLowerCase()
+                  .trim();
 
               if (
-                !deletedId
+                notificationType ===
+                "error"
               ) {
+                toast.error(
+                  incoming.title,
+                  options
+                );
+
                 return;
               }
 
-              setNotifications(
-                (
-                  current
-                ) =>
-                  current.filter(
+              if (
+                notificationType ===
+                "success"
+              ) {
+                toast.success(
+                  incoming.title,
+                  options
+                );
+
+                return;
+              }
+
+              if (
+                notificationType ===
+                "warning"
+              ) {
+                toast.warning(
+                  incoming.title,
+                  options
+                );
+
+                return;
+              }
+
+              toast.info(
+                incoming.title,
+                options
+              );
+            }
+          } catch (
+            insertError
+          ) {
+            console.error(
+              "[TOTS NOTIFICATIONS] Realtime INSERT handler failed:",
+              insertError
+            );
+          }
+        }
+      );
+
+      // ======================================================
+      // UPDATE
+      // ======================================================
+
+      channel.on(
+        "postgres_changes",
+        {
+          event:
+            "UPDATE",
+
+          schema:
+            "public",
+
+          table:
+            "notifications",
+
+          filter:
+            `user_id=eq.${userId}`,
+        },
+        (
+          payload
+        ) => {
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          try {
+            const incoming =
+              normaliseNotification(
+                payload.new as Record<
+                  string,
+                  unknown
+                >
+              );
+
+            if (
+              !incoming.id
+            ) {
+              return;
+            }
+
+            setNotifications(
+              (
+                current
+              ) => {
+                const exists =
+                  current.some(
                     (
                       notification
                     ) =>
-                      notification.id !==
-                      deletedId
-                  )
-              );
-            }
-          )
+                      notification.id ===
+                      incoming.id
+                  );
 
-          .subscribe(
-            (
-              realtimeStatus
-            ) => {
-              console.log(
-                "[TOTS NOTIFICATIONS] Realtime:",
-                realtimeStatus
+                if (
+                  !exists
+                ) {
+                  return [
+                    incoming,
+                    ...current,
+                  ].slice(
+                    0,
+                    100
+                  );
+                }
+
+                return current.map(
+                  (
+                    notification
+                  ) =>
+                    notification.id ===
+                    incoming.id
+                      ? incoming
+                      : notification
+                );
+              }
+            );
+          } catch (
+            updateError
+          ) {
+            console.error(
+              "[TOTS NOTIFICATIONS] Realtime UPDATE handler failed:",
+              updateError
+            );
+          }
+        }
+      );
+
+      // ======================================================
+      // DELETE
+      // ======================================================
+
+      channel.on(
+        "postgres_changes",
+        {
+          event:
+            "DELETE",
+
+          schema:
+            "public",
+
+          table:
+            "notifications",
+        },
+        (
+          payload
+        ) => {
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          try {
+            const deletedId =
+              cleanString(
+                (
+                  payload.old as Record<
+                    string,
+                    unknown
+                  >
+                )?.id
               );
+
+            if (
+              !deletedId
+            ) {
+              return;
             }
+
+            setNotifications(
+              (
+                current
+              ) =>
+                current.filter(
+                  (
+                    notification
+                  ) =>
+                    notification.id !==
+                    deletedId
+                )
+            );
+          } catch (
+            deleteRealtimeError
+          ) {
+            console.error(
+              "[TOTS NOTIFICATIONS] Realtime DELETE handler failed:",
+              deleteRealtimeError
+            );
+          }
+        }
+      );
+
+      // ======================================================
+      // SUBSCRIBE
+      //
+      // THIS MUST STAY AFTER EVERY .on(...) ABOVE
+      // ======================================================
+
+      channel.subscribe(
+        (
+          realtimeStatus
+        ) => {
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          console.log(
+            "[TOTS NOTIFICATIONS] Realtime:",
+            realtimeStatus
           );
+
+          if (
+            realtimeStatus ===
+            "CHANNEL_ERROR"
+          ) {
+            console.warn(
+              "[TOTS NOTIFICATIONS] Realtime channel error. Polling fallback remains active."
+            );
+          }
+
+          if (
+            realtimeStatus ===
+            "TIMED_OUT"
+          ) {
+            console.warn(
+              "[TOTS NOTIFICATIONS] Realtime timed out. Polling fallback remains active."
+            );
+          }
+
+          if (
+            realtimeStatus ===
+            "CLOSED"
+          ) {
+            console.log(
+              "[TOTS NOTIFICATIONS] Realtime channel closed."
+            );
+          }
+        }
+      );
 
       channelRef.current =
         channel;
 
+      // ======================================================
+      // CLEANUP
+      // ======================================================
+
       return () => {
-        void supabase
-          .removeChannel(
-            channel
-          );
+        cancelled =
+          true;
 
         if (
           channelRef.current ===
@@ -1429,6 +1567,20 @@ export function useNotifications() {
         ) {
           channelRef.current =
             null;
+        }
+
+        try {
+          void supabase
+            .removeChannel(
+              channel
+            );
+        } catch (
+          removeError
+        ) {
+          console.warn(
+            "[TOTS NOTIFICATIONS] Realtime cleanup failed:",
+            removeError
+          );
         }
       };
     },
@@ -1500,8 +1652,6 @@ export function useNotifications() {
           const now =
             Date.now();
 
-          // Avoid several Safari/browser events causing the
-          // exact same query in quick succession.
           if (
             now -
               lastRefresh <

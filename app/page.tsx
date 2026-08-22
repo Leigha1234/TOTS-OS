@@ -17,7 +17,6 @@ import {
   ContactRound,
   FolderKanban,
   Gauge,
-  HeartHandshake,
   ImageIcon,
   Layers3,
   LayoutDashboard,
@@ -102,13 +101,34 @@ type DemoKey =
 
 const LOGO_SRC = "/icon.png";
 
+const SIGNUP_URL =
+  "https://tots-os.co.uk/login";
+
 const NAV_ITEMS: NavItem[] = [
-  { label: "Product", href: "#product" },
-  { label: "Modules", href: "#features" },
-  { label: "Demo", href: "#demo" },
-  { label: "Clarity", href: "#clarity" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "About", href: "#about" },
+  {
+    label: "Product",
+    href: "#product",
+  },
+  {
+    label: "Modules",
+    href: "#features",
+  },
+  {
+    label: "Demo",
+    href: "#demo",
+  },
+  {
+    label: "Clarity",
+    href: "#clarity",
+  },
+  {
+    label: "Pricing",
+    href: "#pricing",
+  },
+  {
+    label: "About",
+    href: "#about",
+  },
 ];
 
 const TRUSTED_BY = [
@@ -127,37 +147,43 @@ const FEATURES: Feature[] = [
     icon: ContactRound,
     id: "01",
     title: "Know your clients",
-    text: "Every contact, note and project connected — so history never disappears into messages, spreadsheets or your head.",
+    text:
+      "Every contact, note and project connected — so client history never disappears into messages, spreadsheets or your head.",
   },
   {
     icon: FolderKanban,
     id: "02",
     title: "Keep work moving",
-    text: "Turn clients into projects, projects into tasks and tasks into finished work without losing the bigger picture.",
+    text:
+      "Turn clients into projects, projects into tasks and tasks into finished work without losing the bigger picture.",
   },
   {
     icon: CalendarDays,
     id: "03",
     title: "See what's coming",
-    text: "Events, bookings and deadlines together in one place, so fewer things catch you by surprise.",
+    text:
+      "Events, bookings and deadlines together in one place, so fewer things catch you by surprise.",
   },
   {
     icon: CircleDollarSign,
     id: "04",
     title: "Understand your finances",
-    text: "Keep quotes, invoices and your financial position visible alongside the work generating the money.",
+    text:
+      "Keep quotes, invoices and your financial position visible alongside the work generating the money.",
   },
   {
     icon: MessageSquareText,
     id: "05",
     title: "Plan your content",
-    text: "Create, organise and publish content without running your marketing from another completely separate system.",
+    text:
+      "Create, organise and publish content without running your marketing from another completely separate system.",
   },
   {
     icon: NotebookPen,
     id: "06",
     title: "Capture everything",
-    text: "Keep notes, ideas and brain dumps somewhere they can actually become useful actions.",
+    text:
+      "Keep notes, ideas and brain dumps somewhere they can actually become useful actions.",
   },
 ];
 
@@ -209,7 +235,7 @@ const PRICING: PricingPlan[] = [
       "Enhanced operational tools",
       "Priority support",
       "Advanced automation",
-      "5% donated to Mikeysline",
+      "Built for scaling",
     ],
   },
 ];
@@ -217,31 +243,33 @@ const PRICING: PricingPlan[] = [
 const FAQS: FAQ[] = [
   {
     q: "What exactly is TOTS-OS?",
-    a: "TOTS-OS is one connected workspace for running your business. It brings clients, projects, tasks, finances, planning, notes, content and business visibility into one system instead of scattering them across different apps.",
+    a:
+      "TOTS-OS is one connected workspace for running your business. It brings clients, projects, tasks, finances, planning, notes, content and business visibility into one system instead of scattering them across different apps.",
   },
   {
     q: "Who is TOTS-OS for?",
-    a: "It is built for founders, freelancers, small businesses and growing teams who are tired of running their business from spreadsheets, messages, notes apps and too many browser tabs.",
+    a:
+      "It is built for founders, freelancers, small businesses and growing teams who are tired of running their business from spreadsheets, messages, notes apps and too many browser tabs.",
   },
   {
     q: "What is Clarity?",
-    a: "Clarity is the AI PA built into TOTS-OS. It uses the context inside your workspace to help surface overdue work, priorities, upcoming deadlines and areas that may need your attention.",
+    a:
+      "Clarity is the AI PA built into TOTS-OS. It uses the context inside your workspace to help surface overdue work, priorities, upcoming deadlines and areas that may need your attention.",
   },
   {
     q: "Is TOTS-OS web based?",
-    a: "Yes. TOTS-OS runs in your browser, so you can access your workspace wherever you have access to your account.",
+    a:
+      "Yes. TOTS-OS runs in your browser, so you can access your workspace wherever you have access to your account.",
   },
   {
     q: "Can TOTS-OS help with social media?",
-    a: "Yes. TOTS-OS includes social planning and publishing functionality so content can sit alongside the rest of the business instead of becoming another disconnected workflow.",
+    a:
+      "Yes. TOTS-OS includes social planning and publishing functionality so content can sit alongside the rest of the business instead of becoming another disconnected workflow.",
   },
   {
     q: "Can I try it before subscribing?",
-    a: "Yes. You can create your workspace and start with a 14-day free trial with no commitment.",
-  },
-  {
-    q: "How does the Mikeysline donation work?",
-    a: "We proudly support Mikeysline. 5% from every Elite plan purchase is donated to Mikeysline, helping support the work they do around mental health and suicide prevention.",
+    a:
+      "Yes. Create your account and start with a 14-day free trial with no commitment.",
   },
 ];
 
@@ -354,7 +382,7 @@ const DEMO_CAMPAIGNS = [
 ];
 
 // ============================================================
-// SMALL GLOBAL COMPONENTS
+// SMALL COMPONENTS
 // ============================================================
 
 function Logo({
@@ -412,7 +440,8 @@ function Reveal({
   className = "",
   style,
 }: RevealProps) {
-  const reduceMotion = useReducedMotion();
+  const reduceMotion =
+    useReducedMotion();
 
   return (
     <motion.div
@@ -437,7 +466,12 @@ function Reveal({
       transition={{
         duration: 0.8,
         delay,
-        ease: [0.19, 1, 0.22, 1],
+        ease: [
+          0.19,
+          1,
+          0.22,
+          1,
+        ],
       }}
       className={className}
       style={style}
@@ -519,8 +553,9 @@ function DemoHome() {
           </h3>
 
           <p className="tots-demo-dim">
-            Here&apos;s everything happening
-            across your business.
+            Here&apos;s everything
+            happening across your
+            business.
           </p>
         </div>
 
@@ -572,18 +607,26 @@ function DemoHome() {
               "Send the Halstead proposal",
               "Review Q3 campaign performance",
               "Approve this week's content",
-            ].map((item, index) => (
-              <div
-                className="tots-demo-row"
-                key={item}
-              >
-                <span className="tots-demo-num">
-                  {index + 1}
-                </span>
+            ].map(
+              (
+                item,
+                index
+              ) => (
+                <div
+                  className="tots-demo-row"
+                  key={
+                    item
+                  }
+                >
+                  <span className="tots-demo-num">
+                    {index +
+                      1}
+                  </span>
 
-                {item}
-              </div>
-            ))}
+                  {item}
+                </div>
+              )
+            )}
           </div>
         </DemoPanel>
 
@@ -592,16 +635,17 @@ function DemoHome() {
           title="What needs attention"
         >
           <p className="tots-demo-dim demo-copy">
-            One invoice is overdue, and your
-            website project has three tasks due
-            this week.
+            One invoice is overdue, and
+            your website project has three
+            tasks due this week.
           </p>
 
           <div className="tots-demo-ai-response">
             <Sparkles size={14} />
 
             <span>
-              Ask Clarity what to prioritise.
+              Ask Clarity what to
+              prioritise.
             </span>
           </div>
         </DemoPanel>
@@ -625,28 +669,46 @@ function DemoContacts() {
       </div>
 
       <div className="tots-demo-list demo-top">
-        {DEMO_CONTACTS.map((contact) => (
-          <div
-            key={contact.name}
-            className="tots-demo-contact-row"
-          >
-            <span className="tots-demo-avatar">
-              {contact.name.charAt(0)}
-            </span>
+        {DEMO_CONTACTS.map(
+          (
+            contact
+          ) => (
+            <div
+              key={
+                contact.name
+              }
+              className="tots-demo-contact-row"
+            >
+              <span className="tots-demo-avatar">
+                {contact.name.charAt(
+                  0
+                )}
+              </span>
 
-            <div className="demo-flex">
-              <p className="tots-demo-contact-name">
-                {contact.name}
-              </p>
+              <div className="demo-flex">
+                <p className="tots-demo-contact-name">
+                  {
+                    contact.name
+                  }
+                </p>
 
-              <p className="tots-demo-dim">
-                {contact.org} · {contact.tag}
-              </p>
+                <p className="tots-demo-dim">
+                  {
+                    contact.org
+                  }{" "}
+                  ·{" "}
+                  {
+                    contact.tag
+                  }
+                </p>
+              </div>
+
+              <ChevronRight
+                size={15}
+              />
             </div>
-
-            <ChevronRight size={15} />
-          </div>
-        ))}
+          )
+        )}
       </div>
     </>
   );
@@ -667,45 +729,63 @@ function DemoCampaigns() {
       </div>
 
       <div className="tots-demo-grid-2">
-        {DEMO_CAMPAIGNS.map((campaign) => (
-          <div
-            key={campaign.name}
-            className="tots-demo-panel"
-          >
-            <div className="tots-demo-between">
-              <div>
-                <p className="tots-demo-contact-name">
-                  {campaign.name}
-                </p>
+        {DEMO_CAMPAIGNS.map(
+          (
+            campaign
+          ) => (
+            <div
+              key={
+                campaign.name
+              }
+              className="tots-demo-panel"
+            >
+              <div className="tots-demo-between">
+                <div>
+                  <p className="tots-demo-contact-name">
+                    {
+                      campaign.name
+                    }
+                  </p>
 
-                <p className="tots-demo-dim">
-                  {campaign.list}
-                </p>
+                  <p className="tots-demo-dim">
+                    {
+                      campaign.list
+                    }
+                  </p>
+                </div>
+
+                <span className="tots-demo-pill">
+                  {
+                    campaign.status
+                  }
+                </span>
               </div>
 
-              <span className="tots-demo-pill">
-                {campaign.status}
-              </span>
+              <div className="tots-demo-stats tots-demo-stats-3">
+                <DemoStat
+                  label="Sent"
+                  value={String(
+                    campaign.sent
+                  )}
+                />
+
+                <DemoStat
+                  label="Opens"
+                  value={String(
+                    campaign.opens
+                  )}
+                />
+
+                <DemoStat
+                  label="Clicks"
+                  value={String(
+                    campaign.clicks
+                  )}
+                />
+              </div>
             </div>
-
-            <div className="tots-demo-stats tots-demo-stats-3">
-              <DemoStat
-                label="Sent"
-                value={String(campaign.sent)}
-              />
-
-              <DemoStat
-                label="Opens"
-                value={String(campaign.opens)}
-              />
-
-              <DemoStat
-                label="Clicks"
-                value={String(campaign.clicks)}
-              />
-            </div>
-          </div>
-        ))}
+          )
+        )}
       </div>
     </>
   );
@@ -754,26 +834,36 @@ function DemoSocial() {
               "TikTok",
               "Facebook",
               "LinkedIn",
-            ].map((platform, index) => (
-              <div
-                key={platform}
-                className="tots-demo-row"
-              >
-                <span className="demo-flex">
-                  {platform}
-                </span>
-
-                <span
-                  className={`tots-demo-toggle ${
-                    index < 2
-                      ? "is-on"
-                      : ""
-                  }`}
+            ].map(
+              (
+                platform,
+                index
+              ) => (
+                <div
+                  key={
+                    platform
+                  }
+                  className="tots-demo-row"
                 >
-                  <span />
-                </span>
-              </div>
-            ))}
+                  <span className="demo-flex">
+                    {
+                      platform
+                    }
+                  </span>
+
+                  <span
+                    className={`tots-demo-toggle ${
+                      index <
+                      2
+                        ? "is-on"
+                        : ""
+                    }`}
+                  >
+                    <span />
+                  </span>
+                </div>
+              )
+            )}
           </div>
         </DemoPanel>
       </div>
@@ -802,18 +892,24 @@ function DemoFinance() {
           "Expenses",
           "Tax & VAT",
           "Payroll",
-        ].map((tab, index) => (
-          <span
-            key={tab}
-            className={`tots-demo-tab ${
-              index === 0
-                ? "is-active"
-                : ""
-            }`}
-          >
-            {tab}
-          </span>
-        ))}
+        ].map(
+          (
+            tab,
+            index
+          ) => (
+            <span
+              key={tab}
+              className={`tots-demo-tab ${
+                index ===
+                0
+                  ? "is-active"
+                  : ""
+              }`}
+            >
+              {tab}
+            </span>
+          )
+        )}
       </div>
 
       <div className="tots-demo-panel tots-demo-panel-dark demo-top">
@@ -876,7 +972,8 @@ function DemoNotes() {
             ],
           },
           {
-            name: "In progress",
+            name:
+              "In progress",
             tasks: [
               "Website refresh",
             ],
@@ -887,31 +984,47 @@ function DemoNotes() {
               "Client onboarding",
             ],
           },
-        ].map((column) => (
-          <div
-            key={column.name}
-            className="tots-demo-kanban-col"
-          >
-            <p className="tots-demo-label">
-              {column.name}
-            </p>
+        ].map(
+          (
+            column
+          ) => (
+            <div
+              key={
+                column.name
+              }
+              className="tots-demo-kanban-col"
+            >
+              <p className="tots-demo-label">
+                {
+                  column.name
+                }
+              </p>
 
-            {column.tasks.map((task) => (
-              <div
-                key={task}
-                className="tots-demo-card"
-              >
-                <p className="tots-demo-contact-name">
-                  {task}
-                </p>
+              {column.tasks.map(
+                (
+                  task
+                ) => (
+                  <div
+                    key={
+                      task
+                    }
+                    className="tots-demo-card"
+                  >
+                    <p className="tots-demo-contact-name">
+                      {
+                        task
+                      }
+                    </p>
 
-                <p className="tots-demo-dim demo-small-top">
-                  TOTS-OS
-                </p>
-              </div>
-            ))}
-          </div>
-        ))}
+                    <p className="tots-demo-dim demo-small-top">
+                      TOTS-OS
+                    </p>
+                  </div>
+                )
+              )}
+            </div>
+          )
+        )}
       </div>
     </>
   );
@@ -964,20 +1077,32 @@ function DemoWorkspace() {
           "Website redesign",
           "Autumn campaign",
           "Brand refresh",
-        ].map((project) => (
-          <div
-            className="tots-demo-row"
-            key={project}
-          >
-            <FolderKanban size={14} />
+        ].map(
+          (
+            project
+          ) => (
+            <div
+              className="tots-demo-row"
+              key={
+                project
+              }
+            >
+              <FolderKanban
+                size={14}
+              />
 
-            <span className="demo-flex">
-              {project}
-            </span>
+              <span className="demo-flex">
+                {
+                  project
+                }
+              </span>
 
-            <ChevronRight size={14} />
-          </div>
-        ))}
+              <ChevronRight
+                size={14}
+              />
+            </div>
+          )
+        )}
       </div>
     </>
   );
@@ -1093,8 +1218,13 @@ const DEMO_VIEWS: Record<
 // ============================================================
 
 function ProductDemo() {
-  const [active, setActive] =
-    useState<DemoKey>("home");
+  const [
+    active,
+    setActive,
+  ] =
+    useState<DemoKey>(
+      "home"
+    );
 
   const ActiveView =
     DEMO_VIEWS[active];
@@ -1107,7 +1237,8 @@ function ProductDemo() {
       >
         <div className="tots-demo-heading">
           <span className="tots-status-dot" />
-          INTERACTIVE PRODUCT WALKTHROUGH
+
+          CLICK AROUND TOTS-OS
         </div>
 
         <div className="tots-window-glow" />
@@ -1121,7 +1252,10 @@ function ProductDemo() {
             </div>
 
             <div className="tots-window-url">
-              <LockKeyhole size={9} />
+              <LockKeyhole
+                size={9}
+              />
+
               tots-os.co.uk
             </div>
 
@@ -1136,7 +1270,9 @@ function ProductDemo() {
               <div className="tots-window-side-brand">
                 <Logo
                   size={28}
-                  showWordmark={false}
+                  showWordmark={
+                    false
+                  }
                 />
 
                 <span className="tots-window-side-label">
@@ -1155,12 +1291,18 @@ function ProductDemo() {
 
                     const showGroup =
                       item.group &&
-                      DEMO_NAV[index - 1]
-                        ?.group !==
+                      DEMO_NAV[
+                        index -
+                          1
+                      ]?.group !==
                         item.group;
 
                     return (
-                      <div key={item.key}>
+                      <div
+                        key={
+                          item.key
+                        }
+                      >
                         {showGroup && (
                           <p className="tots-window-navgroup">
                             {
@@ -1205,21 +1347,27 @@ function ProductDemo() {
             <div className="tots-window-main">
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={active}
+                  key={
+                    active
+                  }
                   initial={{
-                    opacity: 0,
+                    opacity:
+                      0,
                     y: 8,
                   }}
                   animate={{
-                    opacity: 1,
+                    opacity:
+                      1,
                     y: 0,
                   }}
                   exit={{
-                    opacity: 0,
+                    opacity:
+                      0,
                     y: -5,
                   }}
                   transition={{
-                    duration: 0.25,
+                    duration:
+                      0.25,
                   }}
                 >
                   <ActiveView />
@@ -1230,54 +1378,71 @@ function ProductDemo() {
         </div>
 
         <p className="tots-demo-instruction">
-          Click through to explore the
-          workspace.
+          Explore the workspace yourself.
         </p>
 
         <div className="tots-window-nav-hint">
-          {DEMO_NAV.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() =>
-                setActive(item.key)
-              }
-              className={`tots-window-hint-chip ${
-                active === item.key
-                  ? "is-active"
-                  : ""
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
+          {DEMO_NAV.map(
+            (
+              item
+            ) => (
+              <button
+                key={
+                  item.key
+                }
+                type="button"
+                onClick={() =>
+                  setActive(
+                    item.key
+                  )
+                }
+                className={`tots-window-hint-chip ${
+                  active ===
+                  item.key
+                    ? "is-active"
+                    : ""
+                }`}
+              >
+                {
+                  item.label
+                }
+              </button>
+            )
+          )}
         </div>
 
         <div className="tots-demo-conversion">
           <div>
             <span className="tots-demo-conversion-kicker">
-              Ready to make it yours?
+              Like what you see?
             </span>
 
             <h3>
-              Put your actual business
-              inside it.
+              Now put your actual
+              business inside it.
             </h3>
 
             <p>
-              Create your free workspace,
-              add your clients and start
-              bringing everything together
-              today.
+              Create your account,
+              add your clients and
+              start bringing your
+              business into one
+              connected workspace.
             </p>
           </div>
 
           <a
-            href="https://tots-os.co.uk/login"
+            href={
+              SIGNUP_URL
+            }
             className="tots-btn-solid tots-btn-large"
           >
-            Create my free workspace
-            <ArrowRight size={15} />
+            Create my free
+            workspace
+
+            <ArrowRight
+              size={15}
+            />
           </a>
         </div>
       </div>
@@ -1296,12 +1461,18 @@ export default function TotsOSLanding() {
   const [
     mobileMenuOpen,
     setMobileMenuOpen,
-  ] = useState(false);
+  ] =
+    useState(
+      false
+    );
 
   const [
     openFaq,
     setOpenFaq,
-  ] = useState<number | null>(0);
+  ] =
+    useState<
+      number | null
+    >(0);
 
   return (
     <div className="tots-root">
@@ -1335,11 +1506,19 @@ export default function TotsOSLanding() {
           --line: rgba(243,244,238,0.10);
           --line-light: rgba(243,244,238,0.06);
 
-          --serif: 'Fraunces', Georgia, serif;
+          --serif:
+            'Fraunces',
+            Georgia,
+            serif;
 
-          min-height: 100vh;
-          position: relative;
-          overflow-x: hidden;
+          min-height:
+            100vh;
+
+          position:
+            relative;
+
+          overflow-x:
+            hidden;
 
           background:
             radial-gradient(
@@ -1350,7 +1529,8 @@ export default function TotsOSLanding() {
             ),
             #08080a;
 
-          color: var(--ink);
+          color:
+            var(--ink);
 
           font-family:
             'Inter',
@@ -1359,13 +1539,15 @@ export default function TotsOSLanding() {
         }
 
         .tots-root * {
-          box-sizing: border-box;
+          box-sizing:
+            border-box;
         }
 
         .tots-root h1,
         .tots-root h2,
         .tots-root h3 {
-          margin: 0;
+          margin:
+            0;
 
           font-family:
             'Space Grotesk',
@@ -1376,7 +1558,8 @@ export default function TotsOSLanding() {
         }
 
         .tots-root p {
-          margin: 0;
+          margin:
+            0;
         }
 
         .tots-root ::selection {
@@ -1431,7 +1614,7 @@ export default function TotsOSLanding() {
         }
 
         /* =====================================================
-           GENERIC
+           GLOBAL
         ===================================================== */
 
         .tots-wrap {
@@ -1475,14 +1658,24 @@ export default function TotsOSLanding() {
             1px solid var(--line);
 
           background:
-            rgba(255,255,255,0.008);
+            rgba(
+              255,
+              255,
+              255,
+              0.008
+            );
         }
 
-        @media (min-width: 1024px) {
+        @media (
+          min-width:
+          1024px
+        ) {
+
           .tots-section {
             padding:
               130px 24px;
           }
+
         }
 
         .tots-eyebrow {
@@ -1499,13 +1692,19 @@ export default function TotsOSLanding() {
             8px 14px;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             999px;
 
           background:
-            rgba(255,255,255,0.02);
+            rgba(
+              255,
+              255,
+              255,
+              0.02
+            );
 
           color:
             var(--ink-dim);
@@ -1539,7 +1738,12 @@ export default function TotsOSLanding() {
 
           box-shadow:
             0 0 12px
-            rgba(215,224,168,0.75);
+            rgba(
+              215,
+              224,
+              168,
+              0.75
+            );
         }
 
         .tots-section-heading {
@@ -1565,7 +1769,7 @@ export default function TotsOSLanding() {
 
         .tots-section-copy {
           max-width:
-            580px;
+            600px;
 
           margin-top:
             24px;
@@ -1706,13 +1910,16 @@ export default function TotsOSLanding() {
             600;
 
           letter-spacing:
-            0.13em;
+            0.11em;
 
           text-transform:
             uppercase;
 
           transition:
-            0.2s ease;
+            transform 0.2s ease,
+            filter 0.2s ease,
+            border-color 0.2s ease,
+            color 0.2s ease;
         }
 
         .tots-btn-solid {
@@ -1731,7 +1938,12 @@ export default function TotsOSLanding() {
 
           box-shadow:
             0 8px 30px
-            rgba(215,224,168,0.08);
+            rgba(
+              215,
+              224,
+              168,
+              0.08
+            );
         }
 
         .tots-btn-solid:hover {
@@ -1747,10 +1959,16 @@ export default function TotsOSLanding() {
             var(--ink-dim);
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           background:
-            rgba(255,255,255,0.015);
+            rgba(
+              255,
+              255,
+              255,
+              0.015
+            );
         }
 
         .tots-btn-ghost:hover {
@@ -1758,7 +1976,12 @@ export default function TotsOSLanding() {
             var(--ink);
 
           border-color:
-            rgba(243,244,238,0.25);
+            rgba(
+              243,
+              244,
+              238,
+              0.25
+            );
 
           transform:
             translateY(-2px);
@@ -1810,7 +2033,8 @@ export default function TotsOSLanding() {
             0 auto;
 
           padding:
-            0 10px 0 16px;
+            0 10px
+            0 16px;
 
           display:
             flex;
@@ -1822,15 +2046,24 @@ export default function TotsOSLanding() {
             space-between;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             18px;
 
           background:
-            rgba(8,8,10,0.78);
+            rgba(
+              8,
+              8,
+              10,
+              0.82
+            );
 
           backdrop-filter:
+            blur(22px);
+
+          -webkit-backdrop-filter:
             blur(22px);
         }
 
@@ -1888,7 +2121,12 @@ export default function TotsOSLanding() {
 
         .tots-nav-link:hover {
           background:
-            rgba(255,255,255,0.04);
+            rgba(
+              255,
+              255,
+              255,
+              0.04
+            );
 
           color:
             var(--ink);
@@ -1919,7 +2157,8 @@ export default function TotsOSLanding() {
             center;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             999px;
@@ -1934,7 +2173,11 @@ export default function TotsOSLanding() {
             pointer;
         }
 
-        @media (min-width: 650px) {
+        @media (
+          min-width:
+          650px
+        ) {
+
           .tots-nav-actions {
             display:
               flex;
@@ -1944,17 +2187,23 @@ export default function TotsOSLanding() {
             display:
               none;
           }
+
         }
 
-        @media (min-width: 1050px) {
+        @media (
+          min-width:
+          1050px
+        ) {
+
           .tots-nav-links {
             display:
               flex;
           }
+
         }
 
         /* =====================================================
-           MOBILE NAV
+           MOBILE MENU
         ===================================================== */
 
         .tots-mobile-menu {
@@ -1971,7 +2220,12 @@ export default function TotsOSLanding() {
             16px;
 
           background:
-            rgba(4,4,5,0.94);
+            rgba(
+              4,
+              4,
+              5,
+              0.94
+            );
 
           backdrop-filter:
             blur(30px);
@@ -1979,13 +2233,17 @@ export default function TotsOSLanding() {
 
         .tots-mobile-panel {
           max-height:
-            calc(100vh - 32px);
+            calc(
+              100vh -
+              32px
+            );
 
           overflow-y:
             auto;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             24px;
@@ -2057,7 +2315,12 @@ export default function TotsOSLanding() {
 
         .tots-mobile-link:hover {
           background:
-            rgba(255,255,255,0.04);
+            rgba(
+              255,
+              255,
+              255,
+              0.04
+            );
 
           color:
             var(--ink);
@@ -2089,7 +2352,8 @@ export default function TotsOSLanding() {
             5;
 
           padding:
-            145px 20px 72px;
+            150px 20px
+            70px;
         }
 
         .tots-hero-inner {
@@ -2114,17 +2378,27 @@ export default function TotsOSLanding() {
             8px;
 
           padding:
-            9px 13px;
+            9px 14px;
 
           border:
             1px solid
-            rgba(215,224,168,0.18);
+            rgba(
+              215,
+              224,
+              168,
+              0.18
+            );
 
           border-radius:
             999px;
 
           background:
-            rgba(215,224,168,0.04);
+            rgba(
+              215,
+              224,
+              168,
+              0.04
+            );
 
           color:
             var(--accent);
@@ -2148,13 +2422,13 @@ export default function TotsOSLanding() {
             1180px;
 
           margin:
-            26px auto 0;
+            28px auto 0;
 
           font-size:
             clamp(
               3rem,
-              7vw,
-              7rem
+              7.2vw,
+              7.2rem
             );
 
           font-weight:
@@ -2169,7 +2443,7 @@ export default function TotsOSLanding() {
             block;
 
           margin-top:
-            6px;
+            7px;
 
           font-family:
             var(--serif);
@@ -2184,7 +2458,8 @@ export default function TotsOSLanding() {
             linear-gradient(
               90deg,
               #fff,
-              var(--accent) 65%,
+              var(--accent)
+              65%,
               var(--accent-gold)
             );
 
@@ -2203,22 +2478,24 @@ export default function TotsOSLanding() {
             100%;
 
           max-width:
-            780px;
+            790px;
 
           margin:
             30px auto 0;
 
-          text-align:
-            center;
-
           color:
-            rgba(243,244,238,0.67);
+            rgba(
+              243,
+              244,
+              238,
+              0.65
+            );
 
           font-size:
             clamp(
               1rem,
               1.4vw,
-              1.15rem
+              1.16rem
             );
 
           line-height:
@@ -2253,11 +2530,16 @@ export default function TotsOSLanding() {
             12px;
         }
 
-        @media (min-width: 600px) {
+        @media (
+          min-width:
+          600px
+        ) {
+
           .tots-hero-ctas {
             flex-direction:
               row;
           }
+
         }
 
         .tots-trial-note {
@@ -2280,7 +2562,12 @@ export default function TotsOSLanding() {
             8px 18px;
 
           color:
-            rgba(243,244,238,0.52);
+            rgba(
+              243,
+              244,
+              238,
+              0.52
+            );
 
           font-family:
             'JetBrains Mono',
@@ -2308,7 +2595,7 @@ export default function TotsOSLanding() {
         }
 
         /* =====================================================
-           TRUST BAR
+           TRUST
         ===================================================== */
 
         .tots-trusted {
@@ -2319,7 +2606,8 @@ export default function TotsOSLanding() {
             5;
 
           padding:
-            28px 20px 38px;
+            25px 20px
+            65px;
         }
 
         .tots-trusted-inner {
@@ -2330,16 +2618,22 @@ export default function TotsOSLanding() {
             0 auto;
 
           padding:
-            26px 22px;
+            28px 24px;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             22px;
 
           background:
-            rgba(255,255,255,0.015);
+            rgba(
+              255,
+              255,
+              255,
+              0.015
+            );
         }
 
         .tots-trusted-label {
@@ -2389,16 +2683,31 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(243,244,238,0.075);
+            rgba(
+              243,
+              244,
+              238,
+              0.075
+            );
 
           border-radius:
             999px;
 
           background:
-            rgba(255,255,255,0.018);
+            rgba(
+              255,
+              255,
+              255,
+              0.018
+            );
 
           color:
-            rgba(243,244,238,0.70);
+            rgba(
+              243,
+              244,
+              238,
+              0.72
+            );
 
           font-size:
             11px;
@@ -2408,8 +2717,512 @@ export default function TotsOSLanding() {
         }
 
         /* =====================================================
+           PAIN
+        ===================================================== */
+
+        .tots-pain {
+          position:
+            relative;
+
+          z-index:
+            5;
+
+          padding:
+            90px 20px;
+        }
+
+        .tots-pain-card {
+          max-width:
+            1100px;
+
+          margin:
+            0 auto;
+
+          padding:
+            46px 28px;
+
+          border:
+            1px solid
+            var(--line);
+
+          border-radius:
+            28px;
+
+          background:
+            linear-gradient(
+              135deg,
+              rgba(
+                255,
+                255,
+                255,
+                0.025
+              ),
+              rgba(
+                215,
+                224,
+                168,
+                0.025
+              )
+            );
+
+          text-align:
+            center;
+        }
+
+        .tots-pain-card h2 {
+          max-width:
+            850px;
+
+          margin:
+            24px auto 0;
+
+          font-size:
+            clamp(
+              2rem,
+              5vw,
+              4.5rem
+            );
+
+          line-height:
+            1;
+
+          font-weight:
+            500;
+        }
+
+        .tots-pain-card p {
+          max-width:
+            670px;
+
+          margin:
+            20px auto 0;
+
+          color:
+            var(--ink-dim);
+
+          font-size:
+            13.5px;
+
+          line-height:
+            1.75;
+        }
+
+        .tots-pain-chips {
+          margin-top:
+            32px;
+
+          display:
+            flex;
+
+          flex-wrap:
+            wrap;
+
+          justify-content:
+            center;
+
+          gap:
+            8px;
+        }
+
+        .tots-pain-chip {
+          padding:
+            9px 13px;
+
+          border:
+            1px solid
+            var(--line);
+
+          border-radius:
+            999px;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              0.02
+            );
+
+          color:
+            rgba(
+              243,
+              244,
+              238,
+              0.62
+            );
+
+          font-family:
+            'JetBrains Mono',
+            monospace;
+
+          font-size:
+            8px;
+
+          letter-spacing:
+            0.08em;
+
+          text-transform:
+            uppercase;
+        }
+
+        .tots-pain-bottom {
+          margin-top:
+            30px;
+
+          color:
+            var(--accent);
+
+          font-family:
+            var(--serif);
+
+          font-size:
+            clamp(
+              1.4rem,
+              3vw,
+              2.1rem
+            );
+
+          font-style:
+            italic;
+        }
+
+        /* =====================================================
+           BEFORE / AFTER
+        ===================================================== */
+
+        .tots-transform-grid {
+          margin-top:
+            55px;
+
+          display:
+            grid;
+
+          gap:
+            14px;
+        }
+
+        @media (
+          min-width:
+          850px
+        ) {
+
+          .tots-transform-grid {
+            grid-template-columns:
+              1fr 1fr;
+          }
+
+        }
+
+        .tots-transform-card {
+          padding:
+            30px;
+
+          border:
+            1px solid
+            var(--line);
+
+          border-radius:
+            24px;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              0.015
+            );
+        }
+
+        .tots-transform-card.good {
+          border-color:
+            rgba(
+              215,
+              224,
+              168,
+              0.25
+            );
+
+          background:
+            rgba(
+              215,
+              224,
+              168,
+              0.035
+            );
+        }
+
+        .tots-transform-label {
+          color:
+            var(--ink-faint);
+
+          font-family:
+            'JetBrains Mono',
+            monospace;
+
+          font-size:
+            8px;
+
+          letter-spacing:
+            0.14em;
+
+          text-transform:
+            uppercase;
+        }
+
+        .tots-transform-card.good
+        .tots-transform-label {
+          color:
+            var(--accent);
+        }
+
+        .tots-transform-card h3 {
+          margin-top:
+            14px;
+
+          font-size:
+            clamp(
+              1.6rem,
+              3vw,
+              2.4rem
+            );
+
+          font-weight:
+            500;
+        }
+
+        .tots-transform-list {
+          margin-top:
+            25px;
+
+          display:
+            grid;
+
+          gap:
+            9px;
+        }
+
+        .tots-transform-row {
+          min-height:
+            46px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            11px;
+
+          padding:
+            10px 13px;
+
+          border:
+            1px solid
+            var(--line-light);
+
+          border-radius:
+            12px;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              0.018
+            );
+
+          color:
+            var(--ink-dim);
+
+          font-size:
+            12px;
+        }
+
+        .tots-transform-row svg {
+          flex-shrink:
+            0;
+
+          color:
+            var(--accent);
+        }
+
+        /* =====================================================
+           WHY
+        ===================================================== */
+
+        .tots-why-grid {
+          margin-top:
+            55px;
+
+          display:
+            grid;
+
+          gap:
+            12px;
+        }
+
+        @media (
+          min-width:
+          900px
+        ) {
+
+          .tots-why-grid {
+            grid-template-columns:
+              repeat(
+                3,
+                1fr
+              );
+          }
+
+        }
+
+        .tots-why-card {
+          min-height:
+            330px;
+
+          padding:
+            28px;
+
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
+          border:
+            1px solid
+            var(--line);
+
+          border-radius:
+            24px;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              0.018
+            );
+
+          transition:
+            0.25s ease;
+        }
+
+        .tots-why-card:hover {
+          transform:
+            translateY(-3px);
+
+          border-color:
+            rgba(
+              215,
+              224,
+              168,
+              0.25
+            );
+        }
+
+        .tots-why-icon {
+          width:
+            44px;
+
+          height:
+            44px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border:
+            1px solid
+            var(--line);
+
+          border-radius:
+            13px;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              0.03
+            );
+
+          color:
+            var(--accent);
+        }
+
+        .tots-why-card h3 {
+          margin-top:
+            auto;
+
+          padding-top:
+            80px;
+
+          font-size:
+            23px;
+
+          font-weight:
+            500;
+        }
+
+        .tots-why-card p {
+          max-width:
+            350px;
+
+          margin-top:
+            12px;
+
+          color:
+            var(--ink-dim);
+
+          font-size:
+            13px;
+
+          line-height:
+            1.75;
+        }
+
+        /* =====================================================
            DEMO
         ===================================================== */
+
+        .tots-demo-section {
+          position:
+            relative;
+
+          z-index:
+            5;
+
+          padding:
+            90px 20px
+            120px;
+        }
+
+        .tots-demo-section-head {
+          max-width:
+            900px;
+
+          margin:
+            0 auto;
+
+          text-align:
+            center;
+        }
+
+        .tots-demo-section-head
+        .tots-section-copy {
+          margin-left:
+            auto;
+
+          margin-right:
+            auto;
+        }
 
         .tots-window-wrap {
           position:
@@ -2419,7 +3232,7 @@ export default function TotsOSLanding() {
             1180px;
 
           margin:
-            76px auto 0;
+            55px auto 0;
 
           text-align:
             left;
@@ -2465,8 +3278,14 @@ export default function TotsOSLanding() {
           background:
             radial-gradient(
               ellipse,
-              rgba(215,224,168,0.09),
-              transparent 68%
+              rgba(
+                215,
+                224,
+                168,
+                0.09
+              ),
+              transparent
+              68%
             );
 
           filter:
@@ -2484,7 +3303,8 @@ export default function TotsOSLanding() {
             hidden;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             22px;
@@ -2494,7 +3314,12 @@ export default function TotsOSLanding() {
 
           box-shadow:
             0 50px 150px
-            rgba(0,0,0,0.55);
+            rgba(
+              0,
+              0,
+              0,
+              0.55
+            );
         }
 
         .tots-window-bar {
@@ -2518,7 +3343,12 @@ export default function TotsOSLanding() {
 
           border-bottom:
             1px solid
-            rgba(20,20,18,0.08);
+            rgba(
+              20,
+              20,
+              18,
+              0.08
+            );
         }
 
         .tots-window-dots {
@@ -2540,7 +3370,12 @@ export default function TotsOSLanding() {
             999px;
 
           background:
-            rgba(20,20,18,0.18);
+            rgba(
+              20,
+              20,
+              18,
+              0.18
+            );
         }
 
         .tots-window-url {
@@ -2563,10 +3398,20 @@ export default function TotsOSLanding() {
             999px;
 
           background:
-            rgba(255,255,255,0.65);
+            rgba(
+              255,
+              255,
+              255,
+              0.65
+            );
 
           color:
-            rgba(20,20,18,0.48);
+            rgba(
+              20,
+              20,
+              18,
+              0.48
+            );
 
           font-family:
             'JetBrains Mono',
@@ -2621,7 +3466,12 @@ export default function TotsOSLanding() {
 
           box-shadow:
             0 0 10px
-            rgba(215,224,168,0.75);
+            rgba(
+              215,
+              224,
+              168,
+              0.75
+            );
         }
 
         .tots-window-body {
@@ -2635,11 +3485,16 @@ export default function TotsOSLanding() {
             520px;
         }
 
-        @media (min-width: 760px) {
+        @media (
+          min-width:
+          760px
+        ) {
+
           .tots-window-body {
             grid-template-columns:
               190px 1fr;
           }
+
         }
 
         .tots-window-side {
@@ -2648,7 +3503,12 @@ export default function TotsOSLanding() {
 
           border-right:
             1px solid
-            rgba(20,20,18,0.07);
+            rgba(
+              20,
+              20,
+              18,
+              0.07
+            );
 
           background:
             #fbfaf6;
@@ -2673,7 +3533,12 @@ export default function TotsOSLanding() {
             none;
 
           color:
-            rgba(20,20,18,0.35);
+            rgba(
+              20,
+              20,
+              18,
+              0.35
+            );
 
           font-family:
             'JetBrains Mono',
@@ -2689,11 +3554,16 @@ export default function TotsOSLanding() {
             uppercase;
         }
 
-        @media (min-width: 760px) {
+        @media (
+          min-width:
+          760px
+        ) {
+
           .tots-window-side-label {
             display:
               inline;
           }
+
         }
 
         .tots-window-nav {
@@ -2715,10 +3585,16 @@ export default function TotsOSLanding() {
             none;
 
           margin:
-            14px 0 5px 9px;
+            14px 0
+            5px 9px;
 
           color:
-            rgba(20,20,18,0.28);
+            rgba(
+              20,
+              20,
+              18,
+              0.28
+            );
 
           font-family:
             'JetBrains Mono',
@@ -2734,11 +3610,16 @@ export default function TotsOSLanding() {
             uppercase;
         }
 
-        @media (min-width: 760px) {
+        @media (
+          min-width:
+          760px
+        ) {
+
           .tots-window-navgroup {
             display:
               block;
           }
+
         }
 
         .tots-window-navitem {
@@ -2767,7 +3648,12 @@ export default function TotsOSLanding() {
             transparent;
 
           color:
-            rgba(20,20,18,0.55);
+            rgba(
+              20,
+              20,
+              18,
+              0.55
+            );
 
           cursor:
             pointer;
@@ -2778,7 +3664,12 @@ export default function TotsOSLanding() {
 
         .tots-window-navitem:hover {
           background:
-            rgba(20,20,18,0.04);
+            rgba(
+              20,
+              20,
+              18,
+              0.04
+            );
         }
 
         .tots-window-navitem.is-active {
@@ -2797,11 +3688,16 @@ export default function TotsOSLanding() {
             10px;
         }
 
-        @media (min-width: 760px) {
+        @media (
+          min-width:
+          760px
+        ) {
+
           .tots-window-navitem span {
             display:
               inline;
           }
+
         }
 
         .tots-window-main {
@@ -2815,11 +3711,16 @@ export default function TotsOSLanding() {
             #16160f;
         }
 
-        @media (min-width: 650px) {
+        @media (
+          min-width:
+          650px
+        ) {
+
           .tots-window-main {
             padding:
               28px;
           }
+
         }
 
         .tots-demo-instruction {
@@ -2868,7 +3769,8 @@ export default function TotsOSLanding() {
             7px 10px;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             999px;
@@ -2898,7 +3800,12 @@ export default function TotsOSLanding() {
 
         .tots-window-hint-chip.is-active {
           border-color:
-            rgba(215,224,168,0.4);
+            rgba(
+              215,
+              224,
+              168,
+              0.4
+            );
 
           color:
             var(--accent);
@@ -2912,7 +3819,7 @@ export default function TotsOSLanding() {
             34px;
 
           padding:
-            26px;
+            28px;
 
           display:
             flex;
@@ -2928,7 +3835,12 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(215,224,168,0.22);
+            rgba(
+              215,
+              224,
+              168,
+              0.22
+            );
 
           border-radius:
             22px;
@@ -2936,8 +3848,18 @@ export default function TotsOSLanding() {
           background:
             linear-gradient(
               135deg,
-              rgba(215,224,168,0.07),
-              rgba(255,255,255,0.018)
+              rgba(
+                215,
+                224,
+                168,
+                0.07
+              ),
+              rgba(
+                255,
+                255,
+                255,
+                0.018
+              )
             );
         }
 
@@ -2991,7 +3913,11 @@ export default function TotsOSLanding() {
             1.7;
         }
 
-        @media (min-width: 760px) {
+        @media (
+          min-width:
+          760px
+        ) {
+
           .tots-demo-conversion {
             flex-direction:
               row;
@@ -3008,6 +3934,7 @@ export default function TotsOSLanding() {
             flex-shrink:
               0;
           }
+
         }
 
         /* =====================================================
@@ -3059,7 +3986,12 @@ export default function TotsOSLanding() {
 
         .tots-demo-label {
           color:
-            rgba(20,20,18,0.38);
+            rgba(
+              20,
+              20,
+              18,
+              0.38
+            );
 
           font-family:
             'JetBrains Mono',
@@ -3077,7 +4009,12 @@ export default function TotsOSLanding() {
 
         .tots-demo-dim {
           color:
-            rgba(20,20,18,0.50);
+            rgba(
+              20,
+              20,
+              18,
+              0.50
+            );
 
           font-size:
             11px;
@@ -3126,31 +4063,56 @@ export default function TotsOSLanding() {
         .tots-demo-stats-6,
         .tots-demo-stats-4 {
           grid-template-columns:
-            repeat(2, 1fr);
+            repeat(
+              2,
+              1fr
+            );
         }
 
         .tots-demo-stats-3 {
           grid-template-columns:
-            repeat(3, 1fr);
+            repeat(
+              3,
+              1fr
+            );
         }
 
-        @media (min-width: 650px) {
+        @media (
+          min-width:
+          650px
+        ) {
+
           .tots-demo-stats-6 {
             grid-template-columns:
-              repeat(3, 1fr);
+              repeat(
+                3,
+                1fr
+              );
           }
 
           .tots-demo-stats-4 {
             grid-template-columns:
-              repeat(4, 1fr);
+              repeat(
+                4,
+                1fr
+              );
           }
+
         }
 
-        @media (min-width: 1000px) {
+        @media (
+          min-width:
+          1000px
+        ) {
+
           .tots-demo-stats-6 {
             grid-template-columns:
-              repeat(6, 1fr);
+              repeat(
+                6,
+                1fr
+              );
           }
+
         }
 
         .tots-demo-stat {
@@ -3162,13 +4124,23 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(20,20,18,0.08);
+            rgba(
+              20,
+              20,
+              18,
+              0.08
+            );
 
           border-radius:
             11px;
 
           background:
-            rgba(255,255,255,0.55);
+            rgba(
+              255,
+              255,
+              255,
+              0.55
+            );
         }
 
         .tots-demo-value {
@@ -3208,11 +4180,16 @@ export default function TotsOSLanding() {
             10px;
         }
 
-        @media (min-width: 900px) {
+        @media (
+          min-width:
+          900px
+        ) {
+
           .tots-demo-grid-2 {
             grid-template-columns:
               1fr 1fr;
           }
+
         }
 
         .tots-demo-panel {
@@ -3221,13 +4198,23 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(20,20,18,0.08);
+            rgba(
+              20,
+              20,
+              18,
+              0.08
+            );
 
           border-radius:
             15px;
 
           background:
-            rgba(255,255,255,0.55);
+            rgba(
+              255,
+              255,
+              255,
+              0.55
+            );
         }
 
         .tots-demo-panel-title {
@@ -3254,7 +4241,12 @@ export default function TotsOSLanding() {
 
         .label-light {
           color:
-            rgba(243,244,238,0.4);
+            rgba(
+              243,
+              244,
+              238,
+              0.4
+            );
         }
 
         .serif-light {
@@ -3265,16 +4257,31 @@ export default function TotsOSLanding() {
         .tots-demo-panel-dark
         .tots-demo-stat {
           border-color:
-            rgba(255,255,255,0.07);
+            rgba(
+              255,
+              255,
+              255,
+              0.07
+            );
 
           background:
-            rgba(255,255,255,0.03);
+            rgba(
+              255,
+              255,
+              255,
+              0.03
+            );
         }
 
         .tots-demo-panel-dark
         .tots-demo-label {
           color:
-            rgba(243,244,238,0.35);
+            rgba(
+              243,
+              244,
+              238,
+              0.35
+            );
         }
 
         .tots-demo-panel-dark
@@ -3314,10 +4321,20 @@ export default function TotsOSLanding() {
             10px;
 
           background:
-            rgba(20,20,18,0.035);
+            rgba(
+              20,
+              20,
+              18,
+              0.035
+            );
 
           color:
-            rgba(20,20,18,0.72);
+            rgba(
+              20,
+              20,
+              18,
+              0.72
+            );
 
           font-size:
             11px;
@@ -3373,13 +4390,23 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(124,138,82,0.18);
+            rgba(
+              124,
+              138,
+              82,
+              0.18
+            );
 
           border-radius:
             11px;
 
           background:
-            rgba(215,224,168,0.18);
+            rgba(
+              215,
+              224,
+              168,
+              0.18
+            );
 
           color:
             #5f693e;
@@ -3432,10 +4459,20 @@ export default function TotsOSLanding() {
             999px;
 
           background:
-            rgba(20,20,18,0.06);
+            rgba(
+              20,
+              20,
+              18,
+              0.06
+            );
 
           color:
-            rgba(20,20,18,0.5);
+            rgba(
+              20,
+              20,
+              18,
+              0.5
+            );
 
           font-family:
             'JetBrains Mono',
@@ -3460,13 +4497,23 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(20,20,18,0.1);
+            rgba(
+              20,
+              20,
+              18,
+              0.1
+            );
 
           border-radius:
             999px;
 
           color:
-            rgba(20,20,18,0.4);
+            rgba(
+              20,
+              20,
+              18,
+              0.4
+            );
 
           font-size:
             10px;
@@ -3487,13 +4534,23 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(20,20,18,0.07);
+            rgba(
+              20,
+              20,
+              18,
+              0.07
+            );
 
           border-radius:
             11px;
 
           background:
-            rgba(255,255,255,0.5);
+            rgba(
+              255,
+              255,
+              255,
+              0.5
+            );
         }
 
         .tots-demo-avatar {
@@ -3554,13 +4611,23 @@ export default function TotsOSLanding() {
 
           border:
             1px dashed
-            rgba(20,20,18,0.17);
+            rgba(
+              20,
+              20,
+              18,
+              0.17
+            );
 
           border-radius:
             15px;
 
           color:
-            rgba(20,20,18,0.4);
+            rgba(
+              20,
+              20,
+              18,
+              0.4
+            );
         }
 
         .demo-upload-title {
@@ -3588,7 +4655,12 @@ export default function TotsOSLanding() {
             999px;
 
           background:
-            rgba(20,20,18,0.12);
+            rgba(
+              20,
+              20,
+              18,
+              0.12
+            );
         }
 
         .tots-demo-toggle span {
@@ -3635,7 +4707,12 @@ export default function TotsOSLanding() {
             999px;
 
           color:
-            rgba(20,20,18,0.42);
+            rgba(
+              20,
+              20,
+              18,
+              0.42
+            );
 
           font-family:
             'JetBrains Mono',
@@ -3667,11 +4744,19 @@ export default function TotsOSLanding() {
             9px;
         }
 
-        @media (min-width: 760px) {
+        @media (
+          min-width:
+          760px
+        ) {
+
           .tots-demo-kanban {
             grid-template-columns:
-              repeat(3,1fr);
+              repeat(
+                3,
+                1fr
+              );
           }
+
         }
 
         .tots-demo-kanban-col {
@@ -3680,13 +4765,23 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(20,20,18,0.08);
+            rgba(
+              20,
+              20,
+              18,
+              0.08
+            );
 
           border-radius:
             12px;
 
           background:
-            rgba(20,20,18,0.02);
+            rgba(
+              20,
+              20,
+              18,
+              0.02
+            );
         }
 
         .tots-demo-card {
@@ -3698,7 +4793,12 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(20,20,18,0.07);
+            rgba(
+              20,
+              20,
+              18,
+              0.07
+            );
 
           border-radius:
             10px;
@@ -3719,13 +4819,23 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(20,20,18,0.1);
+            rgba(
+              20,
+              20,
+              18,
+              0.1
+            );
 
           border-radius:
             9px;
 
           color:
-            rgba(20,20,18,0.55);
+            rgba(
+              20,
+              20,
+              18,
+              0.55
+            );
 
           font-size:
             10px;
@@ -3755,326 +4865,6 @@ export default function TotsOSLanding() {
         }
 
         /* =====================================================
-           MARQUEE
-        ===================================================== */
-
-        .tots-marquee {
-          position:
-            relative;
-
-          z-index:
-            5;
-
-          overflow:
-            hidden;
-
-          padding:
-            24px 0;
-
-          border-top:
-            1px solid var(--line);
-
-          border-bottom:
-            1px solid var(--line);
-        }
-
-        .tots-marquee-track {
-          width:
-            max-content;
-
-          display:
-            flex;
-        }
-
-        .tots-marquee-item {
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            10px;
-
-          padding:
-            0 34px;
-
-          white-space:
-            nowrap;
-
-          color:
-            var(--ink-faint);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
-          font-size:
-            9px;
-
-          letter-spacing:
-            0.17em;
-        }
-
-        /* =====================================================
-           PAIN STRIP
-        ===================================================== */
-
-        .tots-pain {
-          position:
-            relative;
-
-          z-index:
-            5;
-
-          padding:
-            85px 20px;
-        }
-
-        .tots-pain-card {
-          max-width:
-            1100px;
-
-          margin:
-            0 auto;
-
-          padding:
-            38px 24px;
-
-          border:
-            1px solid var(--line);
-
-          border-radius:
-            28px;
-
-          background:
-            linear-gradient(
-              135deg,
-              rgba(255,255,255,0.025),
-              rgba(215,224,168,0.025)
-            );
-
-          text-align:
-            center;
-        }
-
-        .tots-pain-card h2 {
-          font-size:
-            clamp(
-              2rem,
-              5vw,
-              4.5rem
-            );
-
-          line-height:
-            1;
-
-          font-weight:
-            500;
-        }
-
-        .tots-pain-card p {
-          max-width:
-            650px;
-
-          margin:
-            18px auto 0;
-
-          color:
-            var(--ink-dim);
-
-          font-size:
-            13.5px;
-
-          line-height:
-            1.7;
-        }
-
-        .tots-pain-chips {
-          margin-top:
-            30px;
-
-          display:
-            flex;
-
-          flex-wrap:
-            wrap;
-
-          justify-content:
-            center;
-
-          gap:
-            8px;
-        }
-
-        .tots-pain-chip {
-          padding:
-            9px 13px;
-
-          border:
-            1px solid var(--line);
-
-          border-radius:
-            999px;
-
-          background:
-            rgba(255,255,255,0.02);
-
-          color:
-            rgba(243,244,238,0.62);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
-          font-size:
-            8px;
-
-          letter-spacing:
-            0.08em;
-
-          text-transform:
-            uppercase;
-        }
-
-        .tots-pain-bottom {
-          margin-top:
-            27px;
-
-          color:
-            var(--accent);
-
-          font-family:
-            var(--serif);
-
-          font-size:
-            clamp(
-              1.4rem,
-              3vw,
-              2rem
-            );
-
-          font-style:
-            italic;
-        }
-
-        /* =====================================================
-           WHY
-        ===================================================== */
-
-        .tots-why-grid {
-          margin-top:
-            55px;
-
-          display:
-            grid;
-
-          gap:
-            12px;
-        }
-
-        @media (min-width: 900px) {
-          .tots-why-grid {
-            grid-template-columns:
-              repeat(3,1fr);
-          }
-        }
-
-        .tots-why-card {
-          min-height:
-            330px;
-
-          padding:
-            28px;
-
-          display:
-            flex;
-
-          flex-direction:
-            column;
-
-          border:
-            1px solid var(--line);
-
-          border-radius:
-            24px;
-
-          background:
-            rgba(255,255,255,0.018);
-
-          transition:
-            0.25s ease;
-        }
-
-        .tots-why-card:hover {
-          transform:
-            translateY(-3px);
-
-          border-color:
-            rgba(215,224,168,0.25);
-        }
-
-        .tots-why-icon {
-          width:
-            44px;
-
-          height:
-            44px;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          border:
-            1px solid var(--line);
-
-          border-radius:
-            13px;
-
-          background:
-            rgba(255,255,255,0.03);
-
-          color:
-            var(--accent);
-        }
-
-        .tots-why-card h3 {
-          margin-top:
-            auto;
-
-          padding-top:
-            80px;
-
-          font-size:
-            23px;
-
-          font-weight:
-            500;
-        }
-
-        .tots-why-card p {
-          max-width:
-            350px;
-
-          margin-top:
-            12px;
-
-          color:
-            var(--ink-dim);
-
-          font-size:
-            13px;
-
-          line-height:
-            1.75;
-        }
-
-        /* =====================================================
            FEATURES
         ===================================================== */
 
@@ -4092,7 +4882,8 @@ export default function TotsOSLanding() {
             hidden;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             26px;
@@ -4101,18 +4892,34 @@ export default function TotsOSLanding() {
             var(--line);
         }
 
-        @media (min-width: 700px) {
+        @media (
+          min-width:
+          700px
+        ) {
+
           .tots-feat-grid {
             grid-template-columns:
-              repeat(2,1fr);
+              repeat(
+                2,
+                1fr
+              );
           }
+
         }
 
-        @media (min-width: 1024px) {
+        @media (
+          min-width:
+          1024px
+        ) {
+
           .tots-feat-grid {
             grid-template-columns:
-              repeat(3,1fr);
+              repeat(
+                3,
+                1fr
+              );
           }
+
         }
 
         .tots-feat-card {
@@ -4151,7 +4958,8 @@ export default function TotsOSLanding() {
             center;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             13px;
@@ -4203,11 +5011,16 @@ export default function TotsOSLanding() {
             center;
         }
 
-        @media (min-width: 1000px) {
+        @media (
+          min-width:
+          1000px
+        ) {
+
           .tots-connected-grid {
             grid-template-columns:
               1fr 1fr;
           }
+
         }
 
         .tots-connection-board {
@@ -4218,14 +5031,25 @@ export default function TotsOSLanding() {
             10px;
 
           grid-template-columns:
-            repeat(2,1fr);
+            repeat(
+              2,
+              1fr
+            );
         }
 
-        @media (min-width: 600px) {
+        @media (
+          min-width:
+          600px
+        ) {
+
           .tots-connection-board {
             grid-template-columns:
-              repeat(3,1fr);
+              repeat(
+                3,
+                1fr
+              );
           }
+
         }
 
         .tots-connection-item {
@@ -4245,13 +5069,19 @@ export default function TotsOSLanding() {
             space-between;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             18px;
 
           background:
-            rgba(255,255,255,0.018);
+            rgba(
+              255,
+              255,
+              255,
+              0.018
+            );
         }
 
         .tots-connection-item svg {
@@ -4289,11 +5119,16 @@ export default function TotsOSLanding() {
             100px 20px;
         }
 
-        @media (min-width: 1024px) {
+        @media (
+          min-width:
+          1024px
+        ) {
+
           .tots-clarity-section {
             padding:
               140px 24px;
           }
+
         }
 
         .tots-clarity-shell {
@@ -4308,7 +5143,12 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(215,224,168,0.20);
+            rgba(
+              215,
+              224,
+              168,
+              0.20
+            );
 
           border-radius:
             32px;
@@ -4316,16 +5156,31 @@ export default function TotsOSLanding() {
           background:
             linear-gradient(
               135deg,
-              rgba(215,224,168,0.05),
-              rgba(255,255,255,0.012)
+              rgba(
+                215,
+                224,
+                168,
+                0.05
+              ),
+              rgba(
+                255,
+                255,
+                255,
+                0.012
+              )
             );
         }
 
-        @media (min-width: 900px) {
+        @media (
+          min-width:
+          900px
+        ) {
+
           .tots-clarity-shell {
             padding:
               60px;
           }
+
         }
 
         .tots-clarity-glow {
@@ -4348,7 +5203,12 @@ export default function TotsOSLanding() {
             999px;
 
           background:
-            rgba(215,224,168,0.1);
+            rgba(
+              215,
+              224,
+              168,
+              0.1
+            );
 
           filter:
             blur(100px);
@@ -4371,11 +5231,17 @@ export default function TotsOSLanding() {
             center;
         }
 
-        @media (min-width: 1000px) {
+        @media (
+          min-width:
+          1000px
+        ) {
+
           .tots-clarity-grid {
             grid-template-columns:
-              0.9fr 1.1fr;
+              0.9fr
+              1.1fr;
           }
+
         }
 
         .tots-clarity-title {
@@ -4449,7 +5315,12 @@ export default function TotsOSLanding() {
             12px;
 
           color:
-            rgba(243,244,238,0.72);
+            rgba(
+              243,
+              244,
+              238,
+              0.72
+            );
 
           font-size:
             13px;
@@ -4479,13 +5350,23 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(215,224,168,0.25);
+            rgba(
+              215,
+              224,
+              168,
+              0.25
+            );
 
           border-radius:
             999px;
 
           background:
-            rgba(215,224,168,0.08);
+            rgba(
+              215,
+              224,
+              168,
+              0.08
+            );
 
           color:
             var(--accent);
@@ -4496,7 +5377,8 @@ export default function TotsOSLanding() {
             20px;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             26px;
@@ -4505,8 +5387,14 @@ export default function TotsOSLanding() {
             #0b0b0d;
 
           box-shadow:
-            0 40px 100px
-            rgba(0,0,0,0.35);
+            0 40px
+            100px
+            rgba(
+              0,
+              0,
+              0,
+              0.35
+            );
         }
 
         .tots-clarity-demo-head {
@@ -4526,7 +5414,8 @@ export default function TotsOSLanding() {
             16px;
 
           border-bottom:
-            1px solid var(--line);
+            1px solid
+            var(--line);
         }
 
         .tots-clarity-brand {
@@ -4591,16 +5480,28 @@ export default function TotsOSLanding() {
             14px 16px;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
-            17px 17px 5px 17px;
+            17px 17px
+            5px 17px;
 
           background:
-            rgba(255,255,255,0.03);
+            rgba(
+              255,
+              255,
+              255,
+              0.03
+            );
 
           color:
-            rgba(243,244,238,0.72);
+            rgba(
+              243,
+              244,
+              238,
+              0.72
+            );
 
           font-size:
             12px;
@@ -4621,13 +5522,24 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(215,224,168,0.17);
+            rgba(
+              215,
+              224,
+              168,
+              0.17
+            );
 
           border-radius:
-            5px 17px 17px 17px;
+            5px 17px
+            17px 17px;
 
           background:
-            rgba(215,224,168,0.05);
+            rgba(
+              215,
+              224,
+              168,
+              0.05
+            );
         }
 
         .tots-clarity-response-label {
@@ -4653,7 +5565,12 @@ export default function TotsOSLanding() {
             10px;
 
           color:
-            rgba(243,244,238,0.79);
+            rgba(
+              243,
+              244,
+              238,
+              0.79
+            );
 
           font-size:
             12px;
@@ -4691,7 +5608,12 @@ export default function TotsOSLanding() {
             12px;
 
           background:
-            rgba(255,255,255,0.02);
+            rgba(
+              255,
+              255,
+              255,
+              0.02
+            );
         }
 
         .tots-priority-number {
@@ -4735,7 +5657,12 @@ export default function TotsOSLanding() {
             block;
 
           color:
-            rgba(243,244,238,0.83);
+            rgba(
+              243,
+              244,
+              238,
+              0.83
+            );
 
           font-size:
             11px;
@@ -4776,11 +5703,19 @@ export default function TotsOSLanding() {
             55px;
         }
 
-        @media (min-width: 800px) {
+        @media (
+          min-width:
+          800px
+        ) {
+
           .tots-security-grid {
             grid-template-columns:
-              repeat(3,1fr);
+              repeat(
+                3,
+                1fr
+              );
           }
+
         }
 
         .tots-security-card {
@@ -4788,13 +5723,19 @@ export default function TotsOSLanding() {
             26px;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             22px;
 
           background:
-            rgba(255,255,255,0.015);
+            rgba(
+              255,
+              255,
+              255,
+              0.015
+            );
         }
 
         .tots-security-card svg {
@@ -4849,13 +5790,23 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(215,224,168,0.22);
+            rgba(
+              215,
+              224,
+              168,
+              0.22
+            );
 
           border-radius:
             999px;
 
           background:
-            rgba(215,224,168,0.055);
+            rgba(
+              215,
+              224,
+              168,
+              0.055
+            );
 
           color:
             var(--accent);
@@ -4885,11 +5836,19 @@ export default function TotsOSLanding() {
             12px;
         }
 
-        @media (min-width: 950px) {
+        @media (
+          min-width:
+          950px
+        ) {
+
           .tots-price-grid {
             grid-template-columns:
-              repeat(3,1fr);
+              repeat(
+                3,
+                1fr
+              );
           }
+
         }
 
         .tots-price-card {
@@ -4906,26 +5865,37 @@ export default function TotsOSLanding() {
             30px;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             27px;
 
           background:
-            rgba(255,255,255,0.018);
+            rgba(
+              255,
+              255,
+              255,
+              0.018
+            );
         }
 
         .tots-price-card.featured {
           border-color:
-            rgba(215,224,168,0.35);
+            rgba(
+              215,
+              224,
+              168,
+              0.35
+            );
 
           background:
-            rgba(215,224,168,0.045);
-        }
-
-        .tots-price-card.elite {
-          border-color:
-            rgba(203,171,110,0.28);
+            rgba(
+              215,
+              224,
+              168,
+              0.045
+            );
         }
 
         .tots-price-head {
@@ -4963,7 +5933,12 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(215,224,168,0.25);
+            rgba(
+              215,
+              224,
+              168,
+              0.25
+            );
 
           border-radius:
             999px;
@@ -5010,7 +5985,8 @@ export default function TotsOSLanding() {
 
         .tots-price-period {
           margin:
-            0 0 9px 7px;
+            0 0 9px
+            7px;
 
           color:
             var(--ink-faint);
@@ -5044,7 +6020,8 @@ export default function TotsOSLanding() {
             24px;
 
           border-top:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           display:
             grid;
@@ -5064,7 +6041,12 @@ export default function TotsOSLanding() {
             9px;
 
           color:
-            rgba(243,244,238,0.6);
+            rgba(
+              243,
+              244,
+              238,
+              0.6
+            );
 
           font-size:
             12px;
@@ -5110,254 +6092,6 @@ export default function TotsOSLanding() {
             uppercase;
         }
 
-        .tots-elite-impact {
-          margin-top:
-            18px;
-
-          padding:
-            13px 14px;
-
-          display:
-            flex;
-
-          align-items:
-            flex-start;
-
-          gap:
-            9px;
-
-          border:
-            1px solid
-            rgba(203,171,110,0.2);
-
-          border-radius:
-            13px;
-
-          background:
-            rgba(203,171,110,0.055);
-
-          color:
-            rgba(243,244,238,0.65);
-
-          font-size:
-            10px;
-
-          line-height:
-            1.55;
-        }
-
-        .tots-elite-impact svg {
-          flex-shrink:
-            0;
-
-          color:
-            var(--accent-gold);
-        }
-
-        /* =====================================================
-           IMPACT / MIKEYSLINE
-        ===================================================== */
-
-        .tots-impact {
-          position:
-            relative;
-
-          z-index:
-            5;
-
-          padding:
-            30px 20px 110px;
-        }
-
-        .tots-impact-card {
-          max-width:
-            1180px;
-
-          margin:
-            0 auto;
-
-          padding:
-            40px 28px;
-
-          display:
-            grid;
-
-          gap:
-            32px;
-
-          align-items:
-            center;
-
-          border:
-            1px solid
-            rgba(203,171,110,0.22);
-
-          border-radius:
-            30px;
-
-          background:
-            radial-gradient(
-              circle at 80% 20%,
-              rgba(203,171,110,0.10),
-              transparent 35%
-            ),
-            linear-gradient(
-              135deg,
-              rgba(203,171,110,0.05),
-              rgba(255,255,255,0.012)
-            );
-        }
-
-        @media (min-width: 900px) {
-          .tots-impact-card {
-            grid-template-columns:
-              110px 1fr auto;
-
-            padding:
-              46px;
-          }
-        }
-
-        .tots-impact-icon {
-          width:
-            82px;
-
-          height:
-            82px;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          border:
-            1px solid
-            rgba(203,171,110,0.24);
-
-          border-radius:
-            24px;
-
-          background:
-            rgba(203,171,110,0.06);
-
-          color:
-            var(--accent-gold);
-        }
-
-        .tots-impact-kicker {
-          color:
-            var(--accent-gold);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
-          font-size:
-            8px;
-
-          letter-spacing:
-            0.15em;
-
-          text-transform:
-            uppercase;
-        }
-
-        .tots-impact-card h3 {
-          margin-top:
-            9px;
-
-          font-size:
-            clamp(
-              1.8rem,
-              4vw,
-              3.2rem
-            );
-
-          font-weight:
-            500;
-        }
-
-        .tots-impact-card p {
-          max-width:
-            720px;
-
-          margin-top:
-            12px;
-
-          color:
-            var(--ink-dim);
-
-          font-size:
-            13px;
-
-          line-height:
-            1.75;
-        }
-
-        .tots-impact-percent {
-          min-width:
-            140px;
-
-          text-align:
-            left;
-        }
-
-        .tots-impact-percent strong {
-          display:
-            block;
-
-          color:
-            var(--accent-gold);
-
-          font-family:
-            'Space Grotesk',
-            sans-serif;
-
-          font-size:
-            clamp(
-              3.5rem,
-              6vw,
-              5.5rem
-            );
-
-          line-height:
-            0.9;
-
-          letter-spacing:
-            -0.06em;
-        }
-
-        .tots-impact-percent span {
-          display:
-            block;
-
-          margin-top:
-            9px;
-
-          color:
-            var(--ink-faint);
-
-          font-family:
-            'JetBrains Mono',
-            monospace;
-
-          font-size:
-            7px;
-
-          line-height:
-            1.6;
-
-          letter-spacing:
-            0.1em;
-
-          text-transform:
-            uppercase;
-        }
-
         /* =====================================================
            ABOUT
         ===================================================== */
@@ -5373,25 +6107,36 @@ export default function TotsOSLanding() {
             center;
         }
 
-        @media (min-width: 950px) {
+        @media (
+          min-width:
+          950px
+        ) {
+
           .tots-about {
             grid-template-columns:
               1fr 1fr;
           }
+
         }
 
         .tots-about-card {
           padding:
-            30px;
+            34px;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             28px;
 
           background:
-            rgba(255,255,255,0.018);
+            rgba(
+              255,
+              255,
+              255,
+              0.018
+            );
         }
 
         .tots-about-card p {
@@ -5422,16 +6167,22 @@ export default function TotsOSLanding() {
             60px;
         }
 
-        @media (min-width: 950px) {
+        @media (
+          min-width:
+          950px
+        ) {
+
           .tots-faq-layout {
             grid-template-columns:
               0.7fr 1fr;
           }
+
         }
 
         .tots-faq-item {
           border-bottom:
-            1px solid var(--line);
+            1px solid
+            var(--line);
         }
 
         .tots-faq-btn {
@@ -5460,7 +6211,12 @@ export default function TotsOSLanding() {
             transparent;
 
           color:
-            rgba(243,244,238,0.8);
+            rgba(
+              243,
+              244,
+              238,
+              0.8
+            );
 
           text-align:
             left;
@@ -5505,7 +6261,12 @@ export default function TotsOSLanding() {
 
           border:
             1px solid
-            rgba(215,224,168,0.2);
+            rgba(
+              215,
+              224,
+              168,
+              0.2
+            );
 
           border-radius:
             32px;
@@ -5513,19 +6274,34 @@ export default function TotsOSLanding() {
           background:
             linear-gradient(
               135deg,
-              rgba(215,224,168,0.07),
-              rgba(255,255,255,0.015)
+              rgba(
+                215,
+                224,
+                168,
+                0.07
+              ),
+              rgba(
+                255,
+                255,
+                255,
+                0.015
+              )
             );
 
           text-align:
             center;
         }
 
-        @media (min-width: 900px) {
+        @media (
+          min-width:
+          900px
+        ) {
+
           .tots-final-card {
             padding:
               80px 40px;
           }
+
         }
 
         .tots-final-icon {
@@ -5548,7 +6324,8 @@ export default function TotsOSLanding() {
             center;
 
           border:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           border-radius:
             17px;
@@ -5557,12 +6334,17 @@ export default function TotsOSLanding() {
             var(--accent);
 
           background:
-            rgba(255,255,255,0.02);
+            rgba(
+              255,
+              255,
+              255,
+              0.02
+            );
         }
 
         .tots-final-card h2 {
           max-width:
-            780px;
+            820px;
 
           margin:
             28px auto 0;
@@ -5618,11 +6400,16 @@ export default function TotsOSLanding() {
             10px;
         }
 
-        @media (min-width: 600px) {
+        @media (
+          min-width:
+          600px
+        ) {
+
           .tots-final-actions {
             flex-direction:
               row;
           }
+
         }
 
         .tots-final-trial {
@@ -5658,10 +6445,12 @@ export default function TotsOSLanding() {
             5;
 
           padding:
-            50px 20px 24px;
+            50px 20px
+            24px;
 
           border-top:
-            1px solid var(--line);
+            1px solid
+            var(--line);
         }
 
         .tots-footer-grid {
@@ -5675,12 +6464,20 @@ export default function TotsOSLanding() {
             45px;
         }
 
-        @media (min-width: 760px) {
+        @media (
+          min-width:
+          760px
+        ) {
+
           .tots-footer-grid {
             grid-template-columns:
               1.5fr
-              repeat(3,1fr);
+              repeat(
+                3,
+                1fr
+              );
           }
+
         }
 
         .tots-footer-copy {
@@ -5765,7 +6562,8 @@ export default function TotsOSLanding() {
             10px;
 
           border-top:
-            1px solid var(--line);
+            1px solid
+            var(--line);
 
           color:
             var(--ink-faint);
@@ -5781,7 +6579,11 @@ export default function TotsOSLanding() {
             0.08em;
         }
 
-        @media (min-width: 650px) {
+        @media (
+          min-width:
+          650px
+        ) {
+
           .tots-footer-bottom {
             flex-direction:
               row;
@@ -5792,17 +6594,23 @@ export default function TotsOSLanding() {
             justify-content:
               space-between;
           }
+
         }
 
         /* =====================================================
-           MOBILE CONVERSION
+           MOBILE
         ===================================================== */
 
-        @media (max-width: 649px) {
+        @media (
+          max-width:
+          649px
+        ) {
 
           .tots-nav-shell {
             padding:
-              10px 10px 0;
+              10px
+              10px
+              0;
           }
 
           .tots-nav {
@@ -5810,7 +6618,8 @@ export default function TotsOSLanding() {
               58px;
 
             padding:
-              0 8px 0 12px;
+              0 8px
+              0 12px;
 
             border-radius:
               15px;
@@ -5823,7 +6632,9 @@ export default function TotsOSLanding() {
 
           .tots-hero {
             padding:
-              118px 16px 50px;
+              118px
+              16px
+              45px;
           }
 
           .tots-hero h1 {
@@ -5869,7 +6680,8 @@ export default function TotsOSLanding() {
 
           .tots-trusted {
             padding:
-              16px 16px 26px;
+              14px 16px
+              45px;
           }
 
           .tots-trusted-inner {
@@ -5885,9 +6697,39 @@ export default function TotsOSLanding() {
               9px;
           }
 
+          .tots-pain {
+            padding:
+              55px 16px;
+          }
+
+          .tots-pain-card {
+            padding:
+              32px 18px;
+          }
+
+          .tots-section {
+            padding:
+              75px 16px;
+          }
+
+          .tots-section-heading {
+            font-size:
+              clamp(
+                2.2rem,
+                11vw,
+                3.6rem
+              );
+          }
+
+          .tots-demo-section {
+            padding:
+              65px 16px
+              85px;
+          }
+
           .tots-window-wrap {
             margin-top:
-              55px;
+              42px;
           }
 
           .tots-window-body {
@@ -5916,30 +6758,6 @@ export default function TotsOSLanding() {
               100%;
           }
 
-          .tots-pain {
-            padding:
-              60px 16px;
-          }
-
-          .tots-pain-card {
-            padding:
-              32px 18px;
-          }
-
-          .tots-section {
-            padding:
-              75px 16px;
-          }
-
-          .tots-section-heading {
-            font-size:
-              clamp(
-                2.2rem,
-                11vw,
-                3.6rem
-              );
-          }
-
           .tots-clarity-section {
             padding:
               75px 16px;
@@ -5958,28 +6776,11 @@ export default function TotsOSLanding() {
               auto;
           }
 
-          .tots-impact {
-            padding:
-              10px 16px 75px;
-          }
-
-          .tots-impact-card {
-            padding:
-              28px 20px;
-
-            border-radius:
-              24px;
-          }
-
-          .tots-impact-percent {
-            margin-top:
-              4px;
-          }
-
           .tots-final-actions a {
             width:
               100%;
           }
+
         }
       `}</style>
 
@@ -6000,20 +6801,32 @@ export default function TotsOSLanding() {
           </a>
 
           <nav className="tots-nav-links">
-            {NAV_ITEMS.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className="tots-nav-link"
-              >
-                {item.label}
-              </a>
-            ))}
+            {NAV_ITEMS.map(
+              (
+                item
+              ) => (
+                <a
+                  key={
+                    item.href
+                  }
+                  href={
+                    item.href
+                  }
+                  className="tots-nav-link"
+                >
+                  {
+                    item.label
+                  }
+                </a>
+              )
+            )}
           </nav>
 
           <div className="tots-nav-actions">
             <a
-              href="/login"
+              href={
+                SIGNUP_URL
+              }
               className="tots-btn-ghost"
             >
               <LogIn size={13} />
@@ -6021,11 +6834,17 @@ export default function TotsOSLanding() {
             </a>
 
             <a
-              href="https://tots-os.co.uk/login"
+              href={
+                SIGNUP_URL
+              }
               className="tots-btn-solid"
             >
-              Create free workspace
-              <ArrowRight size={13} />
+              Create free
+              workspace
+
+              <ArrowRight
+                size={13}
+              />
             </a>
           </div>
 
@@ -6033,7 +6852,9 @@ export default function TotsOSLanding() {
             type="button"
             className="tots-menu-btn"
             onClick={() =>
-              setMobileMenuOpen(true)
+              setMobileMenuOpen(
+                true
+              )
             }
             aria-label="Open menu"
           >
@@ -6072,7 +6893,9 @@ export default function TotsOSLanding() {
               className="tots-mobile-panel"
             >
               <div className="tots-mobile-head">
-                <Logo size={34} />
+                <Logo
+                  size={34}
+                />
 
                 <button
                   type="button"
@@ -6084,13 +6907,17 @@ export default function TotsOSLanding() {
                   }
                   aria-label="Close menu"
                 >
-                  <X size={16} />
+                  <X
+                    size={16}
+                  />
                 </button>
               </div>
 
               <div className="tots-mobile-links">
                 {NAV_ITEMS.map(
-                  (item) => (
+                  (
+                    item
+                  ) => (
                     <a
                       href={
                         item.href
@@ -6110,7 +6937,9 @@ export default function TotsOSLanding() {
                       }
 
                       <ArrowUpRight
-                        size={13}
+                        size={
+                          13
+                        }
                       />
                     </a>
                   )
@@ -6119,14 +6948,19 @@ export default function TotsOSLanding() {
 
               <div className="tots-mobile-actions">
                 <a
-                  href="https://tots-os.co.uk/login"
+                  href={
+                    SIGNUP_URL
+                  }
                   className="tots-btn-solid"
                 >
-                  Create my free workspace
+                  Create my free
+                  workspace
                 </a>
 
                 <a
-                  href="/login"
+                  href={
+                    SIGNUP_URL
+                  }
                   className="tots-btn-ghost"
                 >
                   Log in
@@ -6144,37 +6978,52 @@ export default function TotsOSLanding() {
       <section className="tots-hero">
         <div className="tots-hero-inner">
           <div className="tots-hero-kicker">
-            <Sparkles size={12} />
-            Built for small businesses
+            <Sparkles
+              size={12}
+            />
+
+            Built for small
+            businesses
           </div>
 
           <h1>
-            Stop running your business
+            Your whole business.
             <span className="tots-hero-line2">
-              from ten different places.
+              Finally in one place.
             </span>
           </h1>
 
           <p className="tots-hero-lede">
-            Put your{" "}
+            Stop running your
+            business from
+            spreadsheets,
+            WhatsApp, notes,
+            calendars and endless
+            tabs. TOTS-OS brings
+            your{" "}
             <strong>
-              clients, projects, invoices,
-              tasks, content, notes and
-              planning
+              clients, projects,
+              tasks, finances,
+              content, calendar
+              and AI assistant
             </strong>{" "}
-            into one connected business
-            operating system — with Clarity,
-            your built-in AI PA, helping you
-            decide what needs you next.
+            into one connected
+            workspace.
           </p>
 
           <div className="tots-hero-ctas">
             <a
-              href="https://tots-os.co.uk/login"
+              href={
+                SIGNUP_URL
+              }
               className="tots-btn-solid tots-btn-large"
             >
-              Create my free workspace
-              <ArrowRight size={15} />
+              Create my free
+              workspace
+
+              <ArrowRight
+                size={15}
+              />
             </a>
 
             <a
@@ -6182,7 +7031,7 @@ export default function TotsOSLanding() {
               className="tots-btn-ghost tots-btn-large"
             >
               <Play size={13} />
-              See TOTS-OS in action
+              See it in action
             </a>
           </div>
 
@@ -6215,90 +7064,37 @@ export default function TotsOSLanding() {
       </section>
 
       {/* ======================================================
-          TRUSTED BY
+          TRUST
       ====================================================== */}
 
       <section className="tots-trusted">
         <Reveal>
           <div className="tots-trusted-inner">
             <p className="tots-trusted-label">
-              Trusted by businesses including
+              Trusted by businesses
+              including
             </p>
 
             <div className="tots-trusted-grid">
-              {TRUSTED_BY.map((name) => (
-                <span
-                  key={name}
-                  className="tots-trusted-name"
-                >
-                  {name}
-                </span>
-              ))}
+              {TRUSTED_BY.map(
+                (
+                  name
+                ) => (
+                  <span
+                    key={
+                      name
+                    }
+                    className="tots-trusted-name"
+                  >
+                    {
+                      name
+                    }
+                  </span>
+                )
+              )}
             </div>
           </div>
         </Reveal>
-      </section>
-
-      {/* ======================================================
-          PRODUCT DEMO
-      ====================================================== */}
-
-      <section className="tots-hero">
-        <div className="tots-hero-inner">
-          <ProductDemo />
-        </div>
-      </section>
-
-      {/* ======================================================
-          MARQUEE
-      ====================================================== */}
-
-      <section className="tots-marquee">
-        <motion.div
-          animate={
-            reduceMotion
-              ? undefined
-              : {
-                  x: [
-                    "0%",
-                    "-50%",
-                  ],
-                }
-          }
-          transition={{
-            duration: 30,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-          className="tots-marquee-track"
-        >
-          {[0, 1].flatMap((group) =>
-            [
-              "CRM",
-              "PROJECTS",
-              "TASKS",
-              "FINANCES",
-              "CALENDAR",
-              "SOCIALS",
-              "CAMPAIGNS",
-              "NOTES",
-              "CLARITY AI",
-              "BUSINESS KPIS",
-            ].map((item, index) => (
-              <span
-                key={`${group}-${index}`}
-                className="tots-marquee-item"
-              >
-                {item}
-
-                <Sparkles
-                  size={10}
-                  color="var(--accent)"
-                />
-              </span>
-            ))
-          )}
-        </motion.div>
       </section>
 
       {/* ======================================================
@@ -6312,56 +7108,64 @@ export default function TotsOSLanding() {
               Sound familiar?
             </Eyebrow>
 
-            <h2
-              style={{
-                marginTop: 24,
-              }}
-            >
-              Your business is everywhere.
-              Your brain is trying to hold
-              it together.
+            <h2>
+              Your business grew.
+              <br />
+              Your systems
+              didn&apos;t.
             </h2>
 
             <p>
-              Notes here. A spreadsheet
-              there. Clients in WhatsApp.
-              Deadlines in your head.
-              Invoices somewhere else.
-              Content waiting in Canva.
-              Eventually, something gets
-              missed.
+              Client details in
+              WhatsApp. Tasks in
+              your head. Invoices
+              somewhere else.
+              Content sitting in
+              Canva. Notes on your
+              phone. Five tabs open
+              just to work out what
+              you&apos;re meant to
+              do today.
             </p>
 
             <div className="tots-pain-chips">
               {[
-                "Notes app",
-                "Spreadsheets",
                 "WhatsApp",
+                "Spreadsheets",
+                "Notes",
                 "Calendar",
                 "Canva",
                 "Invoices",
                 "Random tabs",
-                "Your own head",
-              ].map((item) => (
-                <span
-                  key={item}
-                  className="tots-pain-chip"
-                >
-                  {item}
-                </span>
-              ))}
+                "Your head",
+              ].map(
+                (
+                  item
+                ) => (
+                  <span
+                    key={
+                      item
+                    }
+                    className="tots-pain-chip"
+                  >
+                    {
+                      item
+                    }
+                  </span>
+                )
+              )}
             </div>
 
             <div className="tots-pain-bottom">
-              TOTS-OS brings the pieces
-              back together.
+              TOTS-OS gives it
+              all one home.
             </div>
           </div>
         </Reveal>
       </section>
 
       {/* ======================================================
-          PRODUCT
+          TRANSFORMATION
       ====================================================== */}
 
       <section
@@ -6371,49 +7175,150 @@ export default function TotsOSLanding() {
         <div className="tots-wrap">
           <Reveal>
             <Eyebrow>
-              Why TOTS-OS
+              One business.
+              One system.
             </Eyebrow>
 
             <h2 className="tots-section-heading">
-              Your business shouldn&apos;t
-              need{" "}
+              Stop stitching your
+              business together{" "}
               <span className="tots-serif tots-accent">
-                ten different apps
-              </span>{" "}
-              just to stay organised.
+                every single day.
+              </span>
             </h2>
 
             <p className="tots-section-copy">
-              The problem was never that you
-              needed another tool. The
-              problem was that none of your
-              existing tools knew what the
-              others were doing.
+              Instead of remembering
+              where everything lives,
+              open one workspace and
+              see what is happening
+              across the business.
             </p>
           </Reveal>
+
+          <div className="tots-transform-grid">
+            <Reveal>
+              <div className="tots-transform-card">
+                <p className="tots-transform-label">
+                  Without TOTS-OS
+                </p>
+
+                <h3>
+                  Everything has
+                  its own hiding
+                  place.
+                </h3>
+
+                <div className="tots-transform-list">
+                  {[
+                    "Clients in messages and contacts",
+                    "Tasks in notes or your head",
+                    "Projects in spreadsheets",
+                    "Money in another system",
+                    "Content somewhere else again",
+                    "No single view of the business",
+                  ].map(
+                    (
+                      item
+                    ) => (
+                      <div
+                        className="tots-transform-row"
+                        key={
+                          item
+                        }
+                      >
+                        <X
+                          size={
+                            14
+                          }
+                        />
+
+                        {
+                          item
+                        }
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            </Reveal>
+
+            <Reveal
+              delay={
+                0.08
+              }
+            >
+              <div className="tots-transform-card good">
+                <p className="tots-transform-label">
+                  With TOTS-OS
+                </p>
+
+                <h3>
+                  One connected
+                  view of your
+                  business.
+                </h3>
+
+                <div className="tots-transform-list">
+                  {[
+                    "Clients connected to their work",
+                    "Projects connected to tasks",
+                    "Invoices and finances visible",
+                    "Calendar and deadlines together",
+                    "Content alongside the rest",
+                    "Clarity AI helping you prioritise",
+                  ].map(
+                    (
+                      item
+                    ) => (
+                      <div
+                        className="tots-transform-row"
+                        key={
+                          item
+                        }
+                      >
+                        <Check
+                          size={
+                            14
+                          }
+                        />
+
+                        {
+                          item
+                        }
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            </Reveal>
+          </div>
 
           <div className="tots-why-grid">
             {[
               {
-                icon: Layers3,
+                icon:
+                  Layers3,
                 title:
-                  "One home for the business",
+                  "One workspace",
                 text:
-                  "Clients, projects, money, notes and context stay together instead of living in separate systems.",
+                  "Clients, projects, money, notes and context stay together instead of living across separate systems.",
               },
               {
-                icon: Gauge,
+                icon:
+                  Gauge,
                 title:
-                  "Know what needs you",
+                  "Know what matters",
                 text:
                   "See what is overdue, what is coming up and what deserves your attention without searching for it.",
               },
               {
-                icon: Zap,
+                icon:
+                  Zap,
                 title:
-                  "Spend less time on admin",
+                  "Less admin",
                 text:
-                  "Reduce the time spent updating systems, finding information and rebuilding the same context again and again.",
+                  "Spend less time updating systems and hunting for information, and more time actually running the business.",
               },
             ].map(
               (
@@ -6430,7 +7335,7 @@ export default function TotsOSLanding() {
                     }
                     delay={
                       index *
-                      0.07
+                      0.06
                     }
                   >
                     <div className="tots-why-card">
@@ -6463,6 +7368,39 @@ export default function TotsOSLanding() {
       </section>
 
       {/* ======================================================
+          DEMO
+      ====================================================== */}
+
+      <section className="tots-demo-section">
+        <div className="tots-wrap">
+          <Reveal>
+            <div className="tots-demo-section-head">
+              <Eyebrow>
+                Don&apos;t take
+                our word for it
+              </Eyebrow>
+
+              <h2 className="tots-section-heading">
+                Have a look
+                around.
+              </h2>
+
+              <p className="tots-section-copy">
+                Click through the
+                workspace and see
+                what running the
+                business from one
+                place can actually
+                look like.
+              </p>
+            </div>
+          </Reveal>
+
+          <ProductDemo />
+        </div>
+      </section>
+
+      {/* ======================================================
           FEATURES
       ====================================================== */}
 
@@ -6474,19 +7412,21 @@ export default function TotsOSLanding() {
           <Reveal>
             <div className="tots-wrap-narrow">
               <Eyebrow>
-                Everything in one place
+                What you get
               </Eyebrow>
 
               <h2 className="tots-section-heading">
-                Everything has a place.
-                Everything connects.
+                Everything has a
+                place.
               </h2>
 
               <p className="tots-section-copy">
-                The everyday tools your
-                business already needs —
-                brought together into one
-                workspace.
+                The everyday tools
+                a small business
+                needs, working as
+                one system rather
+                than another stack
+                of subscriptions.
               </p>
             </div>
           </Reveal>
@@ -6548,74 +7488,100 @@ export default function TotsOSLanding() {
         <div className="tots-wrap tots-connected-grid">
           <Reveal>
             <Eyebrow>
-              Connected by design
+              Connected by
+              design
             </Eyebrow>
 
             <h2 className="tots-section-heading">
-              Your business isn&apos;t six
+              Your business
+              isn&apos;t six
               separate apps.
             </h2>
 
             <p className="tots-section-copy">
-              A contact becomes a client. A
-              client gets a project. Projects
-              create work. Work creates
-              revenue. TOTS-OS is designed
-              around those relationships.
+              A contact becomes a
+              client. A client gets
+              a project. Projects
+              create work. Work
+              creates revenue.
+              TOTS-OS is designed
+              around those
+              relationships.
             </p>
           </Reveal>
 
-          <Reveal delay={0.1}>
+          <Reveal
+            delay={
+              0.1
+            }
+          >
             <div className="tots-connection-board">
               {[
                 {
-                  icon: Users,
-                  label: "Clients",
+                  icon:
+                    Users,
+                  label:
+                    "Clients",
                 },
                 {
-                  icon: FolderKanban,
-                  label: "Projects",
+                  icon:
+                    FolderKanban,
+                  label:
+                    "Projects",
                 },
                 {
-                  icon: CalendarDays,
-                  label: "Calendar",
+                  icon:
+                    CalendarDays,
+                  label:
+                    "Calendar",
                 },
                 {
-                  icon: WalletCards,
-                  label: "Finances",
+                  icon:
+                    WalletCards,
+                  label:
+                    "Finances",
                 },
                 {
-                  icon: NotebookPen,
-                  label: "Notes",
+                  icon:
+                    NotebookPen,
+                  label:
+                    "Notes",
                 },
                 {
                   icon:
                     MessageSquareText,
-                  label: "Social",
+                  label:
+                    "Social",
                 },
-              ].map((item) => {
-                const Icon =
-                  item.icon;
+              ].map(
+                (
+                  item
+                ) => {
+                  const Icon =
+                    item.icon;
 
-                return (
-                  <div
-                    className="tots-connection-item"
-                    key={
-                      item.label
-                    }
-                  >
-                    <Icon
-                      size={21}
-                    />
-
-                    <span>
-                      {
+                  return (
+                    <div
+                      className="tots-connection-item"
+                      key={
                         item.label
                       }
-                    </span>
-                  </div>
-                );
-              })}
+                    >
+                      <Icon
+                        size={
+                          21
+                        }
+                      />
+
+                      <span>
+                        {
+                          item.label
+                        }
+                      </span>
+                    </div>
+                  );
+                }
+              )}
             </div>
           </Reveal>
         </div>
@@ -6636,22 +7602,30 @@ export default function TotsOSLanding() {
             <div className="tots-clarity-grid">
               <Reveal>
                 <Eyebrow>
-                  Built into TOTS-OS
+                  More than storage
                 </Eyebrow>
 
                 <h2 className="tots-clarity-title">
-                  Meet Clarity.
+                  TOTS-OS
+                  doesn&apos;t just
+                  store your
+                  business.
                   <span>
-                    Your AI PA.
+                    It understands
+                    it.
                   </span>
                 </h2>
 
                 <p className="tots-clarity-copy">
-                  Instead of asking a generic
-                  chatbot about your
-                  business, ask the system
-                  that already knows what is
-                  happening inside it.
+                  Meet Clarity,
+                  your built-in AI
+                  PA. It uses the
+                  context already
+                  inside your
+                  workspace to help
+                  show you what
+                  deserves your
+                  attention.
                 </p>
 
                 <div className="tots-clarity-points">
@@ -6660,9 +7634,11 @@ export default function TotsOSLanding() {
                     "Surface overdue tasks and looming deadlines.",
                     "See what is happening across every client.",
                     "Catch outstanding invoices before they disappear from view.",
-                    "Turn your business data into a clearer next move.",
+                    "Turn business information into a clearer next move.",
                   ].map(
-                    (item) => (
+                    (
+                      item
+                    ) => (
                       <div
                         key={
                           item
@@ -6688,13 +7664,20 @@ export default function TotsOSLanding() {
                 </div>
               </Reveal>
 
-              <Reveal delay={0.12}>
+              <Reveal
+                delay={
+                  0.12
+                }
+              >
                 <div className="tots-clarity-demo">
                   <div className="tots-clarity-demo-head">
                     <div className="tots-clarity-brand">
                       <Sparkles
-                        size={14}
+                        size={
+                          14
+                        }
                       />
+
                       Clarity
                     </div>
 
@@ -6705,8 +7688,8 @@ export default function TotsOSLanding() {
                   </div>
 
                   <div className="tots-clarity-message">
-                    What should I focus on
-                    today?
+                    What should I
+                    focus on today?
                   </div>
 
                   <div className="tots-clarity-response">
@@ -6715,11 +7698,16 @@ export default function TotsOSLanding() {
                     </div>
 
                     <p>
-                      Three things I&apos;d
-                      prioritise: the website
-                      project has the nearest
-                      deadline, and one invoice
-                      is already overdue.
+                      Three things
+                      I&apos;d
+                      prioritise:
+                      the website
+                      project has
+                      the nearest
+                      deadline, and
+                      one invoice
+                      is already
+                      overdue.
                     </p>
 
                     <div className="tots-priority-list">
@@ -6730,13 +7718,16 @@ export default function TotsOSLanding() {
 
                         <div>
                           <strong>
-                            Finish website
+                            Finish
+                            website
                             approval
                           </strong>
 
                           <small>
-                            Client project ·
-                            due tomorrow
+                            Client
+                            project ·
+                            due
+                            tomorrow
                           </small>
                         </div>
                       </div>
@@ -6748,12 +7739,14 @@ export default function TotsOSLanding() {
 
                         <div>
                           <strong>
-                            Chase outstanding
+                            Chase
+                            outstanding
                             invoice
                           </strong>
 
                           <small>
-                            £860 · currently
+                            £860 ·
+                            currently
                             overdue
                           </small>
                         </div>
@@ -6766,12 +7759,14 @@ export default function TotsOSLanding() {
 
                         <div>
                           <strong>
-                            Approve scheduled
+                            Approve
+                            scheduled
                             content
                           </strong>
 
                           <small>
-                            3 posts waiting
+                            3 posts
+                            waiting
                             for review
                           </small>
                         </div>
@@ -6780,8 +7775,9 @@ export default function TotsOSLanding() {
                   </div>
 
                   <div className="tots-clarity-message">
-                    Which client needs the
-                    most attention?
+                    Which client
+                    needs the most
+                    attention?
                   </div>
 
                   <div className="tots-clarity-response">
@@ -6790,10 +7786,14 @@ export default function TotsOSLanding() {
                     </div>
 
                     <p>
-                      Halstead &amp; Co has an
-                      overdue payment and two
-                      open project tasks.
-                      Start there.
+                      Halstead
+                      &amp; Co has
+                      an overdue
+                      payment and
+                      two open
+                      project
+                      tasks. Start
+                      there.
                     </p>
                   </div>
                 </div>
@@ -6811,63 +7811,93 @@ export default function TotsOSLanding() {
         <div className="tots-wrap">
           <Reveal>
             <Eyebrow>
-              Built for real businesses
+              Built for real
+              businesses
             </Eyebrow>
 
             <h2 className="tots-section-heading">
-              Simple on the surface.
-              Solid underneath.
+              Simple on the
+              surface. Solid
+              underneath.
             </h2>
           </Reveal>
 
           <div className="tots-security-grid">
             <Reveal>
               <div className="tots-security-card">
-                <LockKeyhole size={21} />
+                <LockKeyhole
+                  size={21}
+                />
 
                 <h3>
-                  Secure account access
+                  Secure account
+                  access
                 </h3>
 
                 <p>
-                  Your workspace lives behind
-                  authenticated accounts —
-                  not public links or shared
+                  Your workspace
+                  lives behind
+                  authenticated
+                  accounts — not
+                  public links or
+                  shared
                   spreadsheets.
                 </p>
               </div>
             </Reveal>
 
-            <Reveal delay={0.05}>
+            <Reveal
+              delay={
+                0.05
+              }
+            >
               <div className="tots-security-card">
-                <ShieldCheck size={21} />
+                <ShieldCheck
+                  size={21}
+                />
 
                 <h3>
-                  Organised permissions
+                  Organised
+                  permissions
                 </h3>
 
                 <p>
-                  Data is structured around
-                  accounts and organisations,
-                  helping keep information in
-                  the correct workspace.
+                  Data is
+                  structured around
+                  accounts and
+                  organisations,
+                  helping keep
+                  information in
+                  the correct
+                  workspace.
                 </p>
               </div>
             </Reveal>
 
-            <Reveal delay={0.1}>
+            <Reveal
+              delay={
+                0.1
+              }
+            >
               <div className="tots-security-card">
-                <RefreshCw size={21} />
+                <RefreshCw
+                  size={21}
+                />
 
                 <h3>
-                  Built to keep improving
+                  Built to keep
+                  improving
                 </h3>
 
                 <p>
-                  TOTS-OS is developed around
-                  the real workflows of small
-                  businesses rather than a
-                  generic one-size-fits-all
+                  TOTS-OS is
+                  developed around
+                  real small
+                  business
+                  workflows rather
+                  than forcing every
+                  company into the
+                  same generic
                   template.
                 </p>
               </div>
@@ -6887,25 +7917,37 @@ export default function TotsOSLanding() {
         <div className="tots-wrap">
           <Reveal>
             <Eyebrow>
-              Start free first
+              Try it first
             </Eyebrow>
 
             <h2 className="tots-section-heading">
-              Don&apos;t choose a plan yet.
-              Try the system first.
+              Don&apos;t decide
+              from this page.
+              <br />
+              <span className="tots-serif tots-accent">
+                Try TOTS-OS
+                yourself.
+              </span>
             </h2>
 
             <p className="tots-section-copy">
-              Create your workspace, bring
-              your business into TOTS-OS and
-              use it free for 14 days. Then
-              choose the plan that fits how
-              you actually work.
+              Create your account,
+              bring your business
+              into TOTS-OS and use
+              it free for 14 days.
+              Then decide whether
+              it deserves a
+              permanent place in
+              your business.
             </p>
 
             <div className="tots-pricing-trial">
-              <Check size={12} />
-              14 days free · no commitment
+              <Check
+                size={12}
+              />
+
+              14 days free · no
+              commitment
             </div>
           </Reveal>
 
@@ -6929,20 +7971,13 @@ export default function TotsOSLanding() {
                       plan.featured
                         ? "featured"
                         : ""
-                    } ${
-                      plan.name ===
-                      "Elite"
-                        ? "elite"
-                        : ""
                     }`}
                   >
                     <div className="tots-price-head">
-                      <div>
-                        <div className="tots-price-name">
-                          {
-                            plan.name
-                          }
-                        </div>
+                      <div className="tots-price-name">
+                        {
+                          plan.name
+                        }
                       </div>
 
                       {plan.badge && (
@@ -6963,7 +7998,8 @@ export default function TotsOSLanding() {
                       </span>
 
                       <span className="tots-price-period">
-                        / month
+                        /
+                        month
                       </span>
                     </div>
 
@@ -7001,29 +8037,11 @@ export default function TotsOSLanding() {
                       )}
                     </div>
 
-                    {plan.name ===
-                      "Elite" && (
-                      <div className="tots-elite-impact">
-                        <HeartHandshake
-                          size={
-                            15
-                          }
-                        />
-
-                        <span>
-                          5% from
-                          every Elite
-                          plan
-                          purchase is
-                          donated to
-                          Mikeysline.
-                        </span>
-                      </div>
-                    )}
-
                     <div className="tots-price-button">
                       <a
-                        href="https://tots-os.co.uk/login"
+                        href={
+                          SIGNUP_URL
+                        }
                         className={
                           plan.featured
                             ? "tots-btn-solid"
@@ -7032,6 +8050,7 @@ export default function TotsOSLanding() {
                       >
                         Create free
                         workspace
+
                         <ArrowRight
                           size={
                             13
@@ -7040,9 +8059,9 @@ export default function TotsOSLanding() {
                       </a>
 
                       <p className="tots-price-trial-copy">
-                        Try TOTS-OS
-                        free for 14
-                        days first
+                        Try it free
+                        for 14 days
+                        first
                       </p>
                     </div>
                   </div>
@@ -7051,58 +8070,6 @@ export default function TotsOSLanding() {
             )}
           </div>
         </div>
-      </section>
-
-      {/* ======================================================
-          MIKEYSLINE IMPACT
-      ====================================================== */}
-
-      <section className="tots-impact">
-        <Reveal>
-          <div className="tots-impact-card">
-            <div className="tots-impact-icon">
-              <HeartHandshake size={34} />
-            </div>
-
-            <div>
-              <div className="tots-impact-kicker">
-                Business with impact
-              </div>
-
-              <h3>
-                Proudly supporting
-                Mikeysline.
-              </h3>
-
-              <p>
-                TOTS-OS is about helping
-                people build healthier,
-                calmer businesses — and we
-                want that impact to extend
-                beyond the software too.
-                That&apos;s why 5% from every
-                Elite plan purchase is
-                donated to Mikeysline,
-                supporting their work around
-                mental health and suicide
-                prevention.
-              </p>
-            </div>
-
-            <div className="tots-impact-percent">
-              <strong>
-                5%
-              </strong>
-
-              <span>
-                from every Elite
-                plan purchase
-                donated to
-                Mikeysline
-              </span>
-            </div>
-          </div>
-        </Reveal>
       </section>
 
       {/* ======================================================
@@ -7120,39 +8087,61 @@ export default function TotsOSLanding() {
             </Eyebrow>
 
             <h2 className="tots-section-heading">
-              Built because we were tired
-              of the chaos too.
+              Built by business
+              owners who were
+              tired of the chaos
+              too.
             </h2>
 
             <p className="tots-section-copy">
-              Running a small business
-              shouldn&apos;t mean stitching
-              together a CRM, planner,
-              finance app, social tool and
-              notes system just to understand
+              Running a business
+              shouldn&apos;t mean
+              stitching together a
+              CRM, planner, finance
+              app, social tool and
+              notes system just to
+              understand
               what&apos;s going on.
             </p>
           </Reveal>
 
-          <Reveal delay={0.1}>
+          <Reveal
+            delay={
+              0.1
+            }
+          >
             <div className="tots-about-card">
               <p>
-                We wanted one home for the
-                business — clients, work,
-                money, ideas and everything
-                in between.
+                We&apos;re Sam
+                and Leigha, the
+                team behind The
+                Organised Types.
               </p>
 
               <p>
-                That became TOTS-OS.
+                We kept seeing the
+                same problem:
+                businesses had
+                plenty of software,
+                but their actual
+                business was still
+                scattered
+                everywhere.
               </p>
 
               <p>
-                Then we built Clarity to take
-                it further: using what is
-                already happening inside the
-                business to help make the
-                next move clearer.
+                So we built the
+                system we wanted
+                to exist — one
+                home for clients,
+                work, money, ideas
+                and everything in
+                between.
+              </p>
+
+              <p>
+                That became
+                TOTS-OS.
               </p>
             </div>
           </Reveal>
@@ -7171,7 +8160,8 @@ export default function TotsOSLanding() {
             </Eyebrow>
 
             <h2 className="tots-section-heading">
-              Things worth knowing.
+              Things worth
+              knowing.
             </h2>
           </Reveal>
 
@@ -7275,48 +8265,69 @@ export default function TotsOSLanding() {
           <Reveal>
             <div className="tots-final-card">
               <div className="tots-final-icon">
-                <Sparkles size={22} />
+                <Sparkles
+                  size={22}
+                />
               </div>
 
               <h2>
-                Your business is already
-                complicated enough.
+                Your business is
+                already complicated
+                enough.
                 <br />
 
                 <span className="tots-serif tots-accent">
-                  Running it shouldn&apos;t
+                  Running it
+                  shouldn&apos;t
                   be.
                 </span>
               </h2>
 
               <p>
-                Create your TOTS-OS workspace
-                today and start putting your
-                clients, work, money and
-                ideas back in one place.
+                Create your account
+                today and start
+                putting your
+                clients, projects,
+                tasks, finances,
+                content and ideas
+                back in one place.
               </p>
 
               <div className="tots-final-actions">
                 <a
-                  href="https://tots-os.co.uk/login"
+                  href={
+                    SIGNUP_URL
+                  }
                   className="tots-btn-solid tots-btn-large"
                 >
-                  Create my free workspace
-                  <ArrowRight size={15} />
+                  Create my free
+                  workspace
+
+                  <ArrowRight
+                    size={
+                      15
+                    }
+                  />
                 </a>
 
                 <a
                   href="#demo"
                   className="tots-btn-ghost tots-btn-large"
                 >
-                  <Play size={13} />
+                  <Play
+                    size={
+                      13
+                    }
+                  />
+
                   Explore demo
                 </a>
               </div>
 
               <div className="tots-final-trial">
-                14 days free · no commitment
-                · set up today
+                14 days free · no
+                commitment · set up
+                today
               </div>
             </div>
           </Reveal>
@@ -7331,19 +8342,16 @@ export default function TotsOSLanding() {
         <div className="tots-wrap">
           <div className="tots-footer-grid">
             <div>
-              <Logo size={38} />
+              <Logo
+                size={38}
+              />
 
               <p className="tots-footer-copy">
-                One connected business
-                operating system for the
-                people building small
-                businesses.
-              </p>
-
-              <p className="tots-footer-copy">
-                Proudly supporting
-                Mikeysline through our
-                Elite plan.
+                One connected
+                business operating
+                system for the
+                people building
+                small businesses.
               </p>
             </div>
 
@@ -7377,16 +8385,25 @@ export default function TotsOSLanding() {
               </h5>
 
               <div className="tots-footer-links">
-                <a href="/login">
+                <a
+                  href={
+                    SIGNUP_URL
+                  }
+                >
                   Log in
                 </a>
 
-                <a href="https://tots-os.co.uk/login">
-                  Create free workspace
+                <a
+                  href={
+                    SIGNUP_URL
+                  }
+                >
+                  Create account
                 </a>
 
                 <a href="/manage-subscription">
-                  Manage subscription
+                  Manage
+                  subscription
                 </a>
               </div>
             </div>
@@ -7423,7 +8440,8 @@ export default function TotsOSLanding() {
 
             <span>
               The Organised Types ·
-              Business Operating System
+              Business Operating
+              System
             </span>
           </div>
         </div>

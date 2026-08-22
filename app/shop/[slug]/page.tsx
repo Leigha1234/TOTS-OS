@@ -68,15 +68,12 @@ type OrganisationRow = {
   id: string;
 
   name?: string | null;
-
   company_name?: string | null;
 
   description?: string | null;
 
   email?: string | null;
-
   phone?: string | null;
-
   address?: string | null;
 
   website?: string | null;
@@ -138,7 +135,6 @@ type Product = {
   name: string;
 
   description?: string | null;
-
   category?: string | null;
 
   price: number | string;
@@ -150,13 +146,9 @@ type Product = {
 
   image_url?: string | null;
 
-  images?:
-    | string[]
-    | null;
+  images?: string[] | null;
 
-  inventory_quantity?:
-    | number
-    | null;
+  inventory_quantity?: number | null;
 
   sku?: string | null;
 
@@ -181,10 +173,7 @@ type CartLine = {
 // ============================================================
 
 function formatCurrency(
-  value?:
-    | number
-    | string
-    | null
+  value?: number | string | null
 ) {
   return new Intl.NumberFormat(
     "en-GB",
@@ -200,11 +189,8 @@ function formatCurrency(
 }
 
 function normaliseColour(
-  value?:
-    | string
-    | null,
-  fallback =
-    "#a9b897"
+  value?: string | null,
+  fallback = "#a9b897"
 ) {
   const trimmed =
     String(
@@ -223,12 +209,10 @@ function normaliseColour(
 }
 
 function firstString(
-  ...values:
-    unknown[]
+  ...values: unknown[]
 ) {
   for (
-    const value of
-    values
+    const value of values
   ) {
     if (
       typeof value ===
@@ -258,9 +242,7 @@ function getProductImage(
     product.images.length >
       0
   ) {
-    return product.images[
-      0
-    ];
+    return product.images[0];
   }
 
   return null;
@@ -281,9 +263,7 @@ export default function ShopFrontPage() {
       : Array.isArray(
             params?.slug
           )
-        ? params.slug[
-            0
-          ]
+        ? params.slug[0]
         : "";
 
   // ==========================================================
@@ -310,17 +290,13 @@ export default function ShopFrontPage() {
     loading,
     setLoading,
   ] =
-    useState(
-      true
-    );
+    useState(true);
 
   const [
     error,
     setError,
   ] =
-    useState<
-      string | null
-    >(
+    useState<string | null>(
       null
     );
 
@@ -338,9 +314,7 @@ export default function ShopFrontPage() {
     category,
     setCategory,
   ] =
-    useState(
-      "All"
-    );
+    useState("All");
 
   // ==========================================================
   // UI
@@ -350,17 +324,13 @@ export default function ShopFrontPage() {
     mobileMenuOpen,
     setMobileMenuOpen,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   const [
     cartOpen,
     setCartOpen,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   // ==========================================================
   // CART
@@ -398,13 +368,8 @@ export default function ShopFrontPage() {
           return;
         }
 
-        setLoading(
-          true
-        );
-
-        setError(
-          null
-        );
+        setLoading(true);
+        setError(null);
 
         try {
           // ===================================================
@@ -426,6 +391,10 @@ export default function ShopFrontPage() {
                 "slug",
                 slug
               )
+              .eq(
+                "is_live",
+                true
+              )
               .maybeSingle();
 
           if (
@@ -437,13 +406,8 @@ export default function ShopFrontPage() {
           if (
             !settingsData
           ) {
-            setStore(
-              null
-            );
-
-            setProducts(
-              []
-            );
+            setStore(null);
+            setProducts([]);
 
             setError(
               "This store could not be found."
@@ -456,34 +420,7 @@ export default function ShopFrontPage() {
             settingsData as StoreSettingsRow;
 
           // ===================================================
-          // 2. STORE LIVE CHECK
-          // ===================================================
-
-          if (
-            settings.is_live ===
-            false
-          ) {
-            setStore(
-              null
-            );
-
-            setProducts(
-              []
-            );
-
-            setError(
-              "This store is not currently live."
-            );
-
-            return;
-          }
-
-          // ===================================================
-          // 3. LOAD ORGANISATION BRANDING
-          //
-          // This is deliberately select("*") because different
-          // TOTS-OS versions may have slightly different
-          // organisation branding columns.
+          // 2. ORGANISATION BRANDING
           // ===================================================
 
           let organisation:
@@ -512,10 +449,12 @@ export default function ShopFrontPage() {
             organisationError
           ) {
             console.warn(
-              "Store organisation branding could not be loaded:",
+              "Organisation branding could not be loaded:",
               organisationError
             );
-          } else if (
+          }
+
+          if (
             organisationData
           ) {
             organisation =
@@ -523,30 +462,24 @@ export default function ShopFrontPage() {
           }
 
           // ===================================================
-          // 4. BUILD PUBLIC STOREFRONT OBJECT
+          // 3. BUILD PUBLIC STOREFRONT
           // ===================================================
 
           const companyName =
             firstString(
               settings.store_name,
-              organisation
-                ?.company_name,
+              organisation?.company_name,
               organisation?.name
             ) ||
             "Online Store";
 
           const logoUrl =
             firstString(
-              organisation
-                ?.logo_url,
-              organisation
-                ?.company_logo_url,
-              organisation
-                ?.branding_logo_url,
-              organisation
-                ?.company_logo,
-              organisation
-                ?.logo
+              organisation?.logo_url,
+              organisation?.company_logo_url,
+              organisation?.branding_logo_url,
+              organisation?.company_logo,
+              organisation?.logo
             );
 
           const resolvedStore:
@@ -567,8 +500,7 @@ export default function ShopFrontPage() {
               store_description:
                 settings.store_description ||
                 firstString(
-                  organisation
-                    ?.description
+                  organisation?.description
                 ),
 
               hero_title:
@@ -601,36 +533,29 @@ export default function ShopFrontPage() {
               email:
                 firstString(
                   settings.support_email,
-                  organisation
-                    ?.email
+                  organisation?.email
                 ),
 
               phone:
                 firstString(
-                  organisation
-                    ?.phone
+                  organisation?.phone
                 ),
 
               address:
                 firstString(
-                  organisation
-                    ?.address
+                  organisation?.address
                 ),
 
               website_url:
                 firstString(
-                  organisation
-                    ?.website_url,
-                  organisation
-                    ?.website
+                  organisation?.website_url,
+                  organisation?.website
                 ),
 
               instagram_url:
                 firstString(
-                  organisation
-                    ?.instagram_url,
-                  organisation
-                    ?.instagram
+                  organisation?.instagram_url,
+                  organisation?.instagram
                 ),
             };
 
@@ -639,14 +564,7 @@ export default function ShopFrontPage() {
           );
 
           // ===================================================
-          // 5. PRODUCTS
-          //
-          // IMPORTANT:
-          // We only filter by organisation_id in Supabase.
-          //
-          // This prevents the page breaking if fields such as
-          // store_id, featured or sort_order are not present in
-          // your current store_products schema.
+          // 4. PRODUCTS
           // ===================================================
 
           const {
@@ -682,10 +600,6 @@ export default function ShopFrontPage() {
                 ) =>
                   product as Product
               )
-
-              // If is_active exists and is false,
-              // hide it. If the column/value is
-              // absent, keep the product.
               .filter(
                 (
                   product
@@ -693,9 +607,6 @@ export default function ShopFrontPage() {
                   product.is_active !==
                   false
               )
-
-              // Sort safely in JavaScript instead
-              // of relying on optional DB columns.
               .sort(
                 (
                   first,
@@ -766,22 +677,15 @@ export default function ShopFrontPage() {
             loadError
           );
 
-          setStore(
-            null
-          );
-
-          setProducts(
-            []
-          );
+          setStore(null);
+          setProducts([]);
 
           setError(
             loadError?.message ||
               "We couldn't load this store right now."
           );
         } finally {
-          setLoading(
-            false
-          );
+          setLoading(false);
         }
       },
       [
@@ -789,11 +693,14 @@ export default function ShopFrontPage() {
       ]
     );
 
-  useEffect(() => {
-    void loadStore();
-  }, [
-    loadStore,
-  ]);
+  useEffect(
+    () => {
+      void loadStore();
+    },
+    [
+      loadStore,
+    ]
+  );
 
   // ==========================================================
   // CATEGORIES
@@ -874,9 +781,7 @@ export default function ShopFrontPage() {
               product.category,
               product.sku,
             ]
-              .filter(
-                Boolean
-              )
+              .filter(Boolean)
               .some(
                 (
                   value
@@ -925,8 +830,6 @@ export default function ShopFrontPage() {
           );
         }
 
-        // Gives the storefront some visual content
-        // even before featured products are configured.
         return products.slice(
           0,
           4
@@ -1049,13 +952,11 @@ export default function ShopFrontPage() {
       }
     );
 
-    setCartOpen(
-      true
-    );
+    setCartOpen(true);
   }
 
   // ==========================================================
-  // UPDATE QUANTITY
+  // UPDATE CART QUANTITY
   // ==========================================================
 
   function setQuantity(
@@ -1490,7 +1391,6 @@ export default function ShopFrontPage() {
                   style={{
                     background:
                       `${primary}1c`,
-
                     color:
                       primary,
                   }}
@@ -1615,26 +1515,19 @@ export default function ShopFrontPage() {
                   secondary,
               }}
             >
-              {featuredProducts[
-                0
-              ] &&
+              {featuredProducts[0] &&
               getProductImage(
-                featuredProducts[
-                  0
-                ]
+                featuredProducts[0]
               ) ? (
                 <img
                   src={
                     getProductImage(
-                      featuredProducts[
-                        0
-                      ]
+                      featuredProducts[0]
                     )!
                   }
                   alt={
-                    featuredProducts[
-                      0
-                    ].name
+                    featuredProducts[0]
+                      .name
                   }
                   className="absolute inset-0 h-full w-full object-cover"
                 />
@@ -1673,7 +1566,7 @@ export default function ShopFrontPage() {
       </section>
 
       {/* =====================================================
-          SHIPPING STRIP
+          SHIPPING
       ===================================================== */}
 
       {store.shipping_text && (
@@ -2174,12 +2067,9 @@ export default function ShopFrontPage() {
                 !store.phone &&
                 !store.address &&
                 !store.instagram_url && (
-                <div className="sm:col-span-2 rounded-2xl bg-white/5 p-5">
+                <div className="rounded-2xl bg-white/5 p-5 sm:col-span-2">
                   <p className="text-xs leading-6 text-stone-400">
-                    Contact details
-                    haven&apos;t
-                    been added to
-                    this store yet.
+                    Contact details haven&apos;t been added to this store yet.
                   </p>
                 </div>
               )}
@@ -2253,7 +2143,7 @@ export default function ShopFrontPage() {
       </footer>
 
       {/* =====================================================
-          CART DRAWER
+          CART
       ===================================================== */}
 
       {cartOpen && (
@@ -2321,10 +2211,7 @@ export default function ShopFrontPage() {
                   </p>
 
                   <p className="mt-2 text-xs text-stone-400">
-                    Add something
-                    you like and
-                    it will appear
-                    here.
+                    Add something you like and it will appear here.
                   </p>
                 </div>
               ) : (
@@ -2337,6 +2224,12 @@ export default function ShopFrontPage() {
                         getProductImage(
                           line.product
                         );
+
+                      const maxStock =
+                        typeof line.product.inventory_quantity ===
+                        "number"
+                          ? line.product.inventory_quantity
+                          : null;
 
                       return (
                         <div
@@ -2407,6 +2300,12 @@ export default function ShopFrontPage() {
 
                               <button
                                 type="button"
+                                disabled={
+                                  maxStock !==
+                                    null &&
+                                  line.quantity >=
+                                    maxStock
+                                }
                                 onClick={() =>
                                   setQuantity(
                                     line.product.id,
@@ -2414,7 +2313,7 @@ export default function ShopFrontPage() {
                                       1
                                   )
                                 }
-                                className="flex h-7 w-7 items-center justify-center rounded-full bg-white"
+                                className="flex h-7 w-7 items-center justify-center rounded-full bg-white disabled:cursor-not-allowed disabled:opacity-30"
                               >
                                 <Plus
                                   size={
@@ -2423,6 +2322,24 @@ export default function ShopFrontPage() {
                                 />
                               </button>
                             </div>
+
+                            {maxStock !==
+                              null &&
+                              maxStock <=
+                                5 && (
+                              <p
+                                className="mt-2 text-[8px] font-bold"
+                                style={{
+                                  color:
+                                    primary,
+                                }}
+                              >
+                                {
+                                  maxStock
+                                }{" "}
+                                in stock
+                              </p>
+                            )}
                           </div>
 
                           <div className="shrink-0 text-right">
@@ -2490,7 +2407,7 @@ export default function ShopFrontPage() {
                 }}
                 onClick={() =>
                   alert(
-                    "Basket is ready. The next step is connecting this button to your TOTS-OS order + Stripe checkout API."
+                    "Basket is ready. Next step is connecting this button to your TOTS-OS order + Stripe checkout API."
                   )
                 }
               >
@@ -2504,11 +2421,7 @@ export default function ShopFrontPage() {
               </button>
 
               <p className="mt-3 text-center text-[9px] leading-4 text-stone-400">
-                Checkout will be
-                securely processed
-                through this
-                store&apos;s
-                TOTS-OS account.
+                Checkout will be securely processed through this store&apos;s TOTS-OS account.
               </p>
             </div>
           </aside>
@@ -2516,15 +2429,14 @@ export default function ShopFrontPage() {
       )}
 
       {/* =====================================================
-          FONTS / SMALL GLOBAL STYLES
+          GLOBAL STYLES
       ===================================================== */}
 
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap");
 
         html {
-          scroll-behavior:
-            smooth;
+          scroll-behavior: smooth;
         }
 
         .font-serif {
@@ -2547,14 +2459,9 @@ function ProductCard({
   primary,
   onAdd,
 }: {
-  product:
-    Product;
-
-  primary:
-    string;
-
-  onAdd:
-    () => void;
+  product: Product;
+  primary: string;
+  onAdd: () => void;
 }) {
   const image =
     getProductImage(

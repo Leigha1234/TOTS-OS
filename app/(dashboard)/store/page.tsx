@@ -1,21 +1,26 @@
 "use client";
 
 import {
+  useCallback,
+  useEffect,
   useMemo,
   useState,
+  type ReactNode,
 } from "react";
 
 import {
   AlertTriangle,
+  ArrowRight,
   ArrowUpRight,
   BadgePercent,
-  Banknote,
   Boxes,
   Check,
   ChevronRight,
   CircleDollarSign,
+  Copy,
   CreditCard,
   Edit3,
+  ExternalLink,
   Eye,
   ImageIcon,
   Loader2,
@@ -41,6 +46,8 @@ import {
   AnimatePresence,
   motion,
 } from "framer-motion";
+
+import { supabase } from "@/lib/supabase";
 
 // ============================================================
 // TYPES
@@ -71,218 +78,673 @@ type PaymentStatus =
   | "pending"
   | "refunded";
 
-type DiscountType =
-  | "percentage"
-  | "fixed";
-
 type Product = {
   id: string;
+
+  organisation_id: string;
+
   name: string;
   sku: string;
   category: string;
+
+  description: string;
+
   price: number;
+  compare_at_price: number | null;
   cost: number;
-  stock: number;
+
+  inventory_quantity: number;
+
   status: ProductStatus;
-  image?: string | null;
+
+  image_url: string | null;
+
+  images: string[];
+
+  featured: boolean;
+
+  sort_order: number | null;
+
+  is_active: boolean;
+
+  created_at: string | null;
+
   orders: number;
   revenue: number;
 };
 
 type Order = {
   id: string;
+
+  organisation_id: string;
+
   number: string;
+
   customer: string;
+
   email: string;
+
   total: number;
+
   status: OrderStatus;
+
   paymentStatus: PaymentStatus;
+
   items: number;
+
   createdAt: string;
+
+  raw: Record<
+    string,
+    unknown
+  >;
 };
 
-type Discount = {
+type StoreSettingsRow = {
   id: string;
-  code: string;
-  type: DiscountType;
-  value: number;
-  uses: number;
-  active: boolean;
+
+  organisation_id: string;
+
+  slug: string;
+
+  store_name: string | null;
+
+  store_description: string | null;
+
+  hero_title: string | null;
+
+  hero_text: string | null;
+
+  announcement: string | null;
+
+  accent_colour: string | null;
+
+  shipping_text: string | null;
+
+  support_email: string | null;
+
+  is_live: boolean | null;
+
+  created_at?: string | null;
+
+  updated_at?: string | null;
 };
 
 type ProductForm = {
+  id?: string;
+
   name: string;
+
   sku: string;
+
   category: string;
+
+  description: string;
+
   price: string;
+
+  compareAtPrice: string;
+
   cost: string;
+
   stock: string;
+
+  imageUrl: string;
+
+  featured: boolean;
+
   status: ProductStatus;
 };
 
-type DiscountForm = {
-  code: string;
-  type: DiscountType;
-  value: string;
+type StockAdjustState = {
+  product: Product;
+  quantity: string;
+};
+
+type OrganisationContext = {
+  organisationId: string;
+  organisationName: string;
 };
 
 // ============================================================
-// DUMMY DATA
+// DEFAULTS
 // ============================================================
 
-const INITIAL_PRODUCTS: Product[] = [
-  {
-    id: "prod-1",
-    name: "Studio Planner",
-    sku: "NP-PLN-001",
-    category: "Stationery",
-    price: 32,
-    cost: 9.5,
-    stock: 24,
-    status: "active",
-    orders: 58,
-    revenue: 1856,
-  },
-  {
-    id: "prod-2",
-    name: "Classic Canvas Tote",
-    sku: "NP-TOT-002",
-    category: "Accessories",
-    price: 26,
-    cost: 8,
-    stock: 4,
-    status: "active",
-    orders: 71,
-    revenue: 1846,
-  },
-  {
-    id: "prod-3",
-    name: "Business Reset Workbook",
-    sku: "NP-WBK-003",
-    category: "Digital",
-    price: 18,
-    cost: 2.4,
-    stock: 999,
-    status: "active",
-    orders: 64,
-    revenue: 1152,
-  },
-  {
-    id: "prod-4",
-    name: "Desk Notes Set",
-    sku: "NP-NOT-004",
-    category: "Stationery",
-    price: 14,
-    cost: 4,
-    stock: 7,
-    status: "active",
-    orders: 35,
-    revenue: 490,
-  },
-  {
-    id: "prod-5",
-    name: "Launch Planning Kit",
-    sku: "NP-KIT-005",
-    category: "Digital",
-    price: 48,
-    cost: 5,
-    stock: 999,
-    status: "draft",
-    orders: 0,
-    revenue: 0,
-  },
-];
+const EMPTY_PRODUCT_FORM: ProductForm = {
+  name: "",
+  sku: "",
+  category: "General",
+  description: "",
+  price: "",
+  compareAtPrice: "",
+  cost: "",
+  stock: "",
+  imageUrl: "",
+  featured: false,
+  status: "active",
+};
 
-const INITIAL_ORDERS: Order[] = [
-  {
-    id: "order-1",
-    number: "#1048",
-    customer: "Amelia Hart",
-    email: "amelia@example.com",
-    total: 86,
-    status: "new",
-    paymentStatus: "paid",
-    items: 3,
-    createdAt: "22 Aug 2026",
-  },
-  {
-    id: "order-2",
-    number: "#1047",
-    customer: "Sophie Reed",
-    email: "sophie@example.com",
-    total: 42,
-    status: "processing",
-    paymentStatus: "paid",
-    items: 2,
-    createdAt: "22 Aug 2026",
-  },
-  {
-    id: "order-3",
-    number: "#1046",
-    customer: "Oliver James",
-    email: "oliver@example.com",
-    total: 124,
-    status: "dispatched",
-    paymentStatus: "paid",
-    items: 4,
-    createdAt: "21 Aug 2026",
-  },
-  {
-    id: "order-4",
-    number: "#1045",
-    customer: "Maya Collins",
-    email: "maya@example.com",
-    total: 32,
-    status: "delivered",
-    paymentStatus: "paid",
-    items: 1,
-    createdAt: "21 Aug 2026",
-  },
-  {
-    id: "order-5",
-    number: "#1044",
-    customer: "Noah Bennett",
-    email: "noah@example.com",
-    total: 58,
-    status: "processing",
-    paymentStatus: "pending",
-    items: 2,
-    createdAt: "20 Aug 2026",
-  },
-];
+// ============================================================
+// GENERIC HELPERS
+// ============================================================
 
-const INITIAL_DISCOUNTS: Discount[] = [
-  {
-    id: "discount-1",
-    code: "WELCOME10",
-    type: "percentage",
-    value: 10,
-    uses: 18,
-    active: true,
-  },
-  {
-    id: "discount-2",
-    code: "FREESHIP",
-    type: "fixed",
-    value: 4.95,
-    uses: 9,
-    active: true,
-  },
-  {
-    id: "discount-3",
-    code: "SUMMER20",
-    type: "percentage",
-    value: 20,
-    uses: 31,
-    active: false,
-  },
-];
+function firstString(
+  ...values: unknown[]
+) {
+  for (
+    const value of values
+  ) {
+    if (
+      typeof value ===
+        "string" &&
+      value.trim()
+    ) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function firstNumber(
+  ...values: unknown[]
+) {
+  for (
+    const value of values
+  ) {
+    if (
+      typeof value ===
+        "number" &&
+      Number.isFinite(
+        value
+      )
+    ) {
+      return value;
+    }
+
+    if (
+      typeof value ===
+        "string" &&
+      value.trim() !== ""
+    ) {
+      const parsed =
+        Number(
+          value
+        );
+
+      if (
+        Number.isFinite(
+          parsed
+        )
+      ) {
+        return parsed;
+      }
+    }
+  }
+
+  return 0;
+}
+
+function safeBoolean(
+  value: unknown,
+  fallback = false
+) {
+  if (
+    typeof value ===
+    "boolean"
+  ) {
+    return value;
+  }
+
+  return fallback;
+}
+
+function safeStringArray(
+  value: unknown
+) {
+  if (
+    Array.isArray(
+      value
+    )
+  ) {
+    return value
+      .filter(
+        (
+          item
+        ) =>
+          typeof item ===
+          "string"
+      )
+      .map(
+        (
+          item
+        ) =>
+          item.trim()
+      )
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function normaliseOrderStatus(
+  value: unknown
+): OrderStatus {
+  const status =
+    String(
+      value ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    status ===
+    "processing"
+  ) {
+    return "processing";
+  }
+
+  if (
+    status ===
+      "dispatched" ||
+    status ===
+      "shipped"
+  ) {
+    return "dispatched";
+  }
+
+  if (
+    status ===
+      "delivered" ||
+    status ===
+      "complete" ||
+    status ===
+      "completed"
+  ) {
+    return "delivered";
+  }
+
+  if (
+    status ===
+      "cancelled" ||
+    status ===
+      "canceled"
+  ) {
+    return "cancelled";
+  }
+
+  return "new";
+}
+
+function normalisePaymentStatus(
+  value: unknown
+): PaymentStatus {
+  const status =
+    String(
+      value ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    status ===
+      "paid" ||
+    status ===
+      "succeeded" ||
+    status ===
+      "complete" ||
+    status ===
+      "completed"
+  ) {
+    return "paid";
+  }
+
+  if (
+    status ===
+      "refunded" ||
+    status ===
+      "refund"
+  ) {
+    return "refunded";
+  }
+
+  return "pending";
+}
+
+function formatDate(
+  value: unknown
+) {
+  if (
+    typeof value !==
+      "string" ||
+    !value
+  ) {
+    return "—";
+  }
+
+  const date =
+    new Date(
+      value
+    );
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(
+    "en-GB",
+    {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }
+  ).format(
+    date
+  );
+}
+
+function createSlug(
+  value: string
+) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(
+      /[^a-z0-9]+/g,
+      "-"
+    )
+    .replace(
+      /^-+|-+$/g,
+      ""
+    );
+}
+
+function generateSku(
+  name: string
+) {
+  const prefix =
+    name
+      .replace(
+        /[^a-zA-Z0-9]/g,
+        ""
+      )
+      .slice(
+        0,
+        4
+      )
+      .toUpperCase() ||
+    "PROD";
+
+  return `${prefix}-${Date.now()
+    .toString()
+    .slice(-6)}`;
+}
+
+// ============================================================
+// ORGANISATION RESOLUTION
+// ============================================================
+
+async function resolveOrganisationContext(): Promise<OrganisationContext> {
+  const {
+    data:
+      authData,
+    error:
+      authError,
+  } =
+    await supabase.auth.getUser();
+
+  if (
+    authError ||
+    !authData.user
+  ) {
+    throw new Error(
+      "You need to be signed in to manage your store."
+    );
+  }
+
+  const user =
+    authData.user;
+
+  // ==========================================================
+  // TRY USER_ORGANISATIONS
+  // ==========================================================
+
+  try {
+    const {
+      data:
+        membershipRows,
+    } =
+      await supabase
+        .from(
+          "user_organisations"
+        )
+        .select("*")
+        .eq(
+          "user_id",
+          user.id
+        )
+        .limit(1);
+
+    const membership =
+      membershipRows?.[0] as
+        | Record<
+            string,
+            unknown
+          >
+        | undefined;
+
+    const membershipOrgId =
+      firstString(
+        membership
+          ?.organisation_id,
+        membership
+          ?.organization_id
+      );
+
+    if (
+      membershipOrgId
+    ) {
+      const {
+        data:
+          organisation,
+      } =
+        await supabase
+          .from(
+            "organisations"
+          )
+          .select("*")
+          .eq(
+            "id",
+            membershipOrgId
+          )
+          .maybeSingle();
+
+      return {
+        organisationId:
+          membershipOrgId,
+
+        organisationName:
+          firstString(
+            organisation?.name,
+            organisation
+              ?.company_name
+          ) ||
+          "My Business",
+      };
+    }
+  } catch (
+    membershipError
+  ) {
+    console.warn(
+      "user_organisations lookup skipped:",
+      membershipError
+    );
+  }
+
+  // ==========================================================
+  // TRY PROFILES
+  // ==========================================================
+
+  try {
+    const {
+      data:
+        profile,
+    } =
+      await supabase
+        .from(
+          "profiles"
+        )
+        .select("*")
+        .eq(
+          "id",
+          user.id
+        )
+        .maybeSingle();
+
+    const profileOrgId =
+      firstString(
+        profile
+          ?.organisation_id,
+        profile
+          ?.organization_id
+      );
+
+    if (
+      profileOrgId
+    ) {
+      const {
+        data:
+          organisation,
+      } =
+        await supabase
+          .from(
+            "organisations"
+          )
+          .select("*")
+          .eq(
+            "id",
+            profileOrgId
+          )
+          .maybeSingle();
+
+      return {
+        organisationId:
+          profileOrgId,
+
+        organisationName:
+          firstString(
+            organisation?.name,
+            organisation
+              ?.company_name
+          ) ||
+          "My Business",
+      };
+    }
+  } catch (
+    profileError
+  ) {
+    console.warn(
+      "profiles organisation lookup skipped:",
+      profileError
+    );
+  }
+
+  // ==========================================================
+  // TRY ORGANISATION_MEMBERS
+  // ==========================================================
+
+  try {
+    const {
+      data:
+        memberRows,
+    } =
+      await supabase
+        .from(
+          "organisation_members"
+        )
+        .select("*")
+        .eq(
+          "user_id",
+          user.id
+        )
+        .limit(1);
+
+    const member =
+      memberRows?.[0] as
+        | Record<
+            string,
+            unknown
+          >
+        | undefined;
+
+    const memberOrgId =
+      firstString(
+        member
+          ?.organisation_id,
+        member
+          ?.organization_id
+      );
+
+    if (
+      memberOrgId
+    ) {
+      const {
+        data:
+          organisation,
+      } =
+        await supabase
+          .from(
+            "organisations"
+          )
+          .select("*")
+          .eq(
+            "id",
+            memberOrgId
+          )
+          .maybeSingle();
+
+      return {
+        organisationId:
+          memberOrgId,
+
+        organisationName:
+          firstString(
+            organisation?.name,
+            organisation
+              ?.company_name
+          ) ||
+          "My Business",
+      };
+    }
+  } catch (
+    memberError
+  ) {
+    console.warn(
+      "organisation_members lookup skipped:",
+      memberError
+    );
+  }
+
+  throw new Error(
+    "We couldn't work out which organisation this store belongs to."
+  );
+}
 
 // ============================================================
 // PAGE
 // ============================================================
 
 export default function StorePage() {
+  // ==========================================================
+  // CORE
+  // ==========================================================
+
   const [
     activeTab,
     setActiveTab,
@@ -292,28 +754,126 @@ export default function StorePage() {
     );
 
   const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
+
+  const [
+    refreshing,
+    setRefreshing,
+  ] =
+    useState(false);
+
+  const [
+    pageError,
+    setPageError,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    organisationId,
+    setOrganisationId,
+  ] =
+    useState("");
+
+  const [
+    organisationName,
+    setOrganisationName,
+  ] =
+    useState("");
+
+  // ==========================================================
+  // STORE SETTINGS
+  // ==========================================================
+
+  const [
+    storeSettings,
+    setStoreSettings,
+  ] =
+    useState<StoreSettingsRow | null>(
+      null
+    );
+
+  const [
+    storeName,
+    setStoreName,
+  ] =
+    useState("");
+
+  const [
+    storeDescription,
+    setStoreDescription,
+  ] =
+    useState("");
+
+  const [
+    heroTitle,
+    setHeroTitle,
+  ] =
+    useState("");
+
+  const [
+    heroText,
+    setHeroText,
+  ] =
+    useState("");
+
+  const [
+    announcement,
+    setAnnouncement,
+  ] =
+    useState("");
+
+  const [
+    accentColour,
+    setAccentColour,
+  ] =
+    useState(
+      "#A9B897"
+    );
+
+  const [
+    shippingText,
+    setShippingText,
+  ] =
+    useState("");
+
+  const [
+    supportEmail,
+    setSupportEmail,
+  ] =
+    useState("");
+
+  const [
+    slug,
+    setSlug,
+  ] =
+    useState("");
+
+  const [
+    storeLive,
+    setStoreLive,
+  ] =
+    useState(false);
+
+  const [
+    savingSettings,
+    setSavingSettings,
+  ] =
+    useState(false);
+
+  // ==========================================================
+  // PRODUCTS
+  // ==========================================================
+
+  const [
     products,
     setProducts,
   ] =
-    useState<Product[]>(
-      INITIAL_PRODUCTS
-    );
-
-  const [
-    orders,
-    setOrders,
-  ] =
-    useState<Order[]>(
-      INITIAL_ORDERS
-    );
-
-  const [
-    discounts,
-    setDiscounts,
-  ] =
-    useState<Discount[]>(
-      INITIAL_DISCOUNTS
-    );
+    useState<Product[]>([]);
 
   const [
     productSearch,
@@ -322,110 +882,775 @@ export default function StorePage() {
     useState("");
 
   const [
-    orderSearch,
-    setOrderSearch,
-  ] =
-    useState("");
-
-  const [
     showProductModal,
     setShowProductModal,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   const [
-    showDiscountModal,
-    setShowDiscountModal,
+    productForm,
+    setProductForm,
   ] =
-    useState(
-      false
+    useState<ProductForm>(
+      EMPTY_PRODUCT_FORM
     );
 
   const [
     savingProduct,
     setSavingProduct,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   const [
-    savingDiscount,
-    setSavingDiscount,
+    deletingProductId,
+    setDeletingProductId,
   ] =
-    useState(
-      false
-    );
+    useState<
+      string | null
+    >(null);
 
-  const [
-    productForm,
-    setProductForm,
-  ] =
-    useState<ProductForm>({
-      name: "",
-      sku: "",
-      category: "General",
-      price: "",
-      cost: "",
-      stock: "",
-      status: "active",
-    });
-
-  const [
-    discountForm,
-    setDiscountForm,
-  ] =
-    useState<DiscountForm>({
-      code: "",
-      type: "percentage",
-      value: "",
-    });
-
-  const [
-    storeName,
-    setStoreName,
-  ] =
-    useState(
-      "North & Pine Store"
-    );
-
-  const [
-    currency,
-    setCurrency,
-  ] =
-    useState(
-      "GBP"
-    );
+  // ==========================================================
+  // INVENTORY
+  // ==========================================================
 
   const [
     lowStockThreshold,
     setLowStockThreshold,
   ] =
-    useState(
-      "8"
+    useState("8");
+
+  const [
+    stockAdjust,
+    setStockAdjust,
+  ] =
+    useState<StockAdjustState | null>(
+      null
     );
+
+  const [
+    savingStock,
+    setSavingStock,
+  ] =
+    useState(false);
+
+  // ==========================================================
+  // ORDERS
+  // ==========================================================
+
+  const [
+    orders,
+    setOrders,
+  ] =
+    useState<Order[]>([]);
+
+  const [
+    orderSearch,
+    setOrderSearch,
+  ] =
+    useState("");
+
+  const [
+    updatingOrderId,
+    setUpdatingOrderId,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  // ==========================================================
+  // OTHER SETTINGS
+  // ==========================================================
+
+  const [
+    currency,
+    setCurrency,
+  ] =
+    useState("GBP");
 
   const [
     orderNotifications,
     setOrderNotifications,
   ] =
-    useState(
-      true
-    );
+    useState(true);
 
   const [
     autoCreateContacts,
     setAutoCreateContacts,
   ] =
-    useState(
-      true
+    useState(true);
+
+  // ==========================================================
+  // LOAD DATA
+  // ==========================================================
+
+  const loadData =
+    useCallback(
+      async (
+        quiet =
+          false
+      ) => {
+        if (
+          quiet
+        ) {
+          setRefreshing(
+            true
+          );
+        } else {
+          setLoading(
+            true
+          );
+        }
+
+        setPageError(
+          null
+        );
+
+        try {
+          // ===================================================
+          // ORGANISATION
+          // ===================================================
+
+          const context =
+            await resolveOrganisationContext();
+
+          setOrganisationId(
+            context.organisationId
+          );
+
+          setOrganisationName(
+            context.organisationName
+          );
+
+          const orgId =
+            context.organisationId;
+
+          // ===================================================
+          // STORE SETTINGS
+          // ===================================================
+
+          const {
+            data:
+              settingsRows,
+            error:
+              settingsError,
+          } =
+            await supabase
+              .from(
+                "store_settings"
+              )
+              .select("*")
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .limit(1);
+
+          if (
+            settingsError
+          ) {
+            throw settingsError;
+          }
+
+          const settings =
+            (
+              settingsRows?.[0] ||
+              null
+            ) as StoreSettingsRow | null;
+
+          setStoreSettings(
+            settings
+          );
+
+          setStoreName(
+            settings?.store_name ||
+              context.organisationName ||
+              ""
+          );
+
+          setStoreDescription(
+            settings?.store_description ||
+              ""
+          );
+
+          setHeroTitle(
+            settings?.hero_title ||
+              ""
+          );
+
+          setHeroText(
+            settings?.hero_text ||
+              ""
+          );
+
+          setAnnouncement(
+            settings?.announcement ||
+              ""
+          );
+
+          setAccentColour(
+            settings?.accent_colour ||
+              "#A9B897"
+          );
+
+          setShippingText(
+            settings?.shipping_text ||
+              ""
+          );
+
+          setSupportEmail(
+            settings?.support_email ||
+              ""
+          );
+
+          setSlug(
+            settings?.slug ||
+              createSlug(
+                context.organisationName
+              )
+          );
+
+          setStoreLive(
+            settings?.is_live ===
+              true
+          );
+
+          // ===================================================
+          // PRODUCTS
+          // ===================================================
+
+          const {
+            data:
+              productRows,
+            error:
+              productError,
+          } =
+            await supabase
+              .from(
+                "store_products"
+              )
+              .select("*")
+              .eq(
+                "organisation_id",
+                orgId );
+
+          if (
+            productError
+          ) {
+            throw productError;
+          }
+
+          // ===================================================
+          // ORDER ITEMS
+          // Used for product stats where possible
+          // ===================================================
+
+          let orderItems:
+            Record<
+              string,
+              unknown
+            >[] = [];
+
+          try {
+            const {
+              data:
+                itemRows,
+            } =
+              await supabase
+                .from(
+                  "store_order_items"
+                )
+                .select("*")
+                .eq(
+                  "organisation_id",
+                  orgId
+                );
+
+            orderItems =
+              (
+                itemRows ||
+                []
+              ) as Record<
+                string,
+                unknown
+              >[];
+          } catch (
+            orderItemError
+          ) {
+            console.warn(
+              "Order item stats unavailable:",
+              orderItemError
+            );
+          }
+
+          const cleanedProducts =
+            (
+              productRows ||
+              []
+            ).map(
+              (
+                row:
+                  Record<
+                    string,
+                    unknown
+                  >
+              ): Product => {
+                const id =
+                  String(
+                    row.id
+                  );
+
+                const related =
+                  orderItems.filter(
+                    (
+                      item
+                    ) =>
+                      firstString(
+                        item.product_id,
+                        item.store_product_id
+                      ) ===
+                      id
+                  );
+
+                const orders =
+                  related.reduce(
+                    (
+                      total,
+                      item
+                    ) =>
+                      total +
+                      firstNumber(
+                        item.quantity,
+                        1
+                      ),
+                    0
+                  );
+
+                const revenue =
+                  related.reduce(
+                    (
+                      total,
+                      item
+                    ) => {
+                      const quantity =
+                        firstNumber(
+                          item.quantity,
+                          1
+                        );
+
+                      const unit =
+                        firstNumber(
+                          item.unit_price,
+                          item.price,
+                          item.product_price
+                        );
+
+                      const lineTotal =
+                        firstNumber(
+                          item.total,
+                          item.line_total,
+                          item.total_amount
+                        );
+
+                      return (
+                        total +
+                        (lineTotal ||
+                          unit *
+                            quantity)
+                      );
+                    },
+                    0
+                  );
+
+                const rawStatus =
+                  firstString(
+                    row.status
+                  );
+
+                let status:
+                  ProductStatus =
+                  "active";
+
+                if (
+                  rawStatus ===
+                  "draft"
+                ) {
+                  status =
+                    "draft";
+                }
+
+                if (
+                  rawStatus ===
+                  "archived"
+                ) {
+                  status =
+                    "archived";
+                }
+
+                if (
+                  row.is_active ===
+                  false &&
+                  !rawStatus
+                ) {
+                  status =
+                    "draft";
+                }
+
+                return {
+                  id,
+
+                  organisation_id:
+                    String(
+                      row.organisation_id ||
+                        orgId
+                    ),
+
+                  name:
+                    firstString(
+                      row.name,
+                      row.title
+                    ) ||
+                    "Untitled product",
+
+                  sku:
+                    firstString(
+                      row.sku
+                    ) ||
+                    "—",
+
+                  category:
+                    firstString(
+                      row.category
+                    ) ||
+                    "General",
+
+                  description:
+                    firstString(
+                      row.description
+                    ) ||
+                    "",
+
+                  price:
+                    firstNumber(
+                      row.price
+                    ),
+
+                  compare_at_price:
+                    row.compare_at_price ===
+                      null ||
+                    row.compare_at_price ===
+                      undefined
+                      ? null
+                      : firstNumber(
+                          row.compare_at_price
+                        ),
+
+                  cost:
+                    firstNumber(
+                      row.cost,
+                      row.cost_price,
+                      row.unit_cost
+                    ),
+
+                  inventory_quantity:
+                    firstNumber(
+                      row.inventory_quantity,
+                      row.stock,
+                      row.quantity
+                    ),
+
+                  status,
+
+                  image_url:
+                    firstString(
+                      row.image_url
+                    ),
+
+                  images:
+                    safeStringArray(
+                      row.images
+                    ),
+
+                  featured:
+                    safeBoolean(
+                      row.featured,
+                      false
+                    ),
+
+                  sort_order:
+                    typeof row.sort_order ===
+                    "number"
+                      ? row.sort_order
+                      : null,
+
+                  is_active:
+                    row.is_active !==
+                    false,
+
+                  created_at:
+                    firstString(
+                      row.created_at
+                    ),
+
+                  orders,
+
+                  revenue,
+                };
+              }
+            );
+
+          cleanedProducts.sort(
+            (
+              first,
+              second
+            ) => {
+              if (
+                first.featured !==
+                second.featured
+              ) {
+                return first.featured
+                  ? -1
+                  : 1;
+              }
+
+              return first.name.localeCompare(
+                second.name
+              );
+            }
+          );
+
+          setProducts(
+            cleanedProducts
+          );
+
+          // ===================================================
+          // ORDERS
+          // ===================================================
+
+          const {
+            data:
+              orderRows,
+            error:
+              orderError,
+          } =
+            await supabase
+              .from(
+                "store_orders"
+              )
+              .select("*")
+              .eq(
+                "organisation_id",
+                orgId
+              );
+
+          if (
+            orderError
+          ) {
+            throw orderError;
+          }
+
+          const cleanedOrders =
+            (
+              orderRows ||
+              []
+            )
+              .map(
+                (
+                  row:
+                    Record<
+                      string,
+                      unknown
+                    >
+                ): Order => {
+                  const orderId =
+                    String(
+                      row.id
+                    );
+
+                  const relatedItems =
+                    orderItems.filter(
+                      (
+                        item
+                      ) =>
+                        firstString(
+                          item.order_id,
+                          item.store_order_id
+                        ) ===
+                        orderId
+                    );
+
+                  const itemCount =
+                    relatedItems.reduce(
+                      (
+                        total,
+                        item
+                      ) =>
+                        total +
+                        firstNumber(
+                          item.quantity,
+                          1
+                        ),
+                      0
+                    );
+
+                  const fallbackItems =
+                    firstNumber(
+                      row.items,
+                      row.item_count,
+                      row.total_items
+                    );
+
+                  return {
+                    id:
+                      orderId,
+
+                    organisation_id:
+                      String(
+                        row.organisation_id ||
+                          orgId
+                      ),
+
+                    number:
+                      firstString(
+                        row.order_number,
+                        row.number,
+                        row.reference
+                      ) ||
+                      `#${orderId
+                        .slice(
+                          0,
+                          6
+                        )
+                        .toUpperCase()}`,
+
+                    customer:
+                      firstString(
+                        row.customer_name,
+                        row.name,
+                        row.full_name,
+                        row.shipping_name
+                      ) ||
+                      "Customer",
+
+                    email:
+                      firstString(
+                        row.customer_email,
+                        row.email
+                      ) ||
+                      "—",
+
+                    total:
+                      firstNumber(
+                        row.total,
+                        row.total_amount,
+                        row.amount,
+                        row.grand_total
+                      ),
+
+                    status:
+                      normaliseOrderStatus(
+                        firstString(
+                          row.status,
+                          row.fulfilment_status,
+                          row.fulfillment_status
+                        )
+                      ),
+
+                    paymentStatus:
+                      normalisePaymentStatus(
+                        firstString(
+                          row.payment_status,
+                          row.stripe_payment_status,
+                          row.payment_state
+                        )
+                      ),
+
+                    items:
+                      itemCount ||
+                      fallbackItems,
+
+                    createdAt:
+                      formatDate(
+                        firstString(
+                          row.created_at,
+                          row.ordered_at
+                        )
+                      ),
+
+                    raw:
+                      row,
+                  };
+                }
+              )
+              .sort(
+                (
+                  first,
+                  second
+                ) => {
+                  const firstRaw =
+                    first.raw
+                      .created_at;
+
+                  const secondRaw =
+                    second.raw
+                      .created_at;
+
+                  return (
+                    new Date(
+                      String(
+                        secondRaw ||
+                          0
+                      )
+                    ).getTime() -
+                    new Date(
+                      String(
+                        firstRaw ||
+                          0
+                      )
+                    ).getTime()
+                  );
+                }
+              );
+
+          setOrders(
+            cleanedOrders
+          );
+        } catch (
+          error: any
+        ) {
+          console.error(
+            "Store load failed:",
+            error
+          );
+
+          setPageError(
+            error?.message ||
+              "We couldn't load your commerce workspace."
+          );
+        } finally {
+          setLoading(
+            false
+          );
+
+          setRefreshing(
+            false
+          );
+        }
+      },
+      []
     );
 
-  // ============================================================
+  useEffect(
+    () => {
+      void loadData();
+    },
+    [
+      loadData,
+    ]
+  );
+
+  // ==========================================================
   // METRICS
-  // ============================================================
+  // ==========================================================
 
   const totalRevenue =
     useMemo(
@@ -446,64 +1671,25 @@ export default function StorePage() {
 
   const totalOrders =
     useMemo(
-      () =>
-        products.reduce(
-          (
-            total,
-            product
-          ) =>
-            total +
-            product.orders,
-          0
-        ),
+      () => {
+        const productOrderTotal =
+          products.reduce(
+            (
+              total,
+              product
+            ) =>
+              total +
+              product.orders,
+            0
+          );
+
+        return (
+          productOrderTotal ||
+          orders.length
+        );
+      },
       [
         products,
-      ]
-    );
-
-  const averageOrderValue =
-    totalOrders >
-    0
-      ? totalRevenue /
-        totalOrders
-      : 0;
-
-  const lowStockProducts =
-    useMemo(
-      () =>
-        products.filter(
-          (
-            product
-          ) =>
-            product.stock <=
-              Number(
-                lowStockThreshold ||
-                  0
-              ) &&
-            product.stock <
-              900
-        ),
-      [
-        products,
-        lowStockThreshold,
-      ]
-    );
-
-  const openOrders =
-    useMemo(
-      () =>
-        orders.filter(
-          (
-            order
-          ) =>
-            ![
-              "delivered",
-              "cancelled",
-            ].includes(
-              order.status
-            )
-        ),
-      [
         orders,
       ]
     );
@@ -540,17 +1726,89 @@ export default function StorePage() {
       ]
     );
 
+  const displayRevenue =
+    orderRevenue ||
+    totalRevenue;
+
+  const averageOrderValue =
+    paidOrders.length >
+    0
+      ? orderRevenue /
+        paidOrders.length
+      : totalOrders >
+          0
+        ? totalRevenue /
+          totalOrders
+        : 0;
+
+  const lowStockProducts =
+    useMemo(
+      () =>
+        products.filter(
+          (
+            product
+          ) =>
+            product.inventory_quantity <=
+              Number(
+                lowStockThreshold ||
+                  0
+              ) &&
+            product.inventory_quantity <
+              900 &&
+            product.status ===
+              "active"
+        ),
+      [
+        products,
+        lowStockThreshold,
+      ]
+    );
+
+  const openOrders =
+    useMemo(
+      () =>
+        orders.filter(
+          (
+            order
+          ) =>
+            ![
+              "delivered",
+              "cancelled",
+            ].includes(
+              order.status
+            )
+        ),
+      [
+        orders,
+      ]
+    );
+
   const bestSellers =
     useMemo(
       () =>
-        [...products]
+        [
+          ...products,
+        ]
           .sort(
             (
               first,
               second
-            ) =>
-              second.orders -
-              first.orders
+            ) => {
+              if (
+                second.orders !==
+                first.orders
+              ) {
+                return (
+                  second.orders -
+                  first.orders
+                );
+              }
+
+              return (
+                second.revenue -
+                first.revenue
+              );
+            }
           )
           .slice(
             0,
@@ -643,84 +1901,50 @@ export default function StorePage() {
       ]
     );
 
-  // ============================================================
-  // HELPERS
-  // ============================================================
+  // ==========================================================
+  // MONEY
+  // ==========================================================
 
   function money(
     value:
       | number
       | string
   ) {
-    return new Intl.NumberFormat(
-      "en-GB",
-      {
-        style:
-          "currency",
-        currency:
-          currency ||
-          "GBP",
-        maximumFractionDigits:
-          2,
-      }
-    ).format(
-      Number(
+    try {
+      return new Intl.NumberFormat(
+        "en-GB",
+        {
+          style:
+            "currency",
+
+          currency:
+            currency ||
+            "GBP",
+
+          maximumFractionDigits:
+            2,
+        }
+      ).format(
+        Number(
+          value ||
+            0
+        )
+      );
+    } catch {
+      return `£${Number(
         value ||
           0
-      )
-    );
+      ).toFixed(2)}`;
+    }
   }
 
-  function orderStatusLabel(
-    status:
-      OrderStatus
-  ) {
-    if (
-      status ===
-      "new"
-    ) {
-      return "New";
-    }
-
-    if (
-      status ===
-      "processing"
-    ) {
-      return "Processing";
-    }
-
-    if (
-      status ===
-      "dispatched"
-    ) {
-      return "Dispatched";
-    }
-
-    if (
-      status ===
-      "delivered"
-    ) {
-      return "Delivered";
-    }
-
-    return "Cancelled";
-  }
-
-  // ============================================================
+  // ==========================================================
   // PRODUCT ACTIONS
-  // ============================================================
+  // ==========================================================
 
   function openNewProduct() {
     setProductForm({
-      name: "",
-      sku: "",
-      category:
-        "General",
-      price: "",
-      cost: "",
-      stock: "",
-      status:
-        "active",
+      ...EMPTY_PRODUCT_FORM,
     });
 
     setShowProductModal(
@@ -728,10 +1952,81 @@ export default function StorePage() {
     );
   }
 
-  async function createProduct() {
+  function openEditProduct(
+    product: Product
+  ) {
+    setProductForm({
+      id:
+        product.id,
+
+      name:
+        product.name,
+
+      sku:
+        product.sku ===
+        "—"
+          ? ""
+          : product.sku,
+
+      category:
+        product.category,
+
+      description:
+        product.description,
+
+      price:
+        String(
+          product.price
+        ),
+
+      compareAtPrice:
+        product.compare_at_price ===
+        null
+          ? ""
+          : String(
+              product.compare_at_price
+            ),
+
+      cost:
+        String(
+          product.cost
+        ),
+
+      stock:
+        String(
+          product.inventory_quantity
+        ),
+
+      imageUrl:
+        product.image_url ||
+        "",
+
+      featured:
+        product.featured,
+
+      status:
+        product.status,
+    });
+
+    setShowProductModal(
+      true
+    );
+  }
+
+  async function saveProduct() {
     if (
       savingProduct
     ) {
+      return;
+    }
+
+    if (
+      !organisationId
+    ) {
+      alert(
+        "Organisation could not be found."
+      );
+
       return;
     }
 
@@ -741,286 +2036,770 @@ export default function StorePage() {
       alert(
         "Enter a product name."
       );
+
       return;
     }
 
-    if (
+    const price =
       Number(
         productForm.price
-      ) <
-      0
+      );
+
+    if (
+      !Number.isFinite(
+        price
+      ) ||
+      price <
+        0
     ) {
       alert(
         "Enter a valid price."
       );
+
       return;
     }
+
+    const stock =
+      Math.max(
+        0,
+        Number(
+          productForm.stock ||
+            0
+        )
+      );
 
     setSavingProduct(
       true
     );
 
-    await new Promise(
-      (
-        resolve
-      ) =>
-        setTimeout(
-          resolve,
-          350
-        )
-    );
+    try {
+      const payload = {
+        organisation_id:
+          organisationId,
 
-    setProducts(
-      (
-        previous
-      ) => [
-        {
-          id:
-            `prod-${Date.now()}`,
-          name:
-            productForm.name.trim(),
-          sku:
-            productForm.sku.trim() ||
-            `SKU-${Date.now()}`,
-          category:
-            productForm.category.trim() ||
-            "General",
-          price:
-            Number(
-              productForm.price ||
-                0
-            ),
-          cost:
-            Number(
-              productForm.cost ||
-                0
-            ),
-          stock:
-            Number(
-              productForm.stock ||
-                0
-            ),
-          status:
-            productForm.status,
-          orders:
-            0,
-          revenue:
-            0,
-        },
-        ...previous,
-      ]
-    );
+        name:
+          productForm.name.trim(),
 
-    setSavingProduct(
-      false
-    );
+        sku:
+          productForm.sku.trim() ||
+          generateSku(
+            productForm.name
+          ),
 
-    setShowProductModal(
-      false
-    );
+        category:
+          productForm.category.trim() ||
+          "General",
+
+        description:
+          productForm.description.trim() ||
+          null,
+
+        price,
+
+        compare_at_price:
+          productForm.compareAtPrice.trim()
+            ? Number(
+                productForm.compareAtPrice
+              )
+            : null,
+
+        inventory_quantity:
+          stock,
+
+        image_url:
+          productForm.imageUrl.trim() ||
+          null,
+
+        featured:
+          productForm.featured,
+
+        is_active:
+          productForm.status ===
+          "active",
+
+        status:
+          productForm.status,
+      };
+
+      if (
+        productForm.id
+      ) {
+        const {
+          error,
+        } =
+          await supabase
+            .from(
+              "store_products"
+            )
+            .update(
+              payload
+            )
+            .eq(
+              "id",
+              productForm.id
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            );
+
+        if (
+          error
+        ) {
+          // Some installations may not yet
+          // have status / compare_at_price.
+          // Retry with core fields.
+
+          const {
+            error:
+              fallbackError,
+          } =
+            await supabase
+              .from(
+                "store_products"
+              )
+              .update({
+                organisation_id:
+                  organisationId,
+
+                name:
+                  payload.name,
+
+                sku:
+                  payload.sku,
+
+                category:
+                  payload.category,
+
+                description:
+                  payload.description,
+
+                price:
+                  payload.price,
+
+                inventory_quantity:
+                  payload.inventory_quantity,
+
+                image_url:
+                  payload.image_url,
+
+                featured:
+                  payload.featured,
+
+                is_active:
+                  payload.is_active,
+              })
+              .eq(
+                "id",
+                productForm.id
+              )
+              .eq(
+                "organisation_id",
+                organisationId
+              );
+
+          if (
+            fallbackError
+          ) {
+            throw fallbackError;
+          }
+        }
+      } else {
+        const {
+          error,
+        } =
+          await supabase
+            .from(
+              "store_products"
+            )
+            .insert(
+              payload
+            );
+
+        if (
+          error
+        ) {
+          const {
+            error:
+              fallbackError,
+          } =
+            await supabase
+              .from(
+                "store_products"
+              )
+              .insert({
+                organisation_id:
+                  organisationId,
+
+                name:
+                  payload.name,
+
+                sku:
+                  payload.sku,
+
+                category:
+                  payload.category,
+
+                description:
+                  payload.description,
+
+                price:
+                  payload.price,
+
+                inventory_quantity:
+                  payload.inventory_quantity,
+
+                image_url:
+                  payload.image_url,
+
+                featured:
+                  payload.featured,
+
+                is_active:
+                  payload.is_active,
+              });
+
+          if (
+            fallbackError
+          ) {
+            throw fallbackError;
+          }
+        }
+      }
+
+      setShowProductModal(
+        false
+      );
+
+      setProductForm({
+        ...EMPTY_PRODUCT_FORM,
+      });
+
+      await loadData(
+        true
+      );
+    } catch (
+      error: any
+    ) {
+      console.error(
+        "Product save failed:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Product could not be saved."
+      );
+    } finally {
+      setSavingProduct(
+        false
+      );
+    }
   }
 
-  function deleteProduct(
-    productId: string
+  async function deleteProduct(
+    product: Product
   ) {
     if (
       !window.confirm(
-        "Remove this product from the demo store?"
+        `Delete "${product.name}"? This cannot be undone.`
       )
     ) {
       return;
     }
 
-    setProducts(
-      (
-        previous
-      ) =>
-        previous.filter(
-          (
-            product
-          ) =>
-            product.id !==
-            productId
-        )
+    setDeletingProductId(
+      product.id
     );
+
+    try {
+      const {
+        error,
+      } =
+        await supabase
+          .from(
+            "store_products"
+          )
+          .delete()
+          .eq(
+            "id",
+            product.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          );
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      setProducts(
+        (
+          previous
+        ) =>
+          previous.filter(
+            (
+              item
+            ) =>
+              item.id !==
+              product.id
+          )
+      );
+    } catch (
+      error: any
+    ) {
+      console.error(
+        "Delete product failed:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Product could not be deleted."
+      );
+    } finally {
+      setDeletingProductId(
+        null
+      );
+    }
   }
 
-  // ============================================================
-  // ORDER ACTIONS
-  // ============================================================
+  // ==========================================================
+  // STOCK ACTIONS
+  // ==========================================================
 
-  function advanceOrder(
-    orderId: string
+  function openStockAdjust(
+    product: Product
   ) {
-    setOrders(
-      (
-        previous
-      ) =>
-        previous.map(
-          (
-            order
-          ) => {
-            if (
-              order.id !==
-              orderId
-            ) {
-              return order;
-            }
+    setStockAdjust({
+      product,
 
-            let nextStatus:
-              OrderStatus =
-              order.status;
-
-            if (
-              order.status ===
-              "new"
-            ) {
-              nextStatus =
-                "processing";
-            } else if (
-              order.status ===
-              "processing"
-            ) {
-              nextStatus =
-                "dispatched";
-            } else if (
-              order.status ===
-              "dispatched"
-            ) {
-              nextStatus =
-                "delivered";
-            }
-
-            return {
-              ...order,
-              status:
-                nextStatus,
-            };
-          }
-        )
-    );
-  }
-
-  // ============================================================
-  // DISCOUNTS
-  // ============================================================
-
-  async function createDiscount() {
-    if (
-      savingDiscount
-    ) {
-      return;
-    }
-
-    if (
-      !discountForm.code.trim()
-    ) {
-      alert(
-        "Enter a discount code."
-      );
-      return;
-    }
-
-    if (
-      Number(
-        discountForm.value
-      ) <=
-      0
-    ) {
-      alert(
-        "Enter a discount value."
-      );
-      return;
-    }
-
-    setSavingDiscount(
-      true
-    );
-
-    await new Promise(
-      (
-        resolve
-      ) =>
-        setTimeout(
-          resolve,
-          300
-        )
-    );
-
-    setDiscounts(
-      (
-        previous
-      ) => [
-        {
-          id:
-            `discount-${Date.now()}`,
-          code:
-            discountForm.code
-              .trim()
-              .toUpperCase(),
-          type:
-            discountForm.type,
-          value:
-            Number(
-              discountForm.value
-            ),
-          uses:
-            0,
-          active:
-            true,
-        },
-        ...previous,
-      ]
-    );
-
-    setSavingDiscount(
-      false
-    );
-
-    setShowDiscountModal(
-      false
-    );
-
-    setDiscountForm({
-      code: "",
-      type:
-        "percentage",
-      value: "",
+      quantity:
+        String(
+          product.inventory_quantity
+        ),
     });
   }
 
-  function toggleDiscount(
-    discountId: string
-  ) {
-    setDiscounts(
-      (
-        previous
-      ) =>
-        previous.map(
-          (
-            discount
-          ) =>
-            discount.id ===
-            discountId
-              ? {
-                  ...discount,
-                  active:
-                    !discount.active,
-                }
-              : discount
+  async function saveStockAdjustment() {
+    if (
+      !stockAdjust ||
+      savingStock
+    ) {
+      return;
+    }
+
+    const quantity =
+      Math.max(
+        0,
+        Math.floor(
+          Number(
+            stockAdjust.quantity ||
+              0
+          )
         )
+      );
+
+    setSavingStock(
+      true
     );
+
+    try {
+      const {
+        error,
+      } =
+        await supabase
+          .from(
+            "store_products"
+          )
+          .update({
+            inventory_quantity:
+              quantity,
+          })
+          .eq(
+            "id",
+            stockAdjust.product.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          );
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      setProducts(
+        (
+          previous
+        ) =>
+          previous.map(
+            (
+              product
+            ) =>
+              product.id ===
+              stockAdjust.product.id
+                ? {
+                    ...product,
+
+                    inventory_quantity:
+                      quantity,
+                  }
+                : product
+          )
+      );
+
+      setStockAdjust(
+        null
+      );
+    } catch (
+      error: any
+    ) {
+      console.error(
+        "Stock update failed:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Stock could not be updated."
+      );
+    } finally {
+      setSavingStock(
+        false
+      );
+    }
   }
 
-  // ============================================================
+  // ==========================================================
+  // ORDER ACTIONS
+  // ==========================================================
+
+  async function advanceOrder(
+    order: Order
+  ) {
+    if (
+      [
+        "delivered",
+        "cancelled",
+      ].includes(
+        order.status
+      )
+    ) {
+      return;
+    }
+
+    let nextStatus:
+      OrderStatus =
+      order.status;
+
+    if (
+      order.status ===
+      "new"
+    ) {
+      nextStatus =
+        "processing";
+    } else if (
+      order.status ===
+      "processing"
+    ) {
+      nextStatus =
+        "dispatched";
+    } else if (
+      order.status ===
+      "dispatched"
+    ) {
+      nextStatus =
+        "delivered";
+    }
+
+    setUpdatingOrderId(
+      order.id
+    );
+
+    try {
+      const {
+        error,
+      } =
+        await supabase
+          .from(
+            "store_orders"
+          )
+          .update({
+            status:
+              nextStatus,
+          })
+          .eq(
+            "id",
+            order.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          );
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      setOrders(
+        (
+          previous
+        ) =>
+          previous.map(
+            (
+              item
+            ) =>
+              item.id ===
+              order.id
+                ? {
+                    ...item,
+
+                    status:
+                      nextStatus,
+                  }
+                : item
+          )
+      );
+    } catch (
+      error: any
+    ) {
+      console.error(
+        "Order update failed:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Order could not be updated."
+      );
+    } finally {
+      setUpdatingOrderId(
+        null
+      );
+    }
+  }
+
+  // ==========================================================
+  // SETTINGS
+  // ==========================================================
+
+  async function saveStoreSettings() {
+    if (
+      savingSettings
+    ) {
+      return;
+    }
+
+    if (
+      !organisationId
+    ) {
+      return;
+    }
+
+    if (
+      !storeName.trim()
+    ) {
+      alert(
+        "Give your store a name."
+      );
+
+      return;
+    }
+
+    const resolvedSlug =
+      createSlug(
+        slug ||
+          storeName
+      );
+
+    if (
+      !resolvedSlug
+    ) {
+      alert(
+        "Enter a valid store URL slug."
+      );
+
+      return;
+    }
+
+    setSavingSettings(
+      true
+    );
+
+    try {
+      const payload = {
+        organisation_id:
+          organisationId,
+
+        slug:
+          resolvedSlug,
+
+        store_name:
+          storeName.trim(),
+
+        store_description:
+          storeDescription.trim() ||
+          null,
+
+        hero_title:
+          heroTitle.trim() ||
+          null,
+
+        hero_text:
+          heroText.trim() ||
+          null,
+
+        announcement:
+          announcement.trim() ||
+          null,
+
+        accent_colour:
+          accentColour.trim() ||
+          "#A9B897",
+
+        shipping_text:
+          shippingText.trim() ||
+          null,
+
+        support_email:
+          supportEmail.trim() ||
+          null,
+
+        is_live:
+          storeLive,
+
+        updated_at:
+          new Date().toISOString(),
+      };
+
+      if (
+        storeSettings?.id
+      ) {
+        const {
+          error,
+        } =
+          await supabase
+            .from(
+              "store_settings"
+            )
+            .update(
+              payload
+            )
+            .eq(
+              "id",
+              storeSettings.id
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            );
+
+        if (
+          error
+        ) {
+          throw error;
+        }
+      } else {
+        const {
+          error,
+        } =
+          await supabase
+            .from(
+              "store_settings"
+            )
+            .insert(
+              payload
+            );
+
+        if (
+          error
+        ) {
+          throw error;
+        }
+      }
+
+      setSlug(
+        resolvedSlug
+      );
+
+      await loadData(
+        true
+      );
+
+      alert(
+        "Store settings saved."
+      );
+    } catch (
+      error: any
+    ) {
+      console.error(
+        "Store settings save failed:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Store settings could not be saved."
+      );
+    } finally {
+      setSavingSettings(
+        false
+      );
+    }
+  }
+
+  // ==========================================================
+  // STOREFRONT
+  // ==========================================================
+
+  const storefrontUrl =
+    slug
+      ? `/shop/${slug}`
+      : null;
+
+  async function copyStorefrontUrl() {
+    if (
+      !storefrontUrl
+    ) {
+      return;
+    }
+
+    const url =
+      typeof window !==
+      "undefined"
+        ? `${window.location.origin}${storefrontUrl}`
+        : storefrontUrl;
+
+    try {
+      await navigator.clipboard.writeText(
+        url
+      );
+
+      alert(
+        "Store URL copied."
+      );
+    } catch {
+      alert(
+        url
+      );
+    }
+  }
+
+  // ==========================================================
   // TABS
-  // ============================================================
+  // ==========================================================
 
   const tabs: {
-    label:
-      StoreTab;
-    icon:
-      any;
+    label: StoreTab;
+    icon: any;
   }[] = [
     {
       label:
@@ -1060,9 +2839,81 @@ export default function StorePage() {
     },
   ];
 
-  // ============================================================
+  // ==========================================================
+  // LOADING
+  // ==========================================================
+
+  if (
+    loading
+  ) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2]">
+        <div className="text-center">
+          <Loader2
+            size={
+              28
+            }
+            className="mx-auto animate-spin text-[#829473]"
+          />
+
+          <p className="mt-4 text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">
+            Loading commerce
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  // ==========================================================
+  // ERROR
+  // ==========================================================
+
+  if (
+    pageError
+  ) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5">
+        <div className="w-full max-w-lg rounded-[2rem] border border-stone-200 bg-white p-10 text-center">
+          <AlertTriangle
+            size={
+              26
+            }
+            className="mx-auto text-amber-500"
+          />
+
+          <h1 className="mt-5 font-serif text-4xl italic">
+            Commerce couldn&apos;t load
+          </h1>
+
+          <p className="mt-3 text-sm leading-6 text-stone-500">
+            {
+              pageError
+            }
+          </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              void loadData()
+            }
+            className="mt-7 inline-flex items-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-white"
+          >
+            <RefreshCw
+              size={
+                13
+              }
+            />
+
+            Try again
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  // ==========================================================
   // RENDER
-  // ============================================================
+  // ==========================================================
 
   return (
     <main className="min-h-screen bg-[#f7f5f2] pb-28 text-stone-900">
@@ -1095,21 +2946,61 @@ export default function StorePage() {
             <p className="mt-5 max-w-2xl text-sm leading-6 text-stone-500">
               Manage products,
               orders, stock and
-              discounts alongside
-              your clients,
-              projects and
-              finances.
+              your public
+              storefront
+              alongside the rest
+              of TOTS-OS.
             </p>
+
+            {organisationName && (
+              <p className="mt-3 text-[9px] font-black uppercase tracking-[0.16em] text-stone-400">
+                {
+                  organisationName
+                }
+              </p>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {storefrontUrl && (
+              <a
+                href={
+                  storefrontUrl
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500 no-underline"
+              >
+                <ExternalLink
+                  size={
+                    13
+                  }
+                />
+
+                View storefront
+              </a>
+            )}
+
             <button
               type="button"
-              className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500"
+              disabled={
+                refreshing
+              }
+              onClick={() =>
+                void loadData(
+                  true
+                )
+              }
+              className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500 disabled:opacity-50"
             >
               <RefreshCw
                 size={
                   13
+                }
+                className={
+                  refreshing
+                    ? "animate-spin"
+                    : ""
                 }
               />
 
@@ -1204,20 +3095,15 @@ export default function StorePage() {
             <motion.div
               key="overview"
               initial={{
-                opacity:
-                  0,
-                y:
-                  8,
+                opacity: 0,
+                y: 8,
               }}
               animate={{
-                opacity:
-                  1,
-                y:
-                  0,
+                opacity: 1,
+                y: 0,
               }}
               exit={{
-                opacity:
-                  0,
+                opacity: 0,
               }}
               className="space-y-6"
             >
@@ -1231,48 +3117,89 @@ export default function StorePage() {
                     />
                   </div>
 
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <SectionEyebrow>
-                      TOTS Commerce
-                      Summary
+                      TOTS Commerce Summary
                     </SectionEyebrow>
 
-                    <p className="mt-2 max-w-4xl text-lg leading-8 text-stone-700">
-                      Your store has
-                      generated{" "}
-                      <strong>
-                        {money(
-                          totalRevenue
-                        )}
-                      </strong>{" "}
-                      across{" "}
-                      <strong>
-                        {
-                          totalOrders
-                        }{" "}
-                        orders
-                      </strong>
-                      . You currently
-                      have{" "}
-                      <strong>
-                        {
-                          openOrders.length
-                        }{" "}
-                        active orders
-                      </strong>{" "}
-                      and{" "}
-                      <strong>
-                        {
-                          lowStockProducts.length
-                        }{" "}
-                        products
-                      </strong>{" "}
-                      requiring stock
-                      attention.
-                    </p>
+                    {orders.length ||
+                    products.length ? (
+                      <p className="mt-2 max-w-4xl text-lg leading-8 text-stone-700">
+                        Your store currently has{" "}
+                        <strong>
+                          {
+                            products.length
+                          }{" "}
+                          products
+                        </strong>
+                        ,{" "}
+                        <strong>
+                          {
+                            openOrders.length
+                          }{" "}
+                          active orders
+                        </strong>{" "}
+                        and{" "}
+                        <strong>
+                          {
+                            lowStockProducts.length
+                          }{" "}
+                          stock warnings
+                        </strong>
+                        . Paid order value currently visible is{" "}
+                        <strong>
+                          {money(
+                            displayRevenue
+                          )}
+                        </strong>
+                        .
+                      </p>
+                    ) : (
+                      <p className="mt-2 max-w-4xl text-lg leading-8 text-stone-700">
+                        Your commerce workspace is ready. Start by adding your first product and finishing your storefront settings.
+                      </p>
+                    )}
                   </div>
                 </div>
               </Panel>
+
+              {!storeSettings && (
+                <div className="rounded-[2rem] border border-[#dce4d2] bg-[#f1f5ec] p-6 md:p-8">
+                  <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <SectionEyebrow>
+                        Storefront setup
+                      </SectionEyebrow>
+
+                      <h2 className="mt-2 font-serif text-3xl italic">
+                        Finish setting up your online store.
+                      </h2>
+
+                      <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
+                        Add your store name, public URL, description and branding before putting the storefront live.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveTab(
+                          "Settings"
+                        )
+                      }
+                      className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
+                    >
+                      Set up store
+
+                      <ArrowRight
+                        size={
+                          13
+                        }
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <StoreMetric
@@ -1281,7 +3208,7 @@ export default function StorePage() {
                   }
                   label="Revenue"
                   value={money(
-                    totalRevenue
+                    displayRevenue
                   )}
                 />
 
@@ -1291,7 +3218,7 @@ export default function StorePage() {
                   }
                   label="Orders"
                   value={String(
-                    totalOrders
+                    orders.length
                   )}
                 />
 
@@ -1325,8 +3252,7 @@ export default function StorePage() {
                       </SectionEyebrow>
 
                       <h2 className="mt-1 font-serif text-2xl italic">
-                        Orders needing
-                        attention
+                        Orders needing attention
                       </h2>
                     </div>
 
@@ -1343,35 +3269,49 @@ export default function StorePage() {
                     </button>
                   </div>
 
-                  <div className="space-y-3">
-                    {openOrders
-                      .slice(
-                        0,
-                        4
-                      )
-                      .map(
-                        (
-                          order
-                        ) => (
-                          <OrderRow
-                            key={
-                              order.id
-                            }
-                            order={
-                              order
-                            }
-                            money={
-                              money
-                            }
-                            onAdvance={() =>
-                              advanceOrder(
-                                order.id
-                              )
-                            }
-                          />
+                  {!openOrders.length ? (
+                    <EmptyState
+                      icon={
+                        PackageCheck
+                      }
+                      title="No open orders"
+                      text="New storefront orders will appear here ready for fulfilment."
+                    />
+                  ) : (
+                    <div className="space-y-3">
+                      {openOrders
+                        .slice(
+                          0,
+                          4
                         )
-                      )}
-                  </div>
+                        .map(
+                          (
+                            order
+                          ) => (
+                            <OrderRow
+                              key={
+                                order.id
+                              }
+                              order={
+                                order
+                              }
+                              money={
+                                money
+                              }
+                              loading={
+                                updatingOrderId ===
+                                order.id
+                              }
+                              onAdvance={() =>
+                                void advanceOrder(
+                                  order
+                                )
+                              }
+                            />
+                          )
+                        )}
+                    </div>
+                  )}
                 </Panel>
 
                 <Panel className="lg:col-span-5">
@@ -1380,11 +3320,19 @@ export default function StorePage() {
                   </SectionEyebrow>
 
                   <h2 className="mt-1 font-serif text-2xl italic">
-                    Today&apos;s
-                    position
+                    Current position
                   </h2>
 
                   <div className="mt-6 space-y-4">
+                    <DetailRow
+                      label="Storefront"
+                      value={
+                        storeLive
+                          ? "Live"
+                          : "Hidden"
+                      }
+                    />
+
                     <DetailRow
                       label="Open orders"
                       value={String(
@@ -1400,7 +3348,7 @@ export default function StorePage() {
                     />
 
                     <DetailRow
-                      label="Visible order value"
+                      label="Order value"
                       value={money(
                         orderRevenue
                       )}
@@ -1415,18 +3363,6 @@ export default function StorePage() {
                           ) =>
                             product.status ===
                             "active"
-                        ).length
-                      )}
-                    />
-
-                    <DetailRow
-                      label="Active discounts"
-                      value={String(
-                        discounts.filter(
-                          (
-                            discount
-                          ) =>
-                            discount.active
                         ).length
                       )}
                     />
@@ -1460,50 +3396,60 @@ export default function StorePage() {
                     </button>
                   </div>
 
-                  <div className="space-y-3">
-                    {bestSellers.map(
-                      (
-                        product,
-                        index
-                      ) => (
-                        <div
-                          key={
-                            product.id
-                          }
-                          className="flex items-center gap-4 rounded-2xl bg-stone-50 p-4"
-                        >
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-stone-400">
-                            <span className="font-serif text-lg italic">
-                              #
-                              {index +
-                                1}
-                            </span>
-                          </div>
+                  {!bestSellers.length ? (
+                    <EmptyState
+                      icon={
+                        TrendingUp
+                      }
+                      title="No sales data yet"
+                      text="Once customers begin ordering, your best sellers will appear here."
+                    />
+                  ) : (
+                    <div className="space-y-3">
+                      {bestSellers.map(
+                        (
+                          product,
+                          index
+                        ) => (
+                          <div
+                            key={
+                              product.id
+                            }
+                            className="flex items-center gap-4 rounded-2xl bg-stone-50 p-4"
+                          >
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-stone-400">
+                              <span className="font-serif text-lg italic">
+                                #
+                                {index +
+                                  1}
+                              </span>
+                            </div>
 
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold">
-                              {
-                                product.name
-                              }
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold">
+                                {
+                                  product.name
+                                }
+                              </p>
+
+                              <p className="mt-1 text-[10px] text-stone-400">
+                                {
+                                  product.orders
+                                }{" "}
+                                items sold
+                              </p>
+                            </div>
+
+                            <p className="font-serif text-lg italic">
+                              {money(
+                                product.revenue
+                              )}
                             </p>
-
-                            <p className="mt-1 text-[10px] text-stone-400">
-                              {
-                                product.orders
-                              }{" "}
-                              orders
-                            </p>
                           </div>
-
-                          <p className="font-serif text-lg italic">
-                            {money(
-                              product.revenue
-                            )}
-                          </p>
-                        </div>
-                      )
-                    )}
-                  </div>
+                        )
+                      )}
+                    </div>
+                  )}
                 </Panel>
 
                 <Panel>
@@ -1531,11 +3477,17 @@ export default function StorePage() {
                         (
                           product
                         ) => (
-                          <div
+                          <button
+                            type="button"
                             key={
                               product.id
                             }
-                            className="flex items-center justify-between rounded-2xl border border-amber-100 bg-amber-50 p-4"
+                            onClick={() =>
+                              openStockAdjust(
+                                product
+                              )
+                            }
+                            className="flex w-full items-center justify-between rounded-2xl border border-amber-100 bg-amber-50 p-4 text-left"
                           >
                             <div>
                               <p className="text-sm font-semibold text-stone-700">
@@ -1546,7 +3498,7 @@ export default function StorePage() {
 
                               <p className="mt-1 text-[10px] text-amber-700">
                                 {
-                                  product.stock
+                                  product.inventory_quantity
                                 }{" "}
                                 left in stock
                               </p>
@@ -1558,7 +3510,7 @@ export default function StorePage() {
                               }
                               className="text-amber-500"
                             />
-                          </div>
+                          </button>
                         )
                       )}
                     </div>
@@ -1568,14 +3520,11 @@ export default function StorePage() {
 
               <Panel>
                 <SectionEyebrow>
-                  Connected
-                  Business
+                  Connected Business
                 </SectionEyebrow>
 
                 <h2 className="mt-1 font-serif text-2xl italic">
-                  Where commerce
-                  connects into
-                  TOTS-OS
+                  Commerce inside the rest of TOTS-OS
                 </h2>
 
                 <div className="mt-6 grid gap-3 md:grid-cols-4">
@@ -1584,7 +3533,7 @@ export default function StorePage() {
                       Users
                     }
                     title="Customers"
-                    text="Orders can link customers back to CRM records."
+                    text="Store customers can become CRM contacts instead of living in another system."
                   />
 
                   <ConnectionCard
@@ -1592,15 +3541,15 @@ export default function StorePage() {
                       CircleDollarSign
                     }
                     title="Finance"
-                    text="Sales can feed your wider finance position."
+                    text="Store revenue can feed directly into the wider financial picture."
                   />
 
                   <ConnectionCard
                     icon={
                       PackageCheck
                     }
-                    title="Tasks"
-                    text="Fulfilment can become trackable work."
+                    title="Fulfilment"
+                    text="Orders and dispatch become trackable operational work."
                   />
 
                   <ConnectionCard
@@ -1608,7 +3557,7 @@ export default function StorePage() {
                       Sparkles
                     }
                     title="Clarity"
-                    text="Surface product, stock and order insights automatically."
+                    text="Use sales, stock and customer activity as business context."
                   />
                 </div>
               </Panel>
@@ -1624,12 +3573,10 @@ export default function StorePage() {
             <motion.div
               key="products"
               initial={{
-                opacity:
-                  0,
+                opacity: 0,
               }}
               animate={{
-                opacity:
-                  1,
+                opacity: 1,
               }}
             >
               <Panel>
@@ -1644,9 +3591,7 @@ export default function StorePage() {
                     </h2>
 
                     <p className="mt-2 text-sm text-stone-500">
-                      Manage the items
-                      your business
-                      sells.
+                      Products created here feed directly into your public TOTS storefront.
                     </p>
                   </div>
 
@@ -1694,7 +3639,7 @@ export default function StorePage() {
                 </div>
 
                 <div className="mt-8 overflow-hidden rounded-2xl border border-stone-100">
-                  <div className="hidden grid-cols-[minmax(0,1.7fr)_1fr_.7fr_.7fr_.8fr_80px] gap-4 border-b bg-stone-50 px-5 py-4 text-[8px] font-black uppercase tracking-wider text-stone-400 md:grid">
+                  <div className="hidden grid-cols-[minmax(0,1.7fr)_1fr_.7fr_.7fr_.8fr_90px] gap-4 border-b bg-stone-50 px-5 py-4 text-[8px] font-black uppercase tracking-wider text-stone-400 md:grid">
                     <span>
                       Product
                     </span>
@@ -1724,9 +3669,29 @@ export default function StorePage() {
                         icon={
                           Package
                         }
-                        title="No products found"
-                        text="Try another search or create a new product."
+                        title="No products yet"
+                        text="Create your first product and it will be available to your storefront."
                       />
+
+                      {!productSearch && (
+                        <div className="mt-5 text-center">
+                          <button
+                            type="button"
+                            onClick={
+                              openNewProduct
+                            }
+                            className="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-wider text-white"
+                          >
+                            <Plus
+                              size={
+                                13
+                              }
+                            />
+
+                            Add first product
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     filteredProducts.map(
@@ -1737,23 +3702,43 @@ export default function StorePage() {
                           key={
                             product.id
                           }
-                          className="grid gap-4 border-b border-stone-100 px-5 py-5 last:border-0 md:grid-cols-[minmax(0,1.7fr)_1fr_.7fr_.7fr_.8fr_80px] md:items-center"
+                          className="grid gap-4 border-b border-stone-100 px-5 py-5 last:border-0 md:grid-cols-[minmax(0,1.7fr)_1fr_.7fr_.7fr_.8fr_90px] md:items-center"
                         >
                           <div className="flex min-w-0 items-center gap-3">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stone-50 text-stone-300">
-                              <ImageIcon
-                                size={
-                                  17
-                                }
-                              />
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-stone-50 text-stone-300">
+                              {product.image_url ? (
+                                <img
+                                  src={
+                                    product.image_url
+                                  }
+                                  alt={
+                                    product.name
+                                  }
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <ImageIcon
+                                  size={
+                                    17
+                                  }
+                                />
+                              )}
                             </div>
 
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-stone-700">
-                                {
-                                  product.name
-                                }
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className="truncate text-sm font-semibold text-stone-700">
+                                  {
+                                    product.name
+                                  }
+                                </p>
+
+                                {product.featured && (
+                                  <span className="rounded-full bg-[#edf1e8] px-2 py-1 text-[7px] font-black uppercase text-[#82936b]">
+                                    Featured
+                                  </span>
+                                )}
+                              </div>
 
                               <p className="mt-1 text-[10px] text-stone-400">
                                 {
@@ -1775,24 +3760,32 @@ export default function StorePage() {
                             )}
                           </p>
 
-                          <div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openStockAdjust(
+                                product
+                              )
+                            }
+                            className="w-fit text-left"
+                          >
                             <p className="text-xs font-semibold">
                               {
-                                product.stock
+                                product.inventory_quantity
                               }
                             </p>
 
-                            {product.stock <=
+                            {product.inventory_quantity <=
                               Number(
                                 lowStockThreshold
                               ) &&
-                              product.stock <
+                              product.inventory_quantity <
                                 900 && (
                                 <p className="mt-1 text-[9px] text-amber-600">
                                   Low stock
                                 </p>
                               )}
-                          </div>
+                          </button>
 
                           <StatusBadge
                             status={
@@ -1803,7 +3796,12 @@ export default function StorePage() {
                           <div className="flex gap-1 md:justify-end">
                             <button
                               type="button"
-                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-50 text-stone-400"
+                              onClick={() =>
+                                openEditProduct(
+                                  product
+                                )
+                              }
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-50 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
                             >
                               <Edit3
                                 size={
@@ -1814,18 +3812,32 @@ export default function StorePage() {
 
                             <button
                               type="button"
+                              disabled={
+                                deletingProductId ===
+                                product.id
+                              }
                               onClick={() =>
-                                deleteProduct(
-                                  product.id
+                                void deleteProduct(
+                                  product
                                 )
                               }
-                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-400"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-400 disabled:opacity-50"
                             >
-                              <Trash2
-                                size={
-                                  13
-                                }
-                              />
+                              {deletingProductId ===
+                              product.id ? (
+                                <Loader2
+                                  size={
+                                    13
+                                  }
+                                  className="animate-spin"
+                                />
+                              ) : (
+                                <Trash2
+                                  size={
+                                    13
+                                  }
+                                />
+                              )}
                             </button>
                           </div>
                         </div>
@@ -1846,12 +3858,10 @@ export default function StorePage() {
             <motion.div
               key="orders"
               initial={{
-                opacity:
-                  0,
+                opacity: 0,
               }}
               animate={{
-                opacity:
-                  1,
+                opacity: 1,
               }}
               className="space-y-6"
             >
@@ -1860,7 +3870,7 @@ export default function StorePage() {
                   icon={
                     ShoppingBag
                   }
-                  label="Visible Orders"
+                  label="Orders"
                   value={String(
                     orders.length
                   )}
@@ -1890,7 +3900,7 @@ export default function StorePage() {
                   icon={
                     CircleDollarSign
                   }
-                  label="Order Value"
+                  label="Paid Value"
                   value={money(
                     orderRevenue
                   )}
@@ -1907,6 +3917,10 @@ export default function StorePage() {
                     <h2 className="mt-1 font-serif text-3xl italic">
                       Orders
                     </h2>
+
+                    <p className="mt-2 text-sm text-stone-500">
+                      Orders placed through the TOTS storefront will appear here.
+                    </p>
                   </div>
 
                   <div className="relative">
@@ -1934,118 +3948,137 @@ export default function StorePage() {
                   </div>
                 </div>
 
-                <div className="mt-8 space-y-3">
-                  {filteredOrders.map(
-                    (
-                      order
-                    ) => (
-                      <div
-                        key={
-                          order.id
-                        }
-                        className="rounded-2xl border border-stone-100 bg-stone-50 p-5"
-                      >
-                        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-                          <div className="flex items-start gap-4">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-stone-400">
-                              <ShoppingBag
-                                size={
-                                  16
-                                }
-                              />
-                            </div>
-
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-semibold">
-                                  {
-                                    order.number
-                                  }
-                                </p>
-
-                                <OrderStatusBadge
-                                  status={
-                                    order.status
-                                  }
-                                />
-
-                                <PaymentBadge
-                                  status={
-                                    order.paymentStatus
+                {!filteredOrders.length ? (
+                  <div className="mt-8">
+                    <EmptyState
+                      icon={
+                        ShoppingBag
+                      }
+                      title="No orders yet"
+                      text="Once customers place orders on your storefront, they will appear here for fulfilment."
+                    />
+                  </div>
+                ) : (
+                  <div className="mt-8 space-y-3">
+                    {filteredOrders.map(
+                      (
+                        order
+                      ) => (
+                        <div
+                          key={
+                            order.id
+                          }
+                          className="rounded-2xl border border-stone-100 bg-stone-50 p-5"
+                        >
+                          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                            <div className="flex items-start gap-4">
+                              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-stone-400">
+                                <ShoppingBag
+                                  size={
+                                    16
                                   }
                                 />
                               </div>
 
-                              <p className="mt-2 text-xs font-medium text-stone-600">
-                                {
-                                  order.customer
-                                }
-                              </p>
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-semibold">
+                                    {
+                                      order.number
+                                    }
+                                  </p>
 
-                              <p className="mt-1 text-[10px] text-stone-400">
-                                {
-                                  order.email
-                                }{" "}
-                                ·{" "}
-                                {
-                                  order.items
-                                }{" "}
-                                items ·{" "}
-                                {
-                                  order.createdAt
-                                }
-                              </p>
+                                  <OrderStatusBadge
+                                    status={
+                                      order.status
+                                    }
+                                  />
+
+                                  <PaymentBadge
+                                    status={
+                                      order.paymentStatus
+                                    }
+                                  />
+                                </div>
+
+                                <p className="mt-2 text-xs font-medium text-stone-600">
+                                  {
+                                    order.customer
+                                  }
+                                </p>
+
+                                <p className="mt-1 text-[10px] text-stone-400">
+                                  {
+                                    order.email
+                                  }{" "}
+                                  ·{" "}
+                                  {
+                                    order.items
+                                  }{" "}
+                                  items ·{" "}
+                                  {
+                                    order.createdAt
+                                  }
+                                </p>
+                              </div>
                             </div>
-                          </div>
 
-                          <div className="flex items-center justify-between gap-4 md:justify-end">
-                            <p className="font-serif text-2xl italic">
-                              {money(
-                                order.total
+                            <div className="flex items-center justify-between gap-4 md:justify-end">
+                              <p className="font-serif text-2xl italic">
+                                {money(
+                                  order.total
+                                )}
+                              </p>
+
+                              {![
+                                "delivered",
+                                "cancelled",
+                              ].includes(
+                                order.status
+                              ) && (
+                                <button
+                                  type="button"
+                                  disabled={
+                                    updatingOrderId ===
+                                    order.id
+                                  }
+                                  onClick={() =>
+                                    void advanceOrder(
+                                      order
+                                    )
+                                  }
+                                  className="rounded-xl bg-stone-900 px-4 py-3 text-[8px] font-black uppercase tracking-wider text-white disabled:opacity-50"
+                                >
+                                  {updatingOrderId ===
+                                  order.id
+                                    ? "Saving..."
+                                    : order.status ===
+                                        "new"
+                                      ? "Start"
+                                      : order.status ===
+                                          "processing"
+                                        ? "Dispatch"
+                                        : "Delivered"}
+                                </button>
                               )}
-                            </p>
 
-                            {![
-                              "delivered",
-                              "cancelled",
-                            ].includes(
-                              order.status
-                            ) && (
                               <button
                                 type="button"
-                                onClick={() =>
-                                  advanceOrder(
-                                    order.id
-                                  )
-                                }
-                                className="rounded-xl bg-stone-900 px-4 py-3 text-[8px] font-black uppercase tracking-wider text-white"
+                                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-stone-400"
                               >
-                                {order.status ===
-                                "new"
-                                  ? "Start"
-                                  : order.status ===
-                                      "processing"
-                                    ? "Dispatch"
-                                    : "Mark Delivered"}
+                                <Eye
+                                  size={
+                                    14
+                                  }
+                                />
                               </button>
-                            )}
-
-                            <button
-                              type="button"
-                              className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-stone-400"
-                            >
-                              <Eye
-                                size={
-                                  14
-                                }
-                              />
-                            </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )
-                  )}
-                </div>
+                      )
+                    )}
+                  </div>
+                )}
               </Panel>
             </motion.div>
           )}
@@ -2059,12 +4092,10 @@ export default function StorePage() {
             <motion.div
               key="inventory"
               initial={{
-                opacity:
-                  0,
+                opacity: 0,
               }}
               animate={{
-                opacity:
-                  1,
+                opacity: 1,
               }}
               className="space-y-6"
             >
@@ -2072,27 +4103,21 @@ export default function StorePage() {
                 <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
                   <div>
                     <SectionEyebrow>
-                      Stock
+                      Stock Control
                     </SectionEyebrow>
 
                     <h2 className="mt-1 font-serif text-3xl italic">
                       Inventory
                     </h2>
 
-                    <p className="mt-2 max-w-xl text-sm text-stone-500">
-                      Keep track of
-                      stock and spot
-                      products that
-                      need replenished
-                      before they become
-                      a problem.
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
+                      Stock levels here are the same stock levels used by the public storefront, so sold-out products can be blocked automatically.
                     </p>
                   </div>
 
                   <div className="rounded-2xl bg-stone-50 px-5 py-4">
                     <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
-                      Low stock
-                      threshold
+                      Low stock threshold
                     </p>
 
                     <div className="mt-2 flex items-center gap-2">
@@ -2120,24 +4145,29 @@ export default function StorePage() {
                 </div>
               </Panel>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {products
-                  .filter(
-                    (
-                      product
-                    ) =>
-                      product.stock <
-                      900
-                  )
-                  .map(
+              {!products.length ? (
+                <EmptyState
+                  icon={
+                    Boxes
+                  }
+                  title="Nothing to track yet"
+                  text="Create products first and their inventory will appear here."
+                />
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {products.map(
                     (
                       product
                     ) => {
                       const low =
-                        product.stock <=
+                        product.inventory_quantity <=
                         Number(
                           lowStockThreshold
                         );
+
+                      const soldOut =
+                        product.inventory_quantity <=
+                        0;
 
                       return (
                         <div
@@ -2145,9 +4175,11 @@ export default function StorePage() {
                             product.id
                           }
                           className={`rounded-[1.7rem] border bg-white p-6 ${
-                            low
-                              ? "border-amber-200"
-                              : "border-stone-200"
+                            soldOut
+                              ? "border-red-200"
+                              : low
+                                ? "border-amber-200"
+                                : "border-stone-200"
                           }`}
                         >
                           <div className="flex items-start justify-between gap-4">
@@ -2159,9 +4191,17 @@ export default function StorePage() {
                               />
                             </div>
 
-                            {low && (
+                            {soldOut ? (
+                              <span className="rounded-full bg-red-50 px-3 py-1 text-[8px] font-black uppercase text-red-500">
+                                Sold out
+                              </span>
+                            ) : low ? (
                               <span className="rounded-full bg-amber-50 px-3 py-1 text-[8px] font-black uppercase text-amber-600">
                                 Low stock
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-[#edf1e8] px-3 py-1 text-[8px] font-black uppercase text-[#82936b]">
+                                Healthy
                               </span>
                             )}
                           </div>
@@ -2186,13 +4226,18 @@ export default function StorePage() {
 
                               <p className="mt-1 font-serif text-4xl italic">
                                 {
-                                  product.stock
+                                  product.inventory_quantity
                                 }
                               </p>
                             </div>
 
                             <button
                               type="button"
+                              onClick={() =>
+                                openStockAdjust(
+                                  product
+                                )
+                              }
                               className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-[8px] font-black uppercase text-stone-500"
                             >
                               Adjust
@@ -2202,7 +4247,8 @@ export default function StorePage() {
                       );
                     }
                   )}
-              </div>
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -2215,122 +4261,59 @@ export default function StorePage() {
             <motion.div
               key="discounts"
               initial={{
-                opacity:
-                  0,
+                opacity: 0,
               }}
               animate={{
-                opacity:
-                  1,
+                opacity: 1,
               }}
             >
               <Panel>
-                <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-                  <div>
-                    <SectionEyebrow>
-                      Promotions
-                    </SectionEyebrow>
-
-                    <h2 className="mt-1 font-serif text-3xl italic">
-                      Discount codes
-                    </h2>
-
-                    <p className="mt-2 text-sm text-stone-500">
-                      Create simple
-                      offers and
-                      promotional codes.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowDiscountModal(
-                        true
-                      )
-                    }
-                    className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase text-white"
-                  >
-                    <Plus
+                <div className="flex h-full min-h-[450px] flex-col items-center justify-center text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#edf1e8] text-[#82936b]">
+                    <BadgePercent
                       size={
-                        13
+                        22
                       }
                     />
+                  </div>
 
-                    New Discount
-                  </button>
-                </div>
+                  <SectionEyebrow className="mt-6">
+                    TOTS Commerce
+                  </SectionEyebrow>
 
-                <div className="mt-8 space-y-3">
-                  {discounts.map(
-                    (
-                      discount
-                    ) => (
-                      <div
-                        key={
-                          discount.id
-                        }
-                        className="flex flex-col gap-5 rounded-2xl border border-stone-100 bg-stone-50 p-5 md:flex-row md:items-center md:justify-between"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#829473]">
-                            <Tag
-                              size={
-                                16
-                              }
-                            />
-                          </div>
+                  <h2 className="mt-2 font-serif text-4xl italic">
+                    Discount codes are next.
+                  </h2>
 
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-mono text-sm font-semibold tracking-wider">
-                                {
-                                  discount.code
-                                }
-                              </p>
+                  <p className="mt-3 max-w-lg text-sm leading-7 text-stone-500">
+                    The commerce database currently has products, orders, order items and storefront settings, but it does not yet have a dedicated discount-code table. I&apos;d add that next so codes, usage limits, expiry dates and order discounts are properly persistent.
+                  </p>
 
-                              <span
-                                className={`h-2 w-2 rounded-full ${
-                                  discount.active
-                                    ? "bg-[#a9b897]"
-                                    : "bg-stone-300"
-                                }`}
-                              />
-                            </div>
+                  <div className="mt-7 grid w-full max-w-2xl gap-3 sm:grid-cols-3">
+                    <MiniFeature
+                      icon={
+                        Tag
+                      }
+                      title="Codes"
+                      text="WELCOME10"
+                    />
 
-                            <p className="mt-1 text-[10px] text-stone-400">
-                              {discount.type ===
-                              "percentage"
-                                ? `${discount.value}% off`
-                                : `${money(
-                                    discount.value
-                                  )} off`}
-                              {" · "}
-                              {
-                                discount.uses
-                              }{" "}
-                              uses
-                            </p>
-                          </div>
-                        </div>
+                    <MiniFeature
+                      icon={
+                        BadgePercent
+                      }
+                      title="Offers"
+                      text="% or fixed"
+                    />
 
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              toggleDiscount(
-                                discount.id
-                              )
-                            }
-                            className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase text-stone-500"
-                          >
-                            {discount.active
-                              ? "Disable"
-                              : "Enable"}
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  )}
+                    <MiniFeature
+                      icon={
+                        ShoppingCart
+                      }
+                      title="Usage"
+                      text="Track redemptions"
+                    />
+                  </div>
                 </div>
               </Panel>
             </motion.div>
@@ -2345,23 +4328,72 @@ export default function StorePage() {
             <motion.div
               key="settings"
               initial={{
-                opacity:
-                  0,
+                opacity: 0,
               }}
               animate={{
-                opacity:
-                  1,
+                opacity: 1,
               }}
               className="space-y-6"
             >
               <Panel>
-                <SectionEyebrow>
-                  Store Settings
-                </SectionEyebrow>
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <SectionEyebrow>
+                      Public Storefront
+                    </SectionEyebrow>
 
-                <h2 className="mt-1 font-serif text-3xl italic">
-                  Commerce setup
-                </h2>
+                    <h2 className="mt-1 font-serif text-3xl italic">
+                      Store setup
+                    </h2>
+
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
+                      These settings control the public store at{" "}
+                      <strong>
+                        /shop/
+                        {slug ||
+                          "your-store"}
+                      </strong>
+                      .
+                    </p>
+                  </div>
+
+                  {storefrontUrl && (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void copyStorefrontUrl()
+                        }
+                        className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-[8px] font-black uppercase tracking-wider text-stone-500"
+                      >
+                        <Copy
+                          size={
+                            12
+                          }
+                        />
+
+                        Copy URL
+                      </button>
+
+                      <a
+                        href={
+                          storefrontUrl
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-3 text-[8px] font-black uppercase tracking-wider text-white no-underline"
+                      >
+                        Open store
+
+                        <ExternalLink
+                          size={
+                            12
+                          }
+                        />
+                      </a>
+                    </div>
+                  )}
+                </div>
 
                 <div className="mt-8 grid gap-5 md:grid-cols-2">
                   <Field
@@ -2379,6 +4411,192 @@ export default function StorePage() {
                         )
                       }
                       className="store-input"
+                      placeholder="My Business Store"
+                    />
+                  </Field>
+
+                  <Field
+                    label="Store URL"
+                  >
+                    <div className="flex overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+                      <span className="flex items-center border-r border-stone-200 px-3 text-[10px] text-stone-400">
+                        /shop/
+                      </span>
+
+                      <input
+                        value={
+                          slug
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setSlug(
+                            createSlug(
+                              event.target.value
+                            )
+                          )
+                        }
+                        className="min-w-0 flex-1 bg-transparent px-3 py-3 text-xs outline-none"
+                        placeholder="my-business"
+                      />
+                    </div>
+                  </Field>
+
+                  <Field
+                    label="Support Email"
+                  >
+                    <input
+                      type="email"
+                      value={
+                        supportEmail
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setSupportEmail(
+                          event.target.value
+                        )
+                      }
+                      className="store-input"
+                      placeholder="hello@business.com"
+                    />
+                  </Field>
+
+                  <Field
+                    label="Accent Colour"
+                  >
+                    <div className="flex gap-2">
+                      <input
+                        type="color"
+                        value={
+                          accentColour
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setAccentColour(
+                            event.target.value
+                          )
+                        }
+                        className="h-[48px] w-14 cursor-pointer rounded-xl border border-stone-200 bg-white p-1"
+                      />
+
+                      <input
+                        value={
+                          accentColour
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setAccentColour(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                      />
+                    </div>
+                  </Field>
+
+                  <Field
+                    label="Store Description"
+                    className="md:col-span-2"
+                  >
+                    <textarea
+                      value={
+                        storeDescription
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setStoreDescription(
+                          event.target.value
+                        )
+                      }
+                      rows={
+                        4
+                      }
+                      className="store-input resize-none"
+                      placeholder="Tell customers about your business..."
+                    />
+                  </Field>
+
+                  <Field
+                    label="Hero Title"
+                  >
+                    <input
+                      value={
+                        heroTitle
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setHeroTitle(
+                          event.target.value
+                        )
+                      }
+                      className="store-input"
+                      placeholder="Shop our collection."
+                    />
+                  </Field>
+
+                  <Field
+                    label="Announcement"
+                  >
+                    <input
+                      value={
+                        announcement
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setAnnouncement(
+                          event.target.value
+                        )
+                      }
+                      className="store-input"
+                      placeholder="Free UK delivery over £50"
+                    />
+                  </Field>
+
+                  <Field
+                    label="Hero Text"
+                    className="md:col-span-2"
+                  >
+                    <textarea
+                      value={
+                        heroText
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setHeroText(
+                          event.target.value
+                        )
+                      }
+                      rows={
+                        3
+                      }
+                      className="store-input resize-none"
+                    />
+                  </Field>
+
+                  <Field
+                    label="Shipping Text"
+                    className="md:col-span-2"
+                  >
+                    <input
+                      value={
+                        shippingText
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setShippingText(
+                          event.target.value
+                        )
+                      }
+                      className="store-input"
+                      placeholder="UK delivery available."
                     />
                   </Field>
 
@@ -2413,10 +4631,11 @@ export default function StorePage() {
                   </Field>
 
                   <Field
-                    label="Low Stock Threshold"
+                    label="Low Stock Warning"
                   >
                     <input
                       type="number"
+                      min="0"
                       value={
                         lowStockThreshold
                       }
@@ -2430,21 +4649,76 @@ export default function StorePage() {
                       className="store-input"
                     />
                   </Field>
-
-                  <Field
-                    label="Store Status"
-                  >
-                    <div className="store-input flex items-center justify-between">
-                      <span className="text-sm">
-                        Draft mode
-                      </span>
-
-                      <span className="rounded-full bg-amber-50 px-3 py-1 text-[8px] font-black uppercase text-amber-600">
-                        Hidden
-                      </span>
-                    </div>
-                  </Field>
                 </div>
+
+                <div className="mt-7 flex flex-col gap-4 rounded-2xl bg-stone-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-stone-700">
+                      Public storefront
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-stone-400">
+                      When live, customers can access your shop using your public store URL.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setStoreLive(
+                        (
+                          previous
+                        ) =>
+                          !previous
+                      )
+                    }
+                    className={`relative h-8 w-14 shrink-0 rounded-full transition ${
+                      storeLive
+                        ? "bg-[#a9b897]"
+                        : "bg-stone-200"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition ${
+                        storeLive
+                          ? "left-7"
+                          : "left-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    savingSettings
+                  }
+                  onClick={() =>
+                    void saveStoreSettings()
+                  }
+                  className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white disabled:opacity-50 sm:w-auto sm:px-7"
+                >
+                  {savingSettings ? (
+                    <Loader2
+                      size={
+                        14
+                      }
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Check
+                      size={
+                        14
+                      }
+                    />
+                  )}
+
+                  {savingSettings
+                    ? "Saving..."
+                    : storeSettings
+                      ? "Save Store"
+                      : "Create Store"}
+                </button>
               </Panel>
 
               <Panel>
@@ -2453,9 +4727,7 @@ export default function StorePage() {
                 </SectionEyebrow>
 
                 <h2 className="mt-1 font-serif text-2xl italic">
-                  Connect commerce
-                  to the rest of the
-                  business
+                  Connect commerce to the rest of the business
                 </h2>
 
                 <div className="mt-7 space-y-4">
@@ -2495,27 +4767,31 @@ export default function StorePage() {
 
               <Panel>
                 <SectionEyebrow>
-                  Integrations
+                  TOTS Storefront
                 </SectionEyebrow>
 
                 <h2 className="mt-1 font-serif text-2xl italic">
-                  Selling channels
+                  Your selling channel
                 </h2>
 
                 <div className="mt-6 grid gap-3 md:grid-cols-3">
                   <IntegrationCard
-                    name="Shopify"
-                    text="Import products, orders and customers."
-                  />
-
-                  <IntegrationCard
-                    name="WooCommerce"
-                    text="Sync an existing WordPress store."
-                  />
-
-                  <IntegrationCard
                     name="TOTS Storefront"
-                    text="Sell directly through a future TOTS-hosted storefront."
+                    text="Your hosted storefront is built directly into TOTS-OS."
+                    connected={
+                      !!storeSettings
+                    }
+                  />
+
+                  <IntegrationCard
+                    name="Stripe"
+                    text="Checkout and payment processing will connect here."
+                    comingSoon
+                  />
+
+                  <IntegrationCard
+                    name="Custom Domain"
+                    text="Let businesses point their own domain at their TOTS storefront."
                     comingSoon
                   />
                 </div>
@@ -2549,7 +4825,9 @@ export default function StorePage() {
                 </SectionEyebrow>
 
                 <h2 className="mt-1 font-serif text-3xl italic">
-                  New product
+                  {productForm.id
+                    ? "Edit product"
+                    : "New product"}
                 </h2>
               </div>
 
@@ -2587,6 +4865,7 @@ export default function StorePage() {
                         previous
                       ) => ({
                         ...previous,
+
                         name:
                           event.target.value,
                       })
@@ -2612,12 +4891,13 @@ export default function StorePage() {
                         previous
                       ) => ({
                         ...previous,
+
                         sku:
                           event.target.value,
                       })
                     )
                   }
-                  placeholder="SKU-001"
+                  placeholder="Leave blank to generate"
                   className="store-input"
                 />
               </Field>
@@ -2637,6 +4917,7 @@ export default function StorePage() {
                         previous
                       ) => ({
                         ...previous,
+
                         category:
                           event.target.value,
                       })
@@ -2651,6 +4932,8 @@ export default function StorePage() {
               >
                 <input
                   type="number"
+                  min="0"
+                  step="0.01"
                   value={
                     productForm.price
                   }
@@ -2662,6 +4945,7 @@ export default function StorePage() {
                         previous
                       ) => ({
                         ...previous,
+
                         price:
                           event.target.value,
                       })
@@ -2673,10 +4957,41 @@ export default function StorePage() {
               </Field>
 
               <Field
+                label="Compare At Price"
+              >
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={
+                    productForm.compareAtPrice
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        compareAtPrice:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  placeholder="39.00"
+                  className="store-input"
+                />
+              </Field>
+
+              <Field
                 label="Cost Price"
               >
                 <input
                   type="number"
+                  min="0"
+                  step="0.01"
                   value={
                     productForm.cost
                   }
@@ -2688,6 +5003,7 @@ export default function StorePage() {
                         previous
                       ) => ({
                         ...previous,
+
                         cost:
                           event.target.value,
                       })
@@ -2703,6 +5019,7 @@ export default function StorePage() {
               >
                 <input
                   type="number"
+                  min="0"
                   value={
                     productForm.stock
                   }
@@ -2714,6 +5031,7 @@ export default function StorePage() {
                         previous
                       ) => ({
                         ...previous,
+
                         stock:
                           event.target.value,
                       })
@@ -2739,6 +5057,7 @@ export default function StorePage() {
                         previous
                       ) => ({
                         ...previous,
+
                         status:
                           event.target.value as ProductStatus,
                       })
@@ -2759,12 +5078,110 @@ export default function StorePage() {
                   </option>
                 </select>
               </Field>
+
+              <Field
+                label="Image URL"
+                className="md:col-span-2"
+              >
+                <input
+                  value={
+                    productForm.imageUrl
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        imageUrl:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  placeholder="https://..."
+                  className="store-input"
+                />
+              </Field>
+
+              <Field
+                label="Description"
+                className="md:col-span-2"
+              >
+                <textarea
+                  value={
+                    productForm.description
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        description:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  rows={
+                    4
+                  }
+                  placeholder="Tell customers about this product..."
+                  className="store-input resize-none"
+                />
+              </Field>
+
+              <div className="md:col-span-2 flex items-center justify-between rounded-xl bg-stone-50 p-4">
+                <div>
+                  <p className="text-sm font-semibold text-stone-700">
+                    Featured product
+                  </p>
+
+                  <p className="mt-1 text-[10px] text-stone-400">
+                    Highlight this product on the storefront.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        featured:
+                          !previous.featured,
+                      })
+                    )
+                  }
+                  className={`relative h-8 w-14 rounded-full transition ${
+                    productForm.featured
+                      ? "bg-[#a9b897]"
+                      : "bg-stone-200"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition ${
+                      productForm.featured
+                        ? "left-7"
+                        : "left-1"
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
 
             <button
               type="button"
               onClick={() =>
-                void createProduct()
+                void saveProduct()
               }
               disabled={
                 savingProduct
@@ -2778,6 +5195,12 @@ export default function StorePage() {
                   }
                   className="animate-spin"
                 />
+              ) : productForm.id ? (
+                <Check
+                  size={
+                    14
+                  }
+                />
               ) : (
                 <Plus
                   size={
@@ -2787,42 +5210,54 @@ export default function StorePage() {
               )}
 
               {savingProduct
-                ? "Creating..."
-                : "Create Product"}
+                ? "Saving..."
+                : productForm.id
+                  ? "Save Product"
+                  : "Create Product"}
             </button>
           </ModalShell>
         )}
       </AnimatePresence>
 
       {/* ======================================================
-          DISCOUNT MODAL
+          STOCK MODAL
       ====================================================== */}
 
       <AnimatePresence>
-        {showDiscountModal && (
+        {stockAdjust && (
           <ModalShell
-            onClose={() =>
-              setShowDiscountModal(
-                false
-              )
-            }
+            onClose={() => {
+              if (
+                !savingStock
+              ) {
+                setStockAdjust(
+                  null
+                );
+              }
+            }}
           >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <SectionEyebrow>
-                  Promotion
+                  Inventory
                 </SectionEyebrow>
 
                 <h2 className="mt-1 font-serif text-3xl italic">
-                  New discount
+                  Adjust stock
                 </h2>
+
+                <p className="mt-2 text-sm text-stone-500">
+                  {
+                    stockAdjust.product.name
+                  }
+                </p>
               </div>
 
               <button
                 type="button"
                 onClick={() =>
-                  setShowDiscountModal(
-                    false
+                  setStockAdjust(
+                    null
                   )
                 }
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-50"
@@ -2835,112 +5270,115 @@ export default function StorePage() {
               </button>
             </div>
 
-            <div className="mt-7 space-y-4">
-              <Field
-                label="Code"
-              >
-                <input
-                  value={
-                    discountForm.code
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setDiscountForm(
-                      (
-                        previous
-                      ) => ({
-                        ...previous,
-                        code:
-                          event.target.value.toUpperCase(),
-                      })
-                    )
-                  }
-                  placeholder="WELCOME10"
-                  className="store-input font-mono uppercase"
-                />
-              </Field>
+            <div className="mt-7 rounded-2xl bg-stone-50 p-5">
+              <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                Current stock
+              </p>
 
-              <Field
-                label="Discount Type"
-              >
-                <select
-                  value={
-                    discountForm.type
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setDiscountForm(
-                      (
-                        previous
-                      ) => ({
-                        ...previous,
-                        type:
-                          event.target.value as DiscountType,
-                      })
-                    )
-                  }
-                  className="store-input"
-                >
-                  <option value="percentage">
-                    Percentage
-                  </option>
-
-                  <option value="fixed">
-                    Fixed amount
-                  </option>
-                </select>
-              </Field>
-
-              <Field
-                label={
-                  discountForm.type ===
-                  "percentage"
-                    ? "Percentage"
-                    : "Amount"
+              <p className="mt-2 font-serif text-4xl italic">
+                {
+                  stockAdjust.product.inventory_quantity
                 }
-              >
-                <input
-                  type="number"
-                  value={
-                    discountForm.value
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setDiscountForm(
-                      (
-                        previous
-                      ) => ({
-                        ...previous,
-                        value:
-                          event.target.value,
-                      })
-                    )
-                  }
-                  placeholder={
-                    discountForm.type ===
-                    "percentage"
-                      ? "10"
-                      : "5.00"
-                  }
-                  className="store-input"
-                />
-              </Field>
+              </p>
+            </div>
+
+            <Field
+              label="New Stock Level"
+              className="mt-5"
+            >
+              <input
+                type="number"
+                min="0"
+                value={
+                  stockAdjust.quantity
+                }
+                onChange={(
+                  event
+                ) =>
+                  setStockAdjust(
+                    (
+                      previous
+                    ) =>
+                      previous
+                        ? {
+                            ...previous,
+
+                            quantity:
+                              event.target.value,
+                          }
+                        : previous
+                  )
+                }
+                className="store-input"
+              />
+            </Field>
+
+            <div className="mt-4 grid grid-cols-4 gap-2">
+              {[
+                -5,
+                -1,
+                1,
+                5,
+              ].map(
+                (
+                  amount
+                ) => (
+                  <button
+                    type="button"
+                    key={
+                      amount
+                    }
+                    onClick={() =>
+                      setStockAdjust(
+                        (
+                          previous
+                        ) => {
+                          if (
+                            !previous
+                          ) {
+                            return previous;
+                          }
+
+                          return {
+                            ...previous,
+
+                            quantity:
+                              String(
+                                Math.max(
+                                  0,
+                                  Number(
+                                    previous.quantity ||
+                                      0
+                                  ) +
+                                    amount
+                                )
+                              ),
+                          };
+                        }
+                      )
+                    }
+                    className="rounded-xl border border-stone-200 bg-stone-50 py-3 text-xs font-semibold text-stone-500"
+                  >
+                    {amount >
+                    0
+                      ? `+${amount}`
+                      : amount}
+                  </button>
+                )
+              )}
             </div>
 
             <button
               type="button"
-              onClick={() =>
-                void createDiscount()
-              }
               disabled={
-                savingDiscount
+                savingStock
+              }
+              onClick={() =>
+                void saveStockAdjustment()
               }
               className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white disabled:opacity-50"
             >
-              {savingDiscount ? (
+              {savingStock ? (
                 <Loader2
                   size={
                     14
@@ -2948,16 +5386,16 @@ export default function StorePage() {
                   className="animate-spin"
                 />
               ) : (
-                <BadgePercent
+                <Check
                   size={
                     14
                   }
                 />
               )}
 
-              {savingDiscount
-                ? "Creating..."
-                : "Create Discount"}
+              {savingStock
+                ? "Saving..."
+                : "Update Stock"}
             </button>
           </ModalShell>
         )}
@@ -2973,6 +5411,7 @@ export default function StorePage() {
         .font-serif {
           font-family:
             "Instrument Serif",
+            Georgia,
             serif;
         }
 
@@ -3023,7 +5462,8 @@ function Panel({
   className = "",
 }: {
   children:
-    React.ReactNode;
+    ReactNode;
+
   className?:
     string;
 }) {
@@ -3031,20 +5471,30 @@ function Panel({
     <div
       className={`rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8 ${className}`}
     >
-      {children}
+      {
+        children
+      }
     </div>
   );
 }
 
 function SectionEyebrow({
   children,
+  className = "",
 }: {
   children:
-    React.ReactNode;
+    ReactNode;
+
+  className?:
+    string;
 }) {
   return (
-    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
-      {children}
+    <p
+      className={`text-[9px] font-black uppercase tracking-[0.2em] text-[#829473] ${className}`}
+    >
+      {
+        children
+      }
     </p>
   );
 }
@@ -3057,8 +5507,10 @@ function StoreMetric({
 }: {
   icon:
     any;
+
   value:
     string;
+
   label:
     string;
 }) {
@@ -3092,6 +5544,7 @@ function DetailRow({
 }: {
   label:
     string;
+
   value:
     string;
 }) {
@@ -3119,8 +5572,10 @@ function Field({
 }: {
   label:
     string;
+
   children:
-    React.ReactNode;
+    ReactNode;
+
   className?:
     string;
 }) {
@@ -3240,17 +5695,23 @@ function OrderRow({
   order,
   money,
   onAdvance,
+  loading = false,
 }: {
   order:
     Order;
+
   money:
     (
       value:
         | number
         | string
     ) => string;
+
   onAdvance:
     () => void;
+
+  loading?:
+    boolean;
 }) {
   return (
     <div className="flex flex-col gap-4 rounded-2xl bg-stone-50 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -3295,24 +5756,38 @@ function OrderRow({
 
         <button
           type="button"
+          disabled={
+            loading
+          }
           onClick={
             onAdvance
           }
-          className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[8px] font-black uppercase text-stone-500"
+          className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[8px] font-black uppercase text-stone-500 disabled:opacity-50"
         >
-          {order.status ===
-          "new"
-            ? "Process"
-            : order.status ===
-                "processing"
-              ? "Dispatch"
-              : "Complete"}
+          {loading ? (
+            <Loader2
+              size={
+                12
+              }
+              className="animate-spin"
+            />
+          ) : (
+            <>
+              {order.status ===
+              "new"
+                ? "Process"
+                : order.status ===
+                    "processing"
+                  ? "Dispatch"
+                  : "Complete"}
 
-          <ChevronRight
-            size={
-              12
-            }
-          />
+              <ChevronRight
+                size={
+                  12
+                }
+              />
+            </>
+          )}
         </button>
       </div>
     </div>
@@ -3327,8 +5802,10 @@ function EmptyState({
 }: {
   icon:
     any;
+
   title:
     string;
+
   text:
     string;
 }) {
@@ -3364,8 +5841,10 @@ function ConnectionCard({
 }: {
   icon:
     any;
+
   title:
     string;
+
   text:
     string;
 }) {
@@ -3402,10 +5881,13 @@ function ToggleSetting({
 }: {
   title:
     string;
+
   text:
     string;
+
   enabled:
     boolean;
+
   onChange:
     () => void;
 }) {
@@ -3452,12 +5934,18 @@ function IntegrationCard({
   name,
   text,
   comingSoon = false,
+  connected = false,
 }: {
   name:
     string;
+
   text:
     string;
+
   comingSoon?:
+    boolean;
+
+  connected?:
     boolean;
 }) {
   return (
@@ -3472,11 +5960,15 @@ function IntegrationCard({
           />
         </div>
 
-        {comingSoon && (
+        {connected ? (
           <span className="rounded-full bg-[#edf1e8] px-3 py-1 text-[7px] font-black uppercase text-[#82936b]">
+            Connected
+          </span>
+        ) : comingSoon ? (
+          <span className="rounded-full bg-stone-100 px-3 py-1 text-[7px] font-black uppercase text-stone-400">
             Coming soon
           </span>
-        )}
+        ) : null}
       </div>
 
       <p className="mt-5 text-sm font-semibold">
@@ -3490,21 +5982,45 @@ function IntegrationCard({
           text
         }
       </p>
+    </div>
+  );
+}
 
-      {!comingSoon && (
-        <button
-          type="button"
-          className="mt-5 flex items-center gap-1 text-[8px] font-black uppercase text-[#829473]"
-        >
-          Connect
+function MiniFeature({
+  icon:
+    Icon,
+  title,
+  text,
+}: {
+  icon:
+    any;
 
-          <ArrowUpRight
-            size={
-              11
-            }
-          />
-        </button>
-      )}
+  title:
+    string;
+
+  text:
+    string;
+}) {
+  return (
+    <div className="rounded-2xl bg-stone-50 p-5">
+      <Icon
+        size={
+          16
+        }
+        className="mx-auto text-[#829473]"
+      />
+
+      <p className="mt-3 text-xs font-semibold">
+        {
+          title
+        }
+      </p>
+
+      <p className="mt-1 text-[9px] text-stone-400">
+        {
+          text
+        }
+      </p>
     </div>
   );
 }
@@ -3514,7 +6030,8 @@ function ModalShell({
   onClose,
 }: {
   children:
-    React.ReactNode;
+    ReactNode;
+
   onClose:
     () => void;
 }) {
@@ -3524,16 +6041,13 @@ function ModalShell({
         type="button"
         aria-label="Close modal"
         initial={{
-          opacity:
-            0,
+          opacity: 0,
         }}
         animate={{
-          opacity:
-            1,
+          opacity: 1,
         }}
         exit={{
-          opacity:
-            0,
+          opacity: 0,
         }}
         onClick={
           onClose
@@ -3543,30 +6057,21 @@ function ModalShell({
 
       <motion.div
         initial={{
-          opacity:
-            0,
-          scale:
-            0.97,
-          y:
-            12,
+          opacity: 0,
+          scale: 0.97,
+          y: 12,
         }}
         animate={{
-          opacity:
-            1,
-          scale:
-            1,
-          y:
-            0,
+          opacity: 1,
+          scale: 1,
+          y: 0,
         }}
         exit={{
-          opacity:
-            0,
-          scale:
-            0.97,
-          y:
-            12,
+          opacity: 0,
+          scale: 0.97,
+          y: 12,
         }}
-        className="relative z-10 max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-[2rem] border border-stone-100 bg-white p-6 shadow-2xl sm:p-8"
+        className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-stone-100 bg-white p-6 shadow-2xl sm:p-8"
       >
         {
           children

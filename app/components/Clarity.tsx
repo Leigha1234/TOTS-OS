@@ -21,13 +21,7 @@ import {
   motion,
 } from "framer-motion";
 
-import {
-  useClarityTour,
-} from "@/app/(dashboard)/claritytour/ClarityTourProvider";
-
-// ============================================================
-// TYPES
-// ============================================================
+import { useClarityTour } from "@/app/(dashboard)/claritytour/ClarityTourProvider";
 
 interface Message {
   id?: string;
@@ -42,10 +36,6 @@ interface Conversation {
   pinned?: boolean;
 }
 
-// ============================================================
-// CONSTANTS
-// ============================================================
-
 const THINKING_MESSAGES = [
   "Looking through your workspace",
   "Connecting the dots",
@@ -53,14 +43,10 @@ const THINKING_MESSAGES = [
   "Preparing your answer",
 ];
 
-// ============================================================
-// COMPONENT
-// ============================================================
-
 export default function Clarity() {
-  // ==========================================================
+  // ==================================================
   // TOUR
-  // ==========================================================
+  // ==================================================
 
   const {
     startTour,
@@ -68,24 +54,18 @@ export default function Clarity() {
     currentStepId,
   } = useClarityTour();
 
-  // ==========================================================
+  // ==================================================
   // UI STATE
-  // ==========================================================
+  // ==================================================
 
-  const [
-    open,
-    setOpen,
-  ] = useState(false);
+  const [open, setOpen] =
+    useState(false);
 
-  const [
-    message,
-    setMessage,
-  ] = useState("");
+  const [message, setMessage] =
+    useState("");
 
-  const [
-    messages,
-    setMessages,
-  ] = useState<Message[]>([]);
+  const [messages, setMessages] =
+    useState<Message[]>([]);
 
   const [
     conversations,
@@ -101,10 +81,8 @@ export default function Clarity() {
     string | null
   >(null);
 
-  const [
-    loading,
-    setLoading,
-  ] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
 
   const [
     streaming,
@@ -116,10 +94,8 @@ export default function Clarity() {
     setBusinessContext,
   ] = useState<any>(null);
 
-  const [
-    brief,
-    setBrief,
-  ] = useState<any>(null);
+  const [brief, setBrief] =
+    useState<any>(null);
 
   const [
     loadingBrief,
@@ -136,9 +112,9 @@ export default function Clarity() {
       null
     );
 
-  // ==========================================================
+  // ==================================================
   // INITIAL LOAD
-  // ==========================================================
+  // ==================================================
 
   useEffect(() => {
     const savedConversation =
@@ -159,9 +135,9 @@ export default function Clarity() {
     void loadBusinessContext();
   }, []);
 
-  // ==========================================================
+  // ==================================================
   // OPEN STATE
-  // ==========================================================
+  // ==================================================
 
   useEffect(() => {
     if (open) {
@@ -169,9 +145,9 @@ export default function Clarity() {
     }
   }, [open]);
 
-  // ==========================================================
+  // ==================================================
   // SCROLL
-  // ==========================================================
+  // ==================================================
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -183,9 +159,9 @@ export default function Clarity() {
     streaming,
   ]);
 
-  // ==========================================================
+  // ==================================================
   // THINKING ANIMATION
-  // ==========================================================
+  // ==================================================
 
   useEffect(() => {
     if (
@@ -193,7 +169,6 @@ export default function Clarity() {
       streaming
     ) {
       setThinkingIndex(0);
-
       return;
     }
 
@@ -218,9 +193,9 @@ export default function Clarity() {
     streaming,
   ]);
 
-  // ==========================================================
+  // ==================================================
   // LOAD CEO BRIEF
-  // ==========================================================
+  // ==================================================
 
   async function loadBrief() {
     try {
@@ -255,9 +230,9 @@ export default function Clarity() {
     }
   }
 
-  // ==========================================================
+  // ==================================================
   // LOAD BUSINESS CONTEXT
-  // ==========================================================
+  // ==================================================
 
   async function loadBusinessContext() {
     try {
@@ -285,9 +260,9 @@ export default function Clarity() {
     }
   }
 
-  // ==========================================================
+  // ==================================================
   // LOAD CONVERSATIONS
-  // ==========================================================
+  // ==================================================
 
   async function loadConversations() {
     try {
@@ -324,9 +299,9 @@ export default function Clarity() {
     }
   }
 
-  // ==========================================================
+  // ==================================================
   // LOAD ONE CONVERSATION
-  // ==========================================================
+  // ==================================================
 
   async function loadConversation(
     id: string
@@ -384,9 +359,9 @@ export default function Clarity() {
     }
   }
 
-  // ==========================================================
+  // ==================================================
   // NEW CONVERSATION
-  // ==========================================================
+  // ==================================================
 
   function newConversation() {
     setConversationId(
@@ -404,9 +379,9 @@ export default function Clarity() {
     );
   }
 
-  // ==========================================================
+  // ==================================================
   // DELETE CONVERSATION
-  // ==========================================================
+  // ==================================================
 
   async function deleteConversation(
     id: string
@@ -449,9 +424,9 @@ export default function Clarity() {
     }
   }
 
-  // ==========================================================
+  // ==================================================
   // TOUR
-  // ==========================================================
+  // ==================================================
 
   function launchTour() {
     setOpen(false);
@@ -470,9 +445,9 @@ export default function Clarity() {
     );
   }
 
-  // ==========================================================
+  // ==================================================
   // ASK CLARITY
-  // ==========================================================
+  // ==================================================
 
   async function askClarity() {
     const cleaned =
@@ -490,15 +465,11 @@ export default function Clarity() {
 
     setMessage("");
 
-    const updatedMessages:
-      Message[] =
+    const updatedMessages: Message[] =
       [
         ...messages,
-
         {
-          role:
-            "user",
-
+          role: "user",
           content:
             userMessage,
         },
@@ -508,9 +479,7 @@ export default function Clarity() {
       updatedMessages
     );
 
-    setLoading(
-      true
-    );
+    setLoading(true);
 
     setStreaming(
       false
@@ -558,7 +527,7 @@ export default function Clarity() {
             errorData.message ||
             errorMessage;
         } catch {
-          // Ignore JSON parsing failure.
+          // ignore JSON parse failure
         }
 
         throw new Error(
@@ -586,9 +555,9 @@ export default function Clarity() {
         );
       }
 
-      // ======================================================
+      // ----------------------------------------------
       // CONVERSATION ID
-      // ======================================================
+      // ----------------------------------------------
 
       const returnedConversationId =
         data.metadata
@@ -608,9 +577,9 @@ export default function Clarity() {
         );
       }
 
-      // ======================================================
+      // ----------------------------------------------
       // ANSWER
-      // ======================================================
+      // ----------------------------------------------
 
       const answer =
         String(
@@ -622,121 +591,119 @@ export default function Clarity() {
             "Clarity could not generate a response."
         );
 
+      /*
+       * Remove the waiting dots and move into
+       * the streamed typing presentation.
+       */
       setStreaming(
         true
       );
 
-      let current =
-        "";
-
-      let index =
-        0;
+      let current = "";
+      let index = 0;
 
       setMessages(
         (previous) => [
           ...previous,
-
           {
             role:
               "assistant",
-
-            content:
-              "",
+            content: "",
           },
         ]
       );
 
-      // ======================================================
+      // ----------------------------------------------
       // TYPEWRITER RESPONSE
-      // ======================================================
+      // ----------------------------------------------
 
       await new Promise<void>(
         (resolve) => {
           let lastTime =
             performance.now();
 
-          const typeNext =
-            (
-              now:
-                number
-            ) => {
-              if (
-                now -
-                  lastTime <
-                12
-              ) {
-                requestAnimationFrame(
-                  typeNext
-                );
-
-                return;
-              }
-
-              lastTime =
-                now;
-
-              const chunkSize =
-                Math.max(
-                  1,
-
-                  Math.min(
-                    4,
-
-                    Math.ceil(
-                      answer.length /
-                        500
-                    )
-                  )
-                );
-
-              const chunk =
-                answer.slice(
-                  index,
-                  index +
-                    chunkSize
-                );
-
-              current +=
-                chunk;
-
-              index +=
-                chunkSize;
-
-              setMessages(
-                (
-                  previous
-                ) => {
-                  const copy =
-                    [
-                      ...previous,
-                    ];
-
-                  copy[
-                    copy.length -
-                      1
-                  ] = {
-                    role:
-                      "assistant",
-
-                    content:
-                      current,
-                  };
-
-                  return copy;
-                }
+          const typeNext = (
+            now: number
+          ) => {
+            /*
+             * Slowing this down slightly makes it feel
+             * intentional rather than instantly dumping
+             * the entire API response.
+             */
+            if (
+              now -
+                lastTime <
+              12
+            ) {
+              requestAnimationFrame(
+                typeNext
               );
 
-              if (
-                index <
-                answer.length
-              ) {
-                requestAnimationFrame(
-                  typeNext
-                );
-              } else {
-                resolve();
+              return;
+            }
+
+            lastTime = now;
+
+            /*
+             * Slightly variable chunk sizing stops the
+             * typing from looking mechanically uniform.
+             */
+            const chunkSize =
+              Math.max(
+                1,
+                Math.min(
+                  4,
+                  Math.ceil(
+                    answer.length /
+                      500
+                  )
+                )
+              );
+
+            const chunk =
+              answer.slice(
+                index,
+                index +
+                  chunkSize
+              );
+
+            current +=
+              chunk;
+
+            index +=
+              chunkSize;
+
+            setMessages(
+              (previous) => {
+                const copy =
+                  [...previous];
+
+                copy[
+                  copy.length -
+                    1
+                ] = {
+                  role:
+                    "assistant",
+
+                  content:
+                    current,
+                };
+
+                return copy;
               }
-            };
+            );
+
+            if (
+              index <
+              answer.length
+            ) {
+              requestAnimationFrame(
+                typeNext
+              );
+            } else {
+              resolve();
+            }
+          };
 
           requestAnimationFrame(
             typeNext
@@ -760,7 +727,6 @@ export default function Clarity() {
       setMessages(
         (previous) => [
           ...previous,
-
           {
             role:
               "assistant",
@@ -784,55 +750,29 @@ export default function Clarity() {
     }
   }
 
-  // ==========================================================
+  // ==================================================
   // RENDER
-  // ==========================================================
+  // ==================================================
 
   return (
     <>
-      {/* ======================================================
-          CLARITY BUTTON
-
-          IMPORTANT:
-          This is now RELATIVE rather than FIXED.
-
-          DashboardLayout controls where this button sits.
-      ====================================================== */}
+      {/* ==================================================
+          FLOATING CLARITY BUTTON
+      ================================================== */}
 
       <motion.button
         type="button"
         whileHover={{
-          scale:
-            1.06,
+          scale: 1.06,
         }}
         whileTap={{
-          scale:
-            0.94,
+          scale: 0.94,
         }}
         onClick={() =>
-          setOpen(
-            true
-          )
+          setOpen(true)
         }
         aria-label="Open Clarity AI assistant"
-        className="
-          group
-          relative
-          flex
-          h-11
-          w-11
-          shrink-0
-          items-center
-          justify-center
-          rounded-2xl
-          border
-          border-stone-800
-          bg-stone-900
-          text-white
-          shadow-[0_12px_35px_rgba(28,25,23,0.25)]
-          transition
-          hover:bg-stone-800
-        "
+        className="group fixed bottom-20 right-5 z-[80] flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-stone-900 text-white shadow-[0_15px_45px_rgba(28,25,23,0.3)] md:bottom-6 md:right-6"
       >
         <motion.div
           animate={{
@@ -844,129 +784,66 @@ export default function Clarity() {
             ],
           }}
           transition={{
-            duration:
-              5,
-
+            duration: 5,
             repeat:
               Infinity,
-
             ease:
               "easeInOut",
           }}
         >
           <Sparkles
-            size={
-              17
-            }
-            strokeWidth={
-              1.8
-            }
+            size={18}
           />
         </motion.div>
 
-        {/* TOOLTIP */}
-
-        <span
-          className="
-            pointer-events-none
-            absolute
-            right-0
-            top-14
-            hidden
-            whitespace-nowrap
-            rounded-xl
-            bg-stone-900
-            px-3
-            py-2
-            text-[10px]
-            font-semibold
-            text-white
-            shadow-xl
-            group-hover:block
-          "
-        >
+        <span className="pointer-events-none absolute right-16 hidden whitespace-nowrap rounded-xl bg-stone-900 px-3 py-2 text-[10px] font-semibold text-white shadow-xl group-hover:block">
           Ask Clarity
         </span>
       </motion.button>
 
-      {/* ======================================================
+      {/* ==================================================
           CLARITY PANEL
-      ====================================================== */}
+      ================================================== */}
 
       <AnimatePresence>
         {open && (
           <>
-            {/* ==================================================
-                MOBILE BACKDROP
-            ================================================== */}
+            {/* MOBILE BACKDROP */}
 
             <motion.div
               initial={{
-                opacity:
-                  0,
+                opacity: 0,
               }}
               animate={{
-                opacity:
-                  1,
+                opacity: 1,
               }}
               exit={{
-                opacity:
-                  0,
+                opacity: 0,
               }}
               onClick={() =>
-                setOpen(
-                  false
-                )
+                setOpen(false)
               }
-              className="
-                fixed
-                inset-0
-                z-[699]
-                bg-stone-950/20
-                backdrop-blur-sm
-                sm:hidden
-              "
+              className="fixed inset-0 z-[69] bg-stone-950/20 backdrop-blur-sm sm:hidden"
             />
-
-            {/* ==================================================
-                PANEL
-            ================================================== */}
 
             <motion.div
               initial={{
-                opacity:
-                  0,
-
-                scale:
-                  0.96,
-
-                y:
-                  -8,
+                opacity: 0,
+                scale: 0.96,
+                y: -10,
               }}
               animate={{
-                opacity:
-                  1,
-
-                scale:
-                  1,
-
-                y:
-                  0,
+                opacity: 1,
+                scale: 1,
+                y: 0,
               }}
               exit={{
-                opacity:
-                  0,
-
-                scale:
-                  0.97,
-
-                y:
-                  -8,
+                opacity: 0,
+                scale: 0.97,
+                y: -8,
               }}
               transition={{
-                duration:
-                  0.22,
-
+                duration: 0.25,
                 ease: [
                   0.16,
                   1,
@@ -974,32 +851,7 @@ export default function Clarity() {
                   1,
                 ],
               }}
-              className="
-                fixed
-                inset-x-3
-                bottom-20
-                top-20
-                z-[700]
-
-                flex
-                flex-col
-                overflow-hidden
-
-                rounded-[2rem]
-
-                border
-                border-stone-200
-
-                bg-white
-
-                shadow-[0_30px_100px_rgba(28,25,23,0.22)]
-
-                sm:inset-auto
-                sm:right-8
-                sm:top-[88px]
-                sm:h-[min(720px,calc(100vh-112px))]
-                sm:w-[470px]
-              "
+              className="fixed inset-x-3 bottom-24 top-20 z-[70] flex flex-col overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-[0_30px_100px_rgba(28,25,23,0.22)] sm:inset-auto sm:right-6 sm:top-20 sm:h-[min(720px,calc(100vh-105px))] sm:w-[470px]"
             >
               {/* ==================================================
                   HEADER
@@ -1010,9 +862,7 @@ export default function Clarity() {
                   <div className="flex items-center gap-3">
                     <div className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-stone-900 text-[#a9b897] shadow-sm">
                       <Sparkles
-                        size={
-                          16
-                        }
+                        size={16}
                       />
 
                       <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-[#a9b897]" />
@@ -1039,17 +889,13 @@ export default function Clarity() {
                   <button
                     type="button"
                     onClick={() =>
-                      setOpen(
-                        false
-                      )
+                      setOpen(false)
                     }
                     aria-label="Close Clarity"
                     className="flex h-9 w-9 items-center justify-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-stone-900"
                   >
                     <X
-                      size={
-                        16
-                      }
+                      size={16}
                     />
                   </button>
                 </div>
@@ -1067,9 +913,7 @@ export default function Clarity() {
                     className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-2 text-[9px] font-bold text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
                   >
                     <Plus
-                      size={
-                        13
-                      }
+                      size={13}
                     />
 
                     New Chat
@@ -1086,9 +930,7 @@ export default function Clarity() {
                     className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-2 text-[9px] font-bold text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 disabled:opacity-50"
                   >
                     <Sparkles
-                      size={
-                        13
-                      }
+                      size={13}
                     />
 
                     {loadingBrief
@@ -1104,9 +946,7 @@ export default function Clarity() {
                     className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-[#a9b897]/40 bg-[#a9b897]/10 px-2 text-[9px] font-black text-stone-700 transition hover:bg-[#a9b897]/20"
                   >
                     <Compass
-                      size={
-                        13
-                      }
+                      size={13}
                     />
 
                     {currentStepId
@@ -1192,30 +1032,21 @@ export default function Clarity() {
               ================================================== */}
 
               <div className="flex-1 overflow-y-auto bg-[#faf9f6] p-4">
-                {/* ==================================================
-                    CEO BRIEF
-                ================================================== */}
+                {/* CEO BRIEF */}
 
                 <AnimatePresence>
                   {brief && (
                     <motion.div
                       initial={{
-                        opacity:
-                          0,
-
-                        y:
-                          -8,
+                        opacity: 0,
+                        y: -8,
                       }}
                       animate={{
-                        opacity:
-                          1,
-
-                        y:
-                          0,
+                        opacity: 1,
+                        y: 0,
                       }}
                       exit={{
-                        opacity:
-                          0,
+                        opacity: 0,
                       }}
                       className="mb-4 rounded-[1.5rem] border border-[#a9b897]/30 bg-[#a9b897]/10 p-4"
                     >
@@ -1230,13 +1061,14 @@ export default function Clarity() {
 
                         <div>
                           <p className="text-[9px] font-black uppercase tracking-[0.13em] text-stone-700">
-                            Daily CEO Brief
+                            Daily CEO
+                            Brief
                           </p>
 
                           <p className="text-[8px] text-stone-400">
-                            Clarity&apos;s
-                            overview of your
-                            business
+                            Clarity's
+                            overview of
+                            your business
                           </p>
                         </div>
                       </div>
@@ -1259,11 +1091,8 @@ export default function Clarity() {
                           <div className="mt-3 space-y-2 border-t border-[#a9b897]/25 pt-3">
                             {brief.priorities.map(
                               (
-                                item:
-                                  string,
-
-                                index:
-                                  number
+                                item: string,
+                                index: number
                               ) => (
                                 <div
                                   key={
@@ -1287,47 +1116,42 @@ export default function Clarity() {
                   )}
                 </AnimatePresence>
 
-                {/* ==================================================
-                    EMPTY STATE
-                ================================================== */}
+                {/* EMPTY STATE */}
 
                 {messages.length ===
                   0 && (
                   <motion.div
                     initial={{
-                      opacity:
-                        0,
-
-                      y:
-                        10,
+                      opacity: 0,
+                      y: 10,
                     }}
                     animate={{
-                      opacity:
-                        1,
-
-                      y:
-                        0,
+                      opacity: 1,
+                      y: 0,
                     }}
                     className="flex min-h-[260px] flex-col items-center justify-center px-6 text-center"
                   >
                     <div className="flex h-14 w-14 items-center justify-center rounded-[1.4rem] border border-stone-200 bg-white text-stone-900 shadow-sm">
                       <Sparkles
-                        size={
-                          19
-                        }
+                        size={19}
                       />
                     </div>
 
                     <h3 className="mt-5 font-serif text-2xl italic text-stone-800">
-                      What can I help with?
+                      What can I
+                      help with?
                     </h3>
 
                     <p className="mt-3 max-w-[300px] text-[11px] leading-relaxed text-stone-400">
-                      Ask me about sales,
-                      customers, projects,
-                      finance, calendar,
-                      tasks or your wider
-                      business performance.
+                      Ask me about
+                      sales,
+                      customers,
+                      projects,
+                      finance,
+                      calendar,
+                      tasks or your
+                      wider business
+                      performance.
                     </p>
 
                     <div className="mt-5 flex flex-wrap justify-center gap-2">
@@ -1361,9 +1185,7 @@ export default function Clarity() {
                   </motion.div>
                 )}
 
-                {/* ==================================================
-                    MESSAGES
-                ================================================== */}
+                {/* MESSAGES */}
 
                 <div className="space-y-4">
                   {messages.map(
@@ -1387,18 +1209,12 @@ export default function Clarity() {
                             `${item.role}-${index}`
                           }
                           initial={{
-                            opacity:
-                              0,
-
-                            y:
-                              8,
+                            opacity: 0,
+                            y: 8,
                           }}
                           animate={{
-                            opacity:
-                              1,
-
-                            y:
-                              0,
+                            opacity: 1,
+                            y: 0,
                           }}
                           className={
                             isUser
@@ -1452,45 +1268,35 @@ export default function Clarity() {
                       !streaming && (
                         <motion.div
                           initial={{
-                            opacity:
-                              0,
-
-                            y:
-                              8,
+                            opacity: 0,
+                            y: 8,
                           }}
                           animate={{
-                            opacity:
-                              1,
-
-                            y:
-                              0,
+                            opacity: 1,
+                            y: 0,
                           }}
                           exit={{
-                            opacity:
-                              0,
-
-                            y:
-                              -4,
+                            opacity: 0,
+                            y: -4,
                           }}
                           className="flex max-w-[90%] items-start gap-2.5"
                         >
                           <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-stone-900 text-[#a9b897]">
                             <motion.div
                               animate={{
-                                rotate: [
-                                  0,
-                                  7,
-                                  -7,
-                                  0,
-                                ],
+                                rotate:
+                                  [
+                                    0,
+                                    7,
+                                    -7,
+                                    0,
+                                  ],
                               }}
                               transition={{
                                 duration:
                                   1.7,
-
                                 repeat:
                                   Infinity,
-
                                 ease:
                                   "easeInOut",
                               }}
@@ -1509,18 +1315,12 @@ export default function Clarity() {
                                 thinkingIndex
                               }
                               initial={{
-                                opacity:
-                                  0,
-
-                                y:
-                                  3,
+                                opacity: 0,
+                                y: 3,
                               }}
                               animate={{
-                                opacity:
-                                  1,
-
-                                y:
-                                  0,
+                                opacity: 1,
+                                y: 0,
                               }}
                               className="text-[9px] font-medium text-stone-400"
                             >
@@ -1552,11 +1352,12 @@ export default function Clarity() {
                                         0,
                                       ],
 
-                                      opacity: [
-                                        0.25,
-                                        1,
-                                        0.25,
-                                      ],
+                                      opacity:
+                                        [
+                                          0.25,
+                                          1,
+                                          0.25,
+                                        ],
                                     }}
                                     transition={{
                                       duration:
@@ -1620,9 +1421,7 @@ export default function Clarity() {
                         void askClarity();
                       }
                     }}
-                    rows={
-                      1
-                    }
+                    rows={1}
                     placeholder="Ask Clarity anything about your business..."
                     className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-3 py-2.5 text-[11px] text-stone-700 outline-none placeholder:text-stone-300"
                   />
@@ -1644,9 +1443,7 @@ export default function Clarity() {
                     aria-label="Send message"
                   >
                     <Send
-                      size={
-                        14
-                      }
+                      size={14}
                     />
                   </motion.button>
                 </div>
@@ -1654,10 +1451,11 @@ export default function Clarity() {
                 <div className="mt-2 flex items-center justify-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#a9b897]" />
 
-                  <p className="text-center text-[7px] font-medium uppercase tracking-[0.14em] text-stone-300">
-                    Clarity uses information
-                    available in your TOTS-OS
-                    workspace
+                  <p className="text-[7px] font-medium uppercase tracking-[0.14em] text-stone-300">
+                    Clarity uses
+                    information
+                    available in your
+                    TOTS-OS workspace
                   </p>
                 </div>
               </div>
@@ -1666,9 +1464,9 @@ export default function Clarity() {
         )}
       </AnimatePresence>
 
-      {/* ======================================================
+      {/* ==================================================
           GLOBAL HELPERS
-      ====================================================== */}
+      ================================================== */}
 
       <style jsx global>{`
         .no-scrollbar::-webkit-scrollbar {

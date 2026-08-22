@@ -124,11 +124,6 @@ function clearOAuthStorage(
   }
 
   try {
-    /*
-     * Keep support for the existing storage keys
-     * used by the social connection flow.
-     */
-
     const possibleKeys = [
       `oauth_pending_${platform}`,
       `social_oauth_pending_${platform}`,
@@ -173,11 +168,6 @@ function cleanOAuthUrl() {
     return;
   }
 
-  /*
-   * Remove OAuth result parameters while keeping the user
-   * on the Settings page.
-   */
-
   window.history.replaceState(
     {},
     document.title,
@@ -218,12 +208,12 @@ function SettingsInner() {
   const searchParams =
     useSearchParams();
 
-  /*
-   * Prevent the same OAuth result from being processed twice
-   * if React re-renders the component.
-   */
-
   const handledOAuthRef =
+    useRef(
+      false
+    );
+
+  const socialRefreshInProgressRef =
     useRef(
       false
     );
@@ -373,12 +363,35 @@ function SettingsInner() {
       null
     );
 
-  const [
-    socialRefreshInProgress,
-    setSocialRefreshInProgress,
-  ] =
-    useState(
-      false
+  // ==========================================================
+  // VOID WRAPPERS
+  //
+  // Some OAuth hooks expect:
+  //
+  // () => Promise<void>
+  //
+  // verifyConnections now returns connection health, so we
+  // intentionally discard its return value here.
+  // ==========================================================
+
+  const refreshConnectionsVoid =
+    useCallback(
+      async (): Promise<void> => {
+        await refreshConnections();
+      },
+      [
+        refreshConnections,
+      ]
+    );
+
+  const verifyConnectionsVoid =
+    useCallback(
+      async (): Promise<void> => {
+        await verifyConnections();
+      },
+      [
+        verifyConnections,
+      ]
     );
 
   // ==========================================================
@@ -389,56 +402,33 @@ function SettingsInner() {
     useCallback(
       async () => {
         if (
-          socialRefreshInProgress
+          socialRefreshInProgressRef.current
         ) {
           return;
         }
 
-        setSocialRefreshInProgress(
-          true
-        );
+        socialRefreshInProgressRef.current =
+          true;
 
         try {
-          /*
-           * First reload social_accounts from Supabase.
-           */
-
           await refreshConnections();
-
-          /*
-           * Then check whether the records still have usable
-           * platform credentials.
-           */
 
           await verifyConnections();
 
-          /*
-           * Finally resolve anything left in the pending OAuth
-           * state.
-           */
-
           await verifyPendingOAuth();
 
-          /*
-           * Run one final fetch.
-           *
-           * This is useful when verifyPendingOAuth changed the
-           * database or converted a pending account into a
-           * connected one.
-           */
-
           await refreshConnections();
+
+          await verifyConnections();
         } finally {
-          setSocialRefreshInProgress(
-            false
-          );
+          socialRefreshInProgressRef.current =
+            false;
         }
       },
       [
         refreshConnections,
         verifyConnections,
         verifyPendingOAuth,
-        socialRefreshInProgress,
       ]
     );
 
@@ -461,9 +451,11 @@ function SettingsInner() {
     );
 
   useTikTokOAuthResult({
-    refreshConnections,
+    refreshConnections:
+      refreshConnectionsVoid,
 
-    verifyConnections,
+    verifyConnections:
+      verifyConnectionsVoid,
 
     onConnected:
       handleTikTokConnected,
@@ -531,10 +523,6 @@ function SettingsInner() {
           "social_error"
         );
 
-      /*
-       * No OAuth result on this visit.
-       */
-
       if (
         !oauth &&
         !connected &&
@@ -548,10 +536,6 @@ function SettingsInner() {
 
       let cancelled =
         false;
-
-      // ======================================================
-      // RESULT HANDLER
-      // ======================================================
 
       const handleOAuthResult =
         async () => {
@@ -581,11 +565,6 @@ function SettingsInner() {
 
             // =================================================
             // META SUCCESS
-            //
-            // Supports BOTH:
-            //
-            // ?oauth=meta_success
-            // ?connected=meta
             // =================================================
 
             if (
@@ -611,11 +590,6 @@ function SettingsInner() {
               ) {
                 return;
               }
-
-              console.log(
-                "[TOTS SOCIAL] Meta connections refreshed:",
-                socialAccounts
-              );
 
               toast.success(
                 "Meta connected successfully"
@@ -757,11 +731,6 @@ function SettingsInner() {
             if (
               !cancelled
             ) {
-              /*
-               * Allow the social hook a final moment to settle
-               * before removing the callback parameters.
-               */
-
               window.setTimeout(
                 () => {
                   cleanOAuthUrl();
@@ -782,7 +751,6 @@ function SettingsInner() {
     [
       searchParams,
       refreshSocialState,
-      socialAccounts,
     ]
   );
 
@@ -798,11 +766,6 @@ function SettingsInner() {
       const refresh =
         async () => {
           try {
-            /*
-             * Don't run the generic initial refresh while the
-             * OAuth-return handler is already doing it.
-             */
-
             const oauth =
               searchParams.get(
                 "oauth"
@@ -855,8 +818,6 @@ function SettingsInner() {
 
   // ==========================================================
   // RECHECK CONNECTION WHEN WINDOW REGAINS FOCUS
-  //
-  // This helps if OAuth opened in another browser tab/window.
   // ==========================================================
 
   useEffect(
@@ -865,6 +826,8 @@ function SettingsInner() {
         async () => {
           try {
             await refreshConnections();
+
+            await verifyConnections();
           } catch (
             error
           ) {
@@ -889,6 +852,7 @@ function SettingsInner() {
     },
     [
       refreshConnections,
+      verifyConnections,
     ]
   );
 
@@ -1005,7 +969,6 @@ function SettingsInner() {
               ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
-
                 <SocialSettings
                   socialAccounts={
                     socialAccounts
@@ -1014,7 +977,6 @@ function SettingsInner() {
                     connectionHealth
                   }
                 />
-
               </div>
 
               {/* ==================================================
@@ -1058,7 +1020,6 @@ function SettingsInner() {
           );
         }}
       />
-
     </div>
   );
 }
@@ -1094,7 +1055,6 @@ function SettingsLoadingScreen({
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#faf9f6]">
       <div className="flex flex-col items-center gap-4">
-
         <Loader2
           className="animate-spin text-stone-400"
           size={
@@ -1107,7 +1067,6 @@ function SettingsLoadingScreen({
             text
           }
         </p>
-
       </div>
     </div>
   );

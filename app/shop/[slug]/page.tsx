@@ -19,11 +19,13 @@ import {
   Mail,
   MapPin,
   Menu,
+  MessageCircle,
   Minus,
   Package,
   Phone,
   Plus,
   Search,
+  Send,
   ShoppingBag,
   ShoppingCart,
   Sparkles,
@@ -87,15 +89,9 @@ type Product = {
 
   price: number | string;
 
-  compare_at_price?:
-    | number
-    | string
-    | null;
+  compare_at_price?: number | string | null;
 
-  cost_price?:
-    | number
-    | string
-    | null;
+  cost_price?: number | string | null;
 
   image_url?: string | null;
 
@@ -132,11 +128,14 @@ type CartLine = {
 
 type StorefrontApiResponse = {
   store?: Storefront;
-
   products?: Product[];
-
   productLoadWarning?: string | null;
+  error?: string;
+};
 
+type ContactApiResponse = {
+  success?: boolean;
+  message?: string;
   error?: string;
 };
 
@@ -144,8 +143,8 @@ type StorefrontApiResponse = {
 // CONSTANTS
 // ============================================================
 
-const STOREFRONT_REQUEST_TIMEOUT_MS =
-  30000;
+const STOREFRONT_REQUEST_TIMEOUT_MS = 30000;
+const CONTACT_REQUEST_TIMEOUT_MS = 20000;
 
 // ============================================================
 // HELPERS
@@ -154,25 +153,19 @@ const STOREFRONT_REQUEST_TIMEOUT_MS =
 function formatCurrency(
   value?: number | string | null
 ) {
-  return new Intl.NumberFormat(
-    "en-GB",
-    {
-      style: "currency",
-      currency: "GBP",
-    }
-  ).format(
-    Number(value || 0)
-  );
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+  }).format(Number(value || 0));
 }
 
 function normaliseColour(
   value?: string | null,
   fallback = "#a9b897"
 ) {
-  const trimmed =
-    String(
-      value || ""
-    ).trim();
+  const trimmed = String(
+    value || ""
+  ).trim();
 
   if (
     /^#[0-9A-Fa-f]{6}$/.test(
@@ -203,9 +196,7 @@ function getProductImage(
   ) {
     const first =
       product.images.find(
-        (
-          image
-        ) =>
+        (image) =>
           typeof image ===
             "string" &&
           image.trim()
@@ -226,12 +217,6 @@ function getProductImage(
 function getAvailableQuantity(
   product: Product
 ) {
-  /*
-   * Services, digital products, unlimited items etc.
-   *
-   * If inventory tracking is explicitly disabled,
-   * this item can always be purchased.
-   */
   if (
     product.track_inventory ===
     false
@@ -253,10 +238,6 @@ function getAvailableQuantity(
     return product.stock;
   }
 
-  /*
-   * If no inventory number exists, do NOT automatically
-   * assume the product is sold out.
-   */
   return null;
 }
 
@@ -389,8 +370,7 @@ function getProductActionLabel(
 // ============================================================
 
 export default function ShopFrontPage() {
-  const params =
-    useParams();
+  const params = useParams();
 
   const slug =
     typeof params?.slug ===
@@ -407,6 +387,11 @@ export default function ShopFrontPage() {
   // ==========================================================
 
   const requestControllerRef =
+    useRef<AbortController | null>(
+      null
+    );
+
+  const contactControllerRef =
     useRef<AbortController | null>(
       null
     );
@@ -485,6 +470,54 @@ export default function ShopFrontPage() {
   ] =
     useState(false);
 
+  const [
+    contactOpen,
+    setContactOpen,
+  ] =
+    useState(false);
+
+  // ==========================================================
+  // CONTACT FORM
+  // ==========================================================
+
+  const [
+    contactName,
+    setContactName,
+  ] =
+    useState("");
+
+  const [
+    contactEmail,
+    setContactEmail,
+  ] =
+    useState("");
+
+  const [
+    contactMessage,
+    setContactMessage,
+  ] =
+    useState("");
+
+  const [
+    sendingMessage,
+    setSendingMessage,
+  ] =
+    useState(false);
+
+  const [
+    messageSent,
+    setMessageSent,
+  ] =
+    useState(false);
+
+  const [
+    messageError,
+    setMessageError,
+  ] =
+    useState<string | null>(
+      null
+    );
+
   // ==========================================================
   // CART
   // ==========================================================
@@ -502,13 +535,6 @@ export default function ShopFrontPage() {
 
   // ==========================================================
   // LOAD STORE
-  //
-  // IMPORTANT:
-  // This page no longer talks directly to Supabase.
-  //
-  // Everything comes through:
-  //
-  // /api/storefront/[slug]
   // ==========================================================
 
   const loadStore =
@@ -520,15 +546,16 @@ export default function ShopFrontPage() {
         ) {
           setStore(null);
           setProducts([]);
+
           setError(
             "No store was specified."
           );
+
           setLoading(false);
 
           return;
         }
 
-        // Cancel any previous request.
         requestControllerRef.current?.abort();
 
         const controller =
@@ -539,6 +566,7 @@ export default function ShopFrontPage() {
 
         setLoading(true);
         setError(null);
+
         setProductLoadWarning(
           null
         );
@@ -555,10 +583,6 @@ export default function ShopFrontPage() {
           null;
 
         try {
-          // ===================================================
-          // SAFETY TIMEOUT
-          // ===================================================
-
           timeoutId =
             setTimeout(
               () => {
@@ -567,32 +591,35 @@ export default function ShopFrontPage() {
               STOREFRONT_REQUEST_TIMEOUT_MS
             );
 
-          // ===================================================
-          // ONE STOREFRONT REQUEST
-          // ===================================================
+          /*
+           * Cache busting is intentional here.
+           *
+           * If a store owner changes their accent colour,
+           * announcement, title, products etc inside TOTS-OS,
+           * this forces the public storefront to request the
+           * current data rather than an older cached response.
+           */
 
           const response =
             await fetch(
               `/api/storefront/${encodeURIComponent(
                 safeSlug
-              )}`,
+              )}?t=${Date.now()}`,
               {
-                method:
-                  "GET",
+                method: "GET",
 
                 headers: {
                   Accept:
                     "application/json",
                 },
 
+                cache:
+                  "no-store",
+
                 signal:
                   controller.signal,
               }
             );
-
-          // ===================================================
-          // SAFELY PARSE RESPONSE
-          // ===================================================
 
           const contentType =
             response.headers.get(
@@ -627,10 +654,6 @@ export default function ShopFrontPage() {
             );
           }
 
-          // ===================================================
-          // API ERROR
-          // ===================================================
-
           if (
             !response.ok
           ) {
@@ -640,10 +663,6 @@ export default function ShopFrontPage() {
             );
           }
 
-          // ===================================================
-          // VALIDATE STORE
-          // ===================================================
-
           if (
             !data?.store
           ) {
@@ -651,10 +670,6 @@ export default function ShopFrontPage() {
               "This store could not be found."
             );
           }
-
-          // ===================================================
-          // CLEAN PRODUCTS
-          // ===================================================
 
           const incomingProducts =
             Array.isArray(
@@ -666,46 +681,30 @@ export default function ShopFrontPage() {
           const cleanedProducts =
             incomingProducts
               .filter(
-                (
-                  product
-                ) =>
+                (product) =>
                   Boolean(
                     product?.id
                   )
               )
-
               .filter(
-                (
-                  product
-                ) =>
+                (product) =>
                   typeof product.name ===
                     "string" &&
                   Boolean(
                     product.name.trim()
                   )
               )
-
               .filter(
-                (
-                  product
-                ) =>
+                (product) =>
                   product.is_active !==
                   false
               )
-
-              /*
-               * API should already only return public products,
-               * but this gives us an extra client-side guard.
-               */
               .filter(
-                (
-                  product
-                ) =>
+                (product) =>
                   !product.status ||
                   product.status ===
                     "active"
               )
-
               .sort(
                 (
                   first,
@@ -761,10 +760,6 @@ export default function ShopFrontPage() {
                 }
               );
 
-          // ===================================================
-          // UPDATE PAGE
-          // ===================================================
-
           setStore(
             data.store
           );
@@ -784,18 +779,9 @@ export default function ShopFrontPage() {
         } catch (
           loadError: unknown
         ) {
-          // ===================================================
-          // ABORT
-          // ===================================================
-
           if (
             controller.signal.aborted
           ) {
-            /*
-             * If another request replaced this one,
-             * don't overwrite the new request's state.
-             */
-
             if (
               requestControllerRef.current !==
               controller
@@ -816,10 +802,6 @@ export default function ShopFrontPage() {
 
             return;
           }
-
-          // ===================================================
-          // NORMAL NETWORK/API ERROR
-          // ===================================================
 
           console.error(
             "[TOTS STORE] Storefront request failed:",
@@ -853,11 +835,6 @@ export default function ShopFrontPage() {
             );
           }
 
-          /*
-           * Only the newest request is allowed to
-           * control the loading state.
-           */
-
           if (
             requestControllerRef.current ===
             controller
@@ -881,12 +858,241 @@ export default function ShopFrontPage() {
 
       return () => {
         requestControllerRef.current?.abort();
+
+        contactControllerRef.current?.abort();
       };
     },
     [
       loadStore,
     ]
   );
+
+  // ==========================================================
+  // CONTACT MESSAGE
+  // ==========================================================
+
+  async function sendContactMessage() {
+    if (
+      sendingMessage ||
+      !store
+    ) {
+      return;
+    }
+
+    const name =
+      contactName.trim();
+
+    const email =
+      contactEmail.trim();
+
+    const message =
+      contactMessage.trim();
+
+    if (
+      !name
+    ) {
+      setMessageError(
+        "Please enter your name."
+      );
+
+      return;
+    }
+
+    if (
+      !email ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        email
+      )
+    ) {
+      setMessageError(
+        "Please enter a valid email address."
+      );
+
+      return;
+    }
+
+    if (
+      !message
+    ) {
+      setMessageError(
+        "Please enter a message."
+      );
+
+      return;
+    }
+
+    contactControllerRef.current?.abort();
+
+    const controller =
+      new AbortController();
+
+    contactControllerRef.current =
+      controller;
+
+    setSendingMessage(true);
+    setMessageError(null);
+    setMessageSent(false);
+
+    const timeoutId =
+      setTimeout(
+        () => {
+          controller.abort();
+        },
+        CONTACT_REQUEST_TIMEOUT_MS
+      );
+
+    try {
+      /*
+       * EXPECTED API:
+       *
+       * app/api/storefront/contact/route.ts
+       *
+       * The API should:
+       *
+       * - create/store the message
+       * - associate organisation_id
+       * - associate the storefront
+       * - send or surface the message inside TOTS-OS
+       *
+       * If your API route has a different URL,
+       * simply change the URL below.
+       */
+
+      const response =
+        await fetch(
+          "/api/storefront/contact",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Accept:
+                "application/json",
+            },
+
+            cache:
+              "no-store",
+
+            signal:
+              controller.signal,
+
+            body:
+              JSON.stringify({
+                organisationId:
+                  store.organisation_id,
+
+                storeId:
+                  store.id,
+
+                storeSlug:
+                  store.slug,
+
+                storeName:
+                  store.store_name,
+
+                name,
+                email,
+                message,
+
+                source:
+                  "storefront",
+              }),
+          }
+        );
+
+      const contentType =
+        response.headers.get(
+          "content-type"
+        );
+
+      let data:
+        ContactApiResponse | null =
+        null;
+
+      if (
+        contentType?.includes(
+          "application/json"
+        )
+      ) {
+        data =
+          (await response.json()) as ContactApiResponse;
+      } else {
+        const text =
+          await response.text();
+
+        console.error(
+          "[TOTS STORE] Contact endpoint returned non-JSON:",
+          text.slice(
+            0,
+            500
+          )
+        );
+      }
+
+      if (
+        !response.ok
+      ) {
+        throw new Error(
+          data?.error ||
+            data?.message ||
+            "Your message could not be sent."
+        );
+      }
+
+      setMessageSent(true);
+
+      setContactName("");
+      setContactEmail("");
+      setContactMessage("");
+    } catch (
+      sendError: unknown
+    ) {
+      if (
+        controller.signal.aborted
+      ) {
+        setMessageError(
+          "Sending took too long. Please try again."
+        );
+      } else {
+        console.error(
+          "[TOTS STORE] Contact message failed:",
+          sendError
+        );
+
+        setMessageError(
+          sendError instanceof
+            Error
+            ? sendError.message
+            : "Your message could not be sent."
+        );
+      }
+    } finally {
+      clearTimeout(
+        timeoutId
+      );
+
+      if (
+        contactControllerRef.current ===
+        controller
+      ) {
+        setSendingMessage(
+          false
+        );
+      }
+    }
+  }
+
+  function openContactDrawer() {
+    setMessageSent(false);
+    setMessageError(null);
+
+    setContactOpen(
+      true
+    );
+  }
 
   // ==========================================================
   // CATEGORIES
@@ -901,9 +1107,7 @@ export default function ShopFrontPage() {
           new Set(
             products
               .map(
-                (
-                  product
-                ) =>
+                (product) =>
                   product.category?.trim()
               )
               .filter(
@@ -911,7 +1115,9 @@ export default function ShopFrontPage() {
                   value
                 ):
                   value is string =>
-                    Boolean(value)
+                    Boolean(
+                      value
+                    )
               )
           )
         ).sort(
@@ -942,9 +1148,7 @@ export default function ShopFrontPage() {
             .toLowerCase();
 
         return products.filter(
-          (
-            product
-          ) => {
+          (product) => {
             if (
               category !==
                 "All" &&
@@ -966,11 +1170,11 @@ export default function ShopFrontPage() {
               product.category,
               product.sku,
             ]
-              .filter(Boolean)
+              .filter(
+                Boolean
+              )
               .some(
-                (
-                  value
-                ) =>
+                (value) =>
                   String(
                     value
                   )
@@ -990,7 +1194,7 @@ export default function ShopFrontPage() {
     );
 
   // ==========================================================
-  // FEATURED
+  // FEATURED PRODUCTS
   // ==========================================================
 
   const featuredProducts =
@@ -998,9 +1202,7 @@ export default function ShopFrontPage() {
       () => {
         const explicit =
           products.filter(
-            (
-              product
-            ) =>
+            (product) =>
               product.featured ===
               true
           );
@@ -1020,7 +1222,7 @@ export default function ShopFrontPage() {
     );
 
   // ==========================================================
-  // CART STATE
+  // CART
   // ==========================================================
 
   const cartLines =
@@ -1088,9 +1290,7 @@ export default function ShopFrontPage() {
     }
 
     setCart(
-      (
-        previous
-      ) => {
+      (previous) => {
         const existing =
           previous[
             product.id
@@ -1131,18 +1331,18 @@ export default function ShopFrontPage() {
         return {
           ...previous,
 
-          [product.id]:
-            {
-              product,
-
-              quantity:
-                nextQuantity,
-            },
+          [product.id]: {
+            product,
+            quantity:
+              nextQuantity,
+          },
         };
       }
     );
 
-    setCartOpen(true);
+    setCartOpen(
+      true
+    );
   }
 
   function setQuantity(
@@ -1150,9 +1350,7 @@ export default function ShopFrontPage() {
     quantity: number
   ) {
     setCart(
-      (
-        previous
-      ) => {
+      (previous) => {
         if (
           quantity <=
           0
@@ -1219,20 +1417,18 @@ export default function ShopFrontPage() {
         return {
           ...previous,
 
-          [productId]:
-            {
-              ...existing,
-
-              quantity:
-                safeQuantity,
-            },
+          [productId]: {
+            ...existing,
+            quantity:
+              safeQuantity,
+          },
         };
       }
     );
   }
 
   // ==========================================================
-  // BRANDING
+  // BRAND
   // ==========================================================
 
   const primary =
@@ -1241,8 +1437,16 @@ export default function ShopFrontPage() {
       "#a9b897"
     );
 
+  /*
+   * This now derives the light secondary background
+   * directly from the configured accent colour too.
+   *
+   * So changing green to red changes the storefront
+   * highlights instead of leaving green-tinted sections.
+   */
+
   const secondary =
-    "#eff2eb";
+    `${primary}16`;
 
   const storeName =
     store?.store_name ||
@@ -1258,9 +1462,7 @@ export default function ShopFrontPage() {
   ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f5f0] px-5">
-
         <div className="text-center">
-
           <Loader2
             className="mx-auto animate-spin text-stone-500"
             size={28}
@@ -1273,9 +1475,7 @@ export default function ShopFrontPage() {
           <p className="mt-2 text-[9px] text-stone-300">
             Just a moment
           </p>
-
         </div>
-
       </div>
     );
   }
@@ -1290,9 +1490,7 @@ export default function ShopFrontPage() {
   ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f5f0] px-5">
-
         <div className="w-full max-w-lg rounded-[2rem] border border-stone-200 bg-white p-9 text-center shadow-sm">
-
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-500">
             <Store
               size={22}
@@ -1321,11 +1519,9 @@ export default function ShopFrontPage() {
               size={13}
             />
           </button>
-
         </div>
 
         <StorefrontGlobalStyles />
-
       </div>
     );
   }
@@ -1344,12 +1540,17 @@ export default function ShopFrontPage() {
         } as CSSProperties
       }
     >
-
       {/* =====================================================
           ANNOUNCEMENT
       ===================================================== */}
 
-      <div className="bg-stone-900 px-4 py-2 text-center text-[8px] font-black uppercase tracking-[0.18em] text-white">
+      <div
+        className="px-4 py-2 text-center text-[8px] font-black uppercase tracking-[0.18em] text-white"
+        style={{
+          background:
+            primary,
+        }}
+      >
         {store.announcement ||
           "Independent business · Powered by TOTS-OS"}
       </div>
@@ -1359,9 +1560,7 @@ export default function ShopFrontPage() {
       ===================================================== */}
 
       <header className="sticky top-0 z-40 border-b border-stone-200 bg-[#f8f7f3]/95 backdrop-blur-xl">
-
         <div className="mx-auto flex max-w-[1320px] items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
-
           <button
             type="button"
             aria-label="Open menu"
@@ -1381,7 +1580,6 @@ export default function ShopFrontPage() {
             href="#top"
             className="flex min-w-0 items-center gap-3 no-underline"
           >
-
             {store.logo_url ? (
               <img
                 src={
@@ -1405,7 +1603,6 @@ export default function ShopFrontPage() {
             )}
 
             <div className="min-w-0">
-
               <p className="truncate text-xs font-black uppercase tracking-[0.14em] text-stone-900">
                 {
                   storeName
@@ -1415,13 +1612,10 @@ export default function ShopFrontPage() {
               <p className="mt-0.5 hidden text-[9px] text-stone-400 sm:block">
                 Shop · Services · Resources
               </p>
-
             </div>
-
           </a>
 
           <nav className="hidden items-center gap-7 lg:flex">
-
             <a
               href="#shop"
               className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
@@ -1446,13 +1640,15 @@ export default function ShopFrontPage() {
               About
             </a>
 
-            <a
-              href="#contact"
-              className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
+            <button
+              type="button"
+              onClick={
+                openContactDrawer
+              }
+              className="text-xs font-semibold text-stone-500 transition hover:text-stone-900"
             >
-              Contact
-            </a>
-
+              Talk to us
+            </button>
           </nav>
 
           <button
@@ -1486,11 +1682,8 @@ export default function ShopFrontPage() {
                 }
               </span>
             )}
-
           </button>
-
         </div>
-
       </header>
 
       {/* =====================================================
@@ -1499,7 +1692,6 @@ export default function ShopFrontPage() {
 
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-[100] bg-stone-900/40 p-4 backdrop-blur-sm lg:hidden">
-
           <button
             type="button"
             aria-label="Close menu"
@@ -1512,9 +1704,7 @@ export default function ShopFrontPage() {
           />
 
           <div className="relative ml-auto w-full max-w-sm rounded-[1.75rem] bg-white p-5 shadow-2xl">
-
             <div className="flex items-center justify-between">
-
               <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
                 Explore
               </p>
@@ -1532,77 +1722,83 @@ export default function ShopFrontPage() {
                   size={15}
                 />
               </button>
-
             </div>
 
             <div className="mt-5 grid gap-2">
-
-              {[
-                {
-                  id:
-                    "shop",
-                  label:
-                    "Shop",
-                },
-                {
-                  id:
-                    "featured",
-                  label:
-                    "Featured",
-                },
-                {
-                  id:
-                    "about",
-                  label:
-                    "About",
-                },
-                {
-                  id:
-                    "contact",
-                  label:
-                    "Contact",
-                },
-              ].map(
-                (
-                  item
-                ) => {
-                  if (
-                    item.id ===
-                      "featured" &&
-                    !featuredProducts.length
-                  ) {
-                    return null;
-                  }
-
-                  return (
-                    <a
-                      key={
-                        item.id
-                      }
-                      href={`#${item.id}`}
-                      onClick={() =>
-                        setMobileMenuOpen(
-                          false
-                        )
-                      }
-                      className="flex items-center justify-between rounded-xl bg-stone-50 px-4 py-3.5 text-sm font-semibold no-underline"
-                    >
-                      {
-                        item.label
-                      }
-
-                      <ArrowRight
-                        size={14}
-                      />
-                    </a>
-                  );
+              <a
+                href="#shop"
+                onClick={() =>
+                  setMobileMenuOpen(
+                    false
+                  )
                 }
+                className="flex items-center justify-between rounded-xl bg-stone-50 px-4 py-3.5 text-sm font-semibold no-underline"
+              >
+                Shop
+
+                <ArrowRight
+                  size={14}
+                />
+              </a>
+
+              {featuredProducts.length >
+                0 && (
+                <a
+                  href="#featured"
+                  onClick={() =>
+                    setMobileMenuOpen(
+                      false
+                    )
+                  }
+                  className="flex items-center justify-between rounded-xl bg-stone-50 px-4 py-3.5 text-sm font-semibold no-underline"
+                >
+                  Featured
+
+                  <ArrowRight
+                    size={14}
+                  />
+                </a>
               )}
 
+              <a
+                href="#about"
+                onClick={() =>
+                  setMobileMenuOpen(
+                    false
+                  )
+                }
+                className="flex items-center justify-between rounded-xl bg-stone-50 px-4 py-3.5 text-sm font-semibold no-underline"
+              >
+                About
+
+                <ArrowRight
+                  size={14}
+                />
+              </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(
+                    false
+                  );
+
+                  openContactDrawer();
+                }}
+                className="flex items-center justify-between rounded-xl px-4 py-3.5 text-left text-sm font-semibold text-white"
+                style={{
+                  background:
+                    primary,
+                }}
+              >
+                Talk to us
+
+                <MessageCircle
+                  size={14}
+                />
+              </button>
             </div>
-
           </div>
-
         </div>
       )}
 
@@ -1614,15 +1810,10 @@ export default function ShopFrontPage() {
         id="top"
         className="px-4 pb-8 pt-5 sm:px-6 lg:px-8 lg:pb-10 lg:pt-6"
       >
-
         <div className="mx-auto max-w-[1320px] overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm lg:rounded-[2.5rem]">
-
           <div className="grid lg:grid-cols-[1.12fr_.88fr]">
-
             <div className="flex items-center p-7 sm:p-10 lg:p-12 xl:p-14">
-
               <div className="max-w-2xl">
-
                 <div
                   className="mb-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-[8px] font-black uppercase tracking-[0.18em]"
                   style={{
@@ -1655,7 +1846,6 @@ export default function ShopFrontPage() {
                 </p>
 
                 <div className="mt-7 flex flex-wrap gap-3">
-
                   <a
                     href="#shop"
                     className="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-white no-underline transition hover:opacity-90"
@@ -1671,17 +1861,22 @@ export default function ShopFrontPage() {
                     />
                   </a>
 
-                  <a
-                    href="#contact"
-                    className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-stone-600 no-underline"
+                  <button
+                    type="button"
+                    onClick={
+                      openContactDrawer
+                    }
+                    className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-stone-600"
                   >
-                    Ask us anything
-                  </a>
+                    Talk to us
 
+                    <MessageCircle
+                      size={13}
+                    />
+                  </button>
                 </div>
 
                 <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 text-[9px] text-stone-400">
-
                   <span className="flex items-center gap-2">
                     <Check
                       size={11}
@@ -1717,11 +1912,8 @@ export default function ShopFrontPage() {
 
                     Direct support
                   </span>
-
                 </div>
-
               </div>
-
             </div>
 
             {/* HERO IMAGE */}
@@ -1733,15 +1925,12 @@ export default function ShopFrontPage() {
                   secondary,
               }}
             >
-
               {featuredProducts[0] &&
               getProductImage(
                 featuredProducts[0]
               ) ? (
                 <div className="absolute inset-0 flex items-center justify-center p-8 sm:p-10 lg:p-12">
-
                   <div className="relative h-full max-h-[390px] w-full max-w-[310px] overflow-hidden rounded-[1.75rem] bg-white shadow-[0_22px_60px_rgba(0,0,0,0.12)]">
-
                     <img
                       src={
                         getProductImage(
@@ -1754,13 +1943,10 @@ export default function ShopFrontPage() {
                       }
                       className="h-full w-full object-cover"
                     />
-
                   </div>
-
                 </div>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
-
                   <div
                     className="flex h-28 w-28 items-center justify-center rounded-[2rem] text-white shadow-xl"
                     style={{
@@ -1768,7 +1954,6 @@ export default function ShopFrontPage() {
                         primary,
                     }}
                   >
-
                     {store.logo_url ? (
                       <img
                         src={
@@ -1782,18 +1967,12 @@ export default function ShopFrontPage() {
                         size={38}
                       />
                     )}
-
                   </div>
-
                 </div>
               )}
-
             </div>
-
           </div>
-
         </div>
-
       </section>
 
       {/* =====================================================
@@ -1803,15 +1982,10 @@ export default function ShopFrontPage() {
       {categories.length >
         1 && (
         <section className="px-4 sm:px-6 lg:px-8">
-
           <div className="mx-auto max-w-[1320px]">
-
             <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2">
-
               {categories.map(
-                (
-                  item
-                ) => (
+                (item) => (
                   <button
                     type="button"
                     key={
@@ -1831,12 +2005,31 @@ export default function ShopFrontPage() {
                             "smooth",
                         });
                     }}
-                    className={`shrink-0 rounded-full border px-4 py-2 text-[8px] font-black uppercase tracking-[0.13em] transition ${
+                    className="shrink-0 rounded-full border px-4 py-2 text-[8px] font-black uppercase tracking-[0.13em] transition"
+                    style={
                       category ===
                       item
-                        ? "border-stone-900 bg-stone-900 text-white"
-                        : "border-stone-200 bg-white text-stone-500 hover:border-stone-400"
-                    }`}
+                        ? {
+                            borderColor:
+                              primary,
+
+                            background:
+                              primary,
+
+                            color:
+                              "#ffffff",
+                          }
+                        : {
+                            borderColor:
+                              "#e7e5e4",
+
+                            background:
+                              "#ffffff",
+
+                            color:
+                              "#78716c",
+                          }
+                    }
                   >
                     {
                       item
@@ -1844,11 +2037,8 @@ export default function ShopFrontPage() {
                   </button>
                 )
               )}
-
             </div>
-
           </div>
-
         </section>
       )}
 
@@ -1862,13 +2052,9 @@ export default function ShopFrontPage() {
           id="featured"
           className="px-4 py-10 sm:px-6 lg:px-8"
         >
-
           <div className="mx-auto max-w-[1320px]">
-
             <div className="mb-6 flex items-end justify-between gap-4">
-
               <div>
-
                 <p
                   className="text-[8px] font-black uppercase tracking-[0.22em]"
                   style={{
@@ -1889,7 +2075,6 @@ export default function ShopFrontPage() {
                     storeName
                   }.
                 </p>
-
               </div>
 
               <a
@@ -1902,15 +2087,11 @@ export default function ShopFrontPage() {
                   size={13}
                 />
               </a>
-
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-
               {featuredProducts.map(
-                (
-                  product
-                ) => (
+                (product) => (
                   <ProductCard
                     key={
                       product.id
@@ -1930,11 +2111,8 @@ export default function ShopFrontPage() {
                   />
                 )
               )}
-
             </div>
-
           </div>
-
         </section>
       )}
 
@@ -1946,13 +2124,9 @@ export default function ShopFrontPage() {
         id="shop"
         className="px-4 py-10 sm:px-6 lg:px-8 lg:py-14"
       >
-
         <div className="mx-auto max-w-[1320px]">
-
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-
             <div>
-
               <p
                 className="text-[8px] font-black uppercase tracking-[0.22em]"
                 style={{
@@ -1970,13 +2144,10 @@ export default function ShopFrontPage() {
               <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
                 Websites, branding, coaching, resources and more — all in one place.
               </p>
-
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">
-
               <div className="relative">
-
                 <Search
                   size={13}
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
@@ -1996,13 +2167,11 @@ export default function ShopFrontPage() {
                   placeholder="What are you looking for?"
                   className="w-full rounded-full border border-stone-200 bg-white py-3 pl-10 pr-5 text-xs outline-none transition focus:border-stone-400 sm:w-72"
                 />
-
               </div>
 
               {categories.length >
                 1 && (
                 <div className="relative">
-
                   <select
                     value={
                       category
@@ -2016,11 +2185,8 @@ export default function ShopFrontPage() {
                     }
                     className="w-full appearance-none rounded-full border border-stone-200 bg-white py-3 pl-5 pr-10 text-xs font-semibold text-stone-600 outline-none sm:w-52"
                   >
-
                     {categories.map(
-                      (
-                        item
-                      ) => (
+                      (item) => (
                         <option
                           key={
                             item
@@ -2035,25 +2201,20 @@ export default function ShopFrontPage() {
                         </option>
                       )
                     )}
-
                   </select>
 
                   <ChevronDown
                     size={12}
                     className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-stone-400"
                   />
-
                 </div>
               )}
-
             </div>
-
           </div>
 
           {/* RESULTS */}
 
           <div className="mt-5 flex items-center justify-between">
-
             <p className="text-[10px] text-stone-400">
               Showing{" "}
               <strong className="text-stone-600">
@@ -2074,6 +2235,7 @@ export default function ShopFrontPage() {
                 type="button"
                 onClick={() => {
                   setSearch("");
+
                   setCategory(
                     "All"
                   );
@@ -2083,14 +2245,12 @@ export default function ShopFrontPage() {
                 Clear filters
               </button>
             )}
-
           </div>
 
           {/* WARNING */}
 
           {productLoadWarning && (
             <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
-
               <p className="text-xs font-semibold text-amber-700">
                 {
                   productLoadWarning
@@ -2106,7 +2266,6 @@ export default function ShopFrontPage() {
               >
                 Try again
               </button>
-
             </div>
           )}
 
@@ -2115,11 +2274,8 @@ export default function ShopFrontPage() {
           {visibleProducts.length >
           0 ? (
             <div className="mt-7 grid gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-
               {visibleProducts.map(
-                (
-                  product
-                ) => (
+                (product) => (
                   <ProductCard
                     key={
                       product.id
@@ -2138,12 +2294,10 @@ export default function ShopFrontPage() {
                   />
                 )
               )}
-
             </div>
           ) : products.length ===
             0 ? (
             <div className="mt-8 rounded-[2rem] border border-dashed border-stone-200 bg-white py-16 text-center">
-
               <Package
                 className="mx-auto text-stone-300"
                 size={26}
@@ -2156,11 +2310,9 @@ export default function ShopFrontPage() {
               <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-stone-400">
                 There&apos;s nothing published here just yet.
               </p>
-
             </div>
           ) : (
             <div className="mt-8 rounded-[2rem] border border-dashed border-stone-200 bg-white py-16 text-center">
-
               <Search
                 className="mx-auto text-stone-300"
                 size={26}
@@ -2173,12 +2325,9 @@ export default function ShopFrontPage() {
               <p className="mt-2 text-xs text-stone-400">
                 Try another search or reset your filters.
               </p>
-
             </div>
           )}
-
         </div>
-
       </section>
 
       {/* =====================================================
@@ -2189,11 +2338,8 @@ export default function ShopFrontPage() {
         id="about"
         className="px-4 py-10 sm:px-6 lg:px-8"
       >
-
         <div className="mx-auto grid max-w-[1320px] overflow-hidden rounded-[2rem] border border-stone-200 bg-white lg:grid-cols-[1.2fr_.8fr]">
-
           <div className="p-8 sm:p-10 lg:p-12">
-
             <p
               className="text-[8px] font-black uppercase tracking-[0.22em]"
               style={{
@@ -2213,23 +2359,42 @@ export default function ShopFrontPage() {
                 `Welcome to ${storeName}. Everything here has been created to make running your business easier, clearer and a little less overwhelming.`}
             </p>
 
-            {store.website_url && (
-              <a
-                href={
-                  store.website_url
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-6 inline-flex items-center gap-2 rounded-full border border-stone-200 px-5 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-stone-600 no-underline"
-              >
-                Visit our website
+            <div className="mt-6 flex flex-wrap gap-2">
+              {store.website_url && (
+                <a
+                  href={
+                    store.website_url
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-stone-200 px-5 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-stone-600 no-underline"
+                >
+                  Visit our website
 
-                <ExternalLink
+                  <ExternalLink
+                    size={12}
+                  />
+                </a>
+              )}
+
+              <button
+                type="button"
+                onClick={
+                  openContactDrawer
+                }
+                className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-white"
+                style={{
+                  background:
+                    primary,
+                }}
+              >
+                Talk to us
+
+                <MessageCircle
                   size={12}
                 />
-              </a>
-            )}
-
+              </button>
+            </div>
           </div>
 
           <div
@@ -2239,9 +2404,7 @@ export default function ShopFrontPage() {
                 secondary,
             }}
           >
-
             <div className="text-center">
-
               {store.logo_url ? (
                 <img
                   src={
@@ -2273,13 +2436,9 @@ export default function ShopFrontPage() {
               <p className="mt-1 text-[9px] uppercase tracking-[0.13em] text-stone-400">
                 Independent business
               </p>
-
             </div>
-
           </div>
-
         </div>
-
       </section>
 
       {/* =====================================================
@@ -2290,13 +2449,9 @@ export default function ShopFrontPage() {
         id="contact"
         className="px-4 pb-14 pt-5 sm:px-6 lg:px-8 lg:pb-16"
       >
-
         <div className="mx-auto max-w-[1320px] rounded-[2rem] bg-stone-900 p-8 text-white sm:p-10 lg:p-12">
-
           <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-
             <div>
-
               <p
                 className="text-[8px] font-black uppercase tracking-[0.22em]"
                 style={{
@@ -2312,13 +2467,29 @@ export default function ShopFrontPage() {
               </h2>
 
               <p className="mt-3 max-w-xl text-sm leading-7 text-stone-400">
-                Questions about a service, package or product? Get in touch directly and we&apos;ll help point you in the right direction.
+                Questions about a service, package or product? Send us a message and we&apos;ll help point you in the right direction.
               </p>
 
+              <button
+                type="button"
+                onClick={
+                  openContactDrawer
+                }
+                className="mt-6 inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.15em] text-white"
+                style={{
+                  background:
+                    primary,
+                }}
+              >
+                Send us a message
+
+                <MessageCircle
+                  size={13}
+                />
+              </button>
             </div>
 
             <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:min-w-[440px]">
-
               {store.email && (
                 <a
                   href={`mailto:${store.email}`}
@@ -2363,7 +2534,6 @@ export default function ShopFrontPage() {
 
               {store.address && (
                 <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-4">
-
                   <MapPin
                     size={15}
                     style={{
@@ -2377,7 +2547,6 @@ export default function ShopFrontPage() {
                       store.address
                     }
                   </span>
-
                 </div>
               )}
 
@@ -2403,24 +2572,9 @@ export default function ShopFrontPage() {
                   </span>
                 </a>
               )}
-
-              {!store.email &&
-                !store.phone &&
-                !store.address &&
-                !store.instagram_url && (
-                <div className="rounded-2xl bg-white/5 p-4 sm:col-span-2">
-                  <p className="text-xs leading-6 text-stone-400">
-                    Contact details haven&apos;t been added to this store yet.
-                  </p>
-                </div>
-              )}
-
             </div>
-
           </div>
-
         </div>
-
       </section>
 
       {/* =====================================================
@@ -2428,11 +2582,8 @@ export default function ShopFrontPage() {
       ===================================================== */}
 
       <footer className="border-t border-stone-200 bg-white px-4 py-7 sm:px-6 lg:px-8">
-
         <div className="mx-auto flex max-w-[1320px] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-
           <div className="flex items-center gap-3">
-
             {store.logo_url ? (
               <img
                 src={
@@ -2456,7 +2607,6 @@ export default function ShopFrontPage() {
             )}
 
             <div>
-
               <p className="text-xs font-semibold text-stone-700">
                 {
                   storeName
@@ -2470,13 +2620,10 @@ export default function ShopFrontPage() {
                   storeName
                 }
               </p>
-
             </div>
-
           </div>
 
           <div className="flex items-center gap-2 text-[8px] text-stone-400">
-
             <Sparkles
               size={10}
               style={{
@@ -2486,12 +2633,346 @@ export default function ShopFrontPage() {
             />
 
             Powered by TOTS-OS
-
           </div>
-
         </div>
-
       </footer>
+
+      {/* =====================================================
+          FLOATING TALK TO US
+      ===================================================== */}
+
+      {!contactOpen &&
+        !cartOpen && (
+        <button
+          type="button"
+          onClick={
+            openContactDrawer
+          }
+          className="fixed bottom-5 right-5 z-[80] flex items-center gap-2 rounded-full px-5 py-3.5 text-[9px] font-black uppercase tracking-[0.14em] text-white shadow-[0_16px_40px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5"
+          style={{
+            background:
+              primary,
+          }}
+        >
+          <MessageCircle
+            size={15}
+          />
+
+          Talk to us
+        </button>
+      )}
+
+      {/* =====================================================
+          TALK TO US DRAWER
+      ===================================================== */}
+
+      {contactOpen && (
+        <div className="fixed inset-0 z-[140] bg-stone-900/35 backdrop-blur-sm">
+          <button
+            type="button"
+            aria-label="Close message panel"
+            className="absolute inset-0"
+            onClick={() => {
+              if (
+                !sendingMessage
+              ) {
+                setContactOpen(
+                  false
+                );
+              }
+            }}
+          />
+
+          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[470px] flex-col bg-white shadow-2xl">
+            {/* HEADER */}
+
+            <div
+              className="border-b border-stone-100 px-6 pb-6 pt-7"
+              style={{
+                background:
+                  secondary,
+              }}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div
+                    className="flex h-11 w-11 items-center justify-center rounded-2xl text-white"
+                    style={{
+                      background:
+                        primary,
+                    }}
+                  >
+                    <MessageCircle
+                      size={19}
+                    />
+                  </div>
+
+                  <p
+                    className="mt-5 text-[8px] font-black uppercase tracking-[0.2em]"
+                    style={{
+                      color:
+                        primary,
+                    }}
+                  >
+                    Talk to us
+                  </p>
+
+                  <h2 className="mt-2 font-serif text-4xl italic leading-none text-stone-900">
+                    How can we help?
+                  </h2>
+
+                  <p className="mt-3 max-w-sm text-xs leading-6 text-stone-500">
+                    Ask about a service, product, package or anything else. Your message will come straight through to the TOTS-OS inbox.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    sendingMessage
+                  }
+                  onClick={() =>
+                    setContactOpen(
+                      false
+                    )
+                  }
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-stone-500 shadow-sm disabled:opacity-50"
+                >
+                  <X
+                    size={15}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* CONTENT */}
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {messageSent ? (
+                <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
+                  <div
+                    className="flex h-16 w-16 items-center justify-center rounded-2xl text-white"
+                    style={{
+                      background:
+                        primary,
+                    }}
+                  >
+                    <Check
+                      size={25}
+                    />
+                  </div>
+
+                  <h3 className="mt-6 font-serif text-4xl italic text-stone-900">
+                    Message sent.
+                  </h3>
+
+                  <p className="mt-3 max-w-xs text-sm leading-6 text-stone-500">
+                    Thanks for getting in touch. Your message has been sent through to the TOTS-OS inbox.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessageSent(
+                        false
+                      );
+
+                      setContactOpen(
+                        false
+                      );
+                    }}
+                    className="mt-7 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.15em] text-white"
+                    style={{
+                      background:
+                        primary,
+                    }}
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {/* NAME */}
+
+                  <div>
+                    <label
+                      htmlFor="store-contact-name"
+                      className="mb-2 block text-[8px] font-black uppercase tracking-[0.16em] text-stone-400"
+                    >
+                      Your name
+                    </label>
+
+                    <input
+                      id="store-contact-name"
+                      value={
+                        contactName
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setContactName(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Your name"
+                      autoComplete="name"
+                      className="store-contact-input"
+                    />
+                  </div>
+
+                  {/* EMAIL */}
+
+                  <div>
+                    <label
+                      htmlFor="store-contact-email"
+                      className="mb-2 block text-[8px] font-black uppercase tracking-[0.16em] text-stone-400"
+                    >
+                      Email address
+                    </label>
+
+                    <input
+                      id="store-contact-email"
+                      type="email"
+                      value={
+                        contactEmail
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setContactEmail(
+                          event.target.value
+                        )
+                      }
+                      placeholder="you@example.com"
+                      autoComplete="email"
+                      className="store-contact-input"
+                    />
+                  </div>
+
+                  {/* MESSAGE */}
+
+                  <div>
+                    <label
+                      htmlFor="store-contact-message"
+                      className="mb-2 block text-[8px] font-black uppercase tracking-[0.16em] text-stone-400"
+                    >
+                      What can we help with?
+                    </label>
+
+                    <textarea
+                      id="store-contact-message"
+                      value={
+                        contactMessage
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setContactMessage(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Tell us what you're looking for..."
+                      rows={7}
+                      className="store-contact-input resize-none"
+                    />
+                  </div>
+
+                  {/* ERROR */}
+
+                  {messageError && (
+                    <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                      <p className="text-xs leading-5 text-red-600">
+                        {
+                          messageError
+                        }
+                      </p>
+                    </div>
+                  )}
+
+                  {/* SEND */}
+
+                  <button
+                    type="button"
+                    disabled={
+                      sendingMessage
+                    }
+                    onClick={() =>
+                      void sendContactMessage()
+                    }
+                    className="flex w-full items-center justify-center gap-2 rounded-xl py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{
+                      background:
+                        primary,
+                    }}
+                  >
+                    {sendingMessage ? (
+                      <>
+                        <Loader2
+                          size={14}
+                          className="animate-spin"
+                        />
+
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send
+                          size={14}
+                        />
+
+                        Send message
+                      </>
+                    )}
+                  </button>
+
+                  {/* INFO */}
+
+                  <div className="rounded-2xl bg-stone-50 p-4">
+                    <div className="flex items-start gap-3">
+                      <Sparkles
+                        size={14}
+                        className="mt-0.5 shrink-0"
+                        style={{
+                          color:
+                            primary,
+                        }}
+                      />
+
+                      <p className="text-[10px] leading-5 text-stone-400">
+                        Your message is linked to{" "}
+                        <strong className="font-semibold text-stone-600">
+                          {
+                            storeName
+                          }
+                        </strong>{" "}
+                        so the team can see exactly which storefront you contacted them from.
+                      </p>
+                    </div>
+                  </div>
+
+                  {store.email && (
+                    <p className="text-center text-[9px] leading-5 text-stone-400">
+                      Prefer email?{" "}
+                      <a
+                        href={`mailto:${store.email}`}
+                        className="font-semibold underline"
+                        style={{
+                          color:
+                            primary,
+                        }}
+                      >
+                        {
+                          store.email
+                        }
+                      </a>
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
 
       {/* =====================================================
           CART
@@ -2499,7 +2980,6 @@ export default function ShopFrontPage() {
 
       {cartOpen && (
         <div className="fixed inset-0 z-[120] bg-stone-900/35 backdrop-blur-sm">
-
           <button
             type="button"
             aria-label="Close basket"
@@ -2512,13 +2992,10 @@ export default function ShopFrontPage() {
           />
 
           <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
-
             {/* HEADER */}
 
             <div className="flex items-center justify-between border-b border-stone-100 px-5 py-5">
-
               <div>
-
                 <p className="text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
                   Your basket
                 </p>
@@ -2532,7 +3009,6 @@ export default function ShopFrontPage() {
                     ? "item"
                     : "items"}
                 </h3>
-
               </div>
 
               <button
@@ -2548,17 +3024,14 @@ export default function ShopFrontPage() {
                   size={15}
                 />
               </button>
-
             </div>
 
             {/* LINES */}
 
             <div className="flex-1 overflow-y-auto p-5">
-
               {cartLines.length ===
               0 ? (
                 <div className="flex h-full min-h-[300px] flex-col items-center justify-center text-center">
-
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-400">
                     <ShoppingCart
                       size={21}
@@ -2584,15 +3057,11 @@ export default function ShopFrontPage() {
                   >
                     Keep browsing
                   </button>
-
                 </div>
               ) : (
                 <div className="space-y-3">
-
                   {cartLines.map(
-                    (
-                      line
-                    ) => {
+                    (line) => {
                       const image =
                         getProductImage(
                           line.product
@@ -2610,9 +3079,7 @@ export default function ShopFrontPage() {
                           }
                           className="flex gap-3 rounded-2xl border border-stone-100 bg-stone-50 p-3"
                         >
-
                           <div className="h-16 w-14 shrink-0 overflow-hidden rounded-xl bg-white">
-
                             {image ? (
                               <img
                                 src={
@@ -2630,11 +3097,9 @@ export default function ShopFrontPage() {
                                 />
                               </div>
                             )}
-
                           </div>
 
                           <div className="min-w-0 flex-1">
-
                             <p className="truncate text-xs font-semibold text-stone-700">
                               {
                                 line.product.name
@@ -2648,7 +3113,6 @@ export default function ShopFrontPage() {
                             </p>
 
                             <div className="mt-2 flex items-center gap-2">
-
                               <button
                                 type="button"
                                 onClick={() =>
@@ -2692,13 +3156,10 @@ export default function ShopFrontPage() {
                                   size={10}
                                 />
                               </button>
-
                             </div>
-
                           </div>
 
                           <div className="shrink-0 text-right">
-
                             <p className="text-xs font-semibold text-stone-700">
                               {formatCurrency(
                                 Number(
@@ -2708,25 +3169,19 @@ export default function ShopFrontPage() {
                                   line.quantity
                               )}
                             </p>
-
                           </div>
-
                         </div>
                       );
                     }
                   )}
-
                 </div>
               )}
-
             </div>
 
             {/* FOOTER */}
 
             <div className="border-t border-stone-100 p-5">
-
               <div className="flex items-center justify-between">
-
                 <span className="text-xs text-stone-400">
                   Subtotal
                 </span>
@@ -2736,12 +3191,10 @@ export default function ShopFrontPage() {
                     cartTotal
                   )}
                 </strong>
-
               </div>
 
               {store.shipping_text && (
                 <div className="mt-3 flex items-start gap-2 rounded-xl bg-stone-50 p-3">
-
                   <Truck
                     size={12}
                     className="mt-0.5 shrink-0"
@@ -2756,7 +3209,6 @@ export default function ShopFrontPage() {
                       store.shipping_text
                     }
                   </p>
-
                 </div>
               )}
 
@@ -2770,7 +3222,7 @@ export default function ShopFrontPage() {
                     "Next step: connect this checkout button to the TOTS-OS Stripe checkout API."
                   )
                 }
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full py-4 text-[9px] font-black uppercase tracking-[0.17em] text-white transition disabled:cursor-not-allowed disabled:opacity-40"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full py-4 text-[9px] font-black uppercase tracking-[0.17em] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 style={{
                   background:
                     primary,
@@ -2786,16 +3238,12 @@ export default function ShopFrontPage() {
               <p className="mt-3 text-center text-[8px] leading-4 text-stone-400">
                 Secure checkout powered by TOTS-OS.
               </p>
-
             </div>
-
           </aside>
-
         </div>
       )}
 
       <StorefrontGlobalStyles />
-
     </div>
   );
 }
@@ -2865,7 +3313,6 @@ function ProductCard({
 
   return (
     <article className="group min-w-0 overflow-hidden rounded-[1.55rem] border border-stone-200 bg-white transition duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(0,0,0,0.06)]">
-
       {/* IMAGE */}
 
       <div
@@ -2875,7 +3322,6 @@ function ProductCard({
             : "aspect-[4/3]"
         }`}
       >
-
         {image ? (
           <img
             src={
@@ -2896,7 +3342,6 @@ function ProductCard({
         )}
 
         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-
           {product.featured && (
             <span
               className="rounded-full px-2.5 py-1 text-[6px] font-black uppercase tracking-[0.13em] text-white"
@@ -2920,17 +3365,13 @@ function ProductCard({
               Unavailable
             </span>
           )}
-
         </div>
-
       </div>
 
       {/* CONTENT */}
 
       <div className="p-4">
-
         <div className="flex items-center justify-between gap-3">
-
           <p
             className="text-[7px] font-black uppercase tracking-[0.15em]"
             style={{
@@ -2951,7 +3392,6 @@ function ProductCard({
               Digital
             </span>
           ) : null}
-
         </div>
 
         <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-stone-800">
@@ -2969,9 +3409,7 @@ function ProductCard({
         )}
 
         <div className="mt-4 flex items-end justify-between gap-3">
-
           <div>
-
             <p className="font-serif text-[1.65rem] italic leading-none text-stone-900">
               {formatCurrency(
                 product.price
@@ -2985,7 +3423,6 @@ function ProductCard({
                 )}
               </p>
             )}
-
           </div>
 
           {lowStock &&
@@ -2999,7 +3436,6 @@ function ProductCard({
                 left
               </p>
             )}
-
         </div>
 
         <button
@@ -3010,9 +3446,14 @@ function ProductCard({
           onClick={
             onAdd
           }
-          className="mt-4 flex w-full items-center justify-between rounded-xl bg-stone-50 px-4 py-3 text-left transition hover:bg-stone-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-4 flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          style={{
+            background:
+              outOfStock
+                ? "#d6d3d1"
+                : primary,
+          }}
         >
-
           <span className="text-[8px] font-black uppercase tracking-[0.13em]">
             {outOfStock
               ? "Unavailable"
@@ -3026,11 +3467,8 @@ function ProductCard({
               size={12}
             />
           )}
-
         </button>
-
       </div>
-
     </article>
   );
 }
@@ -3062,6 +3500,37 @@ function StorefrontGlobalStyles() {
       .no-scrollbar {
         -ms-overflow-style: none;
         scrollbar-width: none;
+      }
+
+      .store-contact-input {
+        width: 100%;
+        border: 1px solid #e7e5e4;
+        background: #fafaf9;
+        border-radius: 0.9rem;
+        padding: 0.9rem 1rem;
+        font-size: 0.78rem;
+        color: #44403c;
+        outline: none;
+        transition:
+          border-color 0.2s ease,
+          background 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+
+      .store-contact-input::placeholder {
+        color: #c4bfb9;
+      }
+
+      .store-contact-input:focus {
+        background: #ffffff;
+        border-color: var(--brand);
+        box-shadow:
+          0 0 0 3px
+          color-mix(
+            in srgb,
+            var(--brand) 14%,
+            transparent
+          );
       }
     `}</style>
   );

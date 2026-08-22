@@ -67,15 +67,15 @@ async function sendSignupNotification(
   registration: PendingRegistration
 ) {
   const resendApiKey = process.env.RESEND_API_KEY;
-  const notificationEmail = process.env.SIGNUP_NOTIFICATION_EMAIL;
+
+  // Hardcoded so every successful signup notification
+  // is sent to the TOTS-OS inbox.
+  const notificationEmail = "hello@tots-os.co.uk";
+
   const fromEmail = process.env.RESEND_FROM_EMAIL;
 
   if (!resendApiKey) {
     throw new Error("RESEND_API_KEY is missing");
-  }
-
-  if (!notificationEmail) {
-    throw new Error("SIGNUP_NOTIFICATION_EMAIL is missing");
   }
 
   if (!fromEmail) {
@@ -97,6 +97,10 @@ async function sendSignupNotification(
     registration.job_title?.trim() || "Not provided";
 
   const plan = formatPlan(registration.subscription_tier);
+
+  console.log(
+    `Sending signup notification for ${registration.email} to ${notificationEmail}`
+  );
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -366,6 +370,11 @@ async function sendSignupNotification(
     );
   }
 
+  console.log(
+    "Signup notification accepted by Resend:",
+    responseData
+  );
+
   return responseData;
 }
 
@@ -406,6 +415,10 @@ async function notifyAboutSignup(
      * request is currently sending it.
      */
 
+    console.log(
+      `Signup notification skipped for ${registration.email}: already sent or currently claimed.`
+    );
+
     return;
   }
 
@@ -425,6 +438,10 @@ async function notifyAboutSignup(
       console.error(
         "Notification sent but status update failed:",
         updateError
+      );
+    } else {
+      console.log(
+        `Signup notification recorded as sent for ${registration.email}`
       );
     }
   } catch (notificationError) {
@@ -473,6 +490,10 @@ export async function POST(req: Request) {
         }
       );
     }
+
+    // ==================================================
+    // FIND PENDING REGISTRATION
+    // ==================================================
 
     const { data: registration, error } = await supabaseAdmin
       .from("pending_registrations")

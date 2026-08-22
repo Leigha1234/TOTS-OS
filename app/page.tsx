@@ -279,7 +279,7 @@ const FAQS: FAQ[] = [
   {
     q: "Can I try it first?",
     a:
-      "Yes. Create an account and start with a 14-day free trial with no commitment.",
+      "Yes. Every new account starts with a 14-day free trial — no bank details or card details are required. You can explore TOTS-OS first and only choose a paid plan if you want to continue after the trial.",
   },
 ];
 
@@ -3383,7 +3383,7 @@ function ProductDemo({
               }
               className="button-secondary button-large"
             >
-              Start free
+              Start 14-day free trial
 
               <ArrowRight
                 size={15}
@@ -3790,7 +3790,9 @@ function GuidedTour({
                 <p>
                   Start your
                   14-day free
-                  trial and turn
+                  trial — no bank
+                  details needed —
+                  and turn
                   what you&apos;ve
                   just explored
                   into your own
@@ -3806,7 +3808,7 @@ function GuidedTour({
                     }
                     className="button-primary button-large"
                   >
-                    Start my
+                    Start 14-day
                     free trial
 
                     <ArrowRight
@@ -3829,6 +3831,7 @@ function GuidedTour({
 
                 <span className="tour-finish-note">
                   14 days free ·
+                  no bank details required ·
                   no commitment
                 </span>
               </div>
@@ -11674,6 +11677,49 @@ export default function TotsOSLanding() {
           color: var(--sage-dark);
         }
 
+        .hero-trial-banner {
+          max-width: 590px;
+          margin-top: 24px;
+          padding: 15px 17px;
+          display: flex;
+          align-items: center;
+          gap: 13px;
+          border: 1px solid rgba(170,189,150,.55);
+          border-radius: 16px;
+          background: #f4f8ef;
+          box-shadow: 0 12px 30px rgba(130,153,110,.08);
+        }
+
+        .hero-trial-icon {
+          width: 40px;
+          height: 40px;
+          flex: 0 0 auto;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 12px;
+          background: var(--sage);
+          color: white;
+        }
+
+        .hero-trial-banner strong,
+        .hero-trial-banner span {
+          display: block;
+        }
+
+        .hero-trial-banner strong {
+          color: var(--charcoal);
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        .hero-trial-banner span {
+          margin-top: 4px;
+          color: var(--muted);
+          font-size: 10px;
+          line-height: 1.5;
+        }
+
         .hero-visual {
           min-height: 520px;
           position: relative;
@@ -12263,6 +12309,48 @@ export default function TotsOSLanding() {
           background: #fffaf3;
           box-shadow: 0 24px 55px rgba(167,125,77,.10);
           transform: translateY(-9px);
+        }
+
+        .pricing-trial-callout {
+          width: fit-content;
+          margin-top: 24px;
+          padding: 14px 16px;
+          display: inline-flex;
+          align-items: center;
+          gap: 11px;
+          border: 1px solid rgba(170,189,150,.55);
+          border-radius: 15px;
+          background: #f4f8ef;
+          color: var(--sage-dark);
+        }
+
+        .pricing-trial-callout strong,
+        .pricing-trial-callout span {
+          display: block;
+        }
+
+        .pricing-trial-callout strong {
+          color: var(--charcoal);
+          font-size: 12px;
+        }
+
+        .pricing-trial-callout span {
+          margin-top: 3px;
+          color: var(--muted);
+          font-size: 10px;
+        }
+
+        .pricing-free-note {
+          margin-top: auto;
+          padding: 18px 0 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          color: var(--sage-dark);
+          font-size: 9px;
+          font-weight: 700;
+          text-align: center;
         }
 
         .pricing-badge {
@@ -13388,7 +13476,7 @@ export default function TotsOSLanding() {
               }
               className="button-primary"
             >
-              Start free
+              Start 14-day free trial
               <ArrowRight
                 size={14}
               />
@@ -13517,7 +13605,7 @@ export default function TotsOSLanding() {
                   }
                   className="button-primary"
                 >
-                  Start free
+                  Start 14-day free trial
                   <ArrowRight
                     size={14}
                   />
@@ -13568,6 +13656,17 @@ export default function TotsOSLanding() {
                     workspace.
                   </p>
 
+                  <div className="hero-trial-banner">
+                    <div className="hero-trial-icon">
+                      <Sparkles size={17} />
+                    </div>
+
+                    <div>
+                      <strong>Try TOTS-OS free for 14 days</strong>
+                      <span>No bank details or card details required. Start your account and explore the full system first.</span>
+                    </div>
+                  </div>
+
                   <div className="hero-actions">
                     <a
                       href={
@@ -13614,16 +13713,16 @@ export default function TotsOSLanding() {
                       <Check
                         size={13}
                       />
-                      No
-                      commitment
+                      No bank
+                      details required
                     </div>
 
                     <div>
                       <Check
                         size={13}
                       />
-                      Set up in
-                      minutes
+                      No
+                      commitment
                     </div>
                   </div>
                 </div>
@@ -14286,13 +14385,22 @@ export default function TotsOSLanding() {
               <p className="section-copy">
                 Start with a
                 14-day free
-                trial, explore
-                the system and
-                choose the plan
-                that makes sense
-                for the way your
-                business works.
+                trial with no bank
+                details required.
+                Explore the system
+                first, then choose
+                a plan only if it
+                makes sense for
+                your business.
               </p>
+
+              <div className="pricing-trial-callout">
+                <Sparkles size={18} />
+                <div>
+                  <strong>14-day free trial</strong>
+                  <span>No bank details required. No payment details needed to get started.</span>
+                </div>
+              </div>
             </Reveal>
 
             <div className="pricing-grid">
@@ -14379,6 +14487,11 @@ export default function TotsOSLanding() {
                         )}
                       </div>
 
+                      <div className="pricing-free-note">
+                        <Check size={12} />
+                        <span>14 days free · no bank details required</span>
+                      </div>
+
                       <a
                         href={
                           SIGNUP_URL
@@ -14389,8 +14502,8 @@ export default function TotsOSLanding() {
                             : "button-secondary button-large pricing-button"
                         }
                       >
-                        Start
-                        free
+                        Start 14-day
+                        free trial
 
                         <ArrowRight
                           size={14}
@@ -14732,6 +14845,11 @@ export default function TotsOSLanding() {
                     tour
                   </button>
                 </div>
+
+                <div className="final-trial-note">
+                  <Check size={13} />
+                  14 days free · no bank details required · no commitment
+                </div>
               </div>
             </Reveal>
           </div>
@@ -14779,7 +14897,7 @@ export default function TotsOSLanding() {
               }
               className="button-primary"
             >
-              Start free
+              Start 14-day free trial
 
               <ArrowRight
                 size={14}

@@ -6,52 +6,139 @@ import {
 export const runtime =
   "nodejs";
 
-// ==================================================
+export const dynamic =
+  "force-dynamic";
+
+// ============================================================
+// TYPES
+// ============================================================
+
+type MetaOAuthState = {
+  platform?:
+    string;
+
+  userId?:
+    string;
+
+  createdAt?:
+    number;
+};
+
+type ExchangeSuccessResponse = {
+  success:
+    true;
+
+  platform?:
+    string;
+
+  userId?:
+    string;
+
+  socialAccountId?:
+    string | null;
+
+  accountId?:
+    string | null;
+
+  pageId?:
+    string | null;
+
+  pageName?:
+    string | null;
+
+  instagramBusinessAccountId?:
+    string | null;
+};
+
+type ExchangeErrorResponse = {
+  success?:
+    false;
+
+  error?:
+    string;
+
+  message?:
+    string;
+
+  details?:
+    {
+      error?: {
+        message?:
+          string;
+      };
+
+      message?:
+        string;
+    };
+};
+
+type ExchangeResponse =
+  | ExchangeSuccessResponse
+  | ExchangeErrorResponse;
+
+// ============================================================
 // HELPERS
-// ==================================================
+// ============================================================
 
 function getAppBaseUrl(
-  request: NextRequest
+  request:
+    NextRequest
 ) {
   const configuredUrl =
-    process.env
-      .NEXT_PUBLIC_SITE_URL ||
-    process.env
-      .NEXT_PUBLIC_APP_URL;
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL;
 
-  if (configuredUrl) {
-    return configuredUrl.replace(
-      /\/+$/,
-      ""
-    );
+  if (
+    configuredUrl?.trim()
+  ) {
+    return configuredUrl
+      .trim()
+      .replace(
+        /\/+$/,
+        ""
+      );
   }
 
   const redirectUri =
-    process.env
-      .META_REDIRECT_URI;
+    process.env.META_REDIRECT_URI;
 
-  if (redirectUri) {
+  if (
+    redirectUri?.trim()
+  ) {
     try {
       const parsed =
         new URL(
-          redirectUri
+          redirectUri.trim()
         );
 
       return parsed.origin;
-    } catch {
-      // Ignore and fall through
+    } catch (
+      error
+    ) {
+      console.warn(
+        "[META OAUTH CALLBACK] Invalid META_REDIRECT_URI:",
+        error
+      );
     }
   }
 
-  return request.nextUrl.origin;
+  return request
+    .nextUrl
+    .origin;
 }
 
+// ============================================================
+
 function buildSettingsUrl(
-  request: NextRequest,
-  params: Record<
-    string,
-    string
-  >
+  request:
+    NextRequest,
+
+  params:
+    Record<
+      string,
+      string
+    >
 ) {
   const baseUrl =
     getAppBaseUrl(
@@ -81,12 +168,201 @@ function buildSettingsUrl(
   return url;
 }
 
-// ==================================================
+// ============================================================
+
+function parseMetaState(
+  state:
+    string
+):
+  | MetaOAuthState
+  | null {
+  const attempts =
+    [
+      state,
+
+      (() => {
+        try {
+          return decodeURIComponent(
+            state
+          );
+        } catch {
+          return null;
+        }
+      })(),
+    ].filter(
+      (
+        value
+      ): value is string =>
+        Boolean(
+          value
+        )
+    );
+
+  for (
+    const candidate of
+    attempts
+  ) {
+    try {
+      const parsed =
+        JSON.parse(
+          candidate
+        ) as MetaOAuthState;
+
+      if (
+        parsed &&
+        typeof parsed ===
+          "object"
+      ) {
+        return parsed;
+      }
+    } catch {
+      /*
+       * Try the next representation.
+       */
+    }
+  }
+
+  return null;
+}
+
+// ============================================================
+
+function safeReason(
+  value:
+    unknown,
+
+  fallback:
+    string
+) {
+  if (
+    typeof value !==
+      "string"
+  ) {
+    return fallback;
+  }
+
+  const cleaned =
+    value.trim();
+
+  if (
+    !cleaned
+  ) {
+    return fallback;
+  }
+
+  return cleaned.slice(
+    0,
+    250
+  );
+}
+
+// ============================================================
+
+function getExchangeFailureReason(
+  result:
+    ExchangeResponse | null
+) {
+  if (
+    !result
+  ) {
+    return "Meta token exchange failed.";
+  }
+
+  if (
+    "details" in result &&
+    result.details
+  ) {
+    const nestedMessage =
+      result.details.error?.message ||
+      result.details.message;
+
+    if (
+      nestedMessage
+    ) {
+      return safeReason(
+        nestedMessage,
+        "Meta token exchange failed."
+      );
+    }
+  }
+
+  if (
+    "message" in result &&
+    result.message
+  ) {
+    return safeReason(
+      result.message,
+      "Meta token exchange failed."
+    );
+  }
+
+  if (
+    "error" in result &&
+    result.error
+  ) {
+    return safeReason(
+      result.error,
+      "Meta token exchange failed."
+    );
+  }
+
+  return "Meta token exchange failed.";
+}
+
+// ============================================================
+// SUCCESS REDIRECT
+// ============================================================
+
+function metaSuccessRedirect(
+  request:
+    NextRequest
+) {
+  return NextResponse.redirect(
+    buildSettingsUrl(
+      request,
+      {
+        oauth:
+          "meta_success",
+      }
+    )
+  );
+}
+
+// ============================================================
+// FAILURE REDIRECT
+// ============================================================
+
+function metaFailureRedirect(
+  request:
+    NextRequest,
+
+  reason:
+    string
+) {
+  return NextResponse.redirect(
+    buildSettingsUrl(
+      request,
+      {
+        oauth:
+          "meta_failed",
+
+        reason:
+          safeReason(
+            reason,
+            "Meta connection failed"
+          ),
+      }
+    )
+  );
+}
+
+// ============================================================
 // GET
-// ==================================================
+// ============================================================
 
 export async function GET(
-  request: NextRequest
+  request:
+    NextRequest
 ) {
   try {
     const {
@@ -96,9 +372,9 @@ export async function GET(
         request.url
       );
 
-    // ==================================================
+    // ========================================================
     // META RESPONSE
-    // ==================================================
+    // ========================================================
 
     const code =
       searchParams.get(
@@ -125,13 +401,15 @@ export async function GET(
         "error_description"
       );
 
-    // ==================================================
-    // META ERROR
-    // ==================================================
+    // ========================================================
+    // META RETURNED AN ERROR
+    // ========================================================
 
-    if (oauthError) {
+    if (
+      oauthError
+    ) {
       console.error(
-        "Meta OAuth returned an error:",
+        "[META OAUTH CALLBACK] Meta returned an error:",
         {
           error:
             oauthError,
@@ -142,35 +420,25 @@ export async function GET(
         }
       );
 
-      return NextResponse.redirect(
-        buildSettingsUrl(
-          request,
-          {
-            oauth:
-              "failed",
+      return metaFailureRedirect(
+        request,
 
-            platform:
-              "meta",
-
-            reason:
-              errorDescription ||
-              errorReason ||
-              oauthError,
-          }
-        )
+        errorDescription ||
+          errorReason ||
+          oauthError
       );
     }
 
-    // ==================================================
-    // VALIDATE CALLBACK
-    // ==================================================
+    // ========================================================
+    // VALIDATE CALLBACK VALUES
+    // ========================================================
 
     if (
       !code ||
       !state
     ) {
       console.error(
-        "Meta callback missing values:",
+        "[META OAUTH CALLBACK] Missing callback values:",
         {
           hasCode:
             Boolean(
@@ -184,96 +452,158 @@ export async function GET(
         }
       );
 
-      return NextResponse.redirect(
-        buildSettingsUrl(
-          request,
-          {
-            oauth:
-              "failed",
-
-            platform:
-              "meta",
-
-            reason:
-              "missing_code_or_state",
-          }
-        )
+      return metaFailureRedirect(
+        request,
+        "Meta did not return the required OAuth code or state."
       );
     }
 
-    // ==================================================
-    // VALIDATE STATE
-    // ==================================================
+    // ========================================================
+    // PARSE STATE
+    // ========================================================
 
-    let parsedState:
-      | {
-          platform?: string;
-          userId?: string;
-        }
-      | null =
-      null;
-
-    try {
-      parsedState =
-        JSON.parse(
-          decodeURIComponent(
-            state
-          )
-        );
-    } catch (
-      error
-    ) {
-      console.error(
-        "Invalid Meta OAuth state:",
-        error
+    const parsedState =
+      parseMetaState(
+        state
       );
-
-      return NextResponse.redirect(
-        buildSettingsUrl(
-          request,
-          {
-            oauth:
-              "failed",
-
-            platform:
-              "meta",
-
-            reason:
-              "invalid_state",
-          }
-        )
-      );
-    }
 
     if (
       !parsedState
-        ?.userId
     ) {
       console.error(
-        "Meta OAuth state missing userId:",
-        parsedState
+        "[META OAUTH CALLBACK] Invalid OAuth state."
       );
 
-      return NextResponse.redirect(
-        buildSettingsUrl(
-          request,
-          {
-            oauth:
-              "failed",
-
-            platform:
-              "meta",
-
-            reason:
-              "missing_user",
-          }
-        )
+      return metaFailureRedirect(
+        request,
+        "The Meta connection request could not be verified."
       );
     }
 
-    // ==================================================
+    // ========================================================
+    // VALIDATE PLATFORM
+    //
+    // Your current Meta start route should always use:
+    //
+    // platform: "meta"
+    // ========================================================
+
+    const statePlatform =
+      String(
+        parsedState.platform ||
+          ""
+      )
+        .trim()
+        .toLowerCase();
+
+    if (
+      statePlatform &&
+      statePlatform !==
+        "meta"
+    ) {
+      console.error(
+        "[META OAUTH CALLBACK] Unexpected platform in state:",
+        {
+          platform:
+            parsedState.platform,
+        }
+      );
+
+      return metaFailureRedirect(
+        request,
+        "Invalid platform returned during Meta connection."
+      );
+    }
+
+    // ========================================================
+    // VALIDATE USER
+    // ========================================================
+
+    const userId =
+      typeof parsedState.userId ===
+      "string"
+        ? parsedState.userId.trim()
+        : "";
+
+    if (
+      !userId
+    ) {
+      console.error(
+        "[META OAUTH CALLBACK] OAuth state missing userId."
+      );
+
+      return metaFailureRedirect(
+        request,
+        "The signed-in TOTS-OS user could not be identified."
+      );
+    }
+
+    // ========================================================
+    // STATE AGE
+    // ========================================================
+
+    if (
+      typeof parsedState.createdAt ===
+        "number" &&
+      Number.isFinite(
+        parsedState.createdAt
+      )
+    ) {
+      const age =
+        Date.now() -
+        parsedState.createdAt;
+
+      const maxAge =
+        30 *
+        60 *
+        1000;
+
+      if (
+        age >
+        maxAge
+      ) {
+        console.error(
+          "[META OAUTH CALLBACK] OAuth state expired:",
+          {
+            userId,
+
+            createdAt:
+              parsedState.createdAt,
+
+            age,
+          }
+        );
+
+        return metaFailureRedirect(
+          request,
+          "The Meta connection request expired. Please connect again."
+        );
+      }
+
+      if (
+        age <
+        -60_000
+      ) {
+        console.error(
+          "[META OAUTH CALLBACK] OAuth state timestamp is in the future:",
+          {
+            userId,
+
+            createdAt:
+              parsedState.createdAt,
+          }
+        );
+
+        return metaFailureRedirect(
+          request,
+          "The Meta connection request could not be verified."
+        );
+      }
+    }
+
+    // ========================================================
     // BUILD INTERNAL EXCHANGE URL
-    // ==================================================
+    // ========================================================
 
     const baseUrl =
       getAppBaseUrl(
@@ -286,56 +616,91 @@ export async function GET(
         baseUrl
       );
 
-    // ==================================================
+    // ========================================================
     // EXCHANGE META CODE
-    // ==================================================
+    // ========================================================
 
-    const exchangeResponse =
-      await fetch(
-        exchangeUrl.toString(),
-        {
-          method:
-            "POST",
+    let exchangeResponse:
+      Response;
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+    try {
+      exchangeResponse =
+        await fetch(
+          exchangeUrl.toString(),
+          {
+            method:
+              "POST",
 
-          body:
-            JSON.stringify(
-              {
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Accept:
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
                 code,
 
                 state,
 
                 platform:
                   "meta",
-              }
-            ),
+              }),
 
-          cache:
-            "no-store",
-        }
+            cache:
+              "no-store",
+          }
+        );
+    } catch (
+      exchangeFetchError
+    ) {
+      console.error(
+        "[META OAUTH CALLBACK] Could not reach OAuth exchange route:",
+        exchangeFetchError
       );
 
-    const exchangeResult =
-      await exchangeResponse
-        .json()
-        .catch(
-          () =>
-            null
-        );
+      return metaFailureRedirect(
+        request,
+        "TOTS-OS could not complete the Meta token exchange."
+      );
+    }
 
-    // ==================================================
+    // ========================================================
+    // READ EXCHANGE RESPONSE
+    // ========================================================
+
+    let exchangeResult:
+      ExchangeResponse | null =
+      null;
+
+    try {
+      exchangeResult =
+        (await exchangeResponse.json()) as ExchangeResponse;
+    } catch (
+      parseError
+    ) {
+      console.error(
+        "[META OAUTH CALLBACK] OAuth exchange returned invalid JSON:",
+        parseError
+      );
+
+      return metaFailureRedirect(
+        request,
+        "TOTS-OS received an invalid response while connecting Meta."
+      );
+    }
+
+    // ========================================================
     // EXCHANGE FAILED
-    // ==================================================
+    // ========================================================
 
     if (
       !exchangeResponse.ok
     ) {
       console.error(
-        "Meta token exchange failed:",
+        "[META OAUTH CALLBACK] Meta token exchange failed:",
         {
           status:
             exchangeResponse.status,
@@ -345,128 +710,144 @@ export async function GET(
         }
       );
 
-      const reason =
-        exchangeResult
-          ?.details
-          ?.error
-          ?.message ||
-        exchangeResult
-          ?.details
-          ?.message ||
-        exchangeResult
-          ?.message ||
-        exchangeResult
-          ?.error ||
-        "token_exchange_failed";
-
-      return NextResponse.redirect(
-        buildSettingsUrl(
-          request,
-          {
-            oauth:
-              "failed",
-
-            platform:
-              "meta",
-
-            reason:
-              String(
-                reason
-              ).slice(
-                0,
-                250
-              ),
-          }
+      return metaFailureRedirect(
+        request,
+        getExchangeFailureReason(
+          exchangeResult
         )
       );
     }
 
-    // ==================================================
-    // VALIDATE RESULT
-    // ==================================================
+    // ========================================================
+    // VALIDATE EXCHANGE RESULT
+    // ========================================================
 
     if (
-      !exchangeResult
-        ?.success
+      !exchangeResult ||
+      exchangeResult.success !==
+        true
     ) {
       console.error(
-        "Meta exchange returned unexpected response:",
+        "[META OAUTH CALLBACK] Exchange returned an unexpected response:",
         exchangeResult
       );
 
-      return NextResponse.redirect(
-        buildSettingsUrl(
-          request,
-          {
-            oauth:
-              "failed",
-
-            platform:
-              "meta",
-
-            reason:
-              "invalid_exchange_response",
-          }
-        )
+      return metaFailureRedirect(
+        request,
+        "Meta authenticated, but TOTS-OS could not save the connection."
       );
     }
 
-    // ==================================================
-    // SUCCESS
-    // ==================================================
+    // ========================================================
+    // USER VALIDATION
+    // ========================================================
+
+    if (
+      exchangeResult.userId &&
+      String(
+        exchangeResult.userId
+      ).trim() !==
+        userId
+    ) {
+      console.error(
+        "[META OAUTH CALLBACK] Exchange user mismatch:",
+        {
+          stateUserId:
+            userId,
+
+          exchangeUserId:
+            exchangeResult.userId,
+        }
+      );
+
+      return metaFailureRedirect(
+        request,
+        "The Meta connection was returned for a different TOTS-OS user."
+      );
+    }
+
+    // ========================================================
+    // PLATFORM VALIDATION
+    // ========================================================
+
+    if (
+      exchangeResult.platform &&
+      String(
+        exchangeResult.platform
+      )
+        .trim()
+        .toLowerCase() !==
+        "meta"
+    ) {
+      console.error(
+        "[META OAUTH CALLBACK] Exchange returned unexpected platform:",
+        exchangeResult.platform
+      );
+
+      return metaFailureRedirect(
+        request,
+        "Meta connected using an unexpected social platform."
+      );
+    }
+
+    // ========================================================
+    // SUCCESS LOG
+    // ========================================================
 
     console.log(
-      "Meta OAuth completed successfully:",
+      "[META OAUTH CALLBACK] ✅ Meta OAuth completed successfully:",
       {
-        userId:
-          parsedState.userId,
+        userId,
 
         platform:
           exchangeResult.platform ||
           "meta",
+
+        socialAccountId:
+          exchangeResult.socialAccountId ||
+          exchangeResult.accountId ||
+          null,
+
+        pageId:
+          exchangeResult.pageId ||
+          null,
+
+        pageName:
+          exchangeResult.pageName ||
+          null,
+
+        instagramBusinessAccountId:
+          exchangeResult.instagramBusinessAccountId ||
+          null,
       }
     );
 
-    return NextResponse.redirect(
-      buildSettingsUrl(
-        request,
-        {
-          oauth:
-            "success",
+    // ========================================================
+    // SUCCESS
+    //
+    // Settings page expects:
+    //
+    // /settings?oauth=meta_success
+    // ========================================================
 
-          platform:
-            "meta",
-        }
-      )
+    return metaSuccessRedirect(
+      request
     );
   } catch (
-    error
+    error:
+      unknown
   ) {
     console.error(
-      "Meta OAuth callback error:",
+      "[META OAUTH CALLBACK] Unexpected callback error:",
       error
     );
 
-    return NextResponse.redirect(
-      buildSettingsUrl(
-        request,
-        {
-          oauth:
-            "failed",
-
-          platform:
-            "meta",
-
-          reason:
-            error instanceof
-            Error
-              ? error.message.slice(
-                  0,
-                  250
-                )
-              : "unknown_callback_error",
-        }
-      )
+    return metaFailureRedirect(
+      request,
+      error instanceof
+        Error
+        ? error.message
+        : "An unexpected Meta connection error occurred."
     );
   }
 }

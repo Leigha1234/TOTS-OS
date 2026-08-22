@@ -3,26 +3,56 @@ import {
   NextResponse,
 } from "next/server";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export const runtime =
+  "nodejs";
 
-// ==================================================
+export const dynamic =
+  "force-dynamic";
+
+// ============================================================
 // CONFIG
-// ==================================================
+// ============================================================
 
 const DEFAULT_META_GRAPH_VERSION =
   "v25.0";
 
-// ==================================================
+// ============================================================
 // HELPERS
-// ==================================================
+// ============================================================
+
+function requireEnv(
+  name: string
+) {
+  const value =
+    process.env[
+      name
+    ]?.trim();
+
+  if (
+    !value
+  ) {
+    throw new Error(
+      `${name} is missing`
+    );
+  }
+
+  return value;
+}
+
+// ============================================================
 
 function getMetaGraphVersion() {
   const configured =
-    process.env.META_GRAPH_API_VERSION?.trim();
+    process.env
+      .META_GRAPH_API_VERSION
+      ?.trim();
 
-  if (configured) {
-    return configured.startsWith("v")
+  if (
+    configured
+  ) {
+    return configured.startsWith(
+      "v"
+    )
       ? configured
       : `v${configured}`;
   }
@@ -30,237 +60,337 @@ function getMetaGraphVersion() {
   return DEFAULT_META_GRAPH_VERSION;
 }
 
-function safeDecodeState(
-  state: string
+// ============================================================
+// STATE
+// ============================================================
+
+type MetaOAuthState = {
+  platform:
+    "meta";
+
+  userId:
+    string;
+
+  createdAt:
+    number;
+};
+
+// ============================================================
+
+function encodeState(
+  state:
+    MetaOAuthState
 ) {
+  return encodeURIComponent(
+    JSON.stringify(
+      state
+    )
+  );
+}
+
+// ============================================================
+
+function decodeState(
+  state:
+    string
+):
+  | MetaOAuthState
+  | null {
   try {
-    return JSON.parse(
-      decodeURIComponent(state)
-    ) as {
-      platform?: string;
-      userId?: string;
+    const decoded =
+      JSON.parse(
+        decodeURIComponent(
+          state
+        )
+      ) as Partial<MetaOAuthState>;
+
+    if (
+      decoded.platform !==
+        "meta" ||
+      typeof decoded.userId !==
+        "string" ||
+      !decoded.userId.trim()
+    ) {
+      return null;
+    }
+
+    return {
+      platform:
+        "meta",
+
+      userId:
+        decoded.userId.trim(),
+
+      createdAt:
+        Number(
+          decoded.createdAt ||
+            Date.now()
+        ),
     };
   } catch {
     return null;
   }
 }
 
-// ==================================================
+// ============================================================
 // GET
-// ==================================================
+// ============================================================
 
 export async function GET(
-  request: NextRequest
+  request:
+    NextRequest
 ) {
   try {
-    // ==================================================
-    // QUERY PARAMS
-    // ==================================================
+    const url =
+      new URL(
+        request.url
+      );
 
-    const {
-      searchParams,
-    } = new URL(
-      request.url
-    );
+    // ========================================================
+    // ENVIRONMENT
+    // ========================================================
 
-    const state =
-      searchParams.get(
+    const appId =
+      requireEnv(
+        "META_CLIENT_ID"
+      );
+
+    const redirectUri =
+      requireEnv(
+        "META_REDIRECT_URI"
+      );
+
+    /*
+     * We deliberately don't need META_CLIENT_SECRET in this
+     * start route.
+     *
+     * The client secret is only needed server-side when the
+     * callback exchanges the code for an access token.
+     */
+
+    // ========================================================
+    // INPUT
+    // ========================================================
+
+    const incomingState =
+      url.searchParams.get(
         "state"
       );
 
-    if (!state) {
-      console.error(
-        "Meta OAuth start: missing state"
-      );
+    const incomingUserId =
+      url.searchParams
+        .get(
+          "userId"
+        )
+        ?.trim();
 
-      return NextResponse.json(
-        {
-          error:
-            "Missing OAuth state",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
+    const incomingPlatform =
+      url.searchParams
+        .get(
+          "platform"
+        )
+        ?.trim()
+        .toLowerCase();
 
-    // ==================================================
-    // ENVIRONMENT
-    // ==================================================
+    // ========================================================
+    // RESOLVE STATE
+    //
+    // We support two forms:
+    //
+    // 1. Existing encoded state
+    // 2. userId passed from TOTS-OS
+    //
+    // This makes the route compatible while we clean up the
+    // social connection system.
+    // ========================================================
 
-    const appId =
-      process.env
-        .META_CLIENT_ID?.trim();
+    let resolvedState:
+      string;
 
-    const appSecret =
-      process.env
-        .META_CLIENT_SECRET?.trim();
+    let parsedState:
+      MetaOAuthState;
 
-    const redirectUri =
-      process.env
-        .META_REDIRECT_URI?.trim();
-
-    if (
-      !appId ||
-      !appSecret ||
-      !redirectUri
-    ) {
-      console.error(
-        "Meta OAuth environment variables missing",
-        {
-          hasClientId:
-            Boolean(appId),
-
-          hasClientSecret:
-            Boolean(
-              appSecret
-            ),
-
-          hasRedirectUri:
-            Boolean(
-              redirectUri
-            ),
-        }
-      );
-
-      return NextResponse.json(
-        {
-          error:
-            "Meta OAuth environment variables are missing",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    // ==================================================
-    // VALIDATE STATE
-    // ==================================================
-
-    const parsedState =
-      safeDecodeState(
-        state
-      );
-
-    if (!parsedState) {
-      console.error(
-        "Meta OAuth start: invalid OAuth state"
-      );
-
-      return NextResponse.json(
-        {
-          error:
-            "Invalid OAuth state",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
+    // ========================================================
+    // EXISTING STATE
+    // ========================================================
 
     if (
-      !parsedState.userId
+      incomingState
     ) {
-      console.error(
-        "Meta OAuth start: state missing userId",
-        parsedState
-      );
+      const decoded =
+        decodeState(
+          incomingState
+        );
 
-      return NextResponse.json(
-        {
-          error:
-            "OAuth state is missing userId",
-        },
-        {
-          status: 400,
-        }
-      );
+      if (
+        !decoded
+      ) {
+        console.error(
+          "[META OAUTH START] Invalid state received."
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Invalid OAuth state.",
+          },
+          {
+            status:
+              400,
+          }
+        );
+      }
+
+      parsedState =
+        decoded;
+
+      resolvedState =
+        incomingState;
     }
 
-    /*
-     * Your settings page sends Meta connections
-     * using platform: "meta".
-     *
-     * We allow "instagram" too because the same
-     * Meta OAuth connection can resolve a linked
-     * Instagram professional account.
-     */
+    // ========================================================
+    // CREATE STATE FROM USER ID
+    // ========================================================
+
+    else {
+      if (
+        !incomingUserId
+      ) {
+        console.error(
+          "[META OAUTH START] Missing userId."
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Missing authenticated user ID.",
+          },
+          {
+            status:
+              400,
+          }
+        );
+      }
+
+      if (
+        incomingPlatform &&
+        incomingPlatform !==
+          "meta" &&
+        incomingPlatform !==
+          "facebook" &&
+        incomingPlatform !==
+          "instagram"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Invalid platform for Meta OAuth.",
+          },
+          {
+            status:
+              400,
+          }
+        );
+      }
+
+      parsedState = {
+        platform:
+          "meta",
+
+        userId:
+          incomingUserId,
+
+        createdAt:
+          Date.now(),
+      };
+
+      resolvedState =
+        encodeState(
+          parsedState
+        );
+    }
+
+    // ========================================================
+    // STATE AGE
+    //
+    // Prevent very old OAuth links being reused indefinitely.
+    // ========================================================
+
+    const stateAge =
+      Date.now() -
+      parsedState.createdAt;
+
+    const maximumStateAge =
+      30 *
+      60 *
+      1000;
+
     if (
-      parsedState.platform &&
-      parsedState.platform !==
-        "meta" &&
-      parsedState.platform !==
-        "instagram"
+      stateAge >
+      maximumStateAge
     ) {
       console.error(
-        "Meta OAuth start: unexpected platform",
-        {
-          platform:
-            parsedState.platform,
-        }
+        "[META OAUTH START] OAuth state expired."
       );
 
       return NextResponse.json(
         {
           error:
-            "Invalid platform for Meta OAuth",
+            "OAuth request has expired. Please try connecting Meta again.",
         },
         {
-          status: 400,
+          status:
+            400,
         }
       );
     }
 
-    // ==================================================
+    // ========================================================
     // PERMISSIONS
-    // ==================================================
+    // ========================================================
 
-    /*
-     * Minimum permissions required by the current
-     * TOTS-OS Meta integration:
-     *
-     * pages_show_list
-     * - discover Pages managed by the user
-     *
-     * pages_read_engagement
-     * - access Page metadata/engagement required
-     *   by the Graph API
-     *
-     * pages_manage_posts
-     * - create/manage Facebook Page posts
-     *
-     * instagram_basic
-     * - discover the Instagram professional account
-     *   linked to a Facebook Page
-     *
-     * instagram_content_publish
-     * - publish Instagram content
-     *
-     * business_management has deliberately NOT been
-     * requested here because your current publishing
-     * flow does not require it. Asking for unnecessary
-     * permissions makes Meta App Review harder.
-     */
+    const permissions =
+      [
+        /*
+         * See Pages managed by the user.
+         */
+        "pages_show_list",
 
-    const permissions = [
-      "pages_show_list",
-      "pages_read_engagement",
-      "pages_manage_posts",
-      "instagram_basic",
-      "instagram_content_publish",
-    ].join(",");
+        /*
+         * Required for Page information and related Page API
+         * functionality.
+         */
+        "pages_read_engagement",
 
-    // ==================================================
+        /*
+         * Publish Facebook Page posts.
+         */
+        "pages_manage_posts",
+
+        /*
+         * Discover the Instagram professional account linked
+         * to a Facebook Page.
+         */
+        "instagram_basic",
+
+        /*
+         * Publish media to Instagram.
+         */
+        "instagram_content_publish",
+      ].join(
+        ","
+      );
+
+    // ========================================================
     // GRAPH VERSION
-    // ==================================================
+    // ========================================================
 
     const graphVersion =
       getMetaGraphVersion();
 
-    // ==================================================
-    // BUILD OAUTH URL
-    // ==================================================
+    // ========================================================
+    // BUILD META OAUTH URL
+    // ========================================================
 
     const oauthUrl =
       new URL(
@@ -279,7 +409,7 @@ export async function GET(
 
     oauthUrl.searchParams.set(
       "state",
-      state
+      resolvedState
     );
 
     oauthUrl.searchParams.set(
@@ -293,77 +423,68 @@ export async function GET(
     );
 
     /*
-     * Forces Meta to reconsider permissions that
-     * may previously have been declined.
-     *
-     * This is useful while you are testing and
-     * reconnecting accounts during setup.
+     * During development this is useful because Meta will
+     * prompt again for permissions previously declined.
      */
     oauthUrl.searchParams.set(
       "auth_type",
       "rerequest"
     );
 
-    // ==================================================
-    // LOG SAFE DEBUG INFO
-    // ==================================================
+    // ========================================================
+    // DEBUGGING
+    // ========================================================
 
     console.log(
-      "Starting Meta OAuth",
+      "[META OAUTH START] Starting OAuth:",
       {
         graphVersion,
 
         redirectUri,
 
-        platform:
-          parsedState.platform ||
-          "meta",
-
         userId:
           parsedState.userId,
+
+        platform:
+          parsedState.platform,
 
         permissions:
           permissions.split(
             ","
           ),
-
-        /*
-         * Never log client secret.
-         */
-        clientIdConfigured:
-          Boolean(appId),
       }
     );
 
-    // ==================================================
-    // REDIRECT
-    // ==================================================
+    // ========================================================
+    // REDIRECT TO META
+    // ========================================================
 
     return NextResponse.redirect(
-      oauthUrl.toString()
+      oauthUrl
     );
   } catch (
-    error: unknown
+    error:
+      unknown
   ) {
     console.error(
-      "Meta OAuth start error:",
+      "[META OAUTH START] Failed:",
       error
     );
-
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Unknown Meta OAuth error";
 
     return NextResponse.json(
       {
         error:
-          "Unable to start Meta OAuth",
+          "Unable to start Meta OAuth.",
 
-        message,
+        message:
+          error instanceof
+            Error
+            ? error.message
+            : "Unknown Meta OAuth error.",
       },
       {
-        status: 500,
+        status:
+          500,
       }
     );
   }

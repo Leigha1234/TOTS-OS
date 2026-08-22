@@ -1,161 +1,341 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
-// ==================================================
+import {
+  createClient,
+} from "@supabase/supabase-js";
+
+export const runtime =
+  "nodejs";
+
+export const dynamic =
+  "force-dynamic";
+
+// ============================================================
 // CONFIG
-// ==================================================
+// ============================================================
 
-const GRAPH_VERSION = "v23.0";
+const DEFAULT_META_GRAPH_VERSION =
+  "v25.0";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// ============================================================
+// ENVIRONMENT
+// ============================================================
 
-if (!supabaseUrl) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL is missing");
+const supabaseUrl =
+  process.env
+    .NEXT_PUBLIC_SUPABASE_URL;
+
+const serviceRoleKey =
+  process.env
+    .SUPABASE_SERVICE_ROLE_KEY;
+
+if (
+  !supabaseUrl
+) {
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_URL is missing"
+  );
 }
 
-if (!serviceRoleKey) {
-  throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing");
+if (
+  !serviceRoleKey
+) {
+  throw new Error(
+    "SUPABASE_SERVICE_ROLE_KEY is missing"
+  );
 }
 
-const supabase = createClient(
-  supabaseUrl,
-  serviceRoleKey,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  }
-);
+// ============================================================
+// SUPABASE ADMIN
+// ============================================================
 
-// ==================================================
+const supabase =
+  createClient(
+    supabaseUrl,
+    serviceRoleKey,
+    {
+      auth: {
+        persistSession:
+          false,
+
+        autoRefreshToken:
+          false,
+      },
+    }
+  );
+
+// ============================================================
 // TYPES
-// ==================================================
+// ============================================================
 
 type OAuthState = {
-  userId?: string;
-  platform?: string;
+  userId?:
+    string;
+
+  platform?:
+    string;
+
+  createdAt?:
+    number;
 };
 
 type MetaTokenResponse = {
-  access_token?: string;
-  token_type?: string;
-  expires_in?: number;
+  access_token?:
+    string;
+
+  token_type?:
+    string;
+
+  expires_in?:
+    number;
+
   error?: {
-    message?: string;
-    type?: string;
-    code?: number;
-    error_subcode?: number;
+    message?:
+      string;
+
+    type?:
+      string;
+
+    code?:
+      number;
+
+    error_subcode?:
+      number;
+  };
+};
+
+type MetaUserResponse = {
+  id?:
+    string;
+
+  name?:
+    string;
+
+  picture?: {
+    data?: {
+      url?:
+        string;
+    };
+  };
+
+  error?: {
+    message?:
+      string;
+
+    type?:
+      string;
+
+    code?:
+      number;
   };
 };
 
 type MetaPage = {
-  id: string;
-  name?: string;
-  access_token?: string;
+  id:
+    string;
+
+  name?:
+    string;
+
+  access_token?:
+    string;
+
+  picture?: {
+    data?: {
+      url?:
+        string;
+    };
+  };
 };
 
 type MetaPagesResponse = {
-  data?: MetaPage[];
+  data?:
+    MetaPage[];
+
   error?: {
-    message?: string;
-    type?: string;
-    code?: number;
+    message?:
+      string;
+
+    type?:
+      string;
+
+    code?:
+      number;
   };
 };
 
 type InstagramAccountResponse = {
   instagram_business_account?: {
-    id?: string;
+    id?:
+      string;
+
+    username?:
+      string;
   };
+
   connected_instagram_account?: {
-    id?: string;
+    id?:
+      string;
+
+    username?:
+      string;
   };
+
   error?: {
-    message?: string;
-    type?: string;
-    code?: number;
+    message?:
+      string;
+
+    type?:
+      string;
+
+    code?:
+      number;
   };
 };
 
 type LinkedInTokenResponse = {
-  access_token?: string;
-  expires_in?: number;
-  refresh_token?: string;
-  refresh_token_expires_in?: number;
-  scope?: string;
-  error?: string;
-  error_description?: string;
+  access_token?:
+    string;
+
+  expires_in?:
+    number;
+
+  refresh_token?:
+    string;
+
+  refresh_token_expires_in?:
+    number;
+
+  scope?:
+    string;
+
+  error?:
+    string;
+
+  error_description?:
+    string;
 };
 
 type LinkedInProfileResponse = {
-  sub?: string;
-  name?: string;
-  email?: string;
+  sub?:
+    string;
+
+  name?:
+    string;
+
+  email?:
+    string;
+
+  picture?:
+    string;
 };
 
 type TikTokTokenResponse = {
-  access_token?: string;
-  expires_in?: number;
-  open_id?: string;
-  refresh_token?: string;
-  refresh_expires_in?: number;
-  scope?: string;
-  token_type?: string;
-  error?: string;
-  error_description?: string;
+  access_token?:
+    string;
+
+  expires_in?:
+    number;
+
+  open_id?:
+    string;
+
+  refresh_token?:
+    string;
+
+  refresh_expires_in?:
+    number;
+
+  scope?:
+    string;
+
+  token_type?:
+    string;
+
+  error?:
+    string;
+
+  error_description?:
+    string;
 };
 
 type TikTokUserResponse = {
   data?: {
     user?: {
-      open_id?: string;
-      display_name?: string;
+      open_id?:
+        string;
+
+      display_name?:
+        string;
+
+      avatar_url?:
+        string;
     };
   };
+
   error?: {
-    code?: string;
-    message?: string;
-    log_id?: string;
+    code?:
+      string;
+
+    message?:
+      string;
+
+    log_id?:
+      string;
   };
 };
 
-// ==================================================
+// ============================================================
 // HELPERS
-// ==================================================
+// ============================================================
 
 function jsonError(
-  error: string,
-  status: number,
-  details?: unknown
+  error:
+    string,
+
+  status:
+    number,
+
+  details?:
+    unknown
 ) {
   return NextResponse.json(
     {
-      success: false,
+      success:
+        false,
+
       error,
-      ...(details !== undefined
-        ? { details }
+
+      ...(details !==
+      undefined
+        ? {
+            details,
+          }
         : {}),
     },
     {
       status,
+
+      headers: {
+        "Cache-Control":
+          "no-store",
+      },
     }
   );
 }
 
-function parseState(
-  state: string
-): OAuthState | null {
-  try {
-    /*
-     * URLSearchParams normally already decodes the value.
-     * However, older parts of the app may have encoded the
-     * JSON manually.
-     *
-     * Try both formats.
-     */
+// ============================================================
 
+function parseState(
+  state:
+    string
+):
+  | OAuthState
+  | null {
+  try {
     try {
       return JSON.parse(
         state
@@ -172,38 +352,292 @@ function parseState(
   }
 }
 
+// ============================================================
+
 function expiresAt(
-  seconds?: number
+  seconds?:
+    number
 ) {
   if (
     !seconds ||
-    !Number.isFinite(seconds)
+    !Number.isFinite(
+      seconds
+    ) ||
+    seconds <=
+      0
   ) {
     return null;
   }
 
   return new Date(
     Date.now() +
-      seconds * 1000
+      seconds *
+        1000
   ).toISOString();
 }
 
-// ==================================================
+// ============================================================
+
+function normalisePlatform(
+  value:
+    string
+) {
+  const platform =
+    value
+      .trim()
+      .toLowerCase();
+
+  if (
+    platform ===
+      "facebook" ||
+    platform ===
+      "instagram"
+  ) {
+    return "meta";
+  }
+
+  return platform;
+}
+
+// ============================================================
+
+function getMetaGraphVersion() {
+  const configured =
+    process.env
+      .META_GRAPH_API_VERSION
+      ?.trim();
+
+  if (
+    configured
+  ) {
+    return configured.startsWith(
+      "v"
+    )
+      ? configured
+      : `v${configured}`;
+  }
+
+  return DEFAULT_META_GRAPH_VERSION;
+}
+
+// ============================================================
+// VERIFY SUPABASE USER
+// ============================================================
+
+async function verifyUser(
+  userId:
+    string
+) {
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .auth
+      .admin
+      .getUserById(
+        userId
+      );
+
+  if (
+    error ||
+    !data.user
+  ) {
+    console.error(
+      "[OAUTH EXCHANGE] Supabase user verification failed:",
+      error
+    );
+
+    throw new Error(
+      "The signed-in TOTS-OS user could not be verified."
+    );
+  }
+
+  return data.user;
+}
+
+// ============================================================
+// RESOLVE ORGANISATION
+// ============================================================
+
+async function resolveOrganisationId(
+  userId:
+    string
+) {
+  try {
+    const {
+      data:
+        membershipRows,
+
+      error:
+        membershipError,
+    } =
+      await supabase
+        .from(
+          "user_organisations"
+        )
+        .select(
+          "organisation_id"
+        )
+        .eq(
+          "user_id",
+          userId
+        )
+        .limit(
+          1
+        );
+
+    if (
+      !membershipError &&
+      membershipRows?.[0]
+        ?.organisation_id
+    ) {
+      return String(
+        membershipRows[0]
+          .organisation_id
+      );
+    }
+
+    const {
+      data:
+        profile,
+
+      error:
+        profileError,
+    } =
+      await supabase
+        .from(
+          "profiles"
+        )
+        .select(
+          "organisation_id"
+        )
+        .eq(
+          "id",
+          userId
+        )
+        .maybeSingle();
+
+    if (
+      !profileError &&
+      profile?.organisation_id
+    ) {
+      return String(
+        profile.organisation_id
+      );
+    }
+  } catch (
+    error
+  ) {
+    console.warn(
+      "[OAUTH EXCHANGE] Organisation resolution failed:",
+      error
+    );
+  }
+
+  return null;
+}
+
+// ============================================================
+// SAVE SOCIAL ACCOUNT
+// ============================================================
+
+async function saveSocialAccount({
+  userId,
+  platform,
+  payload,
+}: {
+  userId:
+    string;
+
+  platform:
+    string;
+
+  payload:
+    Record<
+      string,
+      unknown
+    >;
+}) {
+  const organisationId =
+    await resolveOrganisationId(
+      userId
+    );
+
+  const {
+    data,
+    error,
+  } =
+    await supabase
+      .from(
+        "social_accounts"
+      )
+      .upsert(
+        {
+          user_id:
+            userId,
+
+          platform,
+
+          organisation_id:
+            organisationId,
+
+          ...payload,
+
+          updated_at:
+            new Date().toISOString(),
+        },
+        {
+          onConflict:
+            "user_id,platform",
+        }
+      )
+      .select(
+        "*"
+      )
+      .single();
+
+  if (
+    error
+  ) {
+    console.error(
+      "[OAUTH EXCHANGE] Social account save failed:",
+      error
+    );
+
+    throw new Error(
+      `Social account save failed: ${error.message}`
+    );
+  }
+
+  return data;
+}
+
+// ============================================================
 // META
-// ==================================================
+// ============================================================
 
 async function exchangeMeta(
-  code: string,
-  userId: string
+  code:
+    string,
+
+  userId:
+    string
 ) {
   const clientId =
-    process.env.META_CLIENT_ID;
+    process.env
+      .META_CLIENT_ID
+      ?.trim();
 
   const clientSecret =
-    process.env.META_CLIENT_SECRET;
+    process.env
+      .META_CLIENT_SECRET
+      ?.trim();
 
   const redirectUri =
-    process.env.META_REDIRECT_URI;
+    process.env
+      .META_REDIRECT_URI
+      ?.trim();
 
   if (
     !clientId ||
@@ -215,22 +649,37 @@ async function exchangeMeta(
       500,
       {
         hasClientId:
-          Boolean(clientId),
+          Boolean(
+            clientId
+          ),
+
         hasClientSecret:
-          Boolean(clientSecret),
+          Boolean(
+            clientSecret
+          ),
+
         hasRedirectUri:
-          Boolean(redirectUri),
+          Boolean(
+            redirectUri
+          ),
       }
     );
   }
 
-  // ==================================================
-  // 1. EXCHANGE AUTHORIZATION CODE
-  // ==================================================
+  await verifyUser(
+    userId
+  );
+
+  const graphVersion =
+    getMetaGraphVersion();
+
+  // ==========================================================
+  // 1. AUTHORIZATION CODE -> SHORT-LIVED TOKEN
+  // ==========================================================
 
   const tokenUrl =
     new URL(
-      `https://graph.facebook.com/${GRAPH_VERSION}/oauth/access_token`
+      `https://graph.facebook.com/${graphVersion}/oauth/access_token`
     );
 
   tokenUrl.searchParams.set(
@@ -257,22 +706,33 @@ async function exchangeMeta(
     await fetch(
       tokenUrl.toString(),
       {
-        method: "GET",
-        cache: "no-store",
+        method:
+          "GET",
+
+        cache:
+          "no-store",
+
+        headers: {
+          Accept:
+            "application/json",
+        },
       }
     );
 
   const tokenData =
     (await tokenResponse
       .json()
-      .catch(() => ({}))) as MetaTokenResponse;
+      .catch(
+        () =>
+          ({})
+      )) as MetaTokenResponse;
 
   if (
     !tokenResponse.ok ||
     !tokenData.access_token
   ) {
     console.error(
-      "META TOKEN EXCHANGE ERROR:",
+      "[META EXCHANGE] Token exchange failed:",
       tokenData
     );
 
@@ -289,14 +749,14 @@ async function exchangeMeta(
   let userTokenExpiresIn =
     tokenData.expires_in;
 
-  // ==================================================
-  // 2. TRY TO GET LONG-LIVED USER TOKEN
-  // ==================================================
+  // ==========================================================
+  // 2. LONG-LIVED TOKEN
+  // ==========================================================
 
   try {
     const longTokenUrl =
       new URL(
-        `https://graph.facebook.com/${GRAPH_VERSION}/oauth/access_token`
+        `https://graph.facebook.com/${graphVersion}/oauth/access_token`
       );
 
     longTokenUrl.searchParams.set(
@@ -323,15 +783,26 @@ async function exchangeMeta(
       await fetch(
         longTokenUrl.toString(),
         {
-          method: "GET",
-          cache: "no-store",
+          method:
+            "GET",
+
+          cache:
+            "no-store",
+
+          headers: {
+            Accept:
+              "application/json",
+          },
         }
       );
 
     const longTokenData =
       (await longTokenResponse
         .json()
-        .catch(() => ({}))) as MetaTokenResponse;
+        .catch(
+          () =>
+            ({})
+        )) as MetaTokenResponse;
 
     if (
       longTokenResponse.ok &&
@@ -344,34 +815,87 @@ async function exchangeMeta(
         longTokenData.expires_in ??
         userTokenExpiresIn;
     } else {
-      /*
-       * This should not prevent connection.
-       * We can still use the original token.
-       */
       console.warn(
-        "Could not exchange Meta token for long-lived token:",
+        "[META EXCHANGE] Long-lived token exchange failed. Short-lived token will be stored.",
         longTokenData
       );
     }
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.warn(
-      "Meta long-lived token exchange failed:",
+      "[META EXCHANGE] Long-lived token request failed:",
       error
     );
   }
 
-  // ==================================================
-  // 3. FETCH FACEBOOK PAGES
-  // ==================================================
+  // ==========================================================
+  // 3. FACEBOOK USER
+  // ==========================================================
+
+  const meUrl =
+    new URL(
+      `https://graph.facebook.com/${graphVersion}/me`
+    );
+
+  meUrl.searchParams.set(
+    "fields",
+    "id,name,picture"
+  );
+
+  meUrl.searchParams.set(
+    "access_token",
+    userAccessToken
+  );
+
+  const meResponse =
+    await fetch(
+      meUrl.toString(),
+      {
+        method:
+          "GET",
+
+        cache:
+          "no-store",
+      }
+    );
+
+  const meData =
+    (await meResponse
+      .json()
+      .catch(
+        () =>
+          ({})
+      )) as MetaUserResponse;
+
+  if (
+    !meResponse.ok ||
+    !meData.id
+  ) {
+    console.error(
+      "[META EXCHANGE] Facebook user lookup failed:",
+      meData
+    );
+
+    return jsonError(
+      "Unable to retrieve Facebook account",
+      400,
+      meData
+    );
+  }
+
+  // ==========================================================
+  // 4. FACEBOOK PAGES
+  // ==========================================================
 
   const pagesUrl =
     new URL(
-      `https://graph.facebook.com/${GRAPH_VERSION}/me/accounts`
+      `https://graph.facebook.com/${graphVersion}/me/accounts`
     );
 
   pagesUrl.searchParams.set(
     "fields",
-    "id,name,access_token"
+    "id,name,access_token,picture"
   );
 
   pagesUrl.searchParams.set(
@@ -383,19 +907,27 @@ async function exchangeMeta(
     await fetch(
       pagesUrl.toString(),
       {
-        method: "GET",
-        cache: "no-store",
+        method:
+          "GET",
+
+        cache:
+          "no-store",
       }
     );
 
   const pagesData =
     (await pagesResponse
       .json()
-      .catch(() => ({}))) as MetaPagesResponse;
+      .catch(
+        () =>
+          ({})
+      )) as MetaPagesResponse;
 
-  if (!pagesResponse.ok) {
+  if (
+    !pagesResponse.ok
+  ) {
     console.error(
-      "META PAGE FETCH ERROR:",
+      "[META EXCHANGE] Facebook Page request failed:",
       pagesData
     );
 
@@ -407,26 +939,42 @@ async function exchangeMeta(
   }
 
   const pages =
-    pagesData.data ?? [];
+    pagesData.data ??
+    [];
 
-  if (!pages.length) {
+  if (
+    pages.length ===
+    0
+  ) {
     return jsonError(
-      "No Facebook Pages were found for this Meta account. You need access to a Facebook Page before it can be connected.",
+      "Meta connected, but no Facebook Pages were returned. Make sure this Facebook account manages a Page and Page permissions were granted.",
       400
     );
   }
 
-  // ==================================================
-  // 4. FIND A PAGE WITH AN INSTAGRAM ACCOUNT
-  // ==================================================
+  // ==========================================================
+  // 5. FIND BEST PAGE
+  // ==========================================================
 
   let selectedPage:
-    MetaPage | null = null;
+    MetaPage |
+    null =
+    null;
 
   let instagramBusinessAccountId:
-    string | null = null;
+    string |
+    null =
+    null;
 
-  for (const page of pages) {
+  let instagramUsername:
+    string |
+    null =
+    null;
+
+  for (
+    const page of
+    pages
+  ) {
     if (
       !page.id ||
       !page.access_token
@@ -437,15 +985,17 @@ async function exchangeMeta(
     try {
       const instagramUrl =
         new URL(
-          `https://graph.facebook.com/${GRAPH_VERSION}/${page.id}`
+          `https://graph.facebook.com/${graphVersion}/${page.id}`
         );
 
       instagramUrl.searchParams.set(
         "fields",
         [
-          "instagram_business_account",
-          "connected_instagram_account",
-        ].join(",")
+          "instagram_business_account{id,username}",
+          "connected_instagram_account{id,username}",
+        ].join(
+          ","
+        )
       );
 
       instagramUrl.searchParams.set(
@@ -457,8 +1007,11 @@ async function exchangeMeta(
         await fetch(
           instagramUrl.toString(),
           {
-            method: "GET",
-            cache: "no-store",
+            method:
+              "GET",
+
+            cache:
+              "no-store",
           }
         );
 
@@ -466,64 +1019,77 @@ async function exchangeMeta(
         (await instagramResponse
           .json()
           .catch(
-            () => ({})
+            () =>
+              ({})
           )) as InstagramAccountResponse;
 
       if (
         !instagramResponse.ok
       ) {
         console.warn(
-          `Could not inspect Instagram account for page ${page.id}:`,
+          `[META EXCHANGE] Instagram lookup failed for Page ${page.id}:`,
           instagramData
         );
 
         continue;
       }
 
-      const instagramId =
+      const instagramAccount =
         instagramData
-          .instagram_business_account
-          ?.id ||
+          .instagram_business_account ||
         instagramData
-          .connected_instagram_account
-          ?.id ||
+          .connected_instagram_account ||
         null;
 
-      if (instagramId) {
+      if (
+        instagramAccount?.id
+      ) {
         selectedPage =
           page;
 
         instagramBusinessAccountId =
-          instagramId;
+          instagramAccount.id;
+
+        instagramUsername =
+          instagramAccount.username ??
+          null;
 
         break;
       }
-    } catch (error) {
+    } catch (
+      error
+    ) {
       console.warn(
-        `Instagram discovery failed for page ${page.id}:`,
+        `[META EXCHANGE] Instagram discovery failed for Page ${page.id}:`,
         error
       );
     }
   }
 
-  // ==================================================
-  // 5. FALL BACK TO FIRST FACEBOOK PAGE
-  // ==================================================
+  // ==========================================================
+  // 6. FALLBACK PAGE
+  // ==========================================================
 
-  if (!selectedPage) {
+  if (
+    !selectedPage
+  ) {
     selectedPage =
       pages.find(
-        (page) =>
+        (
+          page
+        ) =>
           Boolean(
             page.id &&
               page.access_token
           )
-      ) ?? null;
+      ) ??
+      null;
   }
 
   if (
     !selectedPage?.id ||
-    !selectedPage.access_token
+    !selectedPage
+      .access_token
   ) {
     return jsonError(
       "A Facebook Page was found, but Meta did not return a Page access token.",
@@ -531,143 +1097,265 @@ async function exchangeMeta(
     );
   }
 
-  // ==================================================
-  // 6. SAVE META CONNECTION
-  // ==================================================
+  // ==========================================================
+  // 7. SAVE META CONNECTION
+  // ==========================================================
 
-  const now =
-    new Date().toISOString();
+  let savedAccount:
+    any;
 
-  const metaAccount = {
-    user_id:
-      userId,
+  try {
+    savedAccount =
+      await saveSocialAccount({
+        userId,
 
-    platform:
-      "meta",
+        platform:
+          "meta",
 
-    /*
-     * Facebook Page ID.
-     */
-    platform_user_id:
-      selectedPage.id,
+        payload: {
+          platform_user_id:
+            meData.id,
 
-    /*
-     * Keep the USER token as the general access token.
-     */
-    access_token:
-      userAccessToken,
+          access_token:
+            userAccessToken,
 
-    /*
-     * Facebook Page-specific information.
-     */
-    page_id:
-      selectedPage.id,
+          refresh_token:
+            null,
 
-    page_name:
-      selectedPage.name ??
-      null,
+          expires_at:
+            expiresAt(
+              userTokenExpiresIn
+            ),
 
-    /*
-     * This is the token required for Page publishing.
-     */
-    page_access_token:
-      selectedPage.access_token,
+          page_id:
+            selectedPage.id,
 
-    /*
-     * Used for Instagram publishing.
-     */
-    instagram_business_account_id:
-      instagramBusinessAccountId,
+          page_name:
+            selectedPage.name ??
+            null,
 
-    refresh_token:
-      null,
+          page_access_token:
+            selectedPage
+              .access_token,
 
-    expires_at:
-      expiresAt(
-        userTokenExpiresIn
-      ),
+          instagram_business_account_id:
+            instagramBusinessAccountId,
 
-    updated_at:
-      now,
-  };
+          display_name:
+            selectedPage.name ||
+            meData.name ||
+            instagramUsername ||
+            null,
 
-  const {
-    error: saveError,
-  } = await supabase
-    .from(
-      "social_accounts"
-    )
-    .upsert(
-      metaAccount,
-      {
-        onConflict:
-          "user_id,platform",
-      }
-    );
-
-  if (saveError) {
+          avatar_url:
+            selectedPage
+              .picture
+              ?.data
+              ?.url ||
+            meData.picture
+              ?.data
+              ?.url ||
+            null,
+        },
+      });
+  } catch (
+    error
+  ) {
     console.error(
-      "META DATABASE SAVE ERROR:",
-      saveError
+      "[META EXCHANGE] Database save failed:",
+      error
     );
 
     return jsonError(
       "Meta connection could not be saved",
       500,
-      saveError.message
+      error instanceof
+        Error
+        ? error.message
+        : error
     );
   }
 
-  // ==================================================
-  // 7. SUCCESS
-  // ==================================================
+  // ==========================================================
+  // 8. VERIFY META SAVE
+  // ==========================================================
 
-  return NextResponse.json({
-    success: true,
+  const {
+    data:
+      verifiedAccount,
 
-    platform:
-      "meta",
+    error:
+      verificationError,
+  } =
+    await supabase
+      .from(
+        "social_accounts"
+      )
+      .select(
+        `
+          id,
+          user_id,
+          organisation_id,
+          platform,
+          platform_user_id,
+          display_name,
+          avatar_url,
+          page_id,
+          page_name,
+          page_access_token,
+          instagram_business_account_id,
+          expires_at
+        `
+      )
+      .eq(
+        "id",
+        savedAccount.id
+      )
+      .maybeSingle();
 
-    page: {
-      id:
-        selectedPage.id,
+  if (
+    verificationError ||
+    !verifiedAccount
+  ) {
+    console.error(
+      "[META EXCHANGE] Saved Meta account could not be verified:",
+      verificationError
+    );
 
-      name:
-        selectedPage.name ??
-        null,
+    return jsonError(
+      "Meta authenticated, but the saved connection could not be verified.",
+      500,
+      verificationError?.message
+    );
+  }
+
+  console.log(
+    "[META EXCHANGE] ✅ Meta connection saved:",
+    {
+      socialAccountId:
+        verifiedAccount.id,
+
+      userId,
+
+      organisationId:
+        verifiedAccount
+          .organisation_id,
+
+      facebookUserId:
+        verifiedAccount
+          .platform_user_id,
+
+      pageId:
+        verifiedAccount
+          .page_id,
+
+      pageName:
+        verifiedAccount
+          .page_name,
+
+      instagramBusinessAccountId:
+        verifiedAccount
+          .instagram_business_account_id,
+
+      graphVersion,
+    }
+  );
+
+  // ==========================================================
+  // 9. SUCCESS
+  // ==========================================================
+
+  return NextResponse.json(
+    {
+      success:
+        true,
+
+      platform:
+        "meta",
+
+      userId,
+
+      socialAccountId:
+        verifiedAccount.id,
+
+      displayName:
+        verifiedAccount
+          .display_name,
+
+      pageId:
+        verifiedAccount
+          .page_id,
+
+      pageName:
+        verifiedAccount
+          .page_name,
+
+      instagramBusinessAccountId:
+        verifiedAccount
+          .instagram_business_account_id,
+
+      page: {
+        id:
+          selectedPage.id,
+
+        name:
+          selectedPage.name ??
+          null,
+      },
+
+      instagram: {
+        connected:
+          Boolean(
+            instagramBusinessAccountId
+          ),
+
+        accountId:
+          instagramBusinessAccountId,
+
+        username:
+          instagramUsername,
+      },
+
+      pagesFound:
+        pages.length,
     },
+    {
+      status:
+        200,
 
-    instagram: {
-      connected:
-        Boolean(
-          instagramBusinessAccountId
-        ),
-
-      accountId:
-        instagramBusinessAccountId,
-    },
-
-    pagesFound:
-      pages.length,
-  });
+      headers: {
+        "Cache-Control":
+          "no-store",
+      },
+    }
+  );
 }
 
-// ==================================================
+// ============================================================
 // LINKEDIN
-// ==================================================
+// ============================================================
 
 async function exchangeLinkedIn(
-  code: string,
-  userId: string
+  code:
+    string,
+
+  userId:
+    string
 ) {
   const clientId =
-    process.env.LINKEDIN_CLIENT_ID;
+    process.env
+      .LINKEDIN_CLIENT_ID
+      ?.trim();
 
   const clientSecret =
-    process.env.LINKEDIN_CLIENT_SECRET;
+    process.env
+      .LINKEDIN_CLIENT_SECRET
+      ?.trim();
 
   const redirectUri =
-    process.env.LINKEDIN_REDIRECT_URI;
+    process.env
+      .LINKEDIN_REDIRECT_URI
+      ?.trim();
 
   if (
     !clientId ||
@@ -680,15 +1368,16 @@ async function exchangeLinkedIn(
     );
   }
 
-  // ==================================================
-  // TOKEN
-  // ==================================================
+  await verifyUser(
+    userId
+  );
 
   const tokenResponse =
     await fetch(
       "https://www.linkedin.com/oauth/v2/accessToken",
       {
-        method: "POST",
+        method:
+          "POST",
 
         headers: {
           "Content-Type":
@@ -696,25 +1385,24 @@ async function exchangeLinkedIn(
         },
 
         body:
-          new URLSearchParams(
-            {
-              grant_type:
-                "authorization_code",
+          new URLSearchParams({
+            grant_type:
+              "authorization_code",
 
-              code,
+            code,
 
-              client_id:
-                clientId,
+            client_id:
+              clientId,
 
-              client_secret:
-                clientSecret,
+            client_secret:
+              clientSecret,
 
-              redirect_uri:
-                redirectUri,
-            }
-          ),
+            redirect_uri:
+              redirectUri,
+          }),
 
-        cache: "no-store",
+        cache:
+          "no-store",
       }
     );
 
@@ -722,7 +1410,8 @@ async function exchangeLinkedIn(
     (await tokenResponse
       .json()
       .catch(
-        () => ({})
+        () =>
+          ({})
       )) as LinkedInTokenResponse;
 
   if (
@@ -730,7 +1419,7 @@ async function exchangeLinkedIn(
     !tokenData.access_token
   ) {
     console.error(
-      "LINKEDIN TOKEN ERROR:",
+      "[LINKEDIN EXCHANGE] Token error:",
       tokenData
     );
 
@@ -741,10 +1430,6 @@ async function exchangeLinkedIn(
     );
   }
 
-  // ==================================================
-  // PROFILE
-  // ==================================================
-
   const profileResponse =
     await fetch(
       "https://api.linkedin.com/v2/userinfo",
@@ -754,7 +1439,8 @@ async function exchangeLinkedIn(
             `Bearer ${tokenData.access_token}`,
         },
 
-        cache: "no-store",
+        cache:
+          "no-store",
       }
     );
 
@@ -762,7 +1448,8 @@ async function exchangeLinkedIn(
     (await profileResponse
       .json()
       .catch(
-        () => ({})
+        () =>
+          ({})
       )) as LinkedInProfileResponse;
 
   if (
@@ -770,7 +1457,7 @@ async function exchangeLinkedIn(
     !profile.sub
   ) {
     console.error(
-      "LINKEDIN PROFILE ERROR:",
+      "[LINKEDIN EXCHANGE] Profile error:",
       profile
     );
 
@@ -781,84 +1468,122 @@ async function exchangeLinkedIn(
     );
   }
 
-  // ==================================================
-  // SAVE
-  // ==================================================
+  let savedAccount:
+    any;
 
-  const {
-    error: saveError,
-  } = await supabase
-    .from(
-      "social_accounts"
-    )
-    .upsert(
-      {
-        user_id:
-          userId,
+  try {
+    savedAccount =
+      await saveSocialAccount({
+        userId,
 
         platform:
           "linkedin",
 
-        platform_user_id:
-          profile.sub,
+        payload: {
+          platform_user_id:
+            profile.sub,
 
-        access_token:
-          tokenData.access_token,
+          access_token:
+            tokenData
+              .access_token,
 
-        refresh_token:
-          tokenData.refresh_token ??
-          null,
+          refresh_token:
+            tokenData
+              .refresh_token ??
+            null,
 
-        expires_at:
-          expiresAt(
-            tokenData.expires_in
-          ),
+          expires_at:
+            expiresAt(
+              tokenData
+                .expires_in
+            ),
 
-        updated_at:
-          new Date().toISOString(),
-      },
-      {
-        onConflict:
-          "user_id,platform",
-      }
-    );
+          display_name:
+            profile.name ??
+            null,
 
-  if (saveError) {
+          avatar_url:
+            profile.picture ??
+            null,
+
+          page_id:
+            null,
+
+          page_name:
+            null,
+
+          page_access_token:
+            null,
+
+          instagram_business_account_id:
+            null,
+        },
+      });
+  } catch (
+    error
+  ) {
     console.error(
-      "LINKEDIN DATABASE SAVE ERROR:",
-      saveError
+      "[LINKEDIN EXCHANGE] Save error:",
+      error
     );
 
     return jsonError(
       "LinkedIn connection could not be saved",
       500,
-      saveError.message
+      error instanceof
+        Error
+        ? error.message
+        : error
     );
   }
 
-  return NextResponse.json({
-    success: true,
-    platform:
-      "linkedin",
-  });
+  return NextResponse.json(
+    {
+      success:
+        true,
+
+      platform:
+        "linkedin",
+
+      userId,
+
+      socialAccountId:
+        savedAccount.id,
+    },
+    {
+      headers: {
+        "Cache-Control":
+          "no-store",
+      },
+    }
+  );
 }
 
-// ==================================================
+// ============================================================
 // TIKTOK
-// ==================================================
+// ============================================================
 
 async function exchangeTikTok(
-  code: string,
-  userId: string
+  code:
+    string,
+
+  userId:
+    string
 ) {
   const clientKey =
-    process.env.TIKTOK_CLIENT_KEY;
+    process.env
+      .TIKTOK_CLIENT_KEY
+      ?.trim();
 
   const clientSecret =
-    process.env.TIKTOK_CLIENT_SECRET;
+    process.env
+      .TIKTOK_CLIENT_SECRET
+      ?.trim();
 
   const redirectUri =
-    process.env.TIKTOK_REDIRECT_URI;
+    process.env
+      .TIKTOK_REDIRECT_URI
+      ?.trim();
 
   if (
     !clientKey ||
@@ -871,15 +1596,16 @@ async function exchangeTikTok(
     );
   }
 
-  // ==================================================
-  // TOKEN
-  // ==================================================
+  await verifyUser(
+    userId
+  );
 
   const tokenResponse =
     await fetch(
       "https://open.tiktokapis.com/v2/oauth/token/",
       {
-        method: "POST",
+        method:
+          "POST",
 
         headers: {
           "Content-Type":
@@ -887,25 +1613,24 @@ async function exchangeTikTok(
         },
 
         body:
-          new URLSearchParams(
-            {
-              client_key:
-                clientKey,
+          new URLSearchParams({
+            client_key:
+              clientKey,
 
-              client_secret:
-                clientSecret,
+            client_secret:
+              clientSecret,
 
-              code,
+            code,
 
-              grant_type:
-                "authorization_code",
+            grant_type:
+              "authorization_code",
 
-              redirect_uri:
-                redirectUri,
-            }
-          ),
+            redirect_uri:
+              redirectUri,
+          }),
 
-        cache: "no-store",
+        cache:
+          "no-store",
       }
     );
 
@@ -913,7 +1638,8 @@ async function exchangeTikTok(
     (await tokenResponse
       .json()
       .catch(
-        () => ({})
+        () =>
+          ({})
       )) as TikTokTokenResponse;
 
   if (
@@ -921,7 +1647,7 @@ async function exchangeTikTok(
     !tokenData.access_token
   ) {
     console.error(
-      "TIKTOK TOKEN ERROR:",
+      "[TIKTOK EXCHANGE] Token error:",
       tokenData
     );
 
@@ -932,20 +1658,17 @@ async function exchangeTikTok(
     );
   }
 
-  // ==================================================
-  // PROFILE
-  // ==================================================
-
   const userResponse =
     await fetch(
-      "https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name",
+      "https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url",
       {
         headers: {
           Authorization:
             `Bearer ${tokenData.access_token}`,
         },
 
-        cache: "no-store",
+        cache:
+          "no-store",
       }
     );
 
@@ -953,22 +1676,26 @@ async function exchangeTikTok(
     (await userResponse
       .json()
       .catch(
-        () => ({})
+        () =>
+          ({})
       )) as TikTokUserResponse;
 
   const tiktokUser =
-    userData.data?.user;
+    userData.data
+      ?.user;
 
   const openId =
-    tiktokUser?.open_id ||
-    tokenData.open_id;
+    tiktokUser
+      ?.open_id ||
+    tokenData
+      .open_id;
 
   if (
     !userResponse.ok ||
     !openId
   ) {
     console.error(
-      "TIKTOK USER ERROR:",
+      "[TIKTOK EXCHANGE] User error:",
       userData
     );
 
@@ -979,82 +1706,114 @@ async function exchangeTikTok(
     );
   }
 
-  // ==================================================
-  // SAVE
-  // ==================================================
+  let savedAccount:
+    any;
 
-  const {
-    error: saveError,
-  } = await supabase
-    .from(
-      "social_accounts"
-    )
-    .upsert(
-      {
-        user_id:
-          userId,
+  try {
+    savedAccount =
+      await saveSocialAccount({
+        userId,
 
         platform:
           "tiktok",
 
-        platform_user_id:
-          openId,
+        payload: {
+          platform_user_id:
+            openId,
 
-        access_token:
-          tokenData.access_token,
+          access_token:
+            tokenData
+              .access_token,
 
-        refresh_token:
-          tokenData.refresh_token ??
-          null,
+          refresh_token:
+            tokenData
+              .refresh_token ??
+            null,
 
-        expires_at:
-          expiresAt(
-            tokenData.expires_in
-          ),
+          expires_at:
+            expiresAt(
+              tokenData
+                .expires_in
+            ),
 
-        updated_at:
-          new Date().toISOString(),
-      },
-      {
-        onConflict:
-          "user_id,platform",
-      }
-    );
+          display_name:
+            tiktokUser
+              ?.display_name ??
+            null,
 
-  if (saveError) {
+          avatar_url:
+            tiktokUser
+              ?.avatar_url ??
+            null,
+
+          page_id:
+            null,
+
+          page_name:
+            null,
+
+          page_access_token:
+            null,
+
+          instagram_business_account_id:
+            null,
+        },
+      });
+  } catch (
+    error
+  ) {
     console.error(
-      "TIKTOK DATABASE SAVE ERROR:",
-      saveError
+      "[TIKTOK EXCHANGE] Save error:",
+      error
     );
 
     return jsonError(
       "TikTok connection could not be saved",
       500,
-      saveError.message
+      error instanceof
+        Error
+        ? error.message
+        : error
     );
   }
 
-  return NextResponse.json({
-    success: true,
-    platform:
-      "tiktok",
-  });
+  return NextResponse.json(
+    {
+      success:
+        true,
+
+      platform:
+        "tiktok",
+
+      userId,
+
+      socialAccountId:
+        savedAccount.id,
+    },
+    {
+      headers: {
+        "Cache-Control":
+          "no-store",
+      },
+    }
+  );
 }
 
-// ==================================================
+// ============================================================
 // MAIN EXCHANGE
-// ==================================================
+// ============================================================
 
 async function exchangeOAuth(
-  code: string,
-  state: string,
-  platformOverride?: string
+  code:
+    string,
+
+  state:
+    string,
+
+  platformOverride?:
+    string
 ) {
   try {
-    // ==================================================
-    // VALIDATE REQUEST
-    // ==================================================
-
     if (
       !code ||
       !state
@@ -1065,16 +1824,14 @@ async function exchangeOAuth(
       );
     }
 
-    // ==================================================
-    // PARSE STATE
-    // ==================================================
-
     const parsedState =
       parseState(
         state
       );
 
-    if (!parsedState) {
+    if (
+      !parsedState
+    ) {
       return jsonError(
         "Invalid OAuth state",
         400
@@ -1082,16 +1839,33 @@ async function exchangeOAuth(
     }
 
     const userId =
-      parsedState.userId;
+      typeof parsedState
+        .userId ===
+        "string"
+        ? parsedState
+            .userId
+            .trim()
+        : "";
+
+    const statePlatform =
+      normalisePlatform(
+        String(
+          parsedState
+            .platform ||
+            ""
+        )
+      );
+
+    const overridePlatform =
+      platformOverride
+        ? normalisePlatform(
+            platformOverride
+          )
+        : "";
 
     const platform =
-      (
-        platformOverride ||
-        parsedState.platform ||
-        ""
-      )
-        .trim()
-        .toLowerCase();
+      overridePlatform ||
+      statePlatform;
 
     if (
       !userId ||
@@ -1103,18 +1877,58 @@ async function exchangeOAuth(
       );
     }
 
-    // ==================================================
-    // IMPORTANT SECURITY CHECK
-    //
-    // If a platform override is supplied by the callback,
-    // it must agree with the platform stored in state.
-    // ==================================================
+    // ========================================================
+    // STATE AGE
+    // ========================================================
 
     if (
-      platformOverride &&
-      parsedState.platform &&
-      platformOverride.toLowerCase() !==
-        parsedState.platform.toLowerCase()
+      typeof parsedState
+        .createdAt ===
+        "number" &&
+      Number.isFinite(
+        parsedState.createdAt
+      )
+    ) {
+      const age =
+        Date.now() -
+        parsedState
+          .createdAt;
+
+      const maxAge =
+        30 *
+        60 *
+        1000;
+
+      if (
+        age >
+        maxAge
+      ) {
+        return jsonError(
+          "OAuth state has expired",
+          400
+        );
+      }
+
+      if (
+        age <
+        -60_000
+      ) {
+        return jsonError(
+          "Invalid OAuth state timestamp",
+          400
+        );
+      }
+    }
+
+    // ========================================================
+    // PLATFORM MISMATCH
+    // ========================================================
+
+    if (
+      overridePlatform &&
+      statePlatform &&
+      overridePlatform !==
+        statePlatform
     ) {
       return jsonError(
         "OAuth platform mismatch",
@@ -1122,15 +1936,13 @@ async function exchangeOAuth(
       );
     }
 
-    // ==================================================
+    // ========================================================
     // META
-    // ==================================================
+    // ========================================================
 
     if (
       platform ===
-        "meta" ||
-      platform ===
-        "instagram"
+      "meta"
     ) {
       return exchangeMeta(
         code,
@@ -1138,9 +1950,9 @@ async function exchangeOAuth(
       );
     }
 
-    // ==================================================
+    // ========================================================
     // LINKEDIN
-    // ==================================================
+    // ========================================================
 
     if (
       platform ===
@@ -1152,9 +1964,9 @@ async function exchangeOAuth(
       );
     }
 
-    // ==================================================
+    // ========================================================
     // TIKTOK
-    // ==================================================
+    // ========================================================
 
     if (
       platform ===
@@ -1170,28 +1982,32 @@ async function exchangeOAuth(
       `Unsupported OAuth platform: ${platform}`,
       400
     );
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
-      "OAUTH EXCHANGE FATAL ERROR:",
+      "[OAUTH EXCHANGE] Fatal error:",
       error
     );
 
     return jsonError(
       "OAuth exchange failed",
       500,
-      error instanceof Error
+      error instanceof
+        Error
         ? error.message
         : "Unknown OAuth error"
     );
   }
 }
 
-// ==================================================
+// ============================================================
 // POST
-// ==================================================
+// ============================================================
 
 export async function POST(
-  request: NextRequest
+  request:
+    NextRequest
 ) {
   try {
     const body =
@@ -1199,11 +2015,13 @@ export async function POST(
 
     return exchangeOAuth(
       String(
-        body?.code ?? ""
+        body?.code ??
+          ""
       ),
 
       String(
-        body?.state ?? ""
+        body?.state ??
+          ""
       ),
 
       body?.platform
@@ -1212,9 +2030,11 @@ export async function POST(
           )
         : undefined
     );
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
-      "OAUTH POST ERROR:",
+      "[OAUTH EXCHANGE] POST error:",
       error
     );
 
@@ -1225,12 +2045,13 @@ export async function POST(
   }
 }
 
-// ==================================================
+// ============================================================
 // GET
-// ==================================================
+// ============================================================
 
 export async function GET(
-  request: NextRequest
+  request:
+    NextRequest
 ) {
   const {
     searchParams,
@@ -1242,14 +2063,17 @@ export async function GET(
   return exchangeOAuth(
     searchParams.get(
       "code"
-    ) || "",
+    ) ||
+      "",
 
     searchParams.get(
       "state"
-    ) || "",
+    ) ||
+      "",
 
     searchParams.get(
       "platform"
-    ) || undefined
+    ) ||
+      undefined
   );
 }

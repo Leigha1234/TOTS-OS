@@ -6,18 +6,27 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
-import { useRouter } from "next/navigation";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 
 import {
   AnimatePresence,
   motion,
 } from "framer-motion";
 
-import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import {
+  Loader2,
+} from "lucide-react";
+
+import {
+  toast,
+} from "sonner";
 
 import LegalHub from "@/app/components/LegalHub";
 import PasswordSection from "@/app/components/PasswordSection";
@@ -27,20 +36,28 @@ import ProfileSettings from "./components/ProfileSettings";
 import SettingsHeader from "./components/SettingsHeader";
 import SocialSettings from "./components/SocialSettings";
 
-import { useSettingsProfile } from "./hooks/useSettingsProfile";
-import { useSocialConnections } from "./hooks/useSocialConnections";
-import { useTikTokOAuthResult } from "./hooks/useTikTokOAuthResult";
+import {
+  useSettingsProfile,
+} from "./hooks/useSettingsProfile";
 
-// ==================================================
+import {
+  useSocialConnections,
+} from "./hooks/useSocialConnections";
+
+import {
+  useTikTokOAuthResult,
+} from "./hooks/useTikTokOAuthResult";
+
+// ============================================================
 // CONSTANTS
-// ==================================================
+// ============================================================
 
 const LOGO_STORAGE_KEY =
   "tots_os_profile_logo_url";
 
-// ==================================================
+// ============================================================
 // HELPERS
-// ==================================================
+// ============================================================
 
 function getStoredLogoUrl() {
   if (
@@ -61,6 +78,8 @@ function getStoredLogoUrl() {
   }
 }
 
+// ============================================================
+
 function storeLogoUrl(
   value: string
 ) {
@@ -74,7 +93,9 @@ function storeLogoUrl(
   const cleaned =
     value.trim();
 
-  if (!cleaned) {
+  if (
+    !cleaned
+  ) {
     return;
   }
 
@@ -90,6 +111,8 @@ function storeLogoUrl(
   }
 }
 
+// ============================================================
+
 function clearOAuthStorage(
   platform: string
 ) {
@@ -101,14 +124,34 @@ function clearOAuthStorage(
   }
 
   try {
-    const key =
-      platform === "meta"
-        ? "oauth_pending_meta"
-        : `oauth_pending_${platform}`;
+    /*
+     * Keep support for the existing storage keys
+     * used by the social connection flow.
+     */
 
-    window.sessionStorage.removeItem(
-      key
-    );
+    const possibleKeys = [
+      `oauth_pending_${platform}`,
+      `social_oauth_pending_${platform}`,
+    ];
+
+    if (
+      platform ===
+      "meta"
+    ) {
+      possibleKeys.push(
+        "oauth_pending_meta",
+        "oauth_pending_facebook"
+      );
+    }
+
+    for (
+      const key of
+      possibleKeys
+    ) {
+      window.sessionStorage.removeItem(
+        key
+      );
+    }
 
     window.sessionStorage.removeItem(
       "oauth_started_at"
@@ -120,6 +163,8 @@ function clearOAuthStorage(
   }
 }
 
+// ============================================================
+
 function cleanOAuthUrl() {
   if (
     typeof window ===
@@ -128,6 +173,11 @@ function cleanOAuthUrl() {
     return;
   }
 
+  /*
+   * Remove OAuth result parameters while keeping the user
+   * on the Settings page.
+   */
+
   window.history.replaceState(
     {},
     document.title,
@@ -135,21 +185,58 @@ function cleanOAuthUrl() {
   );
 }
 
-// ==================================================
+// ============================================================
+
+function decodeOAuthReason(
+  value:
+    | string
+    | null
+) {
+  if (
+    !value
+  ) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(
+      value
+    );
+  } catch {
+    return value;
+  }
+}
+
+// ============================================================
 // SETTINGS INNER
-// ==================================================
+// ============================================================
 
 function SettingsInner() {
   const router =
     useRouter();
 
-  // ==================================================
+  const searchParams =
+    useSearchParams();
+
+  /*
+   * Prevent the same OAuth result from being processed twice
+   * if React re-renders the component.
+   */
+
+  const handledOAuthRef =
+    useRef(
+      false
+    );
+
+  // ==========================================================
   // PROFILE
-  // ==================================================
+  // ==========================================================
 
   const {
     loading,
+
     isSaving,
+
     logoUploading,
 
     displayName,
@@ -163,444 +250,672 @@ function SettingsInner() {
     logoUrl,
 
     saveProfile,
-    uploadLogo,
-    logout,
-  } = useSettingsProfile();
 
-  // ==================================================
+    uploadLogo,
+
+    logout,
+  } =
+    useSettingsProfile();
+
+  // ==========================================================
   // PERSISTENT LOGO FALLBACK
-  // ==================================================
+  // ==========================================================
 
   const [
     persistentLogoUrl,
     setPersistentLogoUrl,
-  ] = useState("");
+  ] =
+    useState("");
 
-  useEffect(() => {
-    const storedLogo =
-      getStoredLogoUrl();
+  useEffect(
+    () => {
+      const storedLogo =
+        getStoredLogoUrl();
 
-    if (storedLogo) {
-      setPersistentLogoUrl(
+      if (
         storedLogo
+      ) {
+        setPersistentLogoUrl(
+          storedLogo
+        );
+      }
+    },
+    []
+  );
+
+  useEffect(
+    () => {
+      const cleanedLogoUrl =
+        String(
+          logoUrl ??
+            ""
+        ).trim();
+
+      if (
+        !cleanedLogoUrl
+      ) {
+        return;
+      }
+
+      setPersistentLogoUrl(
+        cleanedLogoUrl
       );
-    }
-  }, []);
 
-  useEffect(() => {
-    const cleanedLogoUrl =
-      String(
-        logoUrl ?? ""
-      ).trim();
-
-    if (!cleanedLogoUrl) {
-      return;
-    }
-
-    setPersistentLogoUrl(
-      cleanedLogoUrl
-    );
-
-    storeLogoUrl(
-      cleanedLogoUrl
-    );
-  }, [logoUrl]);
+      storeLogoUrl(
+        cleanedLogoUrl
+      );
+    },
+    [
+      logoUrl,
+    ]
+  );
 
   const resolvedLogoUrl =
     String(
-      logoUrl ?? ""
+      logoUrl ??
+        ""
     ).trim() ||
     persistentLogoUrl;
 
-  // ==================================================
+  // ==========================================================
   // LOGO UPLOAD
-  // ==================================================
+  // ==========================================================
 
   const handleLogoUpload =
     useCallback(
       async (
-        ...args: Parameters<
-          typeof uploadLogo
-        >
+        ...args:
+          Parameters<
+            typeof uploadLogo
+          >
       ) => {
         await uploadLogo(
           ...args
         );
       },
-      [uploadLogo]
+      [
+        uploadLogo,
+      ]
     );
 
-  // ==================================================
+  // ==========================================================
   // SOCIAL CONNECTIONS
-  // ==================================================
+  // ==========================================================
 
   const {
     socialAccounts,
+
     connectionHealth,
+
     refreshConnections,
+
     verifyConnections,
+
     verifyPendingOAuth,
-  } = useSocialConnections();
+  } =
+    useSocialConnections();
 
   const [
     showConnectedModal,
     setShowConnectedModal,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
   const [
     connectedPlatformModal,
     setConnectedPlatformModal,
-  ] = useState<
-    string | null
-  >(null);
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
 
-  // ==================================================
+  const [
+    socialRefreshInProgress,
+    setSocialRefreshInProgress,
+  ] =
+    useState(
+      false
+    );
+
+  // ==========================================================
+  // REFRESH SOCIAL CONNECTION STATE
+  // ==========================================================
+
+  const refreshSocialState =
+    useCallback(
+      async () => {
+        if (
+          socialRefreshInProgress
+        ) {
+          return;
+        }
+
+        setSocialRefreshInProgress(
+          true
+        );
+
+        try {
+          /*
+           * First reload social_accounts from Supabase.
+           */
+
+          await refreshConnections();
+
+          /*
+           * Then check whether the records still have usable
+           * platform credentials.
+           */
+
+          await verifyConnections();
+
+          /*
+           * Finally resolve anything left in the pending OAuth
+           * state.
+           */
+
+          await verifyPendingOAuth();
+
+          /*
+           * Run one final fetch.
+           *
+           * This is useful when verifyPendingOAuth changed the
+           * database or converted a pending account into a
+           * connected one.
+           */
+
+          await refreshConnections();
+        } finally {
+          setSocialRefreshInProgress(
+            false
+          );
+        }
+      },
+      [
+        refreshConnections,
+        verifyConnections,
+        verifyPendingOAuth,
+        socialRefreshInProgress,
+      ]
+    );
+
+  // ==========================================================
   // TIKTOK OAUTH RESULT
-  // ==================================================
+  // ==========================================================
 
   const handleTikTokConnected =
-    useCallback(() => {
-      setConnectedPlatformModal(
-        "tiktok"
-      );
+    useCallback(
+      () => {
+        setConnectedPlatformModal(
+          "tiktok"
+        );
 
-      setShowConnectedModal(
-        true
-      );
-    }, []);
+        setShowConnectedModal(
+          true
+        );
+      },
+      []
+    );
 
   useTikTokOAuthResult({
     refreshConnections,
+
     verifyConnections,
+
     onConnected:
       handleTikTokConnected,
   });
 
-  // ==================================================
+  // ==========================================================
   // META / LINKEDIN OAUTH RESULT
   //
-  // IMPORTANT:
-  // Meta's callback + token exchange happen
-  // completely server-side now.
+  // Supported URL formats:
   //
-  // This page ONLY reacts to:
-  //
+  // NEW:
   // ?oauth=meta_success
   // ?oauth=meta_failed
-  // ?oauth=linkedin_success
-  // ?oauth=linkedin_failed
   //
-  // TikTok remains handled by useTikTokOAuthResult.
-  // ==================================================
+  // OLD:
+  // ?connected=meta
+  // ?connected=linkedin
+  //
+  // Also supports:
+  // ?social_error=...
+  // ==========================================================
 
-  useEffect(() => {
-    if (
-      typeof window ===
-      "undefined"
-    ) {
-      return;
-    }
+  useEffect(
+    () => {
+      if (
+        typeof window ===
+        "undefined"
+      ) {
+        return;
+      }
 
-    /*
-     * Facebook occasionally leaves this hash.
-     */
-    if (
-      window.location.hash ===
-      "#_=_"
-    ) {
-      window.history.replaceState(
-        {},
-        document.title,
-        `${window.location.pathname}${window.location.search}`
-      );
-    }
+      if (
+        handledOAuthRef.current
+      ) {
+        return;
+      }
 
-    const params =
-      new URLSearchParams(
-        window.location.search
-      );
+      /*
+       * Facebook can occasionally append #_=_.
+       */
 
-    const oauth =
-      params.get("oauth");
+      if (
+        window.location.hash ===
+        "#_=_"
+      ) {
+        window.history.replaceState(
+          {},
+          document.title,
+          `${window.location.pathname}${window.location.search}`
+        );
+      }
 
-    if (!oauth) {
-      return;
-    }
+      const oauth =
+        searchParams.get(
+          "oauth"
+        );
 
-    let cancelled =
-      false;
+      const connected =
+        searchParams.get(
+          "connected"
+        );
 
-    const handleOAuthResult =
-      async () => {
-        try {
-          // ==================================================
-          // META SUCCESS
-          // ==================================================
+      const socialError =
+        searchParams.get(
+          "social_error"
+        );
 
-          if (
-            oauth ===
-            "meta_success"
+      /*
+       * No OAuth result on this visit.
+       */
+
+      if (
+        !oauth &&
+        !connected &&
+        !socialError
+      ) {
+        return;
+      }
+
+      handledOAuthRef.current =
+        true;
+
+      let cancelled =
+        false;
+
+      // ======================================================
+      // RESULT HANDLER
+      // ======================================================
+
+      const handleOAuthResult =
+        async () => {
+          try {
+            // =================================================
+            // LEGACY ERROR
+            // =================================================
+
+            if (
+              socialError
+            ) {
+              if (
+                cancelled
+              ) {
+                return;
+              }
+
+              toast.error(
+                decodeOAuthReason(
+                  socialError
+                ) ||
+                  "Social account connection failed"
+              );
+
+              return;
+            }
+
+            // =================================================
+            // META SUCCESS
+            //
+            // Supports BOTH:
+            //
+            // ?oauth=meta_success
+            // ?connected=meta
+            // =================================================
+
+            if (
+              oauth ===
+                "meta_success" ||
+              connected ===
+                "meta" ||
+              connected ===
+                "facebook"
+            ) {
+              clearOAuthStorage(
+                "meta"
+              );
+
+              console.log(
+                "[TOTS SOCIAL] Meta OAuth returned successfully."
+              );
+
+              await refreshSocialState();
+
+              if (
+                cancelled
+              ) {
+                return;
+              }
+
+              console.log(
+                "[TOTS SOCIAL] Meta connections refreshed:",
+                socialAccounts
+              );
+
+              toast.success(
+                "Meta connected successfully"
+              );
+
+              setConnectedPlatformModal(
+                "meta"
+              );
+
+              setShowConnectedModal(
+                true
+              );
+
+              return;
+            }
+
+            // =================================================
+            // META FAILED
+            // =================================================
+
+            if (
+              oauth ===
+              "meta_failed"
+            ) {
+              clearOAuthStorage(
+                "meta"
+              );
+
+              if (
+                cancelled
+              ) {
+                return;
+              }
+
+              const reason =
+                decodeOAuthReason(
+                  searchParams.get(
+                    "reason"
+                  )
+                );
+
+              toast.error(
+                reason ||
+                  "Meta connection failed"
+              );
+
+              return;
+            }
+
+            // =================================================
+            // LINKEDIN SUCCESS
+            // =================================================
+
+            if (
+              oauth ===
+                "linkedin_success" ||
+              connected ===
+                "linkedin"
+            ) {
+              clearOAuthStorage(
+                "linkedin"
+              );
+
+              await refreshSocialState();
+
+              if (
+                cancelled
+              ) {
+                return;
+              }
+
+              toast.success(
+                "LinkedIn connected successfully"
+              );
+
+              setConnectedPlatformModal(
+                "linkedin"
+              );
+
+              setShowConnectedModal(
+                true
+              );
+
+              return;
+            }
+
+            // =================================================
+            // LINKEDIN FAILED
+            // =================================================
+
+            if (
+              oauth ===
+              "linkedin_failed"
+            ) {
+              clearOAuthStorage(
+                "linkedin"
+              );
+
+              if (
+                cancelled
+              ) {
+                return;
+              }
+
+              const reason =
+                decodeOAuthReason(
+                  searchParams.get(
+                    "reason"
+                  )
+                );
+
+              toast.error(
+                reason ||
+                  "LinkedIn connection failed"
+              );
+
+              return;
+            }
+          } catch (
+            error:
+              unknown
           ) {
-            clearOAuthStorage(
-              "meta"
+            console.error(
+              "[TOTS SOCIAL] OAuth result handling failed:",
+              error
             );
+
+            if (
+              !cancelled
+            ) {
+              toast.error(
+                error instanceof
+                  Error
+                  ? error.message
+                  : "Social account connection could not be verified"
+              );
+            }
+          } finally {
+            if (
+              !cancelled
+            ) {
+              /*
+               * Allow the social hook a final moment to settle
+               * before removing the callback parameters.
+               */
+
+              window.setTimeout(
+                () => {
+                  cleanOAuthUrl();
+                },
+                250
+              );
+            }
+          }
+        };
+
+      void handleOAuthResult();
+
+      return () => {
+        cancelled =
+          true;
+      };
+    },
+    [
+      searchParams,
+      refreshSocialState,
+      socialAccounts,
+    ]
+  );
+
+  // ==========================================================
+  // INITIAL SOCIAL CONNECTION LOAD
+  // ==========================================================
+
+  useEffect(
+    () => {
+      let cancelled =
+        false;
+
+      const refresh =
+        async () => {
+          try {
+            /*
+             * Don't run the generic initial refresh while the
+             * OAuth-return handler is already doing it.
+             */
+
+            const oauth =
+              searchParams.get(
+                "oauth"
+              );
+
+            const connected =
+              searchParams.get(
+                "connected"
+              );
+
+            if (
+              oauth ||
+              connected
+            ) {
+              return;
+            }
 
             await refreshConnections();
 
+            if (
+              cancelled
+            ) {
+              return;
+            }
+
             await verifyConnections();
-
-            await verifyPendingOAuth();
-
-            if (cancelled) {
-              return;
-            }
-
-            toast.success(
-              "Meta connected successfully"
-            );
-
-            setConnectedPlatformModal(
-              "meta"
-            );
-
-            setShowConnectedModal(
-              true
-            );
-
-            return;
-          }
-
-          // ==================================================
-          // META FAILED
-          // ==================================================
-
-          if (
-            oauth ===
-            "meta_failed"
+          } catch (
+            error
           ) {
-            clearOAuthStorage(
-              "meta"
+            console.warn(
+              "[TOTS SOCIAL] Initial connection refresh failed:",
+              error
             );
-
-            if (cancelled) {
-              return;
-            }
-
-            const reason =
-              params.get(
-                "reason"
-              );
-
-            let message =
-              "Meta connection failed";
-
-            if (reason) {
-              try {
-                message =
-                  decodeURIComponent(
-                    reason
-                  );
-              } catch {
-                message =
-                  reason;
-              }
-            }
-
-            toast.error(
-              message
-            );
-
-            return;
           }
+        };
 
-          // ==================================================
-          // LINKEDIN SUCCESS
-          // ==================================================
+      void refresh();
 
-          if (
-            oauth ===
-            "linkedin_success"
-          ) {
-            clearOAuthStorage(
-              "linkedin"
-            );
+      return () => {
+        cancelled =
+          true;
+      };
+    },
+    [
+      refreshConnections,
+      verifyConnections,
+      searchParams,
+    ]
+  );
 
+  // ==========================================================
+  // RECHECK CONNECTION WHEN WINDOW REGAINS FOCUS
+  //
+  // This helps if OAuth opened in another browser tab/window.
+  // ==========================================================
+
+  useEffect(
+    () => {
+      const handleFocus =
+        async () => {
+          try {
             await refreshConnections();
-
-            await verifyConnections();
-
-            await verifyPendingOAuth();
-
-            if (cancelled) {
-              return;
-            }
-
-            toast.success(
-              "LinkedIn connected successfully"
-            );
-
-            setConnectedPlatformModal(
-              "linkedin"
-            );
-
-            setShowConnectedModal(
-              true
-            );
-
-            return;
-          }
-
-          // ==================================================
-          // LINKEDIN FAILED
-          // ==================================================
-
-          if (
-            oauth ===
-            "linkedin_failed"
+          } catch (
+            error
           ) {
-            clearOAuthStorage(
-              "linkedin"
-            );
-
-            if (cancelled) {
-              return;
-            }
-
-            const reason =
-              params.get(
-                "reason"
-              );
-
-            let message =
-              "LinkedIn connection failed";
-
-            if (reason) {
-              try {
-                message =
-                  decodeURIComponent(
-                    reason
-                  );
-              } catch {
-                message =
-                  reason;
-              }
-            }
-
-            toast.error(
-              message
+            console.warn(
+              "[TOTS SOCIAL] Focus refresh failed:",
+              error
             );
           }
-        } catch (
-          error
-        ) {
-          console.error(
-            "OAuth result handling failed:",
-            error
-          );
+        };
 
-          if (!cancelled) {
-            toast.error(
-              error instanceof
-                Error
-                ? error.message
-                : "Social account connection could not be verified"
-            );
-          }
-        } finally {
-          /*
-           * Remove OAuth result from URL so
-           * refreshing Settings does not repeat
-           * the success/error notification.
-           */
-          if (!cancelled) {
-            cleanOAuthUrl();
-          }
-        }
+      window.addEventListener(
+        "focus",
+        handleFocus
+      );
+
+      return () => {
+        window.removeEventListener(
+          "focus",
+          handleFocus
+        );
       };
+    },
+    [
+      refreshConnections,
+    ]
+  );
 
-    void handleOAuthResult();
-
-    return () => {
-      cancelled =
-        true;
-    };
-  }, [
-    refreshConnections,
-    verifyConnections,
-    verifyPendingOAuth,
-  ]);
-
-  // ==================================================
-  // REFRESH CONNECTIONS AFTER PAGE LOAD
-  // ==================================================
-
-  useEffect(() => {
-    let cancelled =
-      false;
-
-    const refresh =
-      async () => {
-        try {
-          await refreshConnections();
-
-          if (cancelled) {
-            return;
-          }
-
-          await verifyConnections();
-        } catch (
-          error
-        ) {
-          console.warn(
-            "Initial social connection refresh failed:",
-            error
-          );
-        }
-      };
-
-    void refresh();
-
-    return () => {
-      cancelled =
-        true;
-    };
-  }, [
-    refreshConnections,
-    verifyConnections,
-  ]);
-
-  // ==================================================
+  // ==========================================================
   // LOADING
-  // ==================================================
+  // ==========================================================
 
-  if (loading) {
+  if (
+    loading
+  ) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#faf9f6]">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2
-            className="animate-spin text-stone-400"
-            size={28}
-          />
-
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
-            Initialising Workspace
-          </p>
-        </div>
-      </div>
+      <SettingsLoadingScreen
+        text="Initialising Workspace"
+      />
     );
   }
 
-  // ==================================================
+  // ==========================================================
   // RENDER
-  // ==================================================
+  // ==========================================================
 
   return (
     <div className="min-h-screen w-full min-w-0 overflow-x-hidden bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] p-4 text-stone-900 sm:p-6 lg:p-8 xl:p-10">
 
-      {/* ==================================================
+      {/* ======================================================
           HEADER
-      ================================================== */}
+      ====================================================== */}
 
       <SettingsHeader
         isSaving={
@@ -619,25 +934,36 @@ function SettingsInner() {
         }
       />
 
-      {/* ==================================================
+      {/* ======================================================
           CONTENT
-      ================================================== */}
+      ====================================================== */}
 
       <main className="min-h-[500px]">
-        <AnimatePresence mode="wait">
+        <AnimatePresence
+          mode="wait"
+        >
           <motion.div
             key="account"
             initial={{
-              opacity: 0,
-              y: 20,
+              opacity:
+                0,
+
+              y:
+                20,
             }}
             animate={{
-              opacity: 1,
-              y: 0,
+              opacity:
+                1,
+
+              y:
+                0,
             }}
             exit={{
-              opacity: 0,
-              y: -20,
+              opacity:
+                0,
+
+              y:
+                -20,
             }}
             className="space-y-12"
           >
@@ -679,6 +1005,7 @@ function SettingsInner() {
               ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
+
                 <SocialSettings
                   socialAccounts={
                     socialAccounts
@@ -687,6 +1014,7 @@ function SettingsInner() {
                     connectionHealth
                   }
                 />
+
               </div>
 
               {/* ==================================================
@@ -701,17 +1029,17 @@ function SettingsInner() {
         </AnimatePresence>
       </main>
 
-      {/* ==================================================
+      {/* ======================================================
           LEGAL
-      ================================================== */}
+      ====================================================== */}
 
       <section className="mt-20 border-t border-stone-200 pt-12">
         <LegalHub />
       </section>
 
-      {/* ==================================================
+      {/* ======================================================
           CONNECTED SOCIAL ACCOUNT MODAL
-      ================================================== */}
+      ====================================================== */}
 
       <ConnectedAccountModal
         open={
@@ -730,33 +1058,57 @@ function SettingsInner() {
           );
         }}
       />
+
     </div>
   );
 }
 
-// ==================================================
+// ============================================================
 // PAGE
-// ==================================================
+// ============================================================
 
 export default function Settings() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#faf9f6]">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2
-              className="animate-spin text-stone-400"
-              size={28}
-            />
-
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
-              Loading Settings
-            </p>
-          </div>
-        </div>
+        <SettingsLoadingScreen
+          text="Loading Settings"
+        />
       }
     >
       <SettingsInner />
     </Suspense>
+  );
+}
+
+// ============================================================
+// LOADING SCREEN
+// ============================================================
+
+function SettingsLoadingScreen({
+  text,
+}: {
+  text:
+    string;
+}) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#faf9f6]">
+      <div className="flex flex-col items-center gap-4">
+
+        <Loader2
+          className="animate-spin text-stone-400"
+          size={
+            28
+          }
+        />
+
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">
+          {
+            text
+          }
+        </p>
+
+      </div>
+    </div>
   );
 }

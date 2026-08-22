@@ -1,120 +1,1129 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { toast } from "react-hot-toast";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-type SocialPlatform = "meta" | "instagram" | "tiktok" | "linkedin";
+import {
+  supabase,
+} from "@/lib/supabase";
 
-type SocialConnection = {
+import {
+  toast,
+} from "react-hot-toast";
+
+// ============================================================
+// TYPES
+// ============================================================
+
+type SocialPlatform =
+  | "meta"
+  | "instagram"
+  | "tiktok"
+  | "linkedin";
+
+type StoredSocialPlatform =
+  | "meta"
+  | "tiktok"
+  | "linkedin";
+
+export type SocialConnection = {
   id: string;
+
   user_id: string;
-  platform: SocialPlatform;
-  access_token: string | null;
-  refresh_token?: string | null;
-  expires_at?: string | null;
+
+  organisation_id?:
+    string | null;
+
+  platform: string;
+
+  access_token:
+    string | null;
+
+  refresh_token?:
+    string | null;
+
+  expires_at?:
+    string | null;
+
+  platform_user_id?:
+    string | null;
+
+  page_id?:
+    string | null;
+
+  page_name?:
+    string | null;
+
+  page_access_token?:
+    string | null;
+
+  instagram_business_account_id?:
+    string | null;
+
+  display_name?:
+    string | null;
+
+  avatar_url?:
+    string | null;
+
+  created_at?:
+    string | null;
+
+  updated_at?:
+    string | null;
 };
 
-const getOAuthStorageKey = (platform: string) =>
-  platform === "meta" ? "meta_oauth_state" : `${platform}_oauth_state`;
+// ============================================================
+// HELPERS
+// ============================================================
 
-export const useSocialConnections = (userId?: string) => {
-  const [connections, setConnections] = useState<SocialConnection[]>([]);
-  const [loading, setLoading] = useState(true);
+function normalisePlatform(
+  platform:
+    string
+): StoredSocialPlatform | string {
+  const value =
+    String(
+      platform ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
 
-  const fetchConnections = useCallback(async () => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
+  if (
+    value ===
+      "facebook" ||
+    value ===
+      "instagram"
+  ) {
+    return "meta";
+  }
 
-    const { data, error } = await supabase
-      .from("social_accounts")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+  return value;
+}
 
-    if (error) {
-      console.error("Fetch social connections error:", error);
-      toast.error("Failed to load social connections");
-      setLoading(false);
-      return;
-    }
+// ============================================================
 
-    setConnections(data || []);
-    setLoading(false);
-  }, [userId]);
+function getStoredPlatform(
+  platform:
+    SocialPlatform
+): StoredSocialPlatform {
+  if (
+    platform ===
+      "instagram"
+  ) {
+    return "meta";
+  }
 
-  const connect = useCallback(
-    async (platform: SocialPlatform) => {
-      if (!userId) {
-        toast.error("User not loaded yet");
-        return;
-      }
+  return platform;
+}
 
-      const state = encodeURIComponent(
-        JSON.stringify({
-          userId,
-          platform,
-        })
+// ============================================================
+
+function getOAuthStorageKey(
+  platform:
+    SocialPlatform
+) {
+  const storedPlatform =
+    getStoredPlatform(
+      platform
+    );
+
+  return `oauth_pending_${storedPlatform}`;
+}
+
+// ============================================================
+
+function clearOAuthStorage(
+  platform:
+    SocialPlatform
+) {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  const storedPlatform =
+    getStoredPlatform(
+      platform
+    );
+
+  try {
+    sessionStorage.removeItem(
+      getOAuthStorageKey(
+        platform
+      )
+    );
+
+    sessionStorage.removeItem(
+      `oauth_state_${storedPlatform}`
+    );
+
+    sessionStorage.removeItem(
+      "oauth_started_at"
+    );
+  } catch {
+    // Best effort only.
+  }
+}
+
+// ============================================================
+// HOOK
+// ============================================================
+
+export const useSocialConnections =
+  (
+    userId?:
+      string
+  ) => {
+    // ========================================================
+    // STATE
+    // ========================================================
+
+    const [
+      connections,
+      setConnections,
+    ] =
+      useState<
+        SocialConnection[]
+      >(
+        []
       );
 
-      sessionStorage.setItem(getOAuthStorageKey(platform), state);
+    const [
+      loading,
+      setLoading,
+    ] =
+      useState(
+        true
+      );
 
-      const routes: Record<SocialPlatform, string> = {
-        meta: `/api/oauth/meta?state=${state}`,
-        instagram: `/api/oauth/meta?state=${state}`,
-        linkedin: `/api/oauth/linkedin?state=${state}`,
-        tiktok: `/api/oauth/tiktok?state=${state}`,
-      };
+    const [
+      activeOperation,
+      setActiveOperation,
+    ] =
+      useState<
+        string | null
+      >(
+        null
+      );
 
-      window.location.href = routes[platform];
-    },
-    [userId]
-  );
+    const mountedRef =
+      useRef(
+        true
+      );
 
-  const disconnect = useCallback(
-    async (platform: SocialPlatform) => {
-      if (!userId) return;
+    const channelRef =
+      useRef<any>(
+        null
+      );
 
-      const { error } = await supabase
-        .from("social_accounts")
-        .delete()
-        .eq("user_id", userId)
-        .eq("platform", platform);
+    const callbackHandledRef =
+      useRef(
+        false
+      );
 
-      if (error) {
-        toast.error("Failed to disconnect");
-        return;
-      }
+    // ========================================================
+    // FETCH CONNECTIONS
+    // ========================================================
 
-      await fetchConnections();
-      toast.success("Disconnected successfully");
-    },
-    [userId, fetchConnections]
-  );
+    const fetchConnections =
+      useCallback(
+        async () => {
+          if (
+            !userId
+          ) {
+            if (
+              mountedRef.current
+            ) {
+              setConnections(
+                []
+              );
 
-  const isConnected = useCallback(
-    (platform: SocialPlatform) =>
-      connections.some(
-        (connection) =>
-          (connection.platform === platform ||
-            (platform === "instagram" && connection.platform === "meta")) &&
-          Boolean(connection.access_token)
-      ),
-    [connections]
-  );
+              setLoading(
+                false
+              );
+            }
 
-  useEffect(() => {
-    fetchConnections();
-  }, [fetchConnections]);
+            return;
+          }
 
-  return {
-    connections,
-    loading,
-    fetchConnections,
-    connect,
-    disconnect,
-    isConnected,
+          try {
+            if (
+              mountedRef.current
+            ) {
+              setLoading(
+                true
+              );
+            }
+
+            const {
+              data,
+              error,
+            } =
+              await supabase
+                .from(
+                  "social_accounts"
+                )
+                .select(
+                  `
+                    id,
+                    user_id,
+                    organisation_id,
+                    platform,
+                    platform_user_id,
+                    access_token,
+                    refresh_token,
+                    expires_at,
+                    page_id,
+                    page_name,
+                    page_access_token,
+                    instagram_business_account_id,
+                    display_name,
+                    avatar_url,
+                    created_at,
+                    updated_at
+                  `
+                )
+                .eq(
+                  "user_id",
+                  userId
+                )
+                .order(
+                  "updated_at",
+                  {
+                    ascending:
+                      false,
+                  }
+                );
+
+            if (
+              error
+            ) {
+              console.error(
+                "[TOTS SOCIAL CONNECTIONS] Fetch failed:",
+                error
+              );
+
+              if (
+                mountedRef.current
+              ) {
+                toast.error(
+                  "Failed to load social connections"
+                );
+              }
+
+              return;
+            }
+
+            const cleaned =
+              (
+                data ||
+                []
+              ).map(
+                (
+                  connection
+                ) => ({
+                  ...connection,
+
+                  platform:
+                    normalisePlatform(
+                      connection.platform
+                    ),
+                })
+              ) as SocialConnection[];
+
+            if (
+              mountedRef.current
+            ) {
+              setConnections(
+                cleaned
+              );
+            }
+
+            console.log(
+              "[TOTS SOCIAL CONNECTIONS] Loaded:",
+              cleaned
+            );
+          } catch (
+            error
+          ) {
+            console.error(
+              "[TOTS SOCIAL CONNECTIONS] Unexpected fetch error:",
+              error
+            );
+          } finally {
+            if (
+              mountedRef.current
+            ) {
+              setLoading(
+                false
+              );
+            }
+          }
+        },
+        [
+          userId,
+        ]
+      );
+
+    // ========================================================
+    // CONNECT
+    // ========================================================
+
+    const connect =
+      useCallback(
+        async (
+          requestedPlatform:
+            SocialPlatform
+        ) => {
+          if (
+            !userId
+          ) {
+            toast.error(
+              "User not loaded yet"
+            );
+
+            return;
+          }
+
+          if (
+            typeof window ===
+            "undefined"
+          ) {
+            return;
+          }
+
+          const platform =
+            getStoredPlatform(
+              requestedPlatform
+            );
+
+          const statePayload = {
+            userId,
+
+            platform,
+
+            createdAt:
+              Date.now(),
+          };
+
+          const rawState =
+            JSON.stringify(
+              statePayload
+            );
+
+          const encodedState =
+            encodeURIComponent(
+              rawState
+            );
+
+          try {
+            sessionStorage.setItem(
+              getOAuthStorageKey(
+                requestedPlatform
+              ),
+              "true"
+            );
+
+            sessionStorage.setItem(
+              `oauth_state_${platform}`,
+              rawState
+            );
+
+            sessionStorage.setItem(
+              "oauth_started_at",
+              String(
+                Date.now()
+              )
+            );
+          } catch (
+            storageError
+          ) {
+            console.warn(
+              "[TOTS SOCIAL CONNECTIONS] OAuth session storage unavailable:",
+              storageError
+            );
+          }
+
+          const routes: Record<
+            StoredSocialPlatform,
+            string
+          > = {
+            meta:
+              `/api/oauth/meta?state=${encodedState}`,
+
+            linkedin:
+              `/api/oauth/linkedin?state=${encodedState}`,
+
+            tiktok:
+              `/api/oauth/tiktok?state=${encodedState}`,
+          };
+
+          const route =
+            routes[
+              platform
+            ];
+
+          if (
+            !route
+          ) {
+            throw new Error(
+              `Unsupported social platform: ${platform}`
+            );
+          }
+
+          console.log(
+            "[TOTS SOCIAL CONNECTIONS] Starting OAuth:",
+            {
+              requestedPlatform,
+
+              storedPlatform:
+                platform,
+
+              userId,
+            }
+          );
+
+          setActiveOperation(
+            platform
+          );
+
+          window.location.assign(
+            route
+          );
+        },
+        [
+          userId,
+        ]
+      );
+
+    // ========================================================
+    // DISCONNECT
+    // ========================================================
+
+    const disconnect =
+      useCallback(
+        async (
+          requestedPlatform:
+            SocialPlatform
+        ) => {
+          if (
+            !userId
+          ) {
+            return;
+          }
+
+          const platform =
+            getStoredPlatform(
+              requestedPlatform
+            );
+
+          setActiveOperation(
+            platform
+          );
+
+          try {
+            const {
+              data,
+              error,
+            } =
+              await supabase
+                .from(
+                  "social_accounts"
+                )
+                .delete()
+                .eq(
+                  "user_id",
+                  userId
+                )
+                .eq(
+                  "platform",
+                  platform
+                )
+                .select(
+                  "id"
+                );
+
+            if (
+              error
+            ) {
+              console.error(
+                `[TOTS SOCIAL CONNECTIONS] ${platform} disconnect failed:`,
+                error
+              );
+
+              toast.error(
+                "Failed to disconnect"
+              );
+
+              return;
+            }
+
+            if (
+              !data ||
+              data.length ===
+                0
+            ) {
+              console.warn(
+                `[TOTS SOCIAL CONNECTIONS] No ${platform} row was deleted. Check social_accounts DELETE RLS.`
+              );
+
+              toast.error(
+                "The account could not be disconnected"
+              );
+
+              return;
+            }
+
+            clearOAuthStorage(
+              requestedPlatform
+            );
+
+            await fetchConnections();
+
+            toast.success(
+              `${
+                platform ===
+                "meta"
+                  ? "Meta"
+                  : platform ===
+                      "linkedin"
+                    ? "LinkedIn"
+                    : "TikTok"
+              } disconnected successfully`
+            );
+          } catch (
+            error
+          ) {
+            console.error(
+              "[TOTS SOCIAL CONNECTIONS] Disconnect error:",
+              error
+            );
+
+            toast.error(
+              "Unable to disconnect this account"
+            );
+          } finally {
+            if (
+              mountedRef.current
+            ) {
+              setActiveOperation(
+                null
+              );
+            }
+          }
+        },
+        [
+          userId,
+          fetchConnections,
+        ]
+      );
+
+    // ========================================================
+    // GET CONNECTION
+    // ========================================================
+
+    const getConnection =
+      useCallback(
+        (
+          requestedPlatform:
+            SocialPlatform
+        ) => {
+          const platform =
+            getStoredPlatform(
+              requestedPlatform
+            );
+
+          return (
+            connections.find(
+              (
+                connection
+              ) =>
+                normalisePlatform(
+                  connection.platform
+                ) ===
+                platform
+            ) ||
+            null
+          );
+        },
+        [
+          connections,
+        ]
+      );
+
+    // ========================================================
+    // IS TOKEN EXPIRED
+    // ========================================================
+
+    const isExpired =
+      useCallback(
+        (
+          connection:
+            SocialConnection |
+            null
+        ) => {
+          if (
+            !connection
+          ) {
+            return false;
+          }
+
+          if (
+            !connection.expires_at
+          ) {
+            return false;
+          }
+
+          const timestamp =
+            new Date(
+              connection.expires_at
+            ).getTime();
+
+          if (
+            Number.isNaN(
+              timestamp
+            )
+          ) {
+            return false;
+          }
+
+          return (
+            timestamp <=
+            Date.now()
+          );
+        },
+        []
+      );
+
+    // ========================================================
+    // IS CONNECTED
+    // ========================================================
+
+    const isConnected =
+      useCallback(
+        (
+          requestedPlatform:
+            SocialPlatform
+        ) => {
+          const connection =
+            getConnection(
+              requestedPlatform
+            );
+
+          if (
+            !connection
+          ) {
+            return false;
+          }
+
+          if (
+            !connection.access_token
+          ) {
+            return false;
+          }
+
+          if (
+            isExpired(
+              connection
+            )
+          ) {
+            return false;
+          }
+
+          // ==================================================
+          // INSTAGRAM
+          // ==================================================
+
+          if (
+            requestedPlatform ===
+            "instagram"
+          ) {
+            return Boolean(
+              connection
+                .instagram_business_account_id
+            );
+          }
+
+          // ==================================================
+          // META / FACEBOOK
+          // ==================================================
+
+          if (
+            requestedPlatform ===
+            "meta"
+          ) {
+            return Boolean(
+              connection
+                .access_token
+            );
+          }
+
+          return true;
+        },
+        [
+          getConnection,
+          isExpired,
+        ]
+      );
+
+    // ========================================================
+    // FACEBOOK PAGE
+    // ========================================================
+
+    const hasFacebookPage =
+      useCallback(
+        () => {
+          const connection =
+            getConnection(
+              "meta"
+            );
+
+          return Boolean(
+            connection
+              ?.page_id &&
+            connection
+              ?.page_access_token
+          );
+        },
+        [
+          getConnection,
+        ]
+      );
+
+    // ========================================================
+    // INSTAGRAM
+    // ========================================================
+
+    const hasInstagram =
+      useCallback(
+        () => {
+          const connection =
+            getConnection(
+              "meta"
+            );
+
+          return Boolean(
+            connection
+              ?.instagram_business_account_id
+          );
+        },
+        [
+          getConnection,
+        ]
+      );
+
+    // ========================================================
+    // INITIAL FETCH
+    // ========================================================
+
+    useEffect(
+      () => {
+        mountedRef.current =
+          true;
+
+        void fetchConnections();
+
+        return () => {
+          mountedRef.current =
+            false;
+        };
+      },
+      [
+        fetchConnections,
+      ]
+    );
+
+    // ========================================================
+    // HANDLE OAUTH RETURN
+    // ========================================================
+
+    useEffect(
+      () => {
+        if (
+          typeof window ===
+            "undefined" ||
+          !userId ||
+          callbackHandledRef.current
+        ) {
+          return;
+        }
+
+        const params =
+          new URLSearchParams(
+            window.location.search
+          );
+
+        const oauth =
+          params.get(
+            "oauth"
+          );
+
+        const reason =
+          params.get(
+            "reason"
+          );
+
+        if (
+          !oauth
+        ) {
+          return;
+        }
+
+        callbackHandledRef.current =
+          true;
+
+        const handleReturn =
+          async () => {
+            // ================================================
+            // META SUCCESS
+            // ================================================
+
+            if (
+              oauth ===
+              "meta_success"
+            ) {
+              clearOAuthStorage(
+                "meta"
+              );
+
+              await fetchConnections();
+
+              toast.success(
+                "Facebook connected successfully"
+              );
+            }
+
+            // ================================================
+            // META FAILURE
+            // ================================================
+
+            if (
+              oauth ===
+              "meta_failed"
+            ) {
+              clearOAuthStorage(
+                "meta"
+              );
+
+              toast.error(
+                reason ||
+                  "Meta connection failed"
+              );
+            }
+
+            // ================================================
+            // REMOVE CALLBACK PARAMS
+            // ================================================
+
+            const cleanUrl =
+              new URL(
+                window.location.href
+              );
+
+            cleanUrl.searchParams.delete(
+              "oauth"
+            );
+
+            cleanUrl.searchParams.delete(
+              "reason"
+            );
+
+            cleanUrl.searchParams.delete(
+              "platform"
+            );
+
+            window.history.replaceState(
+              {},
+              "",
+              cleanUrl.pathname +
+                cleanUrl.search +
+                cleanUrl.hash
+            );
+          };
+
+        void handleReturn();
+      },
+      [
+        userId,
+        fetchConnections,
+      ]
+    );
+
+    // ========================================================
+    // REFRESH WHEN TAB BECOMES ACTIVE
+    // ========================================================
+
+    useEffect(
+      () => {
+        if (
+          typeof window ===
+            "undefined" ||
+          !userId
+        ) {
+          return;
+        }
+
+        const handleFocus =
+          () => {
+            void fetchConnections();
+          };
+
+        const handleVisibility =
+          () => {
+            if (
+              document.visibilityState ===
+              "visible"
+            ) {
+              void fetchConnections();
+            }
+          };
+
+        window.addEventListener(
+          "focus",
+          handleFocus
+        );
+
+        document.addEventListener(
+          "visibilitychange",
+          handleVisibility
+        );
+
+        return () => {
+          window.removeEventListener(
+            "focus",
+            handleFocus
+          );
+
+          document.removeEventListener(
+            "visibilitychange",
+            handleVisibility
+          );
+        };
+      },
+      [
+        userId,
+        fetchConnections,
+      ]
+    );
+
+    // ========================================================
+    // REALTIME
+    // ========================================================
+
+    useEffect(
+      () => {
+        if (
+          !userId
+        ) {
+          return;
+        }
+
+        if (
+          channelRef.current
+        ) {
+          void supabase.removeChannel(
+            channelRef.current
+          );
+
+          channelRef.current =
+            null;
+        }
+
+        const channel =
+          supabase
+            .channel(
+              `social_connections_ui_${userId}`
+            )
+            .on(
+              "postgres_changes",
+              {
+                event:
+                  "*",
+
+                schema:
+                  "public",
+
+                table:
+                  "social_accounts",
+
+                filter:
+                  `user_id=eq.${userId}`,
+              },
+              (
+                payload
+              ) => {
+                console.log(
+                  "[TOTS SOCIAL CONNECTIONS] Realtime update:",
+                  payload
+                );
+
+                void fetchConnections();
+              }
+            )
+            .subscribe(
+              (
+                status
+              ) => {
+                console.log(
+                  "[TOTS SOCIAL CONNECTIONS] Realtime status:",
+                  status
+                );
+              }
+            );
+
+        channelRef.current =
+          channel;
+
+        return () => {
+          if (
+            channelRef.current ===
+            channel
+          ) {
+            void supabase.removeChannel(
+              channel
+            );
+
+            channelRef.current =
+              null;
+          }
+        };
+      },
+      [
+        userId,
+        fetchConnections,
+      ]
+    );
+
+    // ========================================================
+    // RETURN
+    // ========================================================
+
+    return {
+      connections,
+
+      loading,
+
+      activeOperation,
+
+      fetchConnections,
+
+      connect,
+
+      disconnect,
+
+      isConnected,
+
+      getConnection,
+
+      hasFacebookPage,
+
+      hasInstagram,
+    };
   };
-};

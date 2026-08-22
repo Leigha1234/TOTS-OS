@@ -9,19 +9,11 @@ export const runtime = "nodejs";
 // ENVIRONMENT HELPER
 // ============================================================
 
-function requireEnv(
-  name: string
-): string {
-  const value =
-    process.env[name];
+function requireEnv(name: string): string {
+  const value = process.env[name];
 
-  if (
-    !value ||
-    !value.trim()
-  ) {
-    throw new Error(
-      `${name} is missing`
-    );
+  if (!value || !value.trim()) {
+    throw new Error(`${name} is missing`);
   }
 
   return value.trim();
@@ -31,49 +23,40 @@ function requireEnv(
 // ENVIRONMENT
 // ============================================================
 
-const supabaseUrl =
-  requireEnv(
-    "NEXT_PUBLIC_SUPABASE_URL"
-  );
+const supabaseUrl = requireEnv(
+  "NEXT_PUBLIC_SUPABASE_URL"
+);
 
-const supabaseServiceRoleKey =
-  requireEnv(
-    "SUPABASE_SERVICE_ROLE_KEY"
-  );
+const supabaseServiceRoleKey = requireEnv(
+  "SUPABASE_SERVICE_ROLE_KEY"
+);
 
-const stripeSecretKey =
-  requireEnv(
-    "STRIPE_SECRET_KEY"
-  );
+const stripeSecretKey = requireEnv(
+  "STRIPE_SECRET_KEY"
+);
 
-const stripeWebhookSecret =
-  requireEnv(
-    "STRIPE_STORE_WEBHOOK_SECRET"
-  );
+const stripeWebhookSecret = requireEnv(
+  "STRIPE_STORE_WEBHOOK_SECRET"
+);
 
 // ============================================================
 // CLIENTS
 // ============================================================
 
-const supabaseAdmin =
-  createClient(
-    supabaseUrl,
-    supabaseServiceRoleKey,
-    {
-      auth: {
-        autoRefreshToken:
-          false,
+const supabaseAdmin = createClient(
+  supabaseUrl,
+  supabaseServiceRoleKey,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
+);
 
-        persistSession:
-          false,
-      },
-    }
-  );
-
-const stripe =
-  new Stripe(
-    stripeSecretKey
-  );
+const stripe = new Stripe(
+  stripeSecretKey
+);
 
 // ============================================================
 // TYPES
@@ -81,104 +64,203 @@ const stripe =
 
 type StoreOrderRow = {
   id: string;
+  organisation_id: string;
 
-  organisation_id:
-    string;
+  customer_id?: string | null;
 
-  order_number:
-    string;
+  order_number: string;
 
-  customer_name:
-    string | null;
+  customer_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
 
-  customer_email:
-    string | null;
+  subtotal: number | string;
+  discount_amount: number | string;
+  shipping_amount: number | string;
+  total: number | string;
 
-  customer_phone:
-    string | null;
-
-  subtotal:
-    number | string;
-
-  discount_amount:
-    number | string;
-
-  shipping_amount:
-    number | string;
-
-  total:
-    number | string;
-
-  payment_status:
-    string;
-
-  fulfilment_status:
-    string;
+  payment_status: string;
+  fulfilment_status: string;
 
   shipping_address:
-    Record<
-      string,
-      unknown
-    > | null;
+    | Record<string, unknown>
+    | null;
 
-  created_at:
-    string;
-
-  updated_at:
-    string;
+  created_at: string;
+  updated_at: string;
 };
 
 type StoreOrderItemRow = {
   id: string;
 
-  order_id:
-    string;
+  order_id: string;
 
-  product_id:
-    string | null;
+  product_id: string | null;
 
-  product_name:
-    string;
+  product_name: string;
 
-  sku:
-    string | null;
+  sku: string | null;
 
-  quantity:
-    number;
+  quantity: number;
 
-  unit_price:
-    number | string;
+  unit_price: number | string;
+  total: number | string;
 
-  total:
-    number | string;
-
-  created_at:
-    string;
+  created_at: string;
 };
 
 type StoreProductRow = {
   id: string;
+  organisation_id: string;
+
+  name: string;
+
+  stock: number;
+  inventory_quantity: number;
+
+  track_inventory: boolean;
+
+  is_active: boolean;
+  status: string;
+};
+
+type CustomerRow = {
+  id: string;
 
   organisation_id:
-    string;
+    | string
+    | null;
 
   name:
-    string;
+    | string
+    | null;
 
-  stock:
-    number;
+  email:
+    | string
+    | null;
 
-  inventory_quantity:
-    number;
+  phone:
+    | string
+    | null;
 
-  track_inventory:
-    boolean;
+  company:
+    | string
+    | null;
 
-  is_active:
-    boolean;
+  notes:
+    | string
+    | null;
+
+  stage:
+    | string
+    | null;
+
+  address:
+    | string
+    | null;
+
+  client_type:
+    | string
+    | null;
 
   status:
-    string;
+    | string
+    | null;
+
+  on_mailing_list?:
+    | boolean
+    | null;
+
+  mailing_list_category?:
+    | string
+    | null;
+
+  created_at?:
+    | string
+    | null;
+
+  updated_at?:
+    | string
+    | null;
+};
+
+type CrmContactRow = {
+  id: string;
+
+  organisation_id?:
+    | string
+    | null;
+
+  customer_id?:
+    | string
+    | null;
+
+  name?:
+    | string
+    | null;
+
+  email?:
+    | string
+    | null;
+
+  phone?:
+    | string
+    | null;
+
+  address?:
+    | string
+    | null;
+
+  website?:
+    | string
+    | null;
+
+  company_name?:
+    | string
+    | null;
+
+  company_details?:
+    | string
+    | null;
+
+  role?:
+    | string
+    | null;
+
+  [key: string]:
+    unknown;
+};
+
+type ShippingDetailsLike = {
+  name?:
+    | string
+    | null;
+
+  address?: {
+    line1?:
+      | string
+      | null;
+
+    line2?:
+      | string
+      | null;
+
+    city?:
+      | string
+      | null;
+
+    state?:
+      | string
+      | null;
+
+    postal_code?:
+      | string
+      | null;
+
+    country?:
+      | string
+      | null;
+  } | null;
 };
 
 // ============================================================
@@ -191,10 +273,23 @@ function asString(
     | null
     | undefined
 ) {
-  return typeof value ===
-      "string" &&
+  return typeof value === "string" &&
     value.trim()
     ? value.trim()
+    : null;
+}
+
+function normaliseEmail(
+  value:
+    | string
+    | null
+    | undefined
+) {
+  const email =
+    asString(value);
+
+  return email
+    ? email.toLowerCase()
     : null;
 }
 
@@ -203,21 +298,13 @@ function safeInteger(
   fallback = 0
 ) {
   const number =
-    Number(
-      value
-    );
+    Number(value);
 
-  if (
-    !Number.isFinite(
-      number
-    )
-  ) {
+  if (!Number.isFinite(number)) {
     return fallback;
   }
 
-  return Math.floor(
-    number
-  );
+  return Math.floor(number);
 }
 
 function safeNumber(
@@ -225,19 +312,46 @@ function safeNumber(
   fallback = 0
 ) {
   const number =
-    Number(
-      value
-    );
+    Number(value);
 
-  if (
-    !Number.isFinite(
-      number
-    )
-  ) {
+  if (!Number.isFinite(number)) {
     return fallback;
   }
 
   return number;
+}
+
+// ============================================================
+// SHIPPING DETAILS
+// ============================================================
+
+function getRawShippingDetails(
+  session:
+    Stripe.Checkout.Session
+): ShippingDetailsLike | null {
+  const collected =
+    session
+      .collected_information
+      ?.shipping_details as
+      | ShippingDetailsLike
+      | null
+      | undefined;
+
+  if (collected) {
+    return collected;
+  }
+
+  const legacySession =
+    session as Stripe.Checkout.Session & {
+      shipping_details?:
+        | ShippingDetailsLike
+        | null;
+    };
+
+  return (
+    legacySession.shipping_details ??
+    null
+  );
 }
 
 // ============================================================
@@ -248,38 +362,14 @@ function getShippingAddress(
   session:
     Stripe.Checkout.Session
 ):
-  | Record<
-      string,
-      unknown
-    >
+  | Record<string, unknown>
   | null {
-  const collectedShipping =
-    session
-      .collected_information
-      ?.shipping_details ??
-    null;
-
-  /*
-   * Stripe's Checkout Session typings have changed across
-   * API versions. Use collected_information first and then
-   * safely check the older shipping_details property.
-   */
-  const legacyShipping =
-    (
-      session as Stripe.Checkout.Session & {
-        shipping_details?:
-          Stripe.Checkout.Session.ShippingDetails | null;
-      }
-    ).shipping_details ??
-    null;
-
   const shipping =
-    collectedShipping ??
-    legacyShipping;
+    getRawShippingDetails(
+      session
+    );
 
-  if (
-    !shipping
-  ) {
+  if (!shipping) {
     return null;
   }
 
@@ -292,23 +382,19 @@ function getShippingAddress(
       shipping.address
         ? {
             line1:
-              shipping.address
-                .line1 ??
+              shipping.address.line1 ??
               null,
 
             line2:
-              shipping.address
-                .line2 ??
+              shipping.address.line2 ??
               null,
 
             city:
-              shipping.address
-                .city ??
+              shipping.address.city ??
               null,
 
             state:
-              shipping.address
-                .state ??
+              shipping.address.state ??
               null,
 
             postal_code:
@@ -317,12 +403,50 @@ function getShippingAddress(
               null,
 
             country:
-              shipping.address
-                .country ??
+              shipping.address.country ??
               null,
           }
         : null,
   };
+}
+
+// ============================================================
+// SHIPPING ADDRESS TEXT
+//
+// Used by CRM + customer records.
+// ============================================================
+
+function getShippingAddressText(
+  session:
+    Stripe.Checkout.Session
+) {
+  const shipping =
+    getRawShippingDetails(
+      session
+    );
+
+  if (!shipping?.address) {
+    return null;
+  }
+
+  return [
+    shipping.address.line1,
+    shipping.address.line2,
+    shipping.address.city,
+    shipping.address.state,
+    shipping.address.postal_code,
+    shipping.address.country,
+  ]
+    .map((value) =>
+      asString(value)
+    )
+    .filter(
+      (
+        value
+      ): value is string =>
+        Boolean(value)
+    )
+    .join(", ") || null;
 }
 
 // ============================================================
@@ -333,13 +457,10 @@ function getCustomerName(
   session:
     Stripe.Checkout.Session
 ) {
-  const legacyShipping =
-    (
-      session as Stripe.Checkout.Session & {
-        shipping_details?:
-          Stripe.Checkout.Session.ShippingDetails | null;
-      }
-    ).shipping_details;
+  const shipping =
+    getRawShippingDetails(
+      session
+    );
 
   return (
     asString(
@@ -348,14 +469,7 @@ function getCustomerName(
         ?.name
     ) ||
     asString(
-      session
-        .collected_information
-        ?.shipping_details
-        ?.name
-    ) ||
-    asString(
-      legacyShipping
-        ?.name
+      shipping?.name
     )
   );
 }
@@ -364,16 +478,12 @@ function getCustomerEmail(
   session:
     Stripe.Checkout.Session
 ) {
-  return (
-    asString(
-      session
-        .customer_details
-        ?.email
-    ) ||
-    asString(
+  return normaliseEmail(
+    session
+      .customer_details
+      ?.email ||
       session
         .customer_email
-    )
   );
 }
 
@@ -400,9 +510,7 @@ async function getOrder(
     error,
   } =
     await supabaseAdmin
-      .from(
-        "store_orders"
-      )
+      .from("store_orders")
       .select("*")
       .eq(
         "id",
@@ -410,9 +518,7 @@ async function getOrder(
       )
       .maybeSingle();
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
@@ -442,16 +548,895 @@ async function getOrderItems(
         orderId
       );
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
   return (
-    data ||
-    []
+    data || []
   ) as StoreOrderItemRow[];
+}
+
+// ============================================================
+// FIND CUSTOMER BY ID
+// ============================================================
+
+async function findCustomerById({
+  organisationId,
+  customerId,
+}: {
+  organisationId: string;
+  customerId: string;
+}) {
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from("customers")
+      .select("*")
+      .eq(
+        "id",
+        customerId
+      )
+      .eq(
+        "organisation_id",
+        organisationId
+      )
+      .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as
+    | CustomerRow
+    | null;
+}
+
+// ============================================================
+// FIND CUSTOMER BY EMAIL
+// ============================================================
+
+async function findCustomerByEmail({
+  organisationId,
+  email,
+}: {
+  organisationId: string;
+  email: string;
+}) {
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from("customers")
+      .select("*")
+      .eq(
+        "organisation_id",
+        organisationId
+      )
+      .ilike(
+        "email",
+        email
+      )
+      .limit(1)
+      .maybeSingle();
+
+  if (error) {
+    console.error(
+      "[TOTS CRM] Customer lookup failed:",
+      error
+    );
+
+    throw error;
+  }
+
+  return data as
+    | CustomerRow
+    | null;
+}
+
+// ============================================================
+// CREATE CUSTOMER
+// ============================================================
+
+async function createCustomer({
+  organisationId,
+  name,
+  email,
+  phone,
+  address,
+}: {
+  organisationId: string;
+
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+}) {
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from("customers")
+      .insert({
+        organisation_id:
+          organisationId,
+
+        name,
+
+        email,
+
+        phone,
+
+        address,
+
+        company:
+          null,
+
+        notes:
+          "Created automatically from a TOTS-OS storefront order.",
+
+        stage:
+          "client",
+
+        status:
+          "live",
+
+        client_type:
+          "store_customer",
+
+        on_mailing_list:
+          true,
+
+        mailing_list_category:
+          "Customers",
+
+        updated_at:
+          new Date().toISOString(),
+      })
+      .select("*")
+      .single();
+
+  if (error) {
+    console.error(
+      "[TOTS CRM] Customer creation failed:",
+      error
+    );
+
+    throw error;
+  }
+
+  console.log(
+    `[TOTS CRM] Created customer ${data.id} for ${email || name || "store customer"}.`
+  );
+
+  return data as CustomerRow;
+}
+
+// ============================================================
+// UPDATE CUSTOMER DETAILS
+// ============================================================
+
+async function updateCustomerDetails({
+  customer,
+  organisationId,
+  name,
+  email,
+  phone,
+  address,
+}: {
+  customer: CustomerRow;
+
+  organisationId: string;
+
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+}) {
+  const payload: Record<
+    string,
+    unknown
+  > = {
+    stage:
+      "client",
+
+    status:
+      "live",
+
+    client_type:
+      customer.client_type ||
+      "store_customer",
+
+    updated_at:
+      new Date().toISOString(),
+  };
+
+  if (
+    !asString(customer.name) &&
+    name
+  ) {
+    payload.name =
+      name;
+  }
+
+  if (
+    !normaliseEmail(
+      customer.email
+    ) &&
+    email
+  ) {
+    payload.email =
+      email;
+  }
+
+  if (
+    !asString(customer.phone) &&
+    phone
+  ) {
+    payload.phone =
+      phone;
+  }
+
+  if (
+    !asString(customer.address) &&
+    address
+  ) {
+    payload.address =
+      address;
+  }
+
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from("customers")
+      .update(payload)
+      .eq(
+        "id",
+        customer.id
+      )
+      .eq(
+        "organisation_id",
+        organisationId
+      )
+      .select("*")
+      .single();
+
+  if (error) {
+    console.error(
+      "[TOTS CRM] Customer update failed:",
+      error
+    );
+
+    throw error;
+  }
+
+  return data as CustomerRow;
+}
+
+// ============================================================
+// FIND OR CREATE CUSTOMER
+// ============================================================
+
+async function findOrCreateCustomer({
+  order,
+  name,
+  email,
+  phone,
+  address,
+}: {
+  order: StoreOrderRow;
+
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+}) {
+  // ==========================================================
+  // 1. ORDER ALREADY HAS CUSTOMER_ID
+  // ==========================================================
+
+  const existingOrderCustomerId =
+    asString(
+      order.customer_id
+    );
+
+  if (
+    existingOrderCustomerId
+  ) {
+    const customer =
+      await findCustomerById({
+        organisationId:
+          order.organisation_id,
+
+        customerId:
+          existingOrderCustomerId,
+      });
+
+    if (customer) {
+      return updateCustomerDetails({
+        customer,
+
+        organisationId:
+          order.organisation_id,
+
+        name,
+        email,
+        phone,
+        address,
+      });
+    }
+  }
+
+  // ==========================================================
+  // 2. FIND BY EMAIL
+  // ==========================================================
+
+  if (email) {
+    const customer =
+      await findCustomerByEmail({
+        organisationId:
+          order.organisation_id,
+
+        email,
+      });
+
+    if (customer) {
+      console.log(
+        `[TOTS CRM] Existing customer matched by email: ${email}`
+      );
+
+      return updateCustomerDetails({
+        customer,
+
+        organisationId:
+          order.organisation_id,
+
+        name,
+        email,
+        phone,
+        address,
+      });
+    }
+  }
+
+  // ==========================================================
+  // 3. CREATE NEW CUSTOMER
+  // ==========================================================
+
+  return createCustomer({
+    organisationId:
+      order.organisation_id,
+
+    name,
+    email,
+    phone,
+    address,
+  });
+}
+
+// ============================================================
+// FIND CONTACT BY CUSTOMER ID
+// ============================================================
+
+async function findContactByCustomerId({
+  organisationId,
+  customerId,
+}: {
+  organisationId: string;
+  customerId: string;
+}) {
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from("contacts")
+      .select("*")
+      .eq(
+        "organisation_id",
+        organisationId
+      )
+      .eq(
+        "customer_id",
+        customerId
+      )
+      .limit(1)
+      .maybeSingle();
+
+  if (error) {
+    console.error(
+      "[TOTS CRM] Contact customer_id lookup failed:",
+      error
+    );
+
+    throw error;
+  }
+
+  return data as
+    | CrmContactRow
+    | null;
+}
+
+// ============================================================
+// FIND CONTACT BY EMAIL
+// ============================================================
+
+async function findContactByEmail({
+  organisationId,
+  email,
+}: {
+  organisationId: string;
+  email: string;
+}) {
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from("contacts")
+      .select("*")
+      .eq(
+        "organisation_id",
+        organisationId
+      )
+      .ilike(
+        "email",
+        email
+      )
+      .limit(1)
+      .maybeSingle();
+
+  if (error) {
+    console.error(
+      "[TOTS CRM] Contact email lookup failed:",
+      error
+    );
+
+    throw error;
+  }
+
+  return data as
+    | CrmContactRow
+    | null;
+}
+
+// ============================================================
+// UPDATE CRM CONTACT
+// ============================================================
+
+async function updateCrmContact({
+  contact,
+  customerId,
+  organisationId,
+  name,
+  email,
+  phone,
+  address,
+}: {
+  contact: CrmContactRow;
+
+  customerId: string;
+  organisationId: string;
+
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+}) {
+  const payload: Record<
+    string,
+    unknown
+  > = {
+    customer_id:
+      customerId,
+
+    role:
+      "client",
+
+    updated_at:
+      new Date().toISOString(),
+  };
+
+  if (
+    !asString(
+      contact.name
+    ) &&
+    name
+  ) {
+    payload.name =
+      name;
+  }
+
+  if (
+    !normaliseEmail(
+      contact.email
+    ) &&
+    email
+  ) {
+    payload.email =
+      email;
+  }
+
+  if (
+    !asString(
+      contact.phone
+    ) &&
+    phone
+  ) {
+    payload.phone =
+      phone;
+  }
+
+  if (
+    !asString(
+      contact.address
+    ) &&
+    address
+  ) {
+    payload.address =
+      address;
+  }
+
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from("contacts")
+      .update(payload)
+      .eq(
+        "id",
+        contact.id
+      )
+      .eq(
+        "organisation_id",
+        organisationId
+      )
+      .select("*")
+      .single();
+
+  if (error) {
+    console.error(
+      "[TOTS CRM] Contact update failed:",
+      error
+    );
+
+    throw error;
+  }
+
+  return data as CrmContactRow;
+}
+
+// ============================================================
+// CREATE CRM CONTACT
+// ============================================================
+
+async function createCrmContact({
+  customerId,
+  organisationId,
+  name,
+  email,
+  phone,
+  address,
+}: {
+  customerId: string;
+  organisationId: string;
+
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+}) {
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from("contacts")
+      .insert({
+        organisation_id:
+          organisationId,
+
+        customer_id:
+          customerId,
+
+        name,
+
+        email,
+
+        phone,
+
+        address,
+
+        role:
+          "client",
+
+        company_name:
+          null,
+
+        company_details:
+          "Created automatically after a TOTS-OS storefront purchase.",
+
+        updated_at:
+          new Date().toISOString(),
+      })
+      .select("*")
+      .single();
+
+  if (error) {
+    console.error(
+      "[TOTS CRM] Contact creation failed:",
+      error
+    );
+
+    throw error;
+  }
+
+  console.log(
+    `[TOTS CRM] Created CRM contact ${data.id} linked to customer ${customerId}.`
+  );
+
+  return data as CrmContactRow;
+}
+
+// ============================================================
+// FIND / CREATE CRM CONTACT
+// ============================================================
+
+async function findOrCreateCrmContact({
+  customer,
+  order,
+  name,
+  email,
+  phone,
+  address,
+}: {
+  customer: CustomerRow;
+  order: StoreOrderRow;
+
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+}) {
+  // ==========================================================
+  // 1. CONTACT ALREADY LINKED TO CUSTOMER
+  // ==========================================================
+
+  const customerContact =
+    await findContactByCustomerId({
+      organisationId:
+        order.organisation_id,
+
+      customerId:
+        customer.id,
+    });
+
+  if (customerContact) {
+    return updateCrmContact({
+      contact:
+        customerContact,
+
+      customerId:
+        customer.id,
+
+      organisationId:
+        order.organisation_id,
+
+      name,
+      email,
+      phone,
+      address,
+    });
+  }
+
+  // ==========================================================
+  // 2. EXISTING CONTACT BY EMAIL
+  // ==========================================================
+
+  if (email) {
+    const emailContact =
+      await findContactByEmail({
+        organisationId:
+          order.organisation_id,
+
+        email,
+      });
+
+    if (emailContact) {
+      console.log(
+        `[TOTS CRM] Existing CRM contact matched by email: ${email}`
+      );
+
+      return updateCrmContact({
+        contact:
+          emailContact,
+
+        customerId:
+          customer.id,
+
+        organisationId:
+          order.organisation_id,
+
+        name,
+        email,
+        phone,
+        address,
+      });
+    }
+  }
+
+  // ==========================================================
+  // 3. CREATE CONTACT
+  // ==========================================================
+
+  return createCrmContact({
+    customerId:
+      customer.id,
+
+    organisationId:
+      order.organisation_id,
+
+    name,
+    email,
+    phone,
+    address,
+  });
+}
+
+// ============================================================
+// LINK ORDER TO CUSTOMER
+// ============================================================
+
+async function linkOrderToCustomer({
+  order,
+  customerId,
+}: {
+  order: StoreOrderRow;
+  customerId: string;
+}) {
+  const {
+    error,
+  } =
+    await supabaseAdmin
+      .from("store_orders")
+      .update({
+        customer_id:
+          customerId,
+
+        updated_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        "id",
+        order.id
+      )
+      .eq(
+        "organisation_id",
+        order.organisation_id
+      );
+
+  if (error) {
+    console.error(
+      `[TOTS CRM] Order/customer link failed for ${order.order_number}:`,
+      error
+    );
+
+    throw error;
+  }
+
+  console.log(
+    `[TOTS CRM] Order ${order.order_number} linked to customer ${customerId}.`
+  );
+}
+
+// ============================================================
+// SYNC ORDER TO CRM
+// ============================================================
+
+async function syncOrderToCrm({
+  order,
+  customerName,
+  customerEmail,
+  customerPhone,
+  customerAddress,
+}: {
+  order: StoreOrderRow;
+
+  customerName:
+    string | null;
+
+  customerEmail:
+    string | null;
+
+  customerPhone:
+    string | null;
+
+  customerAddress:
+    string | null;
+}) {
+  // Need at least some usable customer data.
+
+  if (
+    !customerEmail &&
+    !customerName
+  ) {
+    console.warn(
+      `[TOTS CRM] Order ${order.order_number} has no customer name or email. CRM sync skipped.`
+    );
+
+    return null;
+  }
+
+  // ==========================================================
+  // CUSTOMER
+  // ==========================================================
+
+  const customer =
+    await findOrCreateCustomer({
+      order,
+
+      name:
+        customerName,
+
+      email:
+        customerEmail,
+
+      phone:
+        customerPhone,
+
+      address:
+        customerAddress,
+    });
+
+  // ==========================================================
+  // LINK ORDER
+  // ==========================================================
+
+  await linkOrderToCustomer({
+    order,
+
+    customerId:
+      customer.id,
+  });
+
+  // ==========================================================
+  // CRM CONTACT
+  // ==========================================================
+
+  const contact =
+    await findOrCreateCrmContact({
+      customer,
+
+      order,
+
+      name:
+        customerName,
+
+      email:
+        customerEmail,
+
+      phone:
+        customerPhone,
+
+      address:
+        customerAddress,
+    });
+
+  console.log(
+    `[TOTS CRM] Store order ${order.order_number} synced. Customer: ${customer.id}. Contact: ${contact.id}.`
+  );
+
+  return {
+    customer,
+    contact,
+  };
 }
 
 // ============================================================
@@ -468,9 +1453,9 @@ async function reduceOrderStock(
     );
 
   for (
-    const item of items
+    const item of
+    items
   ) {
-    // Product may have been deleted after ordering.
     if (
       !item.product_id
     ) {
@@ -480,6 +1465,7 @@ async function reduceOrderStock(
     const {
       data:
         productData,
+
       error:
         productError,
     } =
@@ -533,7 +1519,8 @@ async function reduceOrderStock(
     const product =
       productData as StoreProductRow;
 
-    // Services / digital products / unlimited inventory.
+    // Services/digital products.
+
     if (
       product.track_inventory ===
       false
@@ -632,165 +1619,47 @@ async function reduceOrderStock(
     }
 
     console.log(
-      `Reduced ${product.name} inventory by ${quantityPurchased}. New inventory: ${newInventory}`
+      `[TOTS STORE] Reduced ${product.name} inventory by ${quantityPurchased}. New inventory: ${newInventory}.`
     );
   }
 }
 
 // ============================================================
-// COMPLETE ORDER
+// MARK ORDER PAID
 // ============================================================
 
-async function completeStoreOrder(
-  session:
-    Stripe.Checkout.Session
-) {
-  // ==========================================================
-  // ORDER ID
-  // ==========================================================
+async function markOrderPaid({
+  order,
+  customerName,
+  customerEmail,
+  customerPhone,
+  shippingAddress,
+  stripeTotal,
+}: {
+  order: StoreOrderRow;
 
-  const orderId =
-    asString(
-      session
-        .metadata
-        ?.order_id
-    );
+  customerName:
+    string | null;
 
-  if (
-    !orderId
-  ) {
-    console.warn(
-      "Stripe Checkout session has no TOTS order_id metadata:",
-      session.id
-    );
+  customerEmail:
+    string | null;
 
-    return;
-  }
+  customerPhone:
+    string | null;
 
-  // ==========================================================
-  // LOAD ORDER
-  // ==========================================================
+  shippingAddress:
+    | Record<string, unknown>
+    | null;
 
-  const order =
-    await getOrder(
-      orderId
-    );
-
-  if (
-    !order
-  ) {
-    console.error(
-      "TOTS store order not found:",
-      orderId
-    );
-
-    return;
-  }
-
-  // ==========================================================
-  // IDEMPOTENCY
-  //
-  // Stripe retries webhook events.
-  //
-  // Never reduce stock twice for the same paid order.
-  // ==========================================================
-
-  if (
-    order.payment_status ===
-    "paid"
-  ) {
-    console.log(
-      `Order ${order.order_number} is already paid. Duplicate webhook ignored.`
-    );
-
-    return;
-  }
-
-  // ==========================================================
-  // CHECK PAYMENT
-  // ==========================================================
-
-  if (
-    session.payment_status !==
-    "paid"
-  ) {
-    console.log(
-      `Checkout session ${session.id} completed but payment status is ${session.payment_status}.`
-    );
-
-    return;
-  }
-
-  // ==========================================================
-  // CUSTOMER DETAILS
-  // ==========================================================
-
-  const customerName =
-    getCustomerName(
-      session
-    ) ||
-    order.customer_name;
-
-  const customerEmail =
-    getCustomerEmail(
-      session
-    ) ||
-    order.customer_email;
-
-  const customerPhone =
-    getCustomerPhone(
-      session
-    ) ||
-    order.customer_phone;
-
-  const shippingAddress =
-    getShippingAddress(
-      session
-    ) ||
-    order.shipping_address;
-
-  // ==========================================================
-  // STRIPE TOTAL
-  //
-  // Stripe amount_total is in pence.
-  // ==========================================================
-
-  const stripeTotal =
-    typeof session.amount_total ===
-      "number"
-      ? session.amount_total /
-        100
-      : safeNumber(
-          order.total,
-          0
-        );
-
-  // ==========================================================
-  // REDUCE STOCK FIRST
-  //
-  // We only mark the order paid after inventory succeeds.
-  //
-  // This means if Supabase fails while reducing inventory,
-  // Stripe can retry the webhook instead of leaving us with
-  // a paid order whose stock was never changed.
-  // ==========================================================
-
-  await reduceOrderStock(
-    order
-  );
-
-  // ==========================================================
-  // UPDATE ORDER
-  // ==========================================================
-
+  stripeTotal:
+    number;
+}) {
   const {
-    error:
-      updateOrderError,
+    data,
+    error,
   } =
     await supabaseAdmin
-      .from(
-        "store_orders"
-      )
+      .from("store_orders")
       .update({
         customer_name:
           customerName,
@@ -828,17 +1697,251 @@ async function completeStoreOrder(
       .neq(
         "payment_status",
         "paid"
-      );
+      )
+      .select(
+        "id"
+      )
+      .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return Boolean(data);
+}
+
+// ============================================================
+// COMPLETE ORDER
+// ============================================================
+
+async function completeStoreOrder(
+  session:
+    Stripe.Checkout.Session
+) {
+  // ==========================================================
+  // ORDER ID
+  // ==========================================================
+
+  const orderId =
+    asString(
+      session
+        .metadata
+        ?.order_id
+    );
+
+  if (!orderId) {
+    console.warn(
+      "[TOTS STORE] Stripe Checkout session has no order_id metadata:",
+      session.id
+    );
+
+    return;
+  }
+
+  // ==========================================================
+  // LOAD ORDER
+  // ==========================================================
+
+  const order =
+    await getOrder(
+      orderId
+    );
+
+  if (!order) {
+    console.error(
+      "[TOTS STORE] Store order not found:",
+      orderId
+    );
+
+    return;
+  }
+
+  // ==========================================================
+  // CUSTOMER DATA
+  //
+  // Do this before checking existing payment state so an
+  // already-paid order can still repair its CRM connection.
+  // ==========================================================
+
+  const customerName =
+    getCustomerName(
+      session
+    ) ||
+    order.customer_name;
+
+  const customerEmail =
+    getCustomerEmail(
+      session
+    ) ||
+    normaliseEmail(
+      order.customer_email
+    );
+
+  const customerPhone =
+    getCustomerPhone(
+      session
+    ) ||
+    order.customer_phone;
+
+  const shippingAddress =
+    getShippingAddress(
+      session
+    ) ||
+    order.shipping_address;
+
+  const customerAddress =
+    getShippingAddressText(
+      session
+    );
+
+  // ==========================================================
+  // ALREADY PAID
+  // ==========================================================
 
   if (
-    updateOrderError
+    order.payment_status ===
+    "paid"
   ) {
-    throw updateOrderError;
+    console.log(
+      `[TOTS STORE] Order ${order.order_number} already paid. Inventory reduction skipped.`
+    );
+
+    try {
+      await syncOrderToCrm({
+        order,
+
+        customerName,
+
+        customerEmail,
+
+        customerPhone,
+
+        customerAddress,
+      });
+    } catch (
+      crmError
+    ) {
+      console.error(
+        `[TOTS CRM] Existing paid order sync failed for ${order.order_number}:`,
+        crmError
+      );
+    }
+
+    return;
+  }
+
+  // ==========================================================
+  // PAYMENT MUST BE PAID
+  // ==========================================================
+
+  if (
+    session.payment_status !==
+    "paid"
+  ) {
+    console.log(
+      `[TOTS STORE] Checkout ${session.id} completed with payment status ${session.payment_status}.`
+    );
+
+    return;
+  }
+
+  // ==========================================================
+  // STRIPE TOTAL
+  // ==========================================================
+
+  const stripeTotal =
+    typeof session.amount_total ===
+      "number"
+      ? session.amount_total /
+        100
+      : safeNumber(
+          order.total,
+          0
+        );
+
+  // ==========================================================
+  // INVENTORY
+  //
+  // Must complete before marking order paid so Stripe retries
+  // the event if inventory processing throws unexpectedly.
+  // ==========================================================
+
+  await reduceOrderStock(
+    order
+  );
+
+  // ==========================================================
+  // MARK PAID
+  // ==========================================================
+
+  const markedPaid =
+    await markOrderPaid({
+      order,
+
+      customerName,
+
+      customerEmail,
+
+      customerPhone,
+
+      shippingAddress,
+
+      stripeTotal,
+    });
+
+  if (!markedPaid) {
+    console.log(
+      `[TOTS STORE] Order ${order.order_number} was already processed by another webhook execution.`
+    );
+
+    return;
   }
 
   console.log(
-    `TOTS store order ${order.order_number} marked paid and inventory updated.`
+    `[TOTS STORE] Order ${order.order_number} marked paid.`
   );
+
+  // ==========================================================
+  // RELOAD LATEST ORDER
+  // ==========================================================
+
+  const updatedOrder =
+    await getOrder(
+      order.id
+    );
+
+  if (!updatedOrder) {
+    return;
+  }
+
+  // ==========================================================
+  // CRM SYNC
+  //
+  // Non-fatal. A CRM problem must not make Stripe consider
+  // the successful payment webhook failed.
+  // ==========================================================
+
+  try {
+    await syncOrderToCrm({
+      order:
+        updatedOrder,
+
+      customerName,
+
+      customerEmail,
+
+      customerPhone,
+
+      customerAddress,
+    });
+  } catch (
+    crmError
+  ) {
+    console.error(
+      `[TOTS CRM] CRM sync failed for paid order ${updatedOrder.order_number}:`,
+      crmError
+    );
+  }
 }
 
 // ============================================================
@@ -856,9 +1959,7 @@ async function markOrderPaymentFailed(
         ?.order_id
     );
 
-  if (
-    !orderId
-  ) {
+  if (!orderId) {
     return;
   }
 
@@ -866,9 +1967,7 @@ async function markOrderPaymentFailed(
     error,
   } =
     await supabaseAdmin
-      .from(
-        "store_orders"
-      )
+      .from("store_orders")
       .update({
         payment_status:
           "pending",
@@ -885,14 +1984,12 @@ async function markOrderPaymentFailed(
         "paid"
       );
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
   console.log(
-    `Store order ${orderId} async payment failed.`
+    `[TOTS STORE] Order ${orderId} async payment failed.`
   );
 }
 
@@ -911,9 +2008,7 @@ async function handlePaymentIntentCancelled(
         ?.order_id
     );
 
-  if (
-    !orderId
-  ) {
+  if (!orderId) {
     return;
   }
 
@@ -921,9 +2016,7 @@ async function handlePaymentIntentCancelled(
     error,
   } =
     await supabaseAdmin
-      .from(
-        "store_orders"
-      )
+      .from("store_orders")
       .update({
         payment_status:
           "pending",
@@ -940,14 +2033,12 @@ async function handlePaymentIntentCancelled(
         "paid"
       );
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
   console.log(
-    `PaymentIntent cancelled for store order ${orderId}.`
+    `[TOTS STORE] PaymentIntent cancelled for order ${orderId}.`
   );
 }
 
@@ -967,11 +2058,9 @@ export async function POST(
       "stripe-signature"
     );
 
-  if (
-    !signature
-  ) {
+  if (!signature) {
     console.error(
-      "Stripe webhook received without stripe-signature header."
+      "[TOTS STORE WEBHOOK] Missing stripe-signature header."
     );
 
     return NextResponse.json(
@@ -988,15 +2077,11 @@ export async function POST(
   // ==========================================================
   // RAW BODY
   //
-  // IMPORTANT:
-  // Do NOT use req.json().
-  //
-  // Stripe requires the untouched request body in order to
-  // validate the webhook signature.
+  // Do NOT call req.json().
+  // Stripe signature verification requires the original body.
   // ==========================================================
 
-  let body:
-    string;
+  let body: string;
 
   try {
     body =
@@ -1005,7 +2090,7 @@ export async function POST(
     error: unknown
   ) {
     console.error(
-      "Could not read Stripe webhook body:",
+      "[TOTS STORE WEBHOOK] Could not read request body:",
       error
     );
 
@@ -1021,7 +2106,7 @@ export async function POST(
   }
 
   // ==========================================================
-  // VERIFY STRIPE EVENT
+  // VERIFY EVENT
   // ==========================================================
 
   let event:
@@ -1029,18 +2114,16 @@ export async function POST(
 
   try {
     event =
-      stripe
-        .webhooks
-        .constructEvent(
-          body,
-          signature,
-          stripeWebhookSecret
-        );
+      stripe.webhooks.constructEvent(
+        body,
+        signature,
+        stripeWebhookSecret
+      );
   } catch (
     error: unknown
   ) {
     console.error(
-      "Store Stripe webhook signature verification failed:",
+      "[TOTS STORE WEBHOOK] Signature verification failed:",
       error
     );
 
@@ -1071,14 +2154,13 @@ export async function POST(
       event.type
     ) {
       // ======================================================
-      // SUCCESSFUL CHECKOUT
+      // CHECKOUT COMPLETE
       // ======================================================
 
       case "checkout.session.completed": {
         const session =
-          event
-            .data
-            .object as Stripe.Checkout.Session;
+          event.data.object as
+            Stripe.Checkout.Session;
 
         await completeStoreOrder(
           session
@@ -1089,16 +2171,12 @@ export async function POST(
 
       // ======================================================
       // ASYNC PAYMENT SUCCESS
-      //
-      // Useful for payment methods that confirm after
-      // checkout.session.completed.
       // ======================================================
 
       case "checkout.session.async_payment_succeeded": {
         const session =
-          event
-            .data
-            .object as Stripe.Checkout.Session;
+          event.data.object as
+            Stripe.Checkout.Session;
 
         await completeStoreOrder(
           session
@@ -1113,9 +2191,8 @@ export async function POST(
 
       case "checkout.session.async_payment_failed": {
         const session =
-          event
-            .data
-            .object as Stripe.Checkout.Session;
+          event.data.object as
+            Stripe.Checkout.Session;
 
         await markOrderPaymentFailed(
           session
@@ -1130,9 +2207,8 @@ export async function POST(
 
       case "payment_intent.canceled": {
         const paymentIntent =
-          event
-            .data
-            .object as Stripe.PaymentIntent;
+          event.data.object as
+            Stripe.PaymentIntent;
 
         await handlePaymentIntentCancelled(
           paymentIntent
@@ -1142,12 +2218,12 @@ export async function POST(
       }
 
       // ======================================================
-      // EVERYTHING ELSE
+      // OTHER EVENTS
       // ======================================================
 
       default: {
         console.log(
-          `[TOTS STORE WEBHOOK] Ignoring unhandled event: ${event.type}`
+          `[TOTS STORE WEBHOOK] Ignoring unhandled event ${event.type}.`
         );
 
         break;
@@ -1155,13 +2231,12 @@ export async function POST(
     }
 
     // ========================================================
-    // SUCCESS RESPONSE
+    // SUCCESS
     // ========================================================
 
     return NextResponse.json(
       {
-        received:
-          true,
+        received: true,
 
         event:
           event.type,
@@ -1171,22 +2246,27 @@ export async function POST(
       },
       {
         status: 200,
+
+        headers: {
+          "Cache-Control":
+            "no-store",
+        },
       }
     );
   } catch (
     error: unknown
   ) {
-    /*
-     * Returning HTTP 500 tells Stripe that processing failed.
-     *
-     * Stripe will then retry delivery, which is useful if
-     * Supabase or another dependency temporarily fails.
-     */
-
     console.error(
       `[TOTS STORE WEBHOOK] Processing failed for ${event.type} (${event.id}):`,
       error
     );
+
+    /*
+     * HTTP 500 causes Stripe to retry the webhook.
+     *
+     * That's what we want when important order processing
+     * such as stock/payment state fails.
+     */
 
     return NextResponse.json(
       {
@@ -1204,6 +2284,11 @@ export async function POST(
       },
       {
         status: 500,
+
+        headers: {
+          "Cache-Control":
+            "no-store",
+        },
       }
     );
   }

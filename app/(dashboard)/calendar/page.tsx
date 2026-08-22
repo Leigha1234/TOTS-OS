@@ -6240,7 +6240,7 @@ function BookingSelect({
 }: {
   label: string;
 
-  value: string;
+  value: number;
 
   onChange: (
     value: string

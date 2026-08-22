@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -17,6 +18,7 @@ import {
   Banknote,
   Briefcase,
   Calendar,
+  Check,
   ChevronRight,
   CircleDollarSign,
   ContactRound,
@@ -48,22 +50,32 @@ import {
 
 type Project = {
   id: string;
+
   user_id: string;
+
   organisation_id: string;
 
   name: string;
 
   description?: string | null;
+
   objective_summary?: string | null;
 
   category?: string | null;
+
   status?: string | null;
+
   priority?: string | null;
+
   health?: string | null;
 
-  budget?: number | string | null;
+  budget?:
+    | number
+    | string
+    | null;
 
   start_date?: string | null;
+
   due_date?: string | null;
 
   members?: string[] | null;
@@ -71,7 +83,9 @@ type Project = {
   customer_id?: string | null;
 
   created_at?: string | null;
+
   updated_at?: string | null;
+
   deleted_at?: string | null;
 };
 
@@ -79,7 +93,9 @@ type Customer = {
   id: string;
 
   name?: string | null;
+
   email?: string | null;
+
   phone?: string | null;
 
   company?: string | null;
@@ -89,16 +105,167 @@ type Customer = {
   status?: string | null;
 };
 
+type Contact = {
+  id: string;
+
+  name?: string | null;
+
+  first_name?: string | null;
+
+  last_name?: string | null;
+
+  email?: string | null;
+
+  phone?: string | null;
+
+  company?: string | null;
+
+  organisation_id?: string | null;
+
+  customer_id?: string | null;
+
+  status?: string | null;
+};
+
+type ClientOption = {
+  key: string;
+
+  source:
+    | "customer"
+    | "contact";
+
+  customer_id?: string | null;
+
+  contact_id?: string | null;
+
+  name: string;
+
+  email?: string | null;
+
+  phone?: string | null;
+
+  company?: string | null;
+};
+
 type ProjectWithCustomer =
   Project & {
     customer?: Customer | null;
   };
+
+type ProjectForm = {
+  name: string;
+
+  client_key: string;
+
+  objective_summary: string;
+
+  description: string;
+
+  category: string;
+
+  start_date: string;
+
+  due_date: string;
+
+  budget: string;
+};
+
+// =========================================================
+// HELPERS
+// =========================================================
+
+function isProjectComplete(
+  status?: string | null
+) {
+  return [
+    "completed",
+    "complete",
+    "done",
+  ].includes(
+    String(
+      status || ""
+    )
+      .trim()
+      .toLowerCase()
+  );
+}
+
+function isProjectArchived(
+  status?: string | null
+) {
+  return (
+    String(
+      status || ""
+    )
+      .trim()
+      .toLowerCase() ===
+    "archived"
+  );
+}
+
+function getContactDisplayName(
+  contact:
+    | Contact
+    | null
+    | undefined
+) {
+  if (
+    !contact
+  ) {
+    return "Unnamed contact";
+  }
+
+  const fullName =
+    [
+      contact.first_name,
+      contact.last_name,
+    ]
+      .filter(
+        Boolean
+      )
+      .join(
+        " "
+      )
+      .trim();
+
+  return (
+    contact.company?.trim() ||
+    contact.name?.trim() ||
+    fullName ||
+    contact.email?.trim() ||
+    "Unnamed contact"
+  );
+}
+
+function getCustomerDisplayName(
+  customer:
+    | Customer
+    | null
+    | undefined
+) {
+  if (
+    !customer
+  ) {
+    return "Internal project";
+  }
+
+  return (
+    customer.company?.trim() ||
+    customer.name?.trim() ||
+    customer.email?.trim() ||
+    "Unnamed client"
+  );
+}
 
 // =========================================================
 // PAGE
 // =========================================================
 
 export default function ProjectDirectory() {
+  // =======================================================
+  // PROJECTS
+  // =======================================================
+
   const [
     projects,
     setProjects,
@@ -107,6 +274,10 @@ export default function ProjectDirectory() {
       ProjectWithCustomer[]
     >([]);
 
+  // =======================================================
+  // CUSTOMERS
+  // =======================================================
+
   const [
     customers,
     setCustomers,
@@ -114,6 +285,22 @@ export default function ProjectDirectory() {
     useState<
       Customer[]
     >([]);
+
+  // =======================================================
+  // CRM CONTACTS
+  // =======================================================
+
+  const [
+    contacts,
+    setContacts,
+  ] =
+    useState<
+      Contact[]
+    >([]);
+
+  // =======================================================
+  // PAGE STATE
+  // =======================================================
 
   const [
     loading,
@@ -161,332 +348,932 @@ export default function ProjectDirectory() {
       string | null
     >(null);
 
+  // =======================================================
+  // FORM
+  // =======================================================
+
   const [
     form,
     setForm,
-  ] = useState({
-    name: "",
+  ] =
+    useState<ProjectForm>({
+      name:
+        "",
 
-    customer_id:
-      "",
+      client_key:
+        "",
 
-    objective_summary:
-      "",
+      objective_summary:
+        "",
 
-    description:
-      "",
+      description:
+        "",
 
-    category:
-      "Client Work",
+      category:
+        "Client Work",
 
-    start_date:
-      "",
+      start_date:
+        "",
 
-    due_date:
-      "",
+      due_date:
+        "",
 
-    budget:
-      "",
-  });
+      budget:
+        "",
+    });
+
+  // =========================================================
+  // RESET FORM
+  // =========================================================
+
+  const resetForm =
+    useCallback(
+      () => {
+        setForm({
+          name:
+            "",
+
+          client_key:
+            "",
+
+          objective_summary:
+            "",
+
+          description:
+            "",
+
+          category:
+            "Client Work",
+
+          start_date:
+            "",
+
+          due_date:
+            "",
+
+          budget:
+            "",
+        });
+      },
+      []
+    );
 
   // =========================================================
   // LOAD ORGANISATION
   // =========================================================
 
-  useEffect(() => {
-    const loadOrganisation =
-      async () => {
-        try {
-          const {
-            data: {
-              user,
-            },
+  useEffect(
+    () => {
+      const loadOrganisation =
+        async () => {
+          try {
+            const {
+              data: {
+                user,
+              },
 
-            error:
-              authError,
-          } =
-            await supabase.auth.getUser();
+              error:
+                authError,
+            } =
+              await supabase.auth.getUser();
 
-          if (
-            authError ||
-            !user?.id
-          ) {
-            console.error(
-              "Project directory auth error:",
-              authError
+            if (
+              authError ||
+              !user?.id
+            ) {
+              console.error(
+                "Project directory auth error:",
+                authError
+              );
+
+              toast.error(
+                "Please log in again"
+              );
+
+              setLoading(
+                false
+              );
+
+              return;
+            }
+
+            setCurrentUserId(
+              user.id
             );
 
-            toast.error(
-              "Please log in again"
-            );
+            const {
+              data:
+                profile,
 
-            setLoading(
-              false
-            );
+              error:
+                profileError,
+            } =
+              await supabase
+                .from(
+                  "profiles"
+                )
+                .select(
+                  "organisation_id"
+                )
+                .eq(
+                  "id",
+                  user.id
+                )
+                .maybeSingle();
 
-            return;
-          }
-
-          setCurrentUserId(
-            user.id
-          );
-
-          const {
-            data:
-              profile,
-
-            error:
-              profileError,
-          } =
-            await supabase
-              .from(
-                "profiles"
-              )
-              .select(
-                "organisation_id"
-              )
-              .eq(
-                "id",
-                user.id
-              )
-              .maybeSingle();
-
-          if (
-            profileError
-          ) {
-            console.error(
-              "Organisation profile load error:",
+            if (
               profileError
+            ) {
+              console.error(
+                "Organisation profile load error:",
+                profileError
+              );
+
+              toast.error(
+                "Unable to load your organisation"
+              );
+
+              setLoading(
+                false
+              );
+
+              return;
+            }
+
+            if (
+              !profile
+                ?.organisation_id
+            ) {
+              toast.error(
+                "No organisation is linked to this account"
+              );
+
+              setLoading(
+                false
+              );
+
+              return;
+            }
+
+            setOrganisationId(
+              profile.organisation_id
             );
-
-            toast.error(
-              "Unable to load your organisation"
-            );
-
-            setLoading(
-              false
-            );
-
-            return;
-          }
-
-          if (
-            !profile
-              ?.organisation_id
-          ) {
-            toast.error(
-              "No organisation is linked to this account"
-            );
-
-            setLoading(
-              false
-            );
-
-            return;
-          }
-
-          setOrganisationId(
-            profile.organisation_id
-          );
-        } catch (
-          error
-        ) {
-          console.error(
-            "Unexpected organisation load error:",
+          } catch (
             error
-          );
+          ) {
+            console.error(
+              "Unexpected organisation load error:",
+              error
+            );
 
-          toast.error(
-            "Unable to load workspace"
-          );
+            toast.error(
+              "Unable to load workspace"
+            );
 
-          setLoading(
-            false
-          );
-        }
-      };
+            setLoading(
+              false
+            );
+          }
+        };
 
-    void loadOrganisation();
-  }, []);
-
-  // =========================================================
-  // LOAD WORKSPACE
-  // =========================================================
-
-  useEffect(() => {
-    if (
-      !organisationId
-    ) {
-      return;
-    }
-
-    void loadWorkspace();
-  }, [
-    organisationId,
-  ]);
+      void loadOrganisation();
+    },
+    []
+  );
 
   // =========================================================
   // LOAD WORKSPACE DATA
   // =========================================================
 
-  async function loadWorkspace() {
-    if (
-      !organisationId
-    ) {
-      return;
-    }
+  const loadWorkspace =
+    useCallback(
+      async () => {
+        if (
+          !organisationId
+        ) {
+          return;
+        }
 
-    setLoading(
-      true
+        setLoading(
+          true
+        );
+
+        try {
+          const [
+            projectsResult,
+            customersResult,
+            contactsResult,
+          ] =
+            await Promise.all([
+              // -----------------------------------------------
+              // PROJECTS
+              // -----------------------------------------------
+
+              supabase
+                .from(
+                  "projects"
+                )
+                .select(
+                  "*"
+                )
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .is(
+                  "deleted_at",
+                  null
+                )
+                .order(
+                  "created_at",
+                  {
+                    ascending:
+                      false,
+                  }
+                ),
+
+              // -----------------------------------------------
+              // CUSTOMERS
+              // -----------------------------------------------
+
+              supabase
+                .from(
+                  "customers"
+                )
+                .select(
+                  `
+                    id,
+                    name,
+                    email,
+                    phone,
+                    company,
+                    organisation_id,
+                    status
+                  `
+                )
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .order(
+                  "name",
+                  {
+                    ascending:
+                      true,
+                  }
+                ),
+
+              // -----------------------------------------------
+              // CRM CONTACTS
+              // -----------------------------------------------
+
+              supabase
+                .from(
+                  "contacts"
+                )
+                .select(
+                  `
+                    id,
+                    name,
+                    first_name,
+                    last_name,
+                    email,
+                    phone,
+                    company,
+                    organisation_id,
+                    customer_id,
+                    status
+                  `
+                )
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .order(
+                  "created_at",
+                  {
+                    ascending:
+                      false,
+                  }
+                ),
+            ]);
+
+          // -----------------------------------------------
+          // PROJECT ERRORS
+          // -----------------------------------------------
+
+          if (
+            projectsResult.error
+          ) {
+            console.error(
+              "Load projects error:",
+              projectsResult.error
+            );
+
+            throw projectsResult.error;
+          }
+
+          // -----------------------------------------------
+          // CUSTOMER ERRORS
+          // -----------------------------------------------
+
+          if (
+            customersResult.error
+          ) {
+            console.warn(
+              "Load customers error:",
+              customersResult.error
+            );
+          }
+
+          // -----------------------------------------------
+          // CONTACT ERRORS
+          // -----------------------------------------------
+
+          if (
+            contactsResult.error
+          ) {
+            console.warn(
+              "Load contacts error:",
+              contactsResult.error
+            );
+          }
+
+          // -----------------------------------------------
+          // SAFE DATA
+          // -----------------------------------------------
+
+          const projectRows =
+            (
+              projectsResult.data as
+                Project[]
+            ) ||
+            [];
+
+          const customerRows =
+            (
+              customersResult.data as
+                Customer[]
+            ) ||
+            [];
+
+          const contactRows =
+            (
+              contactsResult.data as
+                Contact[]
+            ) ||
+            [];
+
+          setCustomers(
+            customerRows
+          );
+
+          setContacts(
+            contactRows
+          );
+
+          // -----------------------------------------------
+          // CUSTOMER LOOKUP
+          // -----------------------------------------------
+
+          const customerMap =
+            new Map<
+              string,
+              Customer
+            >(
+              customerRows.map(
+                (
+                  customer
+                ) => [
+                  customer.id,
+                  customer,
+                ]
+              )
+            );
+
+          // -----------------------------------------------
+          // ENRICH PROJECTS
+          // -----------------------------------------------
+
+          const enrichedProjects:
+            ProjectWithCustomer[] =
+            projectRows.map(
+              (
+                project
+              ) => ({
+                ...project,
+
+                customer:
+                  project.customer_id
+                    ? customerMap.get(
+                        project.customer_id
+                      ) ||
+                      null
+                    : null,
+              })
+            );
+
+          setProjects(
+            enrichedProjects
+          );
+        } catch (
+          error
+        ) {
+          console.error(
+            "Project workspace load error:",
+            error
+          );
+
+          toast.error(
+            "Failed to load clients and projects"
+          );
+
+          setProjects(
+            []
+          );
+        } finally {
+          setLoading(
+            false
+          );
+        }
+      },
+      [
+        organisationId,
+      ]
     );
 
-    try {
-      const [
-        projectsResult,
-        customersResult,
-      ] =
-        await Promise.all([
-          supabase
-            .from(
-              "projects"
-            )
-            .select("*")
-            .eq(
-              "organisation_id",
-              organisationId
-            )
-            .is(
-              "deleted_at",
-              null
-            )
-            .order(
-              "created_at",
-              {
-                ascending:
-                  false,
-              }
-            ),
+  // =========================================================
+  // LOAD WORKSPACE
+  // =========================================================
 
-          supabase
-            .from(
-              "customers"
-            )
-            .select(
-              `
-                id,
-                name,
-                email,
-                phone,
-                company,
-                organisation_id,
-                status
-              `
-            )
-            .eq(
-              "organisation_id",
-              organisationId
-            )
-            .order(
-              "name",
-              {
-                ascending:
-                  true,
-              }
-            ),
-        ]);
-
+  useEffect(
+    () => {
       if (
-        projectsResult.error
+        !organisationId
       ) {
-        console.error(
-          "Load projects error:",
-          projectsResult.error
+        return;
+      }
+
+      void loadWorkspace();
+    },
+    [
+      organisationId,
+      loadWorkspace,
+    ]
+  );
+
+  // =========================================================
+  // COMBINED CLIENT OPTIONS
+  // =========================================================
+
+  const clientOptions =
+    useMemo<
+      ClientOption[]
+    >(
+      () => {
+        const options =
+          new Map<
+            string,
+            ClientOption
+          >();
+
+        // -----------------------------------------------------
+        // EXISTING CUSTOMERS
+        // -----------------------------------------------------
+
+        customers.forEach(
+          (
+            customer
+          ) => {
+            options.set(
+              `customer-${customer.id}`,
+              {
+                key:
+                  `customer-${customer.id}`,
+
+                source:
+                  "customer",
+
+                customer_id:
+                  customer.id,
+
+                contact_id:
+                  null,
+
+                name:
+                  getCustomerDisplayName(
+                    customer
+                  ),
+
+                email:
+                  customer.email ||
+                  null,
+
+                phone:
+                  customer.phone ||
+                  null,
+
+                company:
+                  customer.company ||
+                  null,
+              }
+            );
+          }
         );
 
-        throw projectsResult.error;
+        // -----------------------------------------------------
+        // CRM CONTACTS
+        // -----------------------------------------------------
+
+        contacts.forEach(
+          (
+            contact
+          ) => {
+            /*
+             * If this contact already points to a customer that
+             * exists in our customer list, we don't need a
+             * duplicate contact entry.
+             *
+             * The corresponding customer is already available.
+             */
+
+            if (
+              contact.customer_id &&
+              customers.some(
+                (
+                  customer
+                ) =>
+                  customer.id ===
+                  contact.customer_id
+              )
+            ) {
+              return;
+            }
+
+            options.set(
+              `contact-${contact.id}`,
+              {
+                key:
+                  `contact-${contact.id}`,
+
+                source:
+                  "contact",
+
+                customer_id:
+                  contact.customer_id ||
+                  null,
+
+                contact_id:
+                  contact.id,
+
+                name:
+                  getContactDisplayName(
+                    contact
+                  ),
+
+                email:
+                  contact.email ||
+                  null,
+
+                phone:
+                  contact.phone ||
+                  null,
+
+                company:
+                  contact.company ||
+                  null,
+              }
+            );
+          }
+        );
+
+        return Array.from(
+          options.values()
+        ).sort(
+          (
+            first,
+            second
+          ) =>
+            first.name.localeCompare(
+              second.name
+            )
+        );
+      },
+      [
+        customers,
+        contacts,
+      ]
+    );
+
+  // =========================================================
+  // CREATE CUSTOMER FROM CONTACT
+  // =========================================================
+
+  const resolveSelectedCustomer =
+    async () => {
+      if (
+        !form.client_key
+      ) {
+        return null;
       }
 
       if (
-        customersResult.error
+        !organisationId
+      ) {
+        throw new Error(
+          "Missing organisation context"
+        );
+      }
+
+      const selectedClient =
+        clientOptions.find(
+          (
+            client
+          ) =>
+            client.key ===
+            form.client_key
+        );
+
+      if (
+        !selectedClient
+      ) {
+        throw new Error(
+          "The selected client could not be found."
+        );
+      }
+
+      // -----------------------------------------------------
+      // ALREADY HAS A CUSTOMER
+      // -----------------------------------------------------
+
+      if (
+        selectedClient.customer_id
+      ) {
+        return selectedClient.customer_id;
+      }
+
+      // -----------------------------------------------------
+      // EXISTING CUSTOMER OPTION
+      // -----------------------------------------------------
+
+      if (
+        selectedClient.source ===
+        "customer"
+      ) {
+        throw new Error(
+          "Selected customer does not contain a valid customer ID."
+        );
+      }
+
+      // -----------------------------------------------------
+      // CONTACT -> CUSTOMER
+      // -----------------------------------------------------
+
+      if (
+        !selectedClient.contact_id
+      ) {
+        throw new Error(
+          "Selected CRM contact could not be resolved."
+        );
+      }
+
+      const contact =
+        contacts.find(
+          (
+            item
+          ) =>
+            item.id ===
+            selectedClient.contact_id
+        );
+
+      if (
+        !contact
+      ) {
+        throw new Error(
+          "CRM contact no longer exists."
+        );
+      }
+
+      // -----------------------------------------------------
+      // SAFETY CHECK
+      //
+      // The contact may have become linked since the page
+      // loaded.
+      // -----------------------------------------------------
+
+      const {
+        data:
+          latestContact,
+
+        error:
+          latestContactError,
+      } =
+        await supabase
+          .from(
+            "contacts"
+          )
+          .select(
+            "id, customer_id"
+          )
+          .eq(
+            "id",
+            contact.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .maybeSingle();
+
+      if (
+        latestContactError
       ) {
         console.warn(
-          "Load customers error:",
-          customersResult.error
+          "Latest contact lookup failed:",
+          latestContactError
         );
       }
 
-      const projectRows =
-        (
-          projectsResult.data as
-            Project[]
-        ) ||
-        [];
+      if (
+        latestContact?.customer_id
+      ) {
+        return latestContact.customer_id;
+      }
 
-      const customerRows =
-        (
-          customersResult.data as
-            Customer[]
-        ) ||
-        [];
+      // -----------------------------------------------------
+      // CREATE CUSTOMER
+      // -----------------------------------------------------
+
+      const {
+        data:
+          newCustomer,
+
+        error:
+          customerCreateError,
+      } =
+        await supabase
+          .from(
+            "customers"
+          )
+          .insert({
+            organisation_id:
+              organisationId,
+
+            name:
+              contact.name ||
+              [
+                contact.first_name,
+                contact.last_name,
+              ]
+                .filter(
+                  Boolean
+                )
+                .join(
+                  " "
+                )
+                .trim() ||
+              selectedClient.name,
+
+            email:
+              contact.email ||
+              null,
+
+            phone:
+              contact.phone ||
+              null,
+
+            company:
+              contact.company ||
+              null,
+
+            status:
+              "active",
+          })
+          .select(
+            `
+              id,
+              name,
+              email,
+              phone,
+              company,
+              organisation_id,
+              status
+            `
+          )
+          .single();
+
+      if (
+        customerCreateError
+      ) {
+        console.error(
+          "Customer creation from contact failed:",
+          customerCreateError
+        );
+
+        throw customerCreateError;
+      }
+
+      if (
+        !newCustomer?.id
+      ) {
+        throw new Error(
+          "Customer was created but no customer ID was returned."
+        );
+      }
+
+      // -----------------------------------------------------
+      // LINK CONTACT TO CUSTOMER
+      // -----------------------------------------------------
+
+      const {
+        error:
+          contactUpdateError,
+      } =
+        await supabase
+          .from(
+            "contacts"
+          )
+          .update({
+            customer_id:
+              newCustomer.id,
+          })
+          .eq(
+            "id",
+            contact.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          );
+
+      if (
+        contactUpdateError
+      ) {
+        console.error(
+          "Contact/customer linking error:",
+          contactUpdateError
+        );
+
+        /*
+         * The customer exists, but we do NOT want to continue
+         * silently if the source-of-truth contact link failed.
+         */
+
+        throw contactUpdateError;
+      }
+
+      // -----------------------------------------------------
+      // LOCAL CUSTOMER STATE
+      // -----------------------------------------------------
 
       setCustomers(
-        customerRows
+        (
+          previous
+        ) => {
+          const exists =
+            previous.some(
+              (
+                customer
+              ) =>
+                customer.id ===
+                newCustomer.id
+            );
+
+          return exists
+            ? previous
+            : [
+                ...previous,
+                newCustomer,
+              ];
+        }
       );
 
-      const customerMap =
-        new Map(
-          customerRows.map(
+      // -----------------------------------------------------
+      // LOCAL CONTACT STATE
+      // -----------------------------------------------------
+
+      setContacts(
+        (
+          previous
+        ) =>
+          previous.map(
             (
-              customer
-            ) => [
-              customer.id,
-              customer,
-            ]
+              item
+            ) =>
+              item.id ===
+              contact.id
+                ? {
+                    ...item,
+
+                    customer_id:
+                      newCustomer.id,
+                  }
+                : item
           )
-        );
-
-      const enrichedProjects:
-        ProjectWithCustomer[] =
-        projectRows.map(
-          (
-            project
-          ) => ({
-            ...project,
-
-            customer:
-              project.customer_id
-                ? customerMap.get(
-                    project.customer_id
-                  ) ||
-                  null
-                : null,
-          })
-        );
-
-      setProjects(
-        enrichedProjects
-      );
-    } catch (
-      error
-    ) {
-      console.error(
-        "Project workspace load error:",
-        error
       );
 
-      toast.error(
-        "Failed to load clients and projects"
-      );
-
-      setProjects(
-        []
-      );
-    } finally {
-      setLoading(
-        false
-      );
-    }
-  }
+      return newCustomer.id;
+    };
 
   // =========================================================
   // CREATE PROJECT
@@ -530,6 +1317,17 @@ export default function ProjectDirectory() {
     );
 
     try {
+      // -----------------------------------------------------
+      // RESOLVE CRM CONTACT -> CUSTOMER
+      // -----------------------------------------------------
+
+      const resolvedCustomerId =
+        await resolveSelectedCustomer();
+
+      // -----------------------------------------------------
+      // PROJECT PAYLOAD
+      // -----------------------------------------------------
+
       const payload = {
         name:
           form.name.trim(),
@@ -579,8 +1377,7 @@ export default function ProjectDirectory() {
             : 0,
 
         customer_id:
-          form.customer_id ||
-          null,
+          resolvedCustomerId,
 
         organisation_id:
           organisationId,
@@ -588,6 +1385,10 @@ export default function ProjectDirectory() {
         user_id:
           currentUserId,
       };
+
+      // -----------------------------------------------------
+      // INSERT PROJECT
+      // -----------------------------------------------------
 
       const {
         data:
@@ -603,7 +1404,9 @@ export default function ProjectDirectory() {
           .insert(
             payload
           )
-          .select("*")
+          .select(
+            "*"
+          )
           .single();
 
       if (
@@ -617,17 +1420,102 @@ export default function ProjectDirectory() {
         throw insertError;
       }
 
-      const selectedCustomer =
-        customers.find(
-          (
-            customer
-          ) =>
-            customer.id ===
-            inserted.customer_id
-        ) ||
+      // -----------------------------------------------------
+      // GET CUSTOMER
+      // -----------------------------------------------------
+
+      let selectedCustomer:
+        Customer | null =
         null;
 
-      const project:
+      if (
+        inserted.customer_id
+      ) {
+        selectedCustomer =
+          customers.find(
+            (
+              customer
+            ) =>
+              customer.id ===
+              inserted.customer_id
+          ) ||
+          null;
+
+        /*
+         * Customer may have just been created by
+         * resolveSelectedCustomer and the React state update
+         * has not propagated yet.
+         */
+
+        if (
+          !selectedCustomer
+        ) {
+          const {
+            data:
+              freshCustomer,
+          } =
+            await supabase
+              .from(
+                "customers"
+              )
+              .select(
+                `
+                  id,
+                  name,
+                  email,
+                  phone,
+                  company,
+                  organisation_id,
+                  status
+                `
+              )
+              .eq(
+                "id",
+                inserted.customer_id
+              )
+              .eq(
+                "organisation_id",
+                organisationId
+              )
+              .maybeSingle();
+
+          selectedCustomer =
+            freshCustomer ||
+            null;
+
+          if (
+            freshCustomer
+          ) {
+            setCustomers(
+              (
+                previous
+              ) => {
+                const exists =
+                  previous.some(
+                    (
+                      customer
+                    ) =>
+                      customer.id ===
+                      freshCustomer.id
+                  );
+
+                return exists
+                  ? previous
+                  : [
+                      ...previous,
+                      freshCustomer,
+                    ];
+              }
+            );
+          }
+        }
+      }
+
+      // -----------------------------------------------------
+      // LOCAL PROJECT
+      // -----------------------------------------------------
+
+      const newProject:
         ProjectWithCustomer =
         {
           ...inserted,
@@ -640,43 +1528,25 @@ export default function ProjectDirectory() {
         (
           previous
         ) => [
-          project,
+          newProject,
           ...previous,
         ]
       );
 
-      setForm({
-        name:
-          "",
+      // -----------------------------------------------------
+      // RESET
+      // -----------------------------------------------------
 
-        customer_id:
-          "",
-
-        objective_summary:
-          "",
-
-        description:
-          "",
-
-        category:
-          "Client Work",
-
-        start_date:
-          "",
-
-        due_date:
-          "",
-
-        budget:
-          "",
-      });
+      resetForm();
 
       setShowModal(
         false
       );
 
       toast.success(
-        "Project created"
+        resolvedCustomerId
+          ? "Project created and linked to client"
+          : "Project created"
       );
     } catch (
       error: any
@@ -698,7 +1568,7 @@ export default function ProjectDirectory() {
   }
 
   // =========================================================
-  // HELPERS
+  // FORMAT HELPERS
   // =========================================================
 
   function formatCurrency(
@@ -722,7 +1592,8 @@ export default function ProjectDirectory() {
       }
     ).format(
       Number(
-        amount || 0
+        amount ||
+          0
       )
     );
   }
@@ -738,9 +1609,16 @@ export default function ProjectDirectory() {
       return "No deadline";
     }
 
+    const safeValue =
+      value.includes(
+        "T"
+      )
+        ? value
+        : `${value}T12:00:00`;
+
     const date =
       new Date(
-        `${value}T12:00:00`
+        safeValue
       );
 
     if (
@@ -786,9 +1664,16 @@ export default function ProjectDirectory() {
       0
     );
 
+    const safeValue =
+      value.includes(
+        "T"
+      )
+        ? value
+        : `${value}T00:00:00`;
+
     const target =
       new Date(
-        `${value}T00:00:00`
+        safeValue
       );
 
     if (
@@ -818,22 +1703,13 @@ export default function ProjectDirectory() {
       | Customer
       | null
   ) {
-    if (
-      !customer
-    ) {
-      return "Internal project";
-    }
-
-    return (
-      customer.company ||
-      customer.name ||
-      customer.email ||
-      "Unnamed client"
+    return getCustomerDisplayName(
+      customer
     );
   }
 
   // =========================================================
-  // CLIENT PROJECTS ONLY
+  // CLIENT / INTERNAL PROJECTS
   // =========================================================
 
   const clientProjects =
@@ -867,70 +1743,40 @@ export default function ProjectDirectory() {
     );
 
   // =========================================================
-  // FILTERED PROJECTS
+  // COMPLETE / ACTIVE PROJECTS
   // =========================================================
 
-  const filtered =
-    useMemo(() => {
-      const value =
-        search
-          .trim()
-          .toLowerCase();
-
-      if (
-        !value
-      ) {
-        return projects;
-      }
-
-      return projects.filter(
-        (
-          project
-        ) => {
-          const customerName =
-            getCustomerName(
-              project.customer
-            ).toLowerCase();
-
-          return (
-            (
-              project.name ||
-              ""
+  const completedProjects =
+    useMemo(
+      () =>
+        projects.filter(
+          (
+            project
+          ) =>
+            isProjectComplete(
+              project.status
             )
-              .toLowerCase()
-              .includes(
-                value
-              ) ||
-            (
-              project.category ||
-              ""
-            )
-              .toLowerCase()
-              .includes(
-                value
-              ) ||
-            (
-              project.objective_summary ||
-              ""
-            )
-              .toLowerCase()
-              .includes(
-                value
-              ) ||
-            customerName.includes(
-              value
-            )
-          );
-        }
-      );
-    }, [
-      projects,
-      search,
-    ]);
+        ),
+      [
+        projects,
+      ]
+    );
 
-  // =========================================================
-  // DASHBOARD METRICS
-  // =========================================================
+  const archivedProjects =
+    useMemo(
+      () =>
+        projects.filter(
+          (
+            project
+          ) =>
+            isProjectArchived(
+              project.status
+            )
+        ),
+      [
+        projects,
+      ]
+    );
 
   const activeProjects =
     useMemo(
@@ -938,76 +1784,158 @@ export default function ProjectDirectory() {
         projects.filter(
           (
             project
-          ) => {
-            const status =
-              String(
-                project.status ||
-                  ""
-              )
-                .trim()
-                .toLowerCase();
-
-            return ![
-              "completed",
-              "done",
-              "archived",
-            ].includes(
-              status
-            );
-          }
+          ) =>
+            !isProjectComplete(
+              project.status
+            ) &&
+            !isProjectArchived(
+              project.status
+            )
         ),
       [
         projects,
       ]
     );
 
-  const projectsDueSoon =
-    useMemo(() => {
-      return activeProjects.filter(
-        (
-          project
-        ) => {
-          const remaining =
-            daysUntil(
-              project.due_date
-            );
+  // =========================================================
+  // FILTERED PROJECTS
+  // =========================================================
 
-          return (
-            remaining !==
-              null &&
-            remaining >=
-              0 &&
-            remaining <=
-              7
-          );
+  const filtered =
+    useMemo(
+      () => {
+        const value =
+          search
+            .trim()
+            .toLowerCase();
+
+        if (
+          !value
+        ) {
+          return projects;
         }
-      );
-    }, [
-      activeProjects,
-    ]);
+
+        return projects.filter(
+          (
+            project
+          ) => {
+            const customerName =
+              getCustomerName(
+                project.customer
+              ).toLowerCase();
+
+            const status =
+              String(
+                project.status ||
+                  ""
+              ).toLowerCase();
+
+            return (
+              (
+                project.name ||
+                ""
+              )
+                .toLowerCase()
+                .includes(
+                  value
+                ) ||
+              (
+                project.category ||
+                ""
+              )
+                .toLowerCase()
+                .includes(
+                  value
+                ) ||
+              (
+                project.objective_summary ||
+                ""
+              )
+                .toLowerCase()
+                .includes(
+                  value
+                ) ||
+              customerName.includes(
+                value
+              ) ||
+              status.includes(
+                value
+              ) ||
+              (
+                isProjectComplete(
+                  project.status
+                ) &&
+                "completed".includes(
+                  value
+                )
+              )
+            );
+          }
+        );
+      },
+      [
+        projects,
+        search,
+      ]
+    );
+
+  // =========================================================
+  // DASHBOARD METRICS
+  // =========================================================
+
+  const projectsDueSoon =
+    useMemo(
+      () => {
+        return activeProjects.filter(
+          (
+            project
+          ) => {
+            const remaining =
+              daysUntil(
+                project.due_date
+              );
+
+            return (
+              remaining !==
+                null &&
+              remaining >=
+                0 &&
+              remaining <=
+                7
+            );
+          }
+        );
+      },
+      [
+        activeProjects,
+      ]
+    );
 
   const overdueProjects =
-    useMemo(() => {
-      return activeProjects.filter(
-        (
-          project
-        ) => {
-          const remaining =
-            daysUntil(
-              project.due_date
-            );
+    useMemo(
+      () => {
+        return activeProjects.filter(
+          (
+            project
+          ) => {
+            const remaining =
+              daysUntil(
+                project.due_date
+              );
 
-          return (
-            remaining !==
-              null &&
-            remaining <
-              0
-          );
-        }
-      );
-    }, [
-      activeProjects,
-    ]);
+            return (
+              remaining !==
+                null &&
+              remaining <
+                0
+            );
+          }
+        );
+      },
+      [
+        activeProjects,
+      ]
+    );
 
   const totalBudget =
     useMemo(
@@ -1030,175 +1958,222 @@ export default function ProjectDirectory() {
     );
 
   const activeClients =
-    useMemo(() => {
-      const ids =
-        activeProjects
-          .map(
-            (
-              project
-            ) =>
-              project.customer_id
-          )
-          .filter(
-            Boolean
-          );
+    useMemo(
+      () => {
+        const ids =
+          activeProjects
+            .map(
+              (
+                project
+              ) =>
+                project.customer_id
+            )
+            .filter(
+              (
+                id
+              ):
+                id is string =>
+                  Boolean(
+                    id
+                  )
+            );
 
-      return new Set(
-        ids
-      ).size;
-    }, [
-      activeProjects,
-    ]);
+        return new Set(
+          ids
+        ).size;
+      },
+      [
+        activeProjects,
+      ]
+    );
 
   // =========================================================
   // ATTENTION PROJECTS
   // =========================================================
 
   const attentionProjects =
-    useMemo(() => {
-      return activeProjects
-        .filter(
-          (
-            project
-          ) => {
-            const remaining =
-              daysUntil(
-                project.due_date
+    useMemo(
+      () => {
+        return activeProjects
+          .filter(
+            (
+              project
+            ) => {
+              const remaining =
+                daysUntil(
+                  project.due_date
+                );
+
+              const health =
+                String(
+                  project.health ||
+                    ""
+                )
+                  .trim()
+                  .toLowerCase();
+
+              return (
+                [
+                  "bad",
+                  "warning",
+                  "at-risk",
+                  "atrisk",
+                ].includes(
+                  health
+                ) ||
+                (
+                  remaining !==
+                    null &&
+                  remaining <=
+                    7
+                )
               );
+            }
+          )
+          .sort(
+            (
+              first,
+              second
+            ) => {
+              const firstDays =
+                daysUntil(
+                  first.due_date
+                ) ??
+                999999;
 
-            const health =
-              String(
-                project.health ||
-                  ""
-              )
-                .trim()
-                .toLowerCase();
+              const secondDays =
+                daysUntil(
+                  second.due_date
+                ) ??
+                999999;
 
-            return (
-              [
-                "bad",
-                "warning",
-                "at-risk",
-                "atrisk",
-              ].includes(
-                health
-              ) ||
-              (
-                remaining !==
-                  null &&
-                remaining <=
-                  7
-              )
-            );
-          }
-        )
-        .sort(
-          (
-            first,
-            second
-          ) => {
-            const firstDays =
-              daysUntil(
-                first.due_date
-              ) ??
-              999999;
-
-            const secondDays =
-              daysUntil(
-                second.due_date
-              ) ??
-              999999;
-
-            return (
-              firstDays -
-              secondDays
-            );
-          }
-        )
-        .slice(
-          0,
-          5
-        );
-    }, [
-      activeProjects,
-    ]);
+              return (
+                firstDays -
+                secondDays
+              );
+            }
+          )
+          .slice(
+            0,
+            5
+          );
+      },
+      [
+        activeProjects,
+      ]
+    );
 
   // =========================================================
-  // SUMMARY
+  // WORKSPACE SUMMARY
   // =========================================================
 
   const workspaceSummary =
-    useMemo(() => {
-      if (
-        activeProjects.length ===
-        0
-      ) {
-        return "Your commercial workspace is ready. Add a client project or internal project to begin tracking delivery.";
-      }
-
-      let summary =
-        `You currently have ${activeProjects.length} ${
+    useMemo(
+      () => {
+        if (
           activeProjects.length ===
-          1
-            ? "active project"
-            : "active projects"
-        }`;
+            0 &&
+          completedProjects.length ===
+            0
+        ) {
+          return "Your commercial workspace is ready. Add a client project or internal project to begin tracking delivery.";
+        }
 
-      if (
-        activeClients >
-        0
-      ) {
-        summary +=
-          ` across ${activeClients} ${
-            activeClients ===
-            1
-              ? "client"
-              : "clients"
-          }`;
-      }
+        let summary =
+          "";
 
-      if (
-        projectsDueSoon.length >
-        0
-      ) {
-        summary +=
-          `, with ${projectsDueSoon.length} due in the next 7 days`;
-      }
+        if (
+          activeProjects.length >
+          0
+        ) {
+          summary =
+            `You currently have ${activeProjects.length} ${
+              activeProjects.length ===
+              1
+                ? "active project"
+                : "active projects"
+            }`;
 
-      if (
-        overdueProjects.length >
-        0
-      ) {
-        summary +=
-          `. ${overdueProjects.length} ${
-            overdueProjects.length ===
-            1
-              ? "project is"
-              : "projects are"
-          } overdue`;
-      }
+          if (
+            activeClients >
+            0
+          ) {
+            summary +=
+              ` across ${activeClients} ${
+                activeClients ===
+                1
+                  ? "client"
+                  : "clients"
+              }`;
+          }
 
-      if (
-        totalBudget >
-        0
-      ) {
-        summary +=
-          `. Active project value is ${formatCurrency(
-            totalBudget
-          )}`;
-      }
+          if (
+            projectsDueSoon.length >
+            0
+          ) {
+            summary +=
+              `, with ${projectsDueSoon.length} ${
+                projectsDueSoon.length ===
+                1
+                  ? "project"
+                  : "projects"
+              } due in the next 7 days`;
+          }
 
-      summary +=
-        ".";
+          if (
+            overdueProjects.length >
+            0
+          ) {
+            summary +=
+              `. ${overdueProjects.length} ${
+                overdueProjects.length ===
+                1
+                  ? "project is"
+                  : "projects are"
+              } overdue`;
+          }
 
-      return summary;
-    }, [
-      activeProjects.length,
-      activeClients,
-      projectsDueSoon.length,
-      overdueProjects.length,
-      totalBudget,
-    ]);
+          if (
+            totalBudget >
+            0
+          ) {
+            summary +=
+              `. Active project value is ${formatCurrency(
+                totalBudget
+              )}`;
+          }
+        } else {
+          summary =
+            "You currently have no active projects.";
+        }
+
+        if (
+          completedProjects.length >
+          0
+        ) {
+          summary +=
+            ` ${completedProjects.length} ${
+              completedProjects.length ===
+              1
+                ? "project has"
+                : "projects have"
+            } been completed.`;
+        } else {
+          summary +=
+            ".";
+        }
+
+        return summary;
+      },
+      [
+        activeProjects.length,
+        completedProjects.length,
+        activeClients,
+        projectsDueSoon.length,
+        overdueProjects.length,
+        totalBudget,
+      ]
+    );
 
   // =========================================================
   // RENDER
@@ -1250,11 +2225,13 @@ export default function ProjectDirectory() {
 
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
+                resetForm();
+
                 setShowModal(
                   true
-                )
-              }
+                );
+              }}
               className="flex items-center justify-center gap-2 rounded-2xl bg-stone-900 px-5 py-4 text-[10px] font-black uppercase tracking-[0.18em] text-white shadow-lg transition hover:bg-[#a9b897] active:scale-[0.98]"
             >
               <Plus
@@ -1302,7 +2279,7 @@ export default function ProjectDirectory() {
             METRICS
         =================================================== */}
 
-        <section className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <section className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-5">
           <WorkspaceMetric
             icon={
               Folder
@@ -1311,6 +2288,17 @@ export default function ProjectDirectory() {
               activeProjects.length
             )}
             label="Active Projects"
+          />
+
+          <WorkspaceMetric
+            icon={
+              Check
+            }
+            value={String(
+              completedProjects.length
+            )}
+            label="Completed"
+            completed
           />
 
           <WorkspaceMetric
@@ -1340,7 +2328,7 @@ export default function ProjectDirectory() {
             value={formatCurrency(
               totalBudget
             )}
-            label="Project Value"
+            label="Active Value"
           />
         </section>
 
@@ -1417,11 +2405,29 @@ export default function ProjectDirectory() {
               activity.
             </p>
 
-            <div className="mt-6 text-[9px] font-black uppercase tracking-[0.18em] text-[#829473]">
-              {
-                activeProjects.length
-              }{" "}
-              Active
+            <div className="mt-6 flex flex-wrap gap-3 text-[9px] font-black uppercase tracking-[0.18em]">
+              <span className="text-[#829473]">
+                {
+                  activeProjects.length
+                }{" "}
+                Active
+              </span>
+
+              {completedProjects.length >
+                0 && (
+                <>
+                  <span className="text-stone-300">
+                    •
+                  </span>
+
+                  <span className="text-stone-400">
+                    {
+                      completedProjects.length
+                    }{" "}
+                    Completed
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </section>
@@ -1549,21 +2555,56 @@ export default function ProjectDirectory() {
               </h2>
 
               {!loading && (
-                <p className="mt-2 text-xs text-stone-400">
-                  {
-                    clientProjects.length
-                  }{" "}
-                  client{" "}
-                  {clientProjects.length ===
-                  1
-                    ? "project"
-                    : "projects"}
-                  {" · "}
-                  {
-                    internalProjects.length
-                  }{" "}
-                  internal
-                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-stone-400">
+                  <span>
+                    {
+                      clientProjects.length
+                    }{" "}
+                    client{" "}
+                    {clientProjects.length ===
+                    1
+                      ? "project"
+                      : "projects"}
+                  </span>
+
+                  <span>
+                    ·
+                  </span>
+
+                  <span>
+                    {
+                      internalProjects.length
+                    }{" "}
+                    internal
+                  </span>
+
+                  <span>
+                    ·
+                  </span>
+
+                  <span>
+                    {
+                      completedProjects.length
+                    }{" "}
+                    completed
+                  </span>
+
+                  {archivedProjects.length >
+                    0 && (
+                    <>
+                      <span>
+                        ·
+                      </span>
+
+                      <span>
+                        {
+                          archivedProjects.length
+                        }{" "}
+                        archived
+                      </span>
+                    </>
+                  )}
+                </div>
               )}
             </div>
 
@@ -1576,7 +2617,7 @@ export default function ProjectDirectory() {
               />
 
               <input
-                placeholder="Search project or client..."
+                placeholder="Search project, client or status..."
                 value={
                   search
                 }
@@ -1612,31 +2653,96 @@ export default function ProjectDirectory() {
                       project.due_date
                     );
 
+                  const completed =
+                    isProjectComplete(
+                      project.status
+                    );
+
+                  const archived =
+                    isProjectArchived(
+                      project.status
+                    );
+
+                  const paused =
+                    String(
+                      project.status ||
+                        ""
+                    )
+                      .trim()
+                      .toLowerCase() ===
+                    "paused";
+
                   return (
                     <Link
                       href={`/projects/${project.id}`}
                       key={
                         project.id
                       }
-                      className="group relative rounded-[1.8rem] border border-stone-200 bg-white p-5 transition-all duration-300 hover:border-[#a9b897] hover:shadow-xl hover:shadow-stone-200/40 md:p-6"
+                      className={`group relative rounded-[1.8rem] border bg-white p-5 transition-all duration-300 hover:shadow-xl hover:shadow-stone-200/40 md:p-6 ${
+                        completed
+                          ? "border-[#a9b897]/60"
+                          : archived
+                            ? "border-stone-200 opacity-70"
+                            : "border-stone-200 hover:border-[#a9b897]"
+                      }`}
                     >
+                      {/* =====================================
+                          COMPLETED ACCENT
+                      ===================================== */}
+
+                      {completed && (
+                        <div className="absolute inset-y-6 left-0 w-1 rounded-r-full bg-[#a9b897]" />
+                      )}
+
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex min-w-0 items-center gap-4 md:gap-6">
-                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-stone-100 bg-stone-50 text-stone-400 transition group-hover:bg-stone-900 group-hover:text-[#a9b897]">
-                            <Folder
-                              size={
-                                21
-                              }
-                            />
+                          {/* =================================
+                              PROJECT ICON
+                          ================================= */}
+
+                          <div
+                            className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border transition ${
+                              completed
+                                ? "border-[#a9b897]/20 bg-[#a9b897]/10 text-[#829473]"
+                                : archived
+                                  ? "border-stone-100 bg-stone-50 text-stone-300"
+                                  : "border-stone-100 bg-stone-50 text-stone-400 group-hover:bg-stone-900 group-hover:text-[#a9b897]"
+                            }`}
+                          >
+                            {completed ? (
+                              <Check
+                                size={
+                                  21
+                                }
+                              />
+                            ) : (
+                              <Folder
+                                size={
+                                  21
+                                }
+                              />
+                            )}
                           </div>
+
+                          {/* =================================
+                              PROJECT DETAILS
+                          ================================= */}
 
                           <div className="min-w-0">
                             <div className="mb-1 flex flex-wrap items-center gap-2">
-                              <h3 className="truncate font-serif text-xl italic text-stone-800 md:text-2xl">
+                              <h3
+                                className={`truncate font-serif text-xl italic md:text-2xl ${
+                                  completed
+                                    ? "text-stone-700"
+                                    : "text-stone-800"
+                                }`}
+                              >
                                 {
                                   project.name
                                 }
                               </h3>
+
+                              {/* CATEGORY */}
 
                               {project.category && (
                                 <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-stone-500">
@@ -1645,7 +2751,39 @@ export default function ProjectDirectory() {
                                   }
                                 </span>
                               )}
+
+                              {/* COMPLETED */}
+
+                              {completed && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[#a9b897]/15 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-[#6f8064]">
+                                  <Check
+                                    size={
+                                      9
+                                    }
+                                  />
+
+                                  Completed
+                                </span>
+                              )}
+
+                              {/* PAUSED */}
+
+                              {paused && (
+                                <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-amber-600">
+                                  Paused
+                                </span>
+                              )}
+
+                              {/* ARCHIVED */}
+
+                              {archived && (
+                                <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                                  Archived
+                                </span>
+                              )}
                             </div>
+
+                            {/* CLIENT */}
 
                             <div className="mb-2 flex items-center gap-2">
                               <UserRound
@@ -1662,6 +2800,8 @@ export default function ProjectDirectory() {
                               </span>
                             </div>
 
+                            {/* OBJECTIVE */}
+
                             {project.objective_summary && (
                               <p className="mb-2 line-clamp-1 text-xs text-stone-400">
                                 {
@@ -1670,7 +2810,11 @@ export default function ProjectDirectory() {
                               </p>
                             )}
 
+                            {/* META */}
+
                             <div className="flex flex-wrap items-center gap-4 text-[9px] font-bold uppercase tracking-[0.12em] text-stone-400">
+                              {/* DEADLINE */}
+
                               <span className="flex items-center gap-1.5">
                                 <Calendar
                                   size={
@@ -1682,6 +2826,8 @@ export default function ProjectDirectory() {
                                   project.due_date
                                 )}
                               </span>
+
+                              {/* BUDGET */}
 
                               {Number(
                                 project.budget
@@ -1700,19 +2846,48 @@ export default function ProjectDirectory() {
                                 </span>
                               )}
 
-                              {remaining !==
-                                null &&
-                                remaining <
-                                  0 && (
-                                  <span className="text-amber-600">
-                                    Overdue
-                                  </span>
-                                )}
+                              {/* COMPLETED STATUS */}
+
+                              {completed ? (
+                                <span className="inline-flex items-center gap-1.5 text-[#829473]">
+                                  <Check
+                                    size={
+                                      10
+                                    }
+                                  />
+
+                                  Project complete
+                                </span>
+                              ) : (
+                                <>
+                                  {/* OVERDUE ONLY ACTIVE PROJECTS */}
+
+                                  {remaining !==
+                                    null &&
+                                    remaining <
+                                      0 &&
+                                    !archived && (
+                                      <span className="text-amber-600">
+                                        Overdue
+                                      </span>
+                                    )}
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
 
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stone-50 text-stone-300 transition group-hover:bg-[#a9b897] group-hover:text-white">
+                        {/* ===================================
+                            OPEN BUTTON
+                        =================================== */}
+
+                        <div
+                          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition ${
+                            completed
+                              ? "bg-[#a9b897]/10 text-[#829473] group-hover:bg-[#a9b897] group-hover:text-white"
+                              : "bg-stone-50 text-stone-300 group-hover:bg-[#a9b897] group-hover:text-white"
+                          }`}
+                        >
                           <ArrowUpRight
                             size={
                               17
@@ -1742,11 +2917,13 @@ export default function ProjectDirectory() {
                 {!search && (
                   <button
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
+                      resetForm();
+
                       setShowModal(
                         true
-                      )
-                    }
+                      );
+                    }}
                     className="mt-5 text-xs font-semibold text-[#829473]"
                   >
                     Create your first project →
@@ -1765,6 +2942,8 @@ export default function ProjectDirectory() {
       <AnimatePresence>
         {showModal && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden p-4 md:p-6">
+            {/* BACKDROP */}
+
             <motion.div
               initial={{
                 opacity:
@@ -1779,13 +2958,18 @@ export default function ProjectDirectory() {
                   0,
               }}
               className="absolute inset-0 bg-stone-900/60 backdrop-blur-md"
-              onClick={() =>
-                !saving &&
-                setShowModal(
-                  false
-                )
-              }
+              onClick={() => {
+                if (
+                  !saving
+                ) {
+                  setShowModal(
+                    false
+                  );
+                }
+              }}
             />
+
+            {/* MODAL */}
 
             <motion.div
               initial={{
@@ -1820,6 +3004,10 @@ export default function ProjectDirectory() {
               }}
               className="no-scrollbar relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[2.5rem] border border-stone-100 bg-white p-7 shadow-2xl md:p-10"
             >
+              {/* =============================================
+                  MODAL HEADER
+              ============================================= */}
+
               <div className="mb-9 flex items-start justify-between gap-4">
                 <div>
                   <p className="mb-2 text-[8px] font-black uppercase tracking-[0.25em] text-[#829473]">
@@ -1831,11 +3019,12 @@ export default function ProjectDirectory() {
                   </h2>
 
                   <p className="mt-2 max-w-lg text-xs leading-5 text-stone-400">
-                    Link the project to a
-                    client now so TOTS can
-                    automatically connect
-                    their work, finances and
-                    project history.
+                    Choose any client
+                    or CRM contact.
+                    TOTS will connect
+                    the project to the
+                    correct customer
+                    record automatically.
                   </p>
                 </div>
 
@@ -1859,13 +3048,19 @@ export default function ProjectDirectory() {
                 </button>
               </div>
 
+              {/* =============================================
+                  FORM
+              ============================================= */}
+
               <form
                 onSubmit={
                   establishProject
                 }
                 className="space-y-6"
               >
-                {/* PROJECT NAME */}
+                {/* ===========================================
+                    PROJECT NAME
+                =========================================== */}
 
                 <div className="space-y-1">
                   <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
@@ -1881,22 +3076,24 @@ export default function ProjectDirectory() {
                       event
                     ) =>
                       setForm(
-                        {
-                          ...form,
+                        (
+                          previous
+                        ) => ({
+                          ...previous,
 
                           name:
-                            event
-                              .target
-                              .value,
-                        }
+                            event.target.value,
+                        })
                       )
                     }
-                    className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 font-serif text-base italic outline-none focus:border-[#a9b897]"
+                    className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 font-serif text-base italic outline-none transition focus:border-[#a9b897] focus:bg-white"
                     placeholder="Website Redesign"
                   />
                 </div>
 
-                {/* CLIENT */}
+                {/* ===========================================
+                    CLIENT
+                =========================================== */}
 
                 <div className="space-y-1">
                   <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
@@ -1908,50 +3105,50 @@ export default function ProjectDirectory() {
                       size={
                         14
                       }
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
+                      className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
                     />
 
                     <select
                       value={
-                        form.customer_id
+                        form.client_key
                       }
                       onChange={(
                         event
                       ) =>
                         setForm(
-                          {
-                            ...form,
+                          (
+                            previous
+                          ) => ({
+                            ...previous,
 
-                            customer_id:
-                              event
-                                .target
-                                .value,
-                          }
+                            client_key:
+                              event.target.value,
+                          })
                         )
                       }
-                      className="w-full appearance-none rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-xs outline-none focus:border-[#a9b897]"
+                      className="w-full appearance-none rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 pr-10 text-xs outline-none transition focus:border-[#a9b897] focus:bg-white"
                     >
                       <option value="">
                         Internal project / no client
                       </option>
 
-                      {customers.map(
+                      {clientOptions.map(
                         (
-                          customer
+                          client
                         ) => (
                           <option
                             key={
-                              customer.id
+                              client.key
                             }
                             value={
-                              customer.id
+                              client.key
                             }
                           >
-                            {getCustomerName(
-                              customer
-                            )}
-                            {customer.email
-                              ? ` — ${customer.email}`
+                            {
+                              client.name
+                            }
+                            {client.email
+                              ? ` — ${client.email}`
                               : ""}
                           </option>
                         )
@@ -1959,17 +3156,67 @@ export default function ProjectDirectory() {
                     </select>
                   </div>
 
-                  {customers.length ===
-                    0 && (
-                    <p className="ml-1 mt-2 text-[10px] text-stone-400">
-                      No finance clients exist yet. You can still create an internal project.
+                  {/* CLIENT INFO */}
+
+                  {clientOptions.length >
+                  0 ? (
+                    <p className="ml-1 mt-2 text-[10px] leading-4 text-stone-400">
+                      {
+                        clientOptions.length
+                      }{" "}
+                      {clientOptions.length ===
+                      1
+                        ? "client/contact is"
+                        : "clients and contacts are"}{" "}
+                      available from
+                      your CRM.
                     </p>
+                  ) : (
+                    <div className="ml-1 mt-2 flex items-start gap-2">
+                      <ContactRound
+                        size={
+                          12
+                        }
+                        className="mt-0.5 shrink-0 text-stone-300"
+                      />
+
+                      <p className="text-[10px] leading-4 text-stone-400">
+                        No CRM contacts
+                        exist yet. You
+                        can create an
+                        internal project
+                        or add a contact
+                        from the Clients
+                        area first.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* SELECTED CLIENT PREVIEW */}
+
+                  {form.client_key && (
+                    <SelectedClientPreview
+                      client={
+                        clientOptions.find(
+                          (
+                            client
+                          ) =>
+                            client.key ===
+                            form.client_key
+                        ) ||
+                        null
+                      }
+                    />
                   )}
                 </div>
 
-                {/* CATEGORY / BUDGET */}
+                {/* ===========================================
+                    CATEGORY / BUDGET
+                =========================================== */}
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {/* CATEGORY */}
+
                   <div className="space-y-1">
                     <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
                       Category
@@ -1983,17 +3230,17 @@ export default function ProjectDirectory() {
                         event
                       ) =>
                         setForm(
-                          {
-                            ...form,
+                          (
+                            previous
+                          ) => ({
+                            ...previous,
 
                             category:
-                              event
-                                .target
-                                .value,
-                          }
+                              event.target.value,
+                          })
                         )
                       }
-                      className="w-full appearance-none rounded-xl border border-stone-100 bg-stone-50 p-4 text-[10px] font-bold uppercase tracking-widest outline-none"
+                      className="w-full appearance-none rounded-xl border border-stone-100 bg-stone-50 p-4 text-[10px] font-bold uppercase tracking-widest outline-none transition focus:border-[#a9b897] focus:bg-white"
                     >
                       <option value="Client Work">
                         Client Work
@@ -2025,6 +3272,8 @@ export default function ProjectDirectory() {
                     </select>
                   </div>
 
+                  {/* BUDGET */}
+
                   <div className="space-y-1">
                     <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
                       Project Budget
@@ -2035,10 +3284,13 @@ export default function ProjectDirectory() {
                         size={
                           14
                         }
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
+                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
                       />
 
                       <input
+                        type="number"
+                        min="0"
+                        step="0.01"
                         inputMode="decimal"
                         value={
                           form.budget
@@ -2047,26 +3299,30 @@ export default function ProjectDirectory() {
                           event
                         ) =>
                           setForm(
-                            {
-                              ...form,
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
 
                               budget:
-                                event
-                                  .target
-                                  .value,
-                            }
+                                event.target.value,
+                            })
                           )
                         }
-                        className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-xs outline-none focus:border-[#a9b897]"
+                        className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-xs outline-none transition focus:border-[#a9b897] focus:bg-white"
                         placeholder="6000"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* DATES */}
+                {/* ===========================================
+                    DATES
+                =========================================== */}
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {/* START */}
+
                   <div className="space-y-1">
                     <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
                       Start Date
@@ -2077,7 +3333,7 @@ export default function ProjectDirectory() {
                         size={
                           14
                         }
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
+                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
                       />
 
                       <input
@@ -2089,20 +3345,22 @@ export default function ProjectDirectory() {
                           event
                         ) =>
                           setForm(
-                            {
-                              ...form,
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
 
                               start_date:
-                                event
-                                  .target
-                                  .value,
-                            }
+                                event.target.value,
+                            })
                           )
                         }
-                        className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-[10px] font-bold outline-none focus:border-[#a9b897]"
+                        className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-[10px] font-bold outline-none transition focus:border-[#a9b897] focus:bg-white"
                       />
                     </div>
                   </div>
+
+                  {/* DEADLINE */}
 
                   <div className="space-y-1">
                     <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
@@ -2114,11 +3372,15 @@ export default function ProjectDirectory() {
                         size={
                           14
                         }
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
+                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
                       />
 
                       <input
                         type="date"
+                        min={
+                          form.start_date ||
+                          undefined
+                        }
                         value={
                           form.due_date
                         }
@@ -2126,23 +3388,25 @@ export default function ProjectDirectory() {
                           event
                         ) =>
                           setForm(
-                            {
-                              ...form,
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
 
                               due_date:
-                                event
-                                  .target
-                                  .value,
-                            }
+                                event.target.value,
+                            })
                           )
                         }
-                        className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-[10px] font-bold outline-none focus:border-[#a9b897]"
+                        className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-[10px] font-bold outline-none transition focus:border-[#a9b897] focus:bg-white"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* OBJECTIVE */}
+                {/* ===========================================
+                    OBJECTIVE
+                =========================================== */}
 
                 <div className="space-y-1">
                   <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
@@ -2157,22 +3421,24 @@ export default function ProjectDirectory() {
                       event
                     ) =>
                       setForm(
-                        {
-                          ...form,
+                        (
+                          previous
+                        ) => ({
+                          ...previous,
 
                           objective_summary:
-                            event
-                              .target
-                              .value,
-                        }
+                            event.target.value,
+                        })
                       )
                     }
-                    className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 font-serif text-sm italic outline-none focus:border-[#a9b897]"
+                    className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 font-serif text-sm italic outline-none transition focus:border-[#a9b897] focus:bg-white"
                     placeholder="What does success look like?"
                   />
                 </div>
 
-                {/* DESCRIPTION */}
+                {/* ===========================================
+                    DESCRIPTION
+                =========================================== */}
 
                 <div className="space-y-1">
                   <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
@@ -2184,7 +3450,7 @@ export default function ProjectDirectory() {
                       size={
                         14
                       }
-                      className="absolute left-4 top-5 text-stone-300"
+                      className="pointer-events-none absolute left-4 top-5 text-stone-300"
                     />
 
                     <textarea
@@ -2195,28 +3461,32 @@ export default function ProjectDirectory() {
                         event
                       ) =>
                         setForm(
-                          {
-                            ...form,
+                          (
+                            previous
+                          ) => ({
+                            ...previous,
 
                             description:
-                              event
-                                .target
-                                .value,
-                          }
+                              event.target.value,
+                          })
                         )
                       }
-                      className="h-28 w-full resize-none rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-xs leading-relaxed outline-none focus:border-[#a9b897]"
+                      className="h-28 w-full resize-none rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-xs leading-relaxed outline-none transition focus:border-[#a9b897] focus:bg-white"
                       placeholder="Scope, deliverables, requirements or useful project context..."
                     />
                   </div>
                 </div>
+
+                {/* ===========================================
+                    SUBMIT
+                =========================================== */}
 
                 <button
                   type="submit"
                   disabled={
                     saving
                   }
-                  className="flex w-full items-center justify-center gap-3 rounded-[1.6rem] bg-stone-900 py-5 text-[9px] font-black uppercase tracking-[0.3em] text-white shadow-xl transition hover:bg-[#a9b897] disabled:opacity-40"
+                  className="flex w-full items-center justify-center gap-3 rounded-[1.6rem] bg-stone-900 py-5 text-[9px] font-black uppercase tracking-[0.3em] text-white shadow-xl transition hover:bg-[#a9b897] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {saving ? (
                     <>
@@ -2247,6 +3517,10 @@ export default function ProjectDirectory() {
         )}
       </AnimatePresence>
 
+      {/* =====================================================
+          GLOBAL STYLE
+      ===================================================== */}
+
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -2272,21 +3546,114 @@ export default function ProjectDirectory() {
 }
 
 // =========================================================
-// SMALL COMPONENTS
+// SELECTED CLIENT PREVIEW
+// =========================================================
+
+function SelectedClientPreview({
+  client,
+}: {
+  client:
+    | ClientOption
+    | null;
+}) {
+  if (
+    !client
+  ) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 rounded-2xl border border-[#a9b897]/20 bg-[#a9b897]/5 p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#829473]">
+          <UserRound
+            size={
+              14
+            }
+          />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-xs font-semibold text-stone-700">
+              {
+                client.name
+              }
+            </p>
+
+            <span className="rounded-full bg-white px-2 py-1 text-[7px] font-black uppercase tracking-wider text-[#829473]">
+              {client.customer_id
+                ? "Client"
+                : "CRM Contact"}
+            </span>
+          </div>
+
+          {client.email && (
+            <p className="mt-1 truncate text-[10px] text-stone-400">
+              {
+                client.email
+              }
+            </p>
+          )}
+
+          {!client.customer_id &&
+            client.source ===
+              "contact" && (
+              <p className="mt-2 text-[9px] leading-4 text-[#829473]">
+                TOTS will create
+                and link the client
+                record when this
+                project is created.
+              </p>
+            )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =========================================================
+// WORKSPACE METRIC
 // =========================================================
 
 function WorkspaceMetric({
-  icon: Icon,
+  icon:
+    Icon,
+
   value,
+
   label,
+
+  completed =
+    false,
 }: {
-  icon: any;
-  value: string;
-  label: string;
+  icon:
+    any;
+
+  value:
+    string;
+
+  label:
+    string;
+
+  completed?:
+    boolean;
 }) {
   return (
-    <div className="rounded-[1.7rem] border border-stone-200 bg-white p-5">
-      <div className="mb-5 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-50 text-stone-500">
+    <div
+      className={`rounded-[1.7rem] border bg-white p-5 ${
+        completed
+          ? "border-[#a9b897]/40"
+          : "border-stone-200"
+      }`}
+    >
+      <div
+        className={`mb-5 flex h-9 w-9 items-center justify-center rounded-xl ${
+          completed
+            ? "bg-[#a9b897]/10 text-[#829473]"
+            : "bg-stone-50 text-stone-500"
+        }`}
+      >
         <Icon
           size={
             16

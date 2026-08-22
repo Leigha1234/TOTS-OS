@@ -1,23 +1,57 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
+
 import Stripe from "stripe";
-import { createClient } from "@supabase/supabase-js";
+
+import {
+  createClient,
+} from "@supabase/supabase-js";
+
 import crypto from "crypto";
 
-export const runtime = "nodejs";
+export const runtime =
+  "nodejs";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-02-24.acacia",
-});
+// ======================================================
+// STRIPE
+// ======================================================
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const stripe =
+  new Stripe(
+    process.env
+      .STRIPE_SECRET_KEY!,
+    {
+      apiVersion:
+        "2025-02-24.acacia",
+    }
+  );
+
+// ======================================================
+// SUPABASE ADMIN
+// ======================================================
+
+const supabase =
+  createClient(
+    process.env
+      .NEXT_PUBLIC_SUPABASE_URL!,
+    process.env
+      .SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+// ======================================================
+// REGISTRATION ENCRYPTION
+// ======================================================
 
 const registrationEncryptionKey =
-  process.env.REGISTRATION_ENCRYPTION_KEY || "";
+  process.env
+    .REGISTRATION_ENCRYPTION_KEY ||
+  "";
 
-if (!registrationEncryptionKey) {
+if (
+  !registrationEncryptionKey
+) {
   throw new Error(
     "REGISTRATION_ENCRYPTION_KEY is missing"
   );
@@ -33,6 +67,13 @@ type SubscriptionTier =
   | "elite";
 
 // ======================================================
+// TRIAL
+// ======================================================
+
+const TRIAL_DAYS =
+  14;
+
+// ======================================================
 // STRIPE PLAN MAPPING
 // ======================================================
 
@@ -42,54 +83,93 @@ function resolvePlan(
   tier: SubscriptionTier;
   priceId: string;
 } {
-  const tier = String(rawTier || "")
-    .trim()
-    .toLowerCase();
+  const tier =
+    String(
+      rawTier || ""
+    )
+      .trim()
+      .toLowerCase();
 
-  if (tier === "standard") {
+  // ==================================================
+  // STANDARD
+  // ==================================================
+
+  if (
+    tier ===
+    "standard"
+  ) {
     const priceId =
-      process.env.STRIPE_PRICE_STANDARD;
+      process.env
+        .STRIPE_PRICE_STANDARD;
 
-    if (!priceId) {
+    if (
+      !priceId
+    ) {
       throw new Error(
         "STRIPE_PRICE_STANDARD is missing."
       );
     }
 
     return {
-      tier: "standard",
+      tier:
+        "standard",
+
       priceId,
     };
   }
 
-  if (tier === "professional") {
-    const priceId =
-      process.env.STRIPE_PRICE_PROFESSIONAL;
+  // ==================================================
+  // PROFESSIONAL
+  // ==================================================
 
-    if (!priceId) {
+  if (
+    tier ===
+    "professional"
+  ) {
+    const priceId =
+      process.env
+        .STRIPE_PRICE_PROFESSIONAL;
+
+    if (
+      !priceId
+    ) {
       throw new Error(
         "STRIPE_PRICE_PROFESSIONAL is missing."
       );
     }
 
     return {
-      tier: "professional",
+      tier:
+        "professional",
+
       priceId,
     };
   }
 
-  if (tier === "elite") {
-    const priceId =
-      process.env.STRIPE_PRICE_ELITE;
+  // ==================================================
+  // ELITE
+  // ==================================================
 
-    if (!priceId) {
+  if (
+    tier ===
+    "elite"
+  ) {
+    const priceId =
+      process.env
+        .STRIPE_PRICE_ELITE;
+
+    if (
+      !priceId
+    ) {
       throw new Error(
         "STRIPE_PRICE_ELITE is missing."
       );
     }
 
     return {
-      tier: "elite",
+      tier:
+        "elite",
+
       priceId,
     };
   }
@@ -107,14 +187,19 @@ function encryptPassword(
   password: string
 ) {
   const iv =
-    crypto.randomBytes(16);
+    crypto.randomBytes(
+      16
+    );
 
-  const key = crypto
-    .createHash("sha256")
-    .update(
-      registrationEncryptionKey
-    )
-    .digest();
+  const key =
+    crypto
+      .createHash(
+        "sha256"
+      )
+      .update(
+        registrationEncryptionKey
+      )
+      .digest();
 
   const cipher =
     crypto.createCipheriv(
@@ -129,12 +214,15 @@ function encryptPassword(
         password,
         "utf8"
       ),
+
       cipher.final(),
     ]);
 
   return `${iv.toString(
     "hex"
-  )}:${encrypted.toString("hex")}`;
+  )}:${encrypted.toString(
+    "hex"
+  )}`;
 }
 
 // ======================================================
@@ -144,7 +232,9 @@ function encryptPassword(
 function normaliseEmail(
   value: unknown
 ) {
-  return String(value || "")
+  return String(
+    value || ""
+  )
     .trim()
     .toLowerCase();
 }
@@ -157,6 +247,10 @@ export async function POST(
   request: NextRequest
 ) {
   try {
+    // ==================================================
+    // REQUEST BODY
+    // ==================================================
+
     const body =
       await request.json();
 
@@ -167,17 +261,20 @@ export async function POST(
 
     const password =
       String(
-        body.password || ""
+        body.password ||
+          ""
       );
 
     const fullName =
       String(
-        body.fullName || ""
+        body.fullName ||
+          ""
       ).trim();
 
     const companyName =
       String(
-        body.companyName || ""
+        body.companyName ||
+          ""
       ).trim();
 
     const jobTitle =
@@ -188,29 +285,33 @@ export async function POST(
         : null;
 
     /*
-     * IMPORTANT:
+     * IMPORTANT
      *
-     * We deliberately DO NOT trust a priceId
-     * supplied by the browser.
+     * Never accept a Stripe
+     * price ID directly from
+     * the browser.
      *
-     * The browser only sends the plan name:
+     * The browser sends:
      *
      * Standard
      * Professional
      * Elite
      *
-     * The server then chooses the correct
-     * Stripe Price ID.
+     * The server maps that
+     * to the trusted Stripe
+     * Price ID.
      */
+
     const {
       tier,
       priceId,
-    } = resolvePlan(
-      body.tier
-    );
+    } =
+      resolvePlan(
+        body.tier
+      );
 
     // ==================================================
-    // VALIDATION
+    // VALIDATE REQUIRED FIELDS
     // ==================================================
 
     if (
@@ -225,63 +326,87 @@ export async function POST(
             "Missing required registration details.",
         },
         {
-          status: 400,
+          status:
+            400,
         }
       );
     }
+
+    // ==================================================
+    // VALIDATE EMAIL
+    // ==================================================
 
     const emailIsValid =
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
         email
       );
 
-    if (!emailIsValid) {
+    if (
+      !emailIsValid
+    ) {
       return NextResponse.json(
         {
           error:
             "Please enter a valid email address.",
         },
         {
-          status: 400,
+          status:
+            400,
         }
       );
     }
 
-    if (password.length < 8) {
+    // ==================================================
+    // VALIDATE PASSWORD
+    // ==================================================
+
+    if (
+      password.length <
+      8
+    ) {
       return NextResponse.json(
         {
           error:
             "Password must be at least 8 characters.",
         },
         {
-          status: 400,
+          status:
+            400,
         }
       );
     }
 
     // ==================================================
-    // REMOVE EXISTING INCOMPLETE REGISTRATION
+    // REMOVE OLD INCOMPLETE REGISTRATION
     // ==================================================
 
     const {
-      data: existingPending,
-      error: existingPendingError,
-    } = await supabase
-      .from(
-        "pending_registrations"
-      )
-      .select("id")
-      .eq(
-        "email",
-        email
-      )
-      .eq(
-        "completed",
-        false
-      )
-      .maybeSingle();
+      data:
+        existingPending,
 
-    if (existingPendingError) {
+      error:
+        existingPendingError,
+    } =
+      await supabase
+        .from(
+          "pending_registrations"
+        )
+        .select(
+          "id"
+        )
+        .eq(
+          "email",
+          email
+        )
+        .eq(
+          "completed",
+          false
+        )
+        .maybeSingle();
+
+    if (
+      existingPendingError
+    ) {
       console.error(
         "Pending registration lookup error:",
         existingPendingError
@@ -293,10 +418,15 @@ export async function POST(
             "Unable to check registration details.",
         },
         {
-          status: 500,
+          status:
+            500,
         }
       );
     }
+
+    // ==================================================
+    // DELETE OLD PENDING REGISTRATION
+    // ==================================================
 
     if (
       existingPending
@@ -304,15 +434,16 @@ export async function POST(
       const {
         error:
           deletePendingError,
-      } = await supabase
-        .from(
-          "pending_registrations"
-        )
-        .delete()
-        .eq(
-          "id",
-          existingPending.id
-        );
+      } =
+        await supabase
+          .from(
+            "pending_registrations"
+          )
+          .delete()
+          .eq(
+            "id",
+            existingPending.id
+          );
 
       if (
         deletePendingError
@@ -328,7 +459,8 @@ export async function POST(
               "Unable to reset previous registration attempt.",
           },
           {
-            status: 500,
+            status:
+              500,
           }
         );
       }
@@ -350,45 +482,44 @@ export async function POST(
     const {
       data:
         pendingRegistration,
+
       error:
         registrationError,
-    } = await supabase
-      .from(
-        "pending_registrations"
-      )
-      .insert({
-        email,
+    } =
+      await supabase
+        .from(
+          "pending_registrations"
+        )
+        .insert({
+          email,
 
-        encrypted_password:
-          encryptedPassword,
+          encrypted_password:
+            encryptedPassword,
 
-        full_name:
-          fullName,
+          full_name:
+            fullName,
 
-        company_name:
-          companyName,
+          company_name:
+            companyName,
 
-        job_title:
-          jobTitle,
+          job_title:
+            jobTitle,
 
-        /*
-         * CRITICAL:
-         *
-         * Store the selected plan before
-         * sending the customer to Stripe.
-         *
-         * completeRegistration() later reads
-         * this and assigns the organisation
-         * the same subscription tier.
-         */
-        subscription_tier:
-          tier,
+          /*
+           * Store selected
+           * subscription tier.
+           */
 
-        completed:
-          false,
-      })
-      .select("id")
-      .single();
+          subscription_tier:
+            tier,
+
+          completed:
+            false,
+        })
+        .select(
+          "id"
+        )
+        .single();
 
     if (
       registrationError ||
@@ -402,11 +533,13 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            registrationError?.message ||
+            registrationError
+              ?.message ||
             "Unable to save registration details.",
         },
         {
-          status: 500,
+          status:
+            500,
         }
       );
     }
@@ -419,7 +552,9 @@ export async function POST(
       process.env
         .NEXT_PUBLIC_APP_URL;
 
-    if (!appUrl) {
+    if (
+      !appUrl
+    ) {
       throw new Error(
         "NEXT_PUBLIC_APP_URL is missing."
       );
@@ -434,32 +569,73 @@ export async function POST(
         .checkout
         .sessions
         .create({
+          // ============================================
+          // SUBSCRIPTION
+          // ============================================
+
           mode:
             "subscription",
+
+          // ============================================
+          // PROMO CODES
+          // ============================================
 
           allow_promotion_codes:
             true,
 
-          payment_method_types:
-            ["card"],
+          // ============================================
+          // IMPORTANT:
+          // NO CARD REQUIRED TO START TRIAL
+          // ============================================
+          //
+          // Stripe will only ask for
+          // payment details when they
+          // are required.
+          //
+          // Because the subscription
+          // begins with a 14-day trial,
+          // £0 is due today.
+          //
+
+          payment_method_collection:
+            "if_required",
+
+          // ============================================
+          // PLAN
+          // ============================================
 
           line_items: [
             {
-              /*
-               * Price is selected SERVER-SIDE.
-               */
               price:
                 priceId,
 
-              quantity: 1,
+              quantity:
+                1,
             },
           ],
+
+          // ============================================
+          // CUSTOMER
+          // ============================================
 
           customer_email:
             email,
 
+          /*
+           * Keep this if you want
+           * the customer's billing
+           * address saved.
+           *
+           * It does NOT force them
+           * to enter card details.
+           */
+
           billing_address_collection:
             "required",
+
+          // ============================================
+          // REDIRECTS
+          // ============================================
 
           success_url:
             `${appUrl}/onboarding/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -467,68 +643,118 @@ export async function POST(
           cancel_url:
             `${appUrl}/billing?cancelled=true`,
 
-          /*
-           * Metadata gives us another
-           * trusted record of the plan.
-           *
-           * The registration ID remains
-           * the source used by the webhook.
-           */
+          // ============================================
+          // CHECKOUT METADATA
+          // ============================================
+
           metadata: {
             registration_id:
               pendingRegistration.id,
 
             subscription_tier:
               tier,
+
+            trial_days:
+              String(
+                TRIAL_DAYS
+              ),
+
+            registration_type:
+              "free_trial",
           },
 
-          /*
-           * Also copy metadata onto the
-           * Stripe Subscription itself.
-           *
-           * This is useful later for
-           * subscription.updated and other
-           * lifecycle webhooks.
-           */
+          // ============================================
+          // SUBSCRIPTION CONFIG
+          // ============================================
+
           subscription_data: {
+            // ==========================================
+            // 14 DAY FREE TRIAL
+            // ==========================================
+
+            trial_period_days:
+              TRIAL_DAYS,
+
+            // ==========================================
+            // WHAT HAPPENS IF NO CARD
+            // IS ADDED BY DAY 14
+            // ==========================================
+            //
+            // Pause the subscription.
+            //
+            // This means:
+            //
+            // - they are NOT unexpectedly charged
+            // - Stripe does not keep producing failed
+            //   payments
+            // - you can ask them to add a card before
+            //   continuing
+            //
+
+            trial_settings: {
+              end_behavior: {
+                missing_payment_method:
+                  "pause",
+              },
+            },
+
+            // ==========================================
+            // COPY METADATA TO SUBSCRIPTION
+            // ==========================================
+
             metadata: {
               registration_id:
                 pendingRegistration.id,
 
               subscription_tier:
                 tier,
+
+              trial_days:
+                String(
+                  TRIAL_DAYS
+                ),
+
+              registration_type:
+                "free_trial",
             },
           },
         });
 
-    if (!session.url) {
+    // ==================================================
+    // CHECK URL
+    // ==================================================
+
+    if (
+      !session.url
+    ) {
       throw new Error(
         "Stripe did not return a checkout URL."
       );
     }
 
     // ==================================================
-    // SAVE STRIPE SESSION ID
+    // SAVE STRIPE SESSION
     // ==================================================
 
     const {
       error:
         sessionUpdateError,
-    } = await supabase
-      .from(
-        "pending_registrations"
-      )
-      .update({
-        stripe_session_id:
-          session.id,
+    } =
+      await supabase
+        .from(
+          "pending_registrations"
+        )
+        .update({
+          stripe_session_id:
+            session.id,
 
-        completed:
-          false,
-      })
-      .eq(
-        "id",
-        pendingRegistration.id
-      );
+          completed:
+            false,
+        })
+        .eq(
+          "id",
+          pendingRegistration.id
+        );
 
     if (
       sessionUpdateError
@@ -541,16 +767,21 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Unable to link payment session.",
+            "Unable to link trial session.",
         },
         {
-          status: 500,
+          status:
+            500,
         }
       );
     }
 
+    // ==================================================
+    // LOG
+    // ==================================================
+
     console.log(
-      "Stripe checkout session created:",
+      "Stripe trial checkout session created:",
       {
         sessionId:
           session.id,
@@ -561,6 +792,12 @@ export async function POST(
         tier,
 
         priceId,
+
+        trialDays:
+          TRIAL_DAYS,
+
+        paymentRequiredToday:
+          false,
       }
     );
 
@@ -577,9 +814,17 @@ export async function POST(
 
         sessionId:
           session.id,
+
+        trialDays:
+          TRIAL_DAYS,
+
+        paymentRequiredToday:
+          false,
       }
     );
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
       "Checkout session error:",
       error
@@ -593,7 +838,8 @@ export async function POST(
             : "Unable to create checkout session.",
       },
       {
-        status: 500,
+        status:
+          500,
       }
     );
   }

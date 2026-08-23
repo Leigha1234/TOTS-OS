@@ -1,57 +1,144 @@
-const CACHE_NAME = "tots-os-static-v1";
+// ============================================================
+// TOTS-OS SERVICE WORKER
+// ============================================================
 
-const STATIC_ASSETS = [
-  "/icon.png",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-];
+const CACHE_NAME = "tots-os-v1";
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(STATIC_ASSETS))
-  );
+// ============================================================
+// INSTALL
+// ============================================================
+
+self.addEventListener("install", () => {
+  console.log("[TOTS SW] Installed");
 
   self.skipWaiting();
 });
 
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => key !== CACHE_NAME)
-            .map((key) => caches.delete(key))
-        )
-      )
-  );
+// ============================================================
+// ACTIVATE
+// ============================================================
 
-  self.clients.claim();
+self.addEventListener("activate", (event) => {
+  console.log("[TOTS SW] Activated");
+
+  event.waitUntil(
+    self.clients.claim()
+  );
 });
 
-self.addEventListener("fetch", (event) => {
-  const request = event.request;
+// ============================================================
+// PUSH NOTIFICATION
+// ============================================================
 
-  if (request.method !== "GET") {
-    return;
+self.addEventListener("push", (event) => {
+  console.log("[TOTS SW] Push received");
+
+  let data = {};
+
+  try {
+    if (event.data) {
+      data = event.data.json();
+    }
+  } catch (error) {
+    console.error(
+      "[TOTS SW] Could not parse push:",
+      error
+    );
+
+    data = {
+      title: "TOTS-OS",
+      body: event.data
+        ? event.data.text()
+        : "You have a new notification.",
+    };
   }
 
-  const url = new URL(request.url);
+  const title =
+    data.title ||
+    "TOTS-OS";
 
-  if (url.pathname.startsWith("/api/")) {
-    return;
-  }
+  const options = {
+    body:
+      data.body ||
+      data.message ||
+      "You have a new business update.",
 
-  if (url.hostname.includes("supabase")) {
-    return;
-  }
+    icon:
+      data.icon ||
+      "/icon.png",
 
-  event.respondWith(
-    fetch(request).catch(() =>
-      caches.match(request)
+    badge:
+      data.badge ||
+      "/icon.png",
+
+    tag:
+      data.tag ||
+      `tots-${Date.now()}`,
+
+    renotify: true,
+
+    data: {
+      url:
+        data.url ||
+        data.link ||
+        "/dashboard",
+
+      ...(data.data || {}),
+    },
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(
+      title,
+      options
     )
   );
 });
+
+// ============================================================
+// CLICK NOTIFICATION
+// ============================================================
+
+self.addEventListener(
+  "notificationclick",
+  (event) => {
+    console.log(
+      "[TOTS SW] Notification clicked"
+    );
+
+    event.notification.close();
+
+    const targetUrl =
+      event.notification.data?.url ||
+      "/dashboard";
+
+    event.waitUntil(
+      self.clients
+        .matchAll({
+          type: "window",
+          includeUncontrolled: true,
+        })
+        .then((clients) => {
+          for (const client of clients) {
+            if (
+              "focus" in client
+            ) {
+              client.navigate(
+                targetUrl
+              );
+
+              return client.focus();
+            }
+          }
+
+          if (
+            self.clients.openWindow
+          ) {
+            return self.clients.openWindow(
+              targetUrl
+            );
+          }
+        })
+    );
+  }
+);

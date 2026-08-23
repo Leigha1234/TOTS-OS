@@ -27,12 +27,21 @@ import {
   Clock3,
   Loader2,
   Music2,
+  Radio,
   ShieldCheck,
 } from "lucide-react";
 
 import {
   toast,
 } from "sonner";
+
+import {
+  supabase,
+} from "@/lib/supabase";
+
+import {
+  enablePushNotifications,
+} from "@/lib/pushNotifications";
 
 import LegalHub from "@/app/components/LegalHub";
 import PasswordSection from "@/app/components/PasswordSection";
@@ -287,71 +296,205 @@ function SettingsInner() {
       false
     );
 
+  const [
+    pushSupported,
+    setPushSupported,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    pushSubscribed,
+    setPushSubscribed,
+  ] =
+    useState(
+      false
+    );
+
   // ==========================================================
-  // CHECK NOTIFICATION SUPPORT
+  // CHECK NOTIFICATION / PUSH STATUS
+  // ==========================================================
+
+  const refreshNotificationStatus =
+    useCallback(
+      async () => {
+        if (
+          typeof window ===
+          "undefined"
+        ) {
+          return;
+        }
+
+        // ====================================================
+        // NOTIFICATION API
+        // ====================================================
+
+        const notificationsAvailable =
+          "Notification" in
+          window;
+
+        setNotificationSupported(
+          notificationsAvailable
+        );
+
+        if (
+          notificationsAvailable
+        ) {
+          setNotificationPermission(
+            Notification.permission
+          );
+        }
+
+        // ====================================================
+        // PUSH API
+        // ====================================================
+
+        const pushAvailable =
+          "PushManager" in
+          window;
+
+        setPushSupported(
+          pushAvailable
+        );
+
+        // ====================================================
+        // SERVICE WORKER
+        // ====================================================
+
+        if (
+          !(
+            "serviceWorker" in
+            navigator
+          )
+        ) {
+          setServiceWorkerReady(
+            false
+          );
+
+          setPushSubscribed(
+            false
+          );
+
+          return;
+        }
+
+        try {
+          const registration =
+            await navigator
+              .serviceWorker
+              .getRegistration(
+                "/"
+              );
+
+          setServiceWorkerReady(
+            Boolean(
+              registration
+            )
+          );
+
+          if (
+            registration &&
+            pushAvailable
+          ) {
+            const subscription =
+              await registration
+                .pushManager
+                .getSubscription();
+
+            setPushSubscribed(
+              Boolean(
+                subscription
+              )
+            );
+          } else {
+            setPushSubscribed(
+              false
+            );
+          }
+        } catch (
+          error
+        ) {
+          console.warn(
+            "[TOTS NOTIFICATIONS] Status check failed:",
+            error
+          );
+
+          setServiceWorkerReady(
+            false
+          );
+
+          setPushSubscribed(
+            false
+          );
+        }
+      },
+      []
+    );
+
+  // ==========================================================
+  // INITIAL NOTIFICATION STATUS
   // ==========================================================
 
   useEffect(
     () => {
-      if (
-        typeof window ===
-        "undefined"
-      ) {
-        return;
-      }
-
-      const supported =
-        "Notification" in window;
-
-      setNotificationSupported(
-        supported
-      );
-
-      if (
-        supported
-      ) {
-        setNotificationPermission(
-          Notification.permission
-        );
-      }
-
-      if (
-        "serviceWorker" in navigator
-      ) {
-        navigator.serviceWorker
-          .getRegistration()
-          .then(
-            (
-              registration
-            ) => {
-              setServiceWorkerReady(
-                Boolean(
-                  registration
-                )
-              );
-            }
-          )
-          .catch(
-            (
-              error
-            ) => {
-              console.warn(
-                "[TOTS NOTIFICATIONS] Service worker lookup failed:",
-                error
-              );
-
-              setServiceWorkerReady(
-                false
-              );
-            }
-          );
-      }
+      void refreshNotificationStatus();
     },
-    []
+    [
+      refreshNotificationStatus,
+    ]
   );
 
   // ==========================================================
-  // ENABLE NOTIFICATIONS
+  // REFRESH STATUS WHEN WINDOW RETURNS
+  // ==========================================================
+
+  useEffect(
+    () => {
+      const handleFocus =
+        () => {
+          void refreshNotificationStatus();
+        };
+
+      const handleVisibility =
+        () => {
+          if (
+            document.visibilityState ===
+            "visible"
+          ) {
+            void refreshNotificationStatus();
+          }
+        };
+
+      window.addEventListener(
+        "focus",
+        handleFocus
+      );
+
+      document.addEventListener(
+        "visibilitychange",
+        handleVisibility
+      );
+
+      return () => {
+        window.removeEventListener(
+          "focus",
+          handleFocus
+        );
+
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibility
+        );
+      };
+    },
+    [
+      refreshNotificationStatus,
+    ]
+  );
+
+  // ==========================================================
+  // ENABLE PUSH NOTIFICATIONS
   // ==========================================================
 
   const enableNotifications =
@@ -377,90 +520,93 @@ function SettingsInner() {
           return;
         }
 
+        if (
+          !(
+            "serviceWorker" in
+            navigator
+          )
+        ) {
+          toast.error(
+            "Service workers are not supported on this device."
+          );
+
+          return;
+        }
+
+        if (
+          !(
+            "PushManager" in
+            window
+          )
+        ) {
+          toast.error(
+            "Push notifications are not supported on this device."
+          );
+
+          return;
+        }
+
         try {
           setNotificationLoading(
             true
           );
 
-          const permission =
-            await Notification.requestPermission();
+          // =================================================
+          // REAL PUSH SUBSCRIPTION
+          //
+          // This:
+          // 1. asks permission
+          // 2. registers / finds service worker
+          // 3. creates PushManager subscription
+          // 4. sends it to /api/push/subscribe
+          // 5. stores it in Supabase
+          // =================================================
+
+          await enablePushNotifications();
+
+          await refreshNotificationStatus();
 
           setNotificationPermission(
-            permission
+            Notification.permission
           );
 
-          if (
-            permission ===
-            "granted"
-          ) {
-            toast.success(
-              "Notifications enabled"
-            );
+          setPushSubscribed(
+            true
+          );
 
-            // =================================================
-            // OPTIONAL TEST NOTIFICATION
-            // =================================================
+          setServiceWorkerReady(
+            true
+          );
 
-            if (
-              "serviceWorker" in
-              navigator
-            ) {
-              const registration =
-                await navigator.serviceWorker.getRegistration();
-
-              if (
-                registration
-              ) {
-                setServiceWorkerReady(
-                  true
-                );
-
-                await registration.showNotification(
-                  "TOTS-OS notifications enabled",
-                  {
-                    body:
-                      "You can now receive important business updates from TOTS-OS.",
-
-                    icon:
-                      "/icon.png",
-
-                    badge:
-                      "/icon.png",
-
-                    tag:
-                      "tots-os-notifications-enabled",
-                  }
-                );
-              }
-            }
-
-            return;
-          }
-
-          if (
-            permission ===
-            "denied"
-          ) {
-            toast.error(
-              "Notifications are blocked in your browser settings."
-            );
-
-            return;
-          }
-
-          toast.info(
-            "Notification permission was not enabled."
+          toast.success(
+            "Push notifications enabled"
           );
         } catch (
           error
         ) {
           console.error(
-            "[TOTS NOTIFICATIONS] Permission request failed:",
+            "[TOTS PUSH] Enable failed:",
             error
           );
 
+          await refreshNotificationStatus();
+
+          if (
+            Notification.permission ===
+            "denied"
+          ) {
+            toast.error(
+              "Notifications are blocked. Allow them in your browser or device settings."
+            );
+
+            return;
+          }
+
           toast.error(
-            "Notifications could not be enabled."
+            error instanceof
+              Error
+              ? error.message
+              : "Push notifications could not be enabled."
           );
         } finally {
           setNotificationLoading(
@@ -468,11 +614,13 @@ function SettingsInner() {
           );
         }
       },
-      []
+      [
+        refreshNotificationStatus,
+      ]
     );
 
   // ==========================================================
-  // SEND TEST NOTIFICATION
+  // SEND REAL TEST PUSH NOTIFICATION
   // ==========================================================
 
   const sendTestNotification =
@@ -496,70 +644,156 @@ function SettingsInner() {
           return;
         }
 
+        if (
+          !pushSubscribed
+        ) {
+          toast.error(
+            "This device is not subscribed to push notifications yet."
+          );
+
+          return;
+        }
+
         try {
           setNotificationLoading(
             true
           );
 
+          // =================================================
+          // AUTH TOKEN
+          // =================================================
+
+          const {
+            data:
+              sessionData,
+
+            error:
+              sessionError,
+          } =
+            await supabase
+              .auth
+              .getSession();
+
           if (
-            "serviceWorker" in
-            navigator
+            sessionError
           ) {
-            const registration =
-              await navigator.serviceWorker.getRegistration();
-
-            if (
-              registration
-            ) {
-              await registration.showNotification(
-                "TOTS-OS test notification",
-                {
-                  body:
-                    "Your notifications are working correctly.",
-
-                  icon:
-                    "/icon.png",
-
-                  badge:
-                    "/icon.png",
-
-                  tag:
-                    `tots-os-test-${Date.now()}`,
-                }
-              );
-
-              toast.success(
-                "Test notification sent"
-              );
-
-              return;
-            }
+            throw sessionError;
           }
 
-          new Notification(
-            "TOTS-OS test notification",
-            {
-              body:
-                "Your notifications are working correctly.",
+          const accessToken =
+            sessionData
+              ?.session
+              ?.access_token;
 
-              icon:
-                "/icon.png",
-            }
-          );
+          if (
+            !accessToken
+          ) {
+            throw new Error(
+              "You must be signed in to send a test notification."
+            );
+          }
 
-          toast.success(
-            "Test notification sent"
+          // =================================================
+          // SERVER-SENT PUSH
+          //
+          // This is intentionally NOT registration.showNotification().
+          // It tests the real server → push service → device flow.
+          // =================================================
+
+          const response =
+            await fetch(
+              "/api/push/test",
+              {
+                method:
+                  "POST",
+
+                headers: {
+                  Authorization:
+                    `Bearer ${accessToken}`,
+
+                  "Content-Type":
+                    "application/json",
+                },
+
+                cache:
+                  "no-store",
+              }
+            );
+
+          let result:
+            any =
+            null;
+
+          try {
+            result =
+              await response.json();
+          } catch {
+            result =
+              null;
+          }
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              result?.error ||
+              "Test push notification could not be sent."
+            );
+          }
+
+          const sent =
+            Number(
+              result?.sent ??
+              0
+            );
+
+          const failed =
+            Number(
+              result?.failed ??
+              0
+            );
+
+          if (
+            sent >
+            0
+          ) {
+            toast.success(
+              sent ===
+              1
+                ? "Test push sent to your device"
+                : `Test push sent to ${sent} devices`
+            );
+
+            return;
+          }
+
+          if (
+            failed >
+            0
+          ) {
+            toast.error(
+              "The push service received the request but delivery failed."
+            );
+
+            return;
+          }
+
+          toast.error(
+            "No registered push devices were found for this workspace."
           );
         } catch (
           error
         ) {
           console.error(
-            "[TOTS NOTIFICATIONS] Test notification failed:",
+            "[TOTS PUSH] Test failed:",
             error
           );
 
           toast.error(
-            "Test notification could not be sent."
+            error instanceof
+              Error
+              ? error.message
+              : "Test notification could not be sent."
           );
         } finally {
           setNotificationLoading(
@@ -567,7 +801,9 @@ function SettingsInner() {
           );
         }
       },
-      []
+      [
+        pushSubscribed,
+      ]
     );
 
   // ==========================================================
@@ -1122,6 +1358,16 @@ function SettingsInner() {
   }
 
   // ==========================================================
+  // NOTIFICATION COPY
+  // ==========================================================
+
+  const notificationFullyEnabled =
+    notificationPermission ===
+      "granted" &&
+    serviceWorkerReady &&
+    pushSubscribed;
+
+  // ==========================================================
   // RENDER
   // ==========================================================
 
@@ -1216,10 +1462,15 @@ function SettingsInner() {
               />
 
               {/* ==================================================
-                  NOTIFICATIONS
+                  PUSH NOTIFICATIONS
               ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
+
+                {/* ================================================
+                    HEADING
+                ================================================ */}
+
                 <div className="mb-6">
                   <p className="text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">
                     Notifications
@@ -1230,16 +1481,23 @@ function SettingsInner() {
                   </h2>
 
                   <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-500">
-                    Allow TOTS-OS to notify you about orders,
+                    Receive push notifications for new orders,
                     invoices, payments, deadlines, tasks,
-                    projects and other important business
-                    activity.
+                    projects and other important TOTS-OS
+                    activity — even when the app is closed.
                   </p>
                 </div>
+
+                {/* ================================================
+                    MAIN NOTIFICATION CARD
+                ================================================ */}
 
                 <div className="overflow-hidden rounded-[1.75rem] border border-stone-200 bg-[#faf9f6]">
                   <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
                     <div className="flex min-w-0 items-start gap-4">
+
+                      {/* ICON */}
+
                       <div
                         className={`
                           flex
@@ -1251,8 +1509,7 @@ function SettingsInner() {
                           rounded-2xl
 
                           ${
-                            notificationPermission ===
-                            "granted"
+                            notificationFullyEnabled
                               ? "bg-[#e8efe2] text-[#71805f]"
                               : notificationPermission ===
                                   "denied"
@@ -1268,6 +1525,12 @@ function SettingsInner() {
                               19
                             }
                           />
+                        ) : notificationFullyEnabled ? (
+                          <Radio
+                            size={
+                              19
+                            }
+                          />
                         ) : (
                           <Bell
                             size={
@@ -1277,14 +1540,15 @@ function SettingsInner() {
                         )}
                       </div>
 
+                      {/* COPY */}
+
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-bold text-stone-800">
-                            Browser notifications
+                            Push notifications
                           </p>
 
-                          {notificationPermission ===
-                            "granted" && (
+                          {notificationFullyEnabled && (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8efe2] px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.16em] text-[#647356]">
                               <CheckCircle2
                                 size={
@@ -1292,7 +1556,7 @@ function SettingsInner() {
                                 }
                               />
 
-                              Enabled
+                              Active
                             </span>
                           )}
 
@@ -1321,23 +1585,46 @@ function SettingsInner() {
                               Not enabled
                             </span>
                           )}
+
+                          {notificationPermission ===
+                            "granted" &&
+                            !pushSubscribed && (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.16em] text-amber-600">
+                                <Clock3
+                                  size={
+                                    9
+                                  }
+                                />
+
+                                Setup incomplete
+                              </span>
+                            )}
                         </div>
 
                         <p className="mt-2 max-w-xl text-xs leading-5 text-stone-500">
-                          {notificationPermission ===
-                          "granted"
-                            ? "TOTS-OS is allowed to show notifications on this device."
+                          {notificationFullyEnabled
+                            ? "This device is registered for TOTS-OS push notifications. Alerts can be delivered even when TOTS-OS is closed."
                             : notificationPermission ===
                                 "denied"
-                              ? "Your browser is currently blocking TOTS-OS notifications. You will need to allow them in your browser or device settings."
-                              : "Turn notifications on so TOTS-OS can alert you about important activity."}
+                              ? "Your browser or device is blocking TOTS-OS notifications. Change notification permissions in your browser or device settings before trying again."
+                              : notificationPermission ===
+                                    "granted" &&
+                                  !pushSubscribed
+                                ? "Permission is allowed, but this device has not finished registering for push notifications. Press Enable notifications to complete setup."
+                                : "Turn push notifications on so TOTS-OS can alert you about important business activity."}
                         </p>
                       </div>
                     </div>
 
+                    {/* ==========================================
+                        ACTIONS
+                    ========================================== */}
+
                     <div className="flex shrink-0 flex-wrap gap-2">
-                      {notificationPermission !==
-                        "granted" && (
+
+                      {/* ENABLE / COMPLETE SETUP */}
+
+                      {!notificationFullyEnabled && (
                         <button
                           type="button"
                           onClick={() =>
@@ -1345,7 +1632,8 @@ function SettingsInner() {
                           }
                           disabled={
                             notificationLoading ||
-                            !notificationSupported
+                            !notificationSupported ||
+                            !pushSupported
                           }
                           className="
                             inline-flex
@@ -1383,12 +1671,16 @@ function SettingsInner() {
                             />
                           )}
 
-                          Enable notifications
+                          {notificationPermission ===
+                          "granted"
+                            ? "Complete setup"
+                            : "Enable notifications"}
                         </button>
                       )}
 
-                      {notificationPermission ===
-                        "granted" && (
+                      {/* SEND REAL PUSH TEST */}
+
+                      {notificationFullyEnabled && (
                         <button
                           type="button"
                           onClick={() =>
@@ -1416,16 +1708,26 @@ function SettingsInner() {
                             transition
                             hover:border-stone-300
                             hover:text-stone-900
+                            disabled:cursor-not-allowed
                             disabled:opacity-50
                           "
                         >
-                          <Bell
-                            size={
-                              13
-                            }
-                          />
+                          {notificationLoading ? (
+                            <Loader2
+                              size={
+                                13
+                              }
+                              className="animate-spin"
+                            />
+                          ) : (
+                            <Radio
+                              size={
+                                13
+                              }
+                            />
+                          )}
 
-                          Send test
+                          Send push test
                         </button>
                       )}
                     </div>
@@ -1435,7 +1737,7 @@ function SettingsInner() {
                       STATUS ROW
                   ========================================== */}
 
-                  <div className="grid border-t border-stone-200 bg-white sm:grid-cols-3">
+                  <div className="grid border-t border-stone-200 bg-white sm:grid-cols-2 xl:grid-cols-4">
                     <NotificationStatus
                       label="Browser support"
                       value={
@@ -1476,12 +1778,54 @@ function SettingsInner() {
                         serviceWorkerReady
                       }
                     />
+
+                    <NotificationStatus
+                      label="Push subscription"
+                      value={
+                        pushSubscribed
+                          ? "Registered"
+                          : pushSupported
+                            ? "Not registered"
+                            : "Not supported"
+                      }
+                      success={
+                        pushSubscribed
+                      }
+                    />
                   </div>
                 </div>
 
-                {/* =================================================
+                {/* ================================================
+                    READY CONFIRMATION
+                ================================================ */}
+
+                {notificationFullyEnabled && (
+                  <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[#dfe6d7] bg-[#f4f7f0] p-4">
+                    <CheckCircle2
+                      size={
+                        16
+                      }
+                      className="mt-0.5 shrink-0 text-[#71805f]"
+                    />
+
+                    <div>
+                      <p className="text-[10px] font-bold text-stone-700">
+                        This device is ready for push notifications
+                      </p>
+
+                      <p className="mt-1 text-[10px] leading-5 text-stone-500">
+                        Use Send push test to test the full
+                        server-to-device notification flow. You
+                        can lock your phone or close TOTS-OS
+                        before sending the test.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* ================================================
                     IOS / PWA NOTE
-                ================================================= */}
+                ================================================ */}
 
                 <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[#dfe6d7] bg-[#f4f7f0] p-4">
                   <ShieldCheck
@@ -1492,15 +1836,42 @@ function SettingsInner() {
                   />
 
                   <p className="text-[10px] leading-5 text-stone-500">
-                    On iPhone and iPad, install TOTS-OS using
+                    On iPhone and iPad, open TOTS-OS in Safari,
+                    choose
                     <span className="font-bold text-stone-700">
                       {" "}
-                      Add to Home Screen{" "}
+                      Add to Home Screen
                     </span>
-                    and open the installed app before enabling
-                    notifications.
+                    , open the installed TOTS-OS app, sign in,
+                    then enable notifications from this page.
                   </p>
                 </div>
+
+                {/* ================================================
+                    UNSUPPORTED NOTE
+                ================================================ */}
+
+                {(
+                  !notificationSupported ||
+                  !pushSupported
+                ) && (
+                  <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                    <BellOff
+                      size={
+                        16
+                      }
+                      className="mt-0.5 shrink-0 text-amber-500"
+                    />
+
+                    <p className="text-[10px] leading-5 text-amber-700">
+                      This browser does not currently expose all
+                      of the APIs required for web push. On
+                      iPhone, make sure you are using the
+                      installed Home Screen version of TOTS-OS
+                      rather than a normal Safari tab.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* ==================================================
@@ -1508,6 +1879,10 @@ function SettingsInner() {
               ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
+
+                {/* ================================================
+                    TIKTOK NOTICE
+                ================================================ */}
 
                 <div className="mb-6 overflow-hidden rounded-[1.75rem] border border-[#dfe6d7] bg-gradient-to-r from-[#f4f7f0] to-[#fafbf8] p-5 sm:p-6">
                   <div className="flex items-start gap-4">
@@ -1621,7 +1996,7 @@ function NotificationStatus({
     boolean;
 }) {
   return (
-    <div className="border-b border-stone-100 p-4 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
+    <div className="border-b border-stone-100 p-4 last:border-b-0 sm:border-r xl:border-b-0 xl:last:border-r-0">
       <p className="text-[7px] font-black uppercase tracking-[0.16em] text-stone-300">
         {
           label

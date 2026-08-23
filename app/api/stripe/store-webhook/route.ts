@@ -22,13 +22,8 @@ function requireEnv(name: string): string {
 // ============================================================
 // ENVIRONMENT
 //
-// These are required for the route itself to function.
-//
-// IMPORTANT:
-// STRIPE_STORE_WEBHOOK_SECRET is intentionally NOT resolved
-// here. Next.js imports route files during `next build`, so
-// resolving that secret at module scope can break the entire
-// build if the local environment does not contain it.
+// STRIPE_STORE_WEBHOOK_SECRET stays inside POST() so local
+// builds don't fail when the webhook secret is unavailable.
 // ============================================================
 
 const supabaseUrl = requireEnv(
@@ -267,6 +262,12 @@ type ShippingDetailsLike = {
   } | null;
 };
 
+type NotificationRecipientRow = {
+  user_id?: string | null;
+  id?: string | null;
+  role?: string | null;
+};
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -283,6 +284,8 @@ function asString(
     : null;
 }
 
+// ============================================================
+
 function normaliseEmail(
   value:
     | string
@@ -296,6 +299,8 @@ function normaliseEmail(
     ? email.toLowerCase()
     : null;
 }
+
+// ============================================================
 
 function safeInteger(
   value: unknown,
@@ -311,6 +316,8 @@ function safeInteger(
   return Math.floor(number);
 }
 
+// ============================================================
+
 function safeNumber(
   value: unknown,
   fallback = 0
@@ -323,6 +330,26 @@ function safeNumber(
   }
 
   return number;
+}
+
+// ============================================================
+
+function formatMoney(
+  value: unknown
+) {
+  return safeNumber(
+    value,
+    0
+  ).toLocaleString(
+    "en-GB",
+    {
+      style:
+        "currency",
+
+      currency:
+        "GBP",
+    }
+  );
 }
 
 // ============================================================
@@ -479,6 +506,8 @@ function getCustomerName(
   );
 }
 
+// ============================================================
+
 function getCustomerEmail(
   session:
     Stripe.Checkout.Session
@@ -491,6 +520,8 @@ function getCustomerEmail(
         .customer_email
   );
 }
+
+// ============================================================
 
 function getCustomerPhone(
   session:
@@ -560,6 +591,414 @@ async function getOrderItems(
   return (
     data || []
   ) as StoreOrderItemRow[];
+}
+
+// ============================================================
+// NOTIFICATION RECIPIENTS
+//
+// We first use team_members because that gives us the actual
+// organisation membership.
+//
+// We also try profiles as a fallback because some older TOTS-OS
+// organisations may pre-date the team_members structure.
+// ============================================================
+
+async function getOrganisationNotificationRecipients(
+  organisationId: string
+) {
+  const recipientIds =
+    new Set<string>();
+
+  // ==========================================================
+  // TEAM MEMBERS
+  // ==========================================================
+
+  const {
+    data:
+      teamMembers,
+
+    error:
+      teamMembersError,
+  } =
+    await supabaseAdmin
+      .from(
+        "team_members"
+      )
+      .select(
+        "user_id, role"
+      )
+      .eq(
+        "organisation_id",
+        organisationId
+      );
+
+  if (
+    teamMembersError
+  ) {
+    console.warn(
+      "[TOTS NOTIFICATIONS] Could not load team members:",
+      teamMembersError
+    );
+  } else {
+    for (
+      const member of
+      (
+        teamMembers ||
+        []
+      ) as NotificationRecipientRow[]
+    ) {
+      const userId =
+        asString(
+          member.user_id
+        );
+
+      if (
+        userId
+      ) {
+        recipientIds.add(
+          userId
+        );
+      }
+    }
+  }
+
+  // ==========================================================
+  // PROFILE FALLBACK
+  // ==========================================================
+
+  const {
+    data:
+      profiles,
+
+    error:
+      profilesError,
+  } =
+    await supabaseAdmin
+      .from(
+        "profiles"
+      )
+      .select(
+        "id, role"
+      )
+      .eq(
+        "organisation_id",
+        organisationId
+      );
+
+  if (
+    profilesError
+  ) {
+    console.warn(
+      "[TOTS NOTIFICATIONS] Profile fallback lookup failed:",
+      profilesError
+    );
+  } else {
+    for (
+      const profile of
+      (
+        profiles ||
+        []
+      ) as NotificationRecipientRow[]
+    ) {
+      const userId =
+        asString(
+          profile.id
+        );
+
+      if (
+        userId
+      ) {
+        recipientIds.add(
+          userId
+        );
+      }
+    }
+  }
+
+  return Array.from(
+    recipientIds
+  );
+}
+
+// ============================================================
+// CREATE ORDER NOTIFICATIONS
+//
+// This creates the actual rows read by useNotifications().
+//
+// Once inserted:
+// 1. the notification bell fetches them;
+// 2. Supabase Realtime can insert them live into the UI;
+// 3. the unread badge increases.
+//
+// dedupe_key prevents Stripe retries creating duplicate alerts.
+// ============================================================
+
+async function createOrderNotifications({
+  order,
+  customerName,
+  customerEmail,
+  total,
+}: {
+  order:
+    StoreOrderRow;
+
+  customerName:
+    string | null;
+
+  customerEmail:
+    string | null;
+
+  total:
+    number;
+}) {
+  try {
+    const recipients =
+      await getOrganisationNotificationRecipients(
+        order.organisation_id
+      );
+
+    if (
+      recipients.length ===
+      0
+    ) {
+      console.warn(
+        `[TOTS NOTIFICATIONS] No users found for organisation ${order.organisation_id}. Order notification skipped.`
+      );
+
+      return;
+    }
+
+    const dedupeKey =
+      `store-order-paid:${order.id}`;
+
+    // ========================================================
+    // CHECK EXISTING NOTIFICATIONS
+    // ========================================================
+
+    const {
+      data:
+        existingNotifications,
+
+      error:
+        existingError,
+    } =
+      await supabaseAdmin
+        .from(
+          "notifications"
+        )
+        .select(
+          "user_id"
+        )
+        .eq(
+          "organisation_id",
+          order.organisation_id
+        )
+        .eq(
+          "dedupe_key",
+          dedupeKey
+        );
+
+    if (
+      existingError
+    ) {
+      console.error(
+        "[TOTS NOTIFICATIONS] Duplicate check failed:",
+        existingError
+      );
+
+      throw existingError;
+    }
+
+    const alreadyNotified =
+      new Set(
+        (
+          existingNotifications ||
+          []
+        )
+          .map(
+            (
+              row:
+                {
+                  user_id?:
+                    string | null;
+                }
+            ) =>
+              asString(
+                row.user_id
+              )
+          )
+          .filter(
+            (
+              value
+            ): value is string =>
+              Boolean(
+                value
+              )
+          )
+      );
+
+    const usersToNotify =
+      recipients.filter(
+        (
+          userId
+        ) =>
+          !alreadyNotified.has(
+            userId
+          )
+      );
+
+    if (
+      usersToNotify.length ===
+      0
+    ) {
+      console.log(
+        `[TOTS NOTIFICATIONS] Order ${order.order_number} already has notifications.`
+      );
+
+      return;
+    }
+
+    // ========================================================
+    // MESSAGE
+    // ========================================================
+
+    const customerLabel =
+      customerName ||
+      customerEmail ||
+      "A customer";
+
+    const money =
+      formatMoney(
+        total
+      );
+
+    const now =
+      new Date()
+        .toISOString();
+
+    // ========================================================
+    // ROWS
+    //
+    // Both the modern and older notification columns are
+    // populated. This keeps the row compatible with old code
+    // while useNotifications() uses is_read/link/message.
+    // ========================================================
+
+    const rows =
+      usersToNotify.map(
+        (
+          userId
+        ) => ({
+          user_id:
+            userId,
+
+          organisation_id:
+            order.organisation_id,
+
+          type:
+            "order",
+
+          title:
+            "New store order",
+
+          message:
+            `${customerLabel} placed order ${order.order_number} for ${money}.`,
+
+          content:
+            `${customerLabel} placed order ${order.order_number} for ${money}.`,
+
+          link:
+            "/store",
+
+          href:
+            "/store",
+
+          entity_type:
+            "store_order",
+
+          entity_id:
+            order.id,
+
+          is_read:
+            false,
+
+          read:
+            false,
+
+          read_at:
+            null,
+
+          dedupe_key:
+            dedupeKey,
+
+          metadata: {
+            order_id:
+              order.id,
+
+            order_number:
+              order.order_number,
+
+            customer_name:
+              customerName,
+
+            customer_email:
+              customerEmail,
+
+            total,
+
+            payment_status:
+              "paid",
+          },
+
+          created_at:
+            now,
+
+          updated_at:
+            now,
+        })
+      );
+
+    const {
+      error:
+        notificationError,
+    } =
+      await supabaseAdmin
+        .from(
+          "notifications"
+        )
+        .insert(
+          rows
+        );
+
+    if (
+      notificationError
+    ) {
+      console.error(
+        "[TOTS NOTIFICATIONS] Order notification insert failed:",
+        notificationError
+      );
+
+      throw notificationError;
+    }
+
+    console.log(
+      `[TOTS NOTIFICATIONS] Created ${rows.length} notification(s) for order ${order.order_number}.`
+    );
+  } catch (
+    notificationError
+  ) {
+    /*
+     * Notifications are intentionally non-fatal.
+     *
+     * We must NEVER tell Stripe the payment processing failed
+     * just because a notification couldn't be generated.
+     */
+
+    console.error(
+      `[TOTS NOTIFICATIONS] Unable to notify organisation about order ${order.order_number}:`,
+      notificationError
+    );
+  }
 }
 
 // ============================================================
@@ -653,19 +1092,29 @@ async function createCustomer({
   phone,
   address,
 }: {
-  organisationId: string;
+  organisationId:
+    string;
 
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  address: string | null;
+  name:
+    string | null;
+
+  email:
+    string | null;
+
+  phone:
+    string | null;
+
+  address:
+    string | null;
 }) {
   const {
     data,
     error,
   } =
     await supabaseAdmin
-      .from("customers")
+      .from(
+        "customers"
+      )
       .insert({
         organisation_id:
           organisationId,
@@ -700,12 +1149,15 @@ async function createCustomer({
           "Customers",
 
         updated_at:
-          new Date().toISOString(),
+          new Date()
+            .toISOString(),
       })
       .select("*")
       .single();
 
-  if (error) {
+  if (
+    error
+  ) {
     console.error(
       "[TOTS CRM] Customer creation failed:",
       error
@@ -737,14 +1189,23 @@ async function updateCustomerDetails({
   phone,
   address,
 }: {
-  customer: CustomerRow;
+  customer:
+    CustomerRow;
 
-  organisationId: string;
+  organisationId:
+    string;
 
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  address: string | null;
+  name:
+    string | null;
+
+  email:
+    string | null;
+
+  phone:
+    string | null;
+
+  address:
+    string | null;
 }) {
   const payload: Record<
     string,
@@ -761,11 +1222,14 @@ async function updateCustomerDetails({
       "store_customer",
 
     updated_at:
-      new Date().toISOString(),
+      new Date()
+        .toISOString(),
   };
 
   if (
-    !asString(customer.name) &&
+    !asString(
+      customer.name
+    ) &&
     name
   ) {
     payload.name =
@@ -783,7 +1247,9 @@ async function updateCustomerDetails({
   }
 
   if (
-    !asString(customer.phone) &&
+    !asString(
+      customer.phone
+    ) &&
     phone
   ) {
     payload.phone =
@@ -791,7 +1257,9 @@ async function updateCustomerDetails({
   }
 
   if (
-    !asString(customer.address) &&
+    !asString(
+      customer.address
+    ) &&
     address
   ) {
     payload.address =
@@ -803,8 +1271,12 @@ async function updateCustomerDetails({
     error,
   } =
     await supabaseAdmin
-      .from("customers")
-      .update(payload)
+      .from(
+        "customers"
+      )
+      .update(
+        payload
+      )
       .eq(
         "id",
         customer.id
@@ -816,7 +1288,9 @@ async function updateCustomerDetails({
       .select("*")
       .single();
 
-  if (error) {
+  if (
+    error
+  ) {
     console.error(
       "[TOTS CRM] Customer update failed:",
       error
@@ -839,12 +1313,20 @@ async function findOrCreateCustomer({
   phone,
   address,
 }: {
-  order: StoreOrderRow;
+  order:
+    StoreOrderRow;
 
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  address: string | null;
+  name:
+    string | null;
+
+  email:
+    string | null;
+
+  phone:
+    string | null;
+
+  address:
+    string | null;
 }) {
   const existingOrderCustomerId =
     asString(
@@ -863,7 +1345,9 @@ async function findOrCreateCustomer({
           existingOrderCustomerId,
       });
 
-    if (customer) {
+    if (
+      customer
+    ) {
       return updateCustomerDetails({
         customer,
 
@@ -878,7 +1362,9 @@ async function findOrCreateCustomer({
     }
   }
 
-  if (email) {
+  if (
+    email
+  ) {
     const customer =
       await findCustomerByEmail({
         organisationId:
@@ -887,7 +1373,9 @@ async function findOrCreateCustomer({
         email,
       });
 
-    if (customer) {
+    if (
+      customer
+    ) {
       console.log(
         `[TOTS CRM] Existing customer matched by email: ${email}`
       );
@@ -925,15 +1413,20 @@ async function findContactByCustomerId({
   organisationId,
   customerId,
 }: {
-  organisationId: string;
-  customerId: string;
+  organisationId:
+    string;
+
+  customerId:
+    string;
 }) {
   const {
     data,
     error,
   } =
     await supabaseAdmin
-      .from("contacts")
+      .from(
+        "contacts"
+      )
       .select("*")
       .eq(
         "organisation_id",
@@ -946,7 +1439,9 @@ async function findContactByCustomerId({
       .limit(1)
       .maybeSingle();
 
-  if (error) {
+  if (
+    error
+  ) {
     console.error(
       "[TOTS CRM] Contact customer_id lookup failed:",
       error
@@ -968,15 +1463,20 @@ async function findContactByEmail({
   organisationId,
   email,
 }: {
-  organisationId: string;
-  email: string;
+  organisationId:
+    string;
+
+  email:
+    string;
 }) {
   const {
     data,
     error,
   } =
     await supabaseAdmin
-      .from("contacts")
+      .from(
+        "contacts"
+      )
       .select("*")
       .eq(
         "organisation_id",
@@ -989,7 +1489,9 @@ async function findContactByEmail({
       .limit(1)
       .maybeSingle();
 
-  if (error) {
+  if (
+    error
+  ) {
     console.error(
       "[TOTS CRM] Contact email lookup failed:",
       error
@@ -1016,15 +1518,26 @@ async function updateCrmContact({
   phone,
   address,
 }: {
-  contact: CrmContactRow;
+  contact:
+    CrmContactRow;
 
-  customerId: string;
-  organisationId: string;
+  customerId:
+    string;
 
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  address: string | null;
+  organisationId:
+    string;
+
+  name:
+    string | null;
+
+  email:
+    string | null;
+
+  phone:
+    string | null;
+
+  address:
+    string | null;
 }) {
   const payload: Record<
     string,
@@ -1037,7 +1550,8 @@ async function updateCrmContact({
       "client",
 
     updated_at:
-      new Date().toISOString(),
+      new Date()
+        .toISOString(),
   };
 
   if (
@@ -1085,8 +1599,12 @@ async function updateCrmContact({
     error,
   } =
     await supabaseAdmin
-      .from("contacts")
-      .update(payload)
+      .from(
+        "contacts"
+      )
+      .update(
+        payload
+      )
       .eq(
         "id",
         contact.id
@@ -1098,7 +1616,9 @@ async function updateCrmContact({
       .select("*")
       .single();
 
-  if (error) {
+  if (
+    error
+  ) {
     console.error(
       "[TOTS CRM] Contact update failed:",
       error
@@ -1107,7 +1627,8 @@ async function updateCrmContact({
     throw error;
   }
 
-  return data as CrmContactRow;
+  return data as
+    CrmContactRow;
 }
 
 // ============================================================
@@ -1122,20 +1643,32 @@ async function createCrmContact({
   phone,
   address,
 }: {
-  customerId: string;
-  organisationId: string;
+  customerId:
+    string;
 
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  address: string | null;
+  organisationId:
+    string;
+
+  name:
+    string | null;
+
+  email:
+    string | null;
+
+  phone:
+    string | null;
+
+  address:
+    string | null;
 }) {
   const {
     data,
     error,
   } =
     await supabaseAdmin
-      .from("contacts")
+      .from(
+        "contacts"
+      )
       .insert({
         organisation_id:
           organisationId,
@@ -1161,12 +1694,15 @@ async function createCrmContact({
           "Created automatically after a TOTS-OS storefront purchase.",
 
         updated_at:
-          new Date().toISOString(),
+          new Date()
+            .toISOString(),
       })
       .select("*")
       .single();
 
-  if (error) {
+  if (
+    error
+  ) {
     console.error(
       "[TOTS CRM] Contact creation failed:",
       error
@@ -1179,7 +1715,8 @@ async function createCrmContact({
     `[TOTS CRM] Created CRM contact ${data.id} linked to customer ${customerId}.`
   );
 
-  return data as CrmContactRow;
+  return data as
+    CrmContactRow;
 }
 
 // ============================================================
@@ -1194,13 +1731,23 @@ async function findOrCreateCrmContact({
   phone,
   address,
 }: {
-  customer: CustomerRow;
-  order: StoreOrderRow;
+  customer:
+    CustomerRow;
 
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  address: string | null;
+  order:
+    StoreOrderRow;
+
+  name:
+    string | null;
+
+  email:
+    string | null;
+
+  phone:
+    string | null;
+
+  address:
+    string | null;
 }) {
   const customerContact =
     await findContactByCustomerId({
@@ -1211,7 +1758,9 @@ async function findOrCreateCrmContact({
         customer.id,
     });
 
-  if (customerContact) {
+  if (
+    customerContact
+  ) {
     return updateCrmContact({
       contact:
         customerContact,
@@ -1229,7 +1778,9 @@ async function findOrCreateCrmContact({
     });
   }
 
-  if (email) {
+  if (
+    email
+  ) {
     const emailContact =
       await findContactByEmail({
         organisationId:
@@ -1238,7 +1789,9 @@ async function findOrCreateCrmContact({
         email,
       });
 
-    if (emailContact) {
+    if (
+      emailContact
+    ) {
       console.log(
         `[TOTS CRM] Existing CRM contact matched by email: ${email}`
       );
@@ -1283,20 +1836,26 @@ async function linkOrderToCustomer({
   order,
   customerId,
 }: {
-  order: StoreOrderRow;
-  customerId: string;
+  order:
+    StoreOrderRow;
+
+  customerId:
+    string;
 }) {
   const {
     error,
   } =
     await supabaseAdmin
-      .from("store_orders")
+      .from(
+        "store_orders"
+      )
       .update({
         customer_id:
           customerId,
 
         updated_at:
-          new Date().toISOString(),
+          new Date()
+            .toISOString(),
       })
       .eq(
         "id",
@@ -1307,7 +1866,9 @@ async function linkOrderToCustomer({
         order.organisation_id
       );
 
-  if (error) {
+  if (
+    error
+  ) {
     console.error(
       `[TOTS CRM] Order/customer link failed for ${order.order_number}:`,
       error
@@ -1332,7 +1893,8 @@ async function syncOrderToCrm({
   customerPhone,
   customerAddress,
 }: {
-  order: StoreOrderRow;
+  order:
+    StoreOrderRow;
 
   customerName:
     string | null;
@@ -1488,7 +2050,8 @@ async function reduceOrderStock(
     }
 
     const product =
-      productData as StoreProductRow;
+      productData as
+        StoreProductRow;
 
     if (
       product.track_inventory ===
@@ -1565,7 +2128,8 @@ async function reduceOrderStock(
             newStock,
 
           updated_at:
-            new Date().toISOString(),
+            new Date()
+              .toISOString(),
         })
         .eq(
           "id",
@@ -1605,7 +2169,8 @@ async function markOrderPaid({
   shippingAddress,
   stripeTotal,
 }: {
-  order: StoreOrderRow;
+  order:
+    StoreOrderRow;
 
   customerName:
     string | null;
@@ -1628,7 +2193,9 @@ async function markOrderPaid({
     error,
   } =
     await supabaseAdmin
-      .from("store_orders")
+      .from(
+        "store_orders"
+      )
       .update({
         customer_name:
           customerName,
@@ -1653,7 +2220,8 @@ async function markOrderPaid({
           "new",
 
         updated_at:
-          new Date().toISOString(),
+          new Date()
+            .toISOString(),
       })
       .eq(
         "id",
@@ -1672,11 +2240,15 @@ async function markOrderPaid({
       )
       .maybeSingle();
 
-  if (error) {
+  if (
+    error
+  ) {
     throw error;
   }
 
-  return Boolean(data);
+  return Boolean(
+    data
+  );
 }
 
 // ============================================================
@@ -1687,6 +2259,10 @@ async function completeStoreOrder(
   session:
     Stripe.Checkout.Session
 ) {
+  // ==========================================================
+  // ORDER ID
+  // ==========================================================
+
   const orderId =
     asString(
       session
@@ -1694,7 +2270,9 @@ async function completeStoreOrder(
         ?.order_id
     );
 
-  if (!orderId) {
+  if (
+    !orderId
+  ) {
     console.warn(
       "[TOTS STORE] Stripe Checkout session has no order_id metadata:",
       session.id
@@ -1703,12 +2281,18 @@ async function completeStoreOrder(
     return;
   }
 
+  // ==========================================================
+  // LOAD ORDER
+  // ==========================================================
+
   const order =
     await getOrder(
       orderId
     );
 
-  if (!order) {
+  if (
+    !order
+  ) {
     console.error(
       "[TOTS STORE] Store order not found:",
       orderId
@@ -1716,6 +2300,10 @@ async function completeStoreOrder(
 
     return;
   }
+
+  // ==========================================================
+  // CUSTOMER DATA
+  // ==========================================================
 
   const customerName =
     getCustomerName(
@@ -1749,7 +2337,29 @@ async function completeStoreOrder(
     );
 
   // ==========================================================
+  // STRIPE TOTAL
+  //
+  // Calculate before already-paid branch because Stripe may
+  // retry the event and we still want the correct notification
+  // amount.
+  // ==========================================================
+
+  const stripeTotal =
+    typeof session.amount_total ===
+      "number"
+      ? session.amount_total /
+        100
+      : safeNumber(
+          order.total,
+          0
+        );
+
+  // ==========================================================
   // ALREADY PAID
+  //
+  // We still run CRM + notification repair here.
+  // This means you can resend an old Stripe event and missing
+  // notifications will be created without reducing stock twice.
   // ==========================================================
 
   if (
@@ -1781,6 +2391,25 @@ async function completeStoreOrder(
       );
     }
 
+    // ========================================================
+    // REPAIR / CREATE NOTIFICATION
+    // ========================================================
+
+    await createOrderNotifications({
+      order,
+
+      customerName,
+
+      customerEmail,
+
+      total:
+        stripeTotal ||
+        safeNumber(
+          order.total,
+          0
+        ),
+    });
+
     return;
   }
 
@@ -1798,20 +2427,6 @@ async function completeStoreOrder(
 
     return;
   }
-
-  // ==========================================================
-  // TOTAL
-  // ==========================================================
-
-  const stripeTotal =
-    typeof session.amount_total ===
-      "number"
-      ? session.amount_total /
-        100
-      : safeNumber(
-          order.total,
-          0
-        );
 
   // ==========================================================
   // INVENTORY
@@ -1840,10 +2455,42 @@ async function completeStoreOrder(
       stripeTotal,
     });
 
-  if (!markedPaid) {
+  if (
+    !markedPaid
+  ) {
     console.log(
       `[TOTS STORE] Order ${order.order_number} was already processed by another webhook execution.`
     );
+
+    /*
+     * Another webhook may have won the race.
+     * Reload it and create the notification if necessary.
+     */
+
+    const latestOrder =
+      await getOrder(
+        order.id
+      );
+
+    if (
+      latestOrder?.payment_status ===
+      "paid"
+    ) {
+      await createOrderNotifications({
+        order:
+          latestOrder,
+
+        customerName,
+
+        customerEmail,
+
+        total:
+          safeNumber(
+            latestOrder.total,
+            stripeTotal
+          ),
+      });
+    }
 
     return;
   }
@@ -1852,17 +2499,25 @@ async function completeStoreOrder(
     `[TOTS STORE] Order ${order.order_number} marked paid.`
   );
 
+  // ==========================================================
+  // RELOAD UPDATED ORDER
+  // ==========================================================
+
   const updatedOrder =
     await getOrder(
       order.id
     );
 
-  if (!updatedOrder) {
+  if (
+    !updatedOrder
+  ) {
     return;
   }
 
   // ==========================================================
   // CRM SYNC
+  //
+  // CRM failures are non-fatal.
   // ==========================================================
 
   try {
@@ -1886,6 +2541,24 @@ async function completeStoreOrder(
       crmError
     );
   }
+
+  // ==========================================================
+  // CREATE TOTS-OS NOTIFICATION
+  //
+  // This is what makes the order appear in NotificationBell.
+  // ==========================================================
+
+  await createOrderNotifications({
+    order:
+      updatedOrder,
+
+    customerName,
+
+    customerEmail,
+
+    total:
+      stripeTotal,
+  });
 }
 
 // ============================================================
@@ -1903,7 +2576,9 @@ async function markOrderPaymentFailed(
         ?.order_id
     );
 
-  if (!orderId) {
+  if (
+    !orderId
+  ) {
     return;
   }
 
@@ -1911,13 +2586,16 @@ async function markOrderPaymentFailed(
     error,
   } =
     await supabaseAdmin
-      .from("store_orders")
+      .from(
+        "store_orders"
+      )
       .update({
         payment_status:
           "pending",
 
         updated_at:
-          new Date().toISOString(),
+          new Date()
+            .toISOString(),
       })
       .eq(
         "id",
@@ -1928,7 +2606,9 @@ async function markOrderPaymentFailed(
         "paid"
       );
 
-  if (error) {
+  if (
+    error
+  ) {
     throw error;
   }
 
@@ -1952,7 +2632,9 @@ async function handlePaymentIntentCancelled(
         ?.order_id
     );
 
-  if (!orderId) {
+  if (
+    !orderId
+  ) {
     return;
   }
 
@@ -1960,13 +2642,16 @@ async function handlePaymentIntentCancelled(
     error,
   } =
     await supabaseAdmin
-      .from("store_orders")
+      .from(
+        "store_orders"
+      )
       .update({
         payment_status:
           "pending",
 
         updated_at:
-          new Date().toISOString(),
+          new Date()
+            .toISOString(),
       })
       .eq(
         "id",
@@ -1977,7 +2662,9 @@ async function handlePaymentIntentCancelled(
         "paid"
       );
 
-  if (error) {
+  if (
+    error
+  ) {
     throw error;
   }
 
@@ -1996,12 +2683,7 @@ export async function POST(
   // ==========================================================
   // WEBHOOK SECRET
   //
-  // IMPORTANT:
-  // This MUST remain inside POST().
-  //
-  // Putting requireEnv("STRIPE_STORE_WEBHOOK_SECRET") at module
-  // scope causes `next build` to fail when the local machine
-  // doesn't have the Stripe webhook signing secret.
+  // Keep inside POST() to prevent local next build failures.
   // ==========================================================
 
   const stripeWebhookSecret =
@@ -2022,7 +2704,8 @@ export async function POST(
           "Stripe store webhook secret is not configured.",
       },
       {
-        status: 500,
+        status:
+          500,
 
         headers: {
           "Cache-Control":
@@ -2041,7 +2724,9 @@ export async function POST(
       "stripe-signature"
     );
 
-  if (!signature) {
+  if (
+    !signature
+  ) {
     console.error(
       "[TOTS STORE WEBHOOK] Missing stripe-signature header."
     );
@@ -2052,7 +2737,8 @@ export async function POST(
           "Missing Stripe signature.",
       },
       {
-        status: 400,
+        status:
+          400,
 
         headers: {
           "Cache-Control":
@@ -2065,8 +2751,7 @@ export async function POST(
   // ==========================================================
   // RAW BODY
   //
-  // Never use req.json() here.
-  // Stripe verifies the exact raw request body.
+  // Do not use req.json().
   // ==========================================================
 
   let body:
@@ -2076,7 +2761,8 @@ export async function POST(
     body =
       await req.text();
   } catch (
-    error: unknown
+    error:
+      unknown
   ) {
     console.error(
       "[TOTS STORE WEBHOOK] Could not read request body:",
@@ -2089,7 +2775,8 @@ export async function POST(
           "Could not read webhook body.",
       },
       {
-        status: 400,
+        status:
+          400,
 
         headers: {
           "Cache-Control":
@@ -2114,7 +2801,8 @@ export async function POST(
         stripeWebhookSecret
       );
   } catch (
-    error: unknown
+    error:
+      unknown
   ) {
     console.error(
       "[TOTS STORE WEBHOOK] Signature verification failed:",
@@ -2130,7 +2818,8 @@ export async function POST(
             : "Invalid webhook signature.",
       },
       {
-        status: 400,
+        status:
+          400,
 
         headers: {
           "Cache-Control":
@@ -2255,7 +2944,8 @@ export async function POST(
       }
     );
   } catch (
-    error: unknown
+    error:
+      unknown
   ) {
     console.error(
       `[TOTS STORE WEBHOOK] Processing failed for ${event.type} (${event.id}):`,
@@ -2263,10 +2953,8 @@ export async function POST(
     );
 
     /*
-     * Returning HTTP 500 is intentional here.
-     *
-     * Stripe will retry the webhook if important processing
-     * such as payment state or inventory management fails.
+     * HTTP 500 intentionally causes Stripe to retry if critical
+     * payment/order/inventory processing fails.
      */
 
     return NextResponse.json(

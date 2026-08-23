@@ -595,12 +595,6 @@ async function getOrderItems(
 
 // ============================================================
 // NOTIFICATION RECIPIENTS
-//
-// We first use team_members because that gives us the actual
-// organisation membership.
-//
-// We also try profiles as a fallback because some older TOTS-OS
-// organisations may pre-date the team_members structure.
 // ============================================================
 
 async function getOrganisationNotificationRecipients(
@@ -723,14 +717,12 @@ async function getOrganisationNotificationRecipients(
 // ============================================================
 // CREATE ORDER NOTIFICATIONS
 //
-// This creates the actual rows read by useNotifications().
+// Creates notification rows consumed by useNotifications().
 //
-// Once inserted:
-// 1. the notification bell fetches them;
-// 2. Supabase Realtime can insert them live into the UI;
-// 3. the unread badge increases.
-//
-// dedupe_key prevents Stripe retries creating duplicate alerts.
+// IMPORTANT:
+// dedupe_key is UNIQUE PER USER so Stripe retries do not create
+// duplicate alerts and multiple organisation users can still
+// each receive their own notification.
 // ============================================================
 
 async function createOrderNotifications({
@@ -768,100 +760,6 @@ async function createOrderNotifications({
       return;
     }
 
-    const dedupeKey =
-      `store-order-paid:${order.id}`;
-
-    // ========================================================
-    // CHECK EXISTING NOTIFICATIONS
-    // ========================================================
-
-    const {
-      data:
-        existingNotifications,
-
-      error:
-        existingError,
-    } =
-      await supabaseAdmin
-        .from(
-          "notifications"
-        )
-        .select(
-          "user_id"
-        )
-        .eq(
-          "organisation_id",
-          order.organisation_id
-        )
-        .eq(
-          "dedupe_key",
-          dedupeKey
-        );
-
-    if (
-      existingError
-    ) {
-      console.error(
-        "[TOTS NOTIFICATIONS] Duplicate check failed:",
-        existingError
-      );
-
-      throw existingError;
-    }
-
-    const alreadyNotified =
-      new Set(
-        (
-          existingNotifications ||
-          []
-        )
-          .map(
-            (
-              row:
-                {
-                  user_id?:
-                    string | null;
-                }
-            ) =>
-              asString(
-                row.user_id
-              )
-          )
-          .filter(
-            (
-              value
-            ): value is string =>
-              Boolean(
-                value
-              )
-          )
-      );
-
-    const usersToNotify =
-      recipients.filter(
-        (
-          userId
-        ) =>
-          !alreadyNotified.has(
-            userId
-          )
-      );
-
-    if (
-      usersToNotify.length ===
-      0
-    ) {
-      console.log(
-        `[TOTS NOTIFICATIONS] Order ${order.order_number} already has notifications.`
-      );
-
-      return;
-    }
-
-    // ========================================================
-    // MESSAGE
-    // ========================================================
-
     const customerLabel =
       customerName ||
       customerEmail ||
@@ -872,126 +770,189 @@ async function createOrderNotifications({
         total
       );
 
+    const message =
+      `${customerLabel} placed order ${order.order_number} for ${money}.`;
+
     const now =
       new Date()
         .toISOString();
 
+    let createdCount =
+      0;
+
     // ========================================================
-    // ROWS
-    //
-    // Both the modern and older notification columns are
-    // populated. This keeps the row compatible with old code
-    // while useNotifications() uses is_read/link/message.
+    // CREATE ONE NOTIFICATION PER USER
     // ========================================================
 
-    const rows =
-      usersToNotify.map(
-        (
-          userId
-        ) => ({
-          user_id:
-            userId,
+    for (
+      const userId of
+      recipients
+    ) {
+      const dedupeKey =
+        `store-order-paid:${order.id}:${userId}`;
 
-          organisation_id:
-            order.organisation_id,
+      // ======================================================
+      // CHECK IF THIS USER ALREADY HAS THE NOTIFICATION
+      // ======================================================
 
-          type:
-            "order",
+      const {
+        data:
+          existingNotification,
 
-          title:
-            "New store order",
+        error:
+          existingError,
+      } =
+        await supabaseAdmin
+          .from(
+            "notifications"
+          )
+          .select(
+            "id"
+          )
+          .eq(
+            "user_id",
+            userId
+          )
+          .eq(
+            "organisation_id",
+            order.organisation_id
+          )
+          .eq(
+            "dedupe_key",
+            dedupeKey
+          )
+          .maybeSingle();
 
-          message:
-            `${customerLabel} placed order ${order.order_number} for ${money}.`,
-
-          content:
-            `${customerLabel} placed order ${order.order_number} for ${money}.`,
-
-          link:
-            "/store",
-
-          href:
-            "/store",
-
-          entity_type:
-            "store_order",
-
-          entity_id:
-            order.id,
-
-          is_read:
-            false,
-
-          read:
-            false,
-
-          read_at:
-            null,
-
-          dedupe_key:
-            dedupeKey,
-
-          metadata: {
-            order_id:
-              order.id,
-
-            order_number:
-              order.order_number,
-
-            customer_name:
-              customerName,
-
-            customer_email:
-              customerEmail,
-
-            total,
-
-            payment_status:
-              "paid",
-          },
-
-          created_at:
-            now,
-
-          updated_at:
-            now,
-        })
-      );
-
-    const {
-      error:
-        notificationError,
-    } =
-      await supabaseAdmin
-        .from(
-          "notifications"
-        )
-        .insert(
-          rows
+      if (
+        existingError
+      ) {
+        console.error(
+          `[TOTS NOTIFICATIONS] Duplicate check failed for user ${userId}:`,
+          existingError
         );
 
-    if (
-      notificationError
-    ) {
-      console.error(
-        "[TOTS NOTIFICATIONS] Order notification insert failed:",
-        notificationError
-      );
+        continue;
+      }
 
-      throw notificationError;
+      if (
+        existingNotification
+      ) {
+        console.log(
+          `[TOTS NOTIFICATIONS] User ${userId} already notified about ${order.order_number}.`
+        );
+
+        continue;
+      }
+
+      // ======================================================
+      // INSERT
+      // ======================================================
+
+      const {
+        error:
+          notificationError,
+      } =
+        await supabaseAdmin
+          .from(
+            "notifications"
+          )
+          .insert({
+            user_id:
+              userId,
+
+            organisation_id:
+              order.organisation_id,
+
+            type:
+              "order",
+
+            title:
+              "New store order",
+
+            message,
+
+            content:
+              message,
+
+            link:
+              "/store",
+
+            href:
+              "/store",
+
+            entity_type:
+              "store_order",
+
+            entity_id:
+              order.id,
+
+            is_read:
+              false,
+
+            read:
+              false,
+
+            read_at:
+              null,
+
+            dedupe_key:
+              dedupeKey,
+
+            metadata: {
+              order_id:
+                order.id,
+
+              order_number:
+                order.order_number,
+
+              customer_name:
+                customerName,
+
+              customer_email:
+                customerEmail,
+
+              total,
+
+              payment_status:
+                "paid",
+
+              fulfilment_status:
+                order.fulfilment_status,
+            },
+
+            created_at:
+              now,
+
+            updated_at:
+              now,
+          });
+
+      if (
+        notificationError
+      ) {
+        console.error(
+          `[TOTS NOTIFICATIONS] Order notification insert failed for user ${userId}:`,
+          notificationError
+        );
+
+        continue;
+      }
+
+      createdCount +=
+        1;
     }
 
     console.log(
-      `[TOTS NOTIFICATIONS] Created ${rows.length} notification(s) for order ${order.order_number}.`
+      `[TOTS NOTIFICATIONS] Created ${createdCount} notification(s) for order ${order.order_number}.`
     );
   } catch (
     notificationError
   ) {
     /*
-     * Notifications are intentionally non-fatal.
+     * Notification failures are intentionally non-fatal.
      *
-     * We must NEVER tell Stripe the payment processing failed
-     * just because a notification couldn't be generated.
+     * We do not want Stripe retrying a successful payment
+     * because a notification could not be inserted.
      */
 
     console.error(
@@ -1009,15 +970,20 @@ async function findCustomerById({
   organisationId,
   customerId,
 }: {
-  organisationId: string;
-  customerId: string;
+  organisationId:
+    string;
+
+  customerId:
+    string;
 }) {
   const {
     data,
     error,
   } =
     await supabaseAdmin
-      .from("customers")
+      .from(
+        "customers"
+      )
       .select("*")
       .eq(
         "id",
@@ -1029,7 +995,9 @@ async function findCustomerById({
       )
       .maybeSingle();
 
-  if (error) {
+  if (
+    error
+  ) {
     throw error;
   }
 
@@ -1046,15 +1014,20 @@ async function findCustomerByEmail({
   organisationId,
   email,
 }: {
-  organisationId: string;
-  email: string;
+  organisationId:
+    string;
+
+  email:
+    string;
 }) {
   const {
     data,
     error,
   } =
     await supabaseAdmin
-      .from("customers")
+      .from(
+        "customers"
+      )
       .select("*")
       .eq(
         "organisation_id",
@@ -1067,7 +1040,9 @@ async function findCustomerByEmail({
       .limit(1)
       .maybeSingle();
 
-  if (error) {
+  if (
+    error
+  ) {
     console.error(
       "[TOTS CRM] Customer lookup failed:",
       error
@@ -1174,7 +1149,8 @@ async function createCustomer({
     }.`
   );
 
-  return data as CustomerRow;
+  return data as
+    CustomerRow;
 }
 
 // ============================================================
@@ -1299,7 +1275,8 @@ async function updateCustomerDetails({
     throw error;
   }
 
-  return data as CustomerRow;
+  return data as
+    CustomerRow;
 }
 
 // ============================================================
@@ -2338,10 +2315,6 @@ async function completeStoreOrder(
 
   // ==========================================================
   // STRIPE TOTAL
-  //
-  // Calculate before already-paid branch because Stripe may
-  // retry the event and we still want the correct notification
-  // amount.
   // ==========================================================
 
   const stripeTotal =
@@ -2357,9 +2330,8 @@ async function completeStoreOrder(
   // ==========================================================
   // ALREADY PAID
   //
-  // We still run CRM + notification repair here.
-  // This means you can resend an old Stripe event and missing
-  // notifications will be created without reducing stock twice.
+  // Stripe can retry webhooks. If the order is already paid,
+  // we skip stock but still repair missing CRM / notifications.
   // ==========================================================
 
   if (
@@ -2391,10 +2363,6 @@ async function completeStoreOrder(
       );
     }
 
-    // ========================================================
-    // REPAIR / CREATE NOTIFICATION
-    // ========================================================
-
     await createOrderNotifications({
       order,
 
@@ -2403,10 +2371,9 @@ async function completeStoreOrder(
       customerEmail,
 
       total:
-        stripeTotal ||
         safeNumber(
           order.total,
-          0
+          stripeTotal
         ),
     });
 
@@ -2462,11 +2429,6 @@ async function completeStoreOrder(
       `[TOTS STORE] Order ${order.order_number} was already processed by another webhook execution.`
     );
 
-    /*
-     * Another webhook may have won the race.
-     * Reload it and create the notification if necessary.
-     */
-
     const latestOrder =
       await getOrder(
         order.id
@@ -2516,8 +2478,6 @@ async function completeStoreOrder(
 
   // ==========================================================
   // CRM SYNC
-  //
-  // CRM failures are non-fatal.
   // ==========================================================
 
   try {
@@ -2543,9 +2503,7 @@ async function completeStoreOrder(
   }
 
   // ==========================================================
-  // CREATE TOTS-OS NOTIFICATION
-  //
-  // This is what makes the order appear in NotificationBell.
+  // CREATE IN-APP NOTIFICATION
   // ==========================================================
 
   await createOrderNotifications({
@@ -2557,7 +2515,10 @@ async function completeStoreOrder(
     customerEmail,
 
     total:
-      stripeTotal,
+      safeNumber(
+        updatedOrder.total,
+        stripeTotal
+      ),
   });
 }
 
@@ -2752,6 +2713,7 @@ export async function POST(
   // RAW BODY
   //
   // Do not use req.json().
+  // Stripe requires the unmodified body for signature checks.
   // ==========================================================
 
   let body:
@@ -2953,8 +2915,8 @@ export async function POST(
     );
 
     /*
-     * HTTP 500 intentionally causes Stripe to retry if critical
-     * payment/order/inventory processing fails.
+     * Returning HTTP 500 is intentional for critical order
+     * processing failures so Stripe retries the event.
      */
 
     return NextResponse.json(

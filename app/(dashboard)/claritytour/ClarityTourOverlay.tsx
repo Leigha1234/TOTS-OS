@@ -45,8 +45,12 @@ type ViewportSize = {
 // ============================================================
 
 const CARD_WIDTH = 400;
-const CARD_ESTIMATED_HEIGHT = 330;
+
+const CARD_ESTIMATED_HEIGHT =
+  330;
+
 const EDGE = 18;
+
 const GAP = 22;
 
 // ============================================================
@@ -56,14 +60,22 @@ const GAP = 22;
 export default function ClarityTourOverlay() {
   const {
     isOpen,
+
     currentStep,
+
     currentStepIndex,
+
     totalSteps,
+
     nextStep,
+
     previousStep,
+
     skipTour,
+
     closeTour,
-  } = useClarityTour();
+  } =
+    useClarityTour();
 
   // ==========================================================
   // STATE
@@ -72,653 +84,746 @@ export default function ClarityTourOverlay() {
   const [
     targetRect,
     setTargetRect,
-  ] = useState<TargetRect | null>(
-    null
-  );
+  ] =
+    useState<
+      TargetRect | null
+    >(
+      null
+    );
 
   const [
     viewport,
     setViewport,
-  ] = useState<ViewportSize>({
-    width: 0,
-    height: 0,
-  });
+  ] =
+    useState<ViewportSize>({
+      width:
+        0,
+
+      height:
+        0,
+    });
 
   const [
     ready,
     setReady,
-  ] = useState(false);
+  ] =
+    useState(
+      false
+    );
 
   // ==========================================================
   // VIEWPORT
   // ==========================================================
 
-  useEffect(() => {
-    if (
-      typeof window ===
-      "undefined"
-    ) {
-      return;
-    }
+  useEffect(
+    () => {
+      if (
+        typeof window ===
+        "undefined"
+      ) {
+        return;
+      }
 
-    const updateViewport =
-      () => {
-        setViewport({
-          width:
-            window.innerWidth,
+      const updateViewport =
+        () => {
+          setViewport({
+            width:
+              window.innerWidth,
 
-          height:
-            window.innerHeight,
-        });
-      };
+            height:
+              window.innerHeight,
+          });
+        };
 
-    updateViewport();
+      updateViewport();
 
-    window.addEventListener(
-      "resize",
-      updateViewport
-    );
-
-    window.addEventListener(
-      "orientationchange",
-      updateViewport
-    );
-
-    return () => {
-      window.removeEventListener(
+      window.addEventListener(
         "resize",
         updateViewport
       );
 
-      window.removeEventListener(
+      window.addEventListener(
         "orientationchange",
         updateViewport
       );
-    };
-  }, []);
+
+      return () => {
+        window.removeEventListener(
+          "resize",
+          updateViewport
+        );
+
+        window.removeEventListener(
+          "orientationchange",
+          updateViewport
+        );
+      };
+    },
+    []
+  );
 
   // ==========================================================
   // FIND / TRACK TARGET
   // ==========================================================
 
-  useEffect(() => {
-    if (
-      typeof window ===
-        "undefined" ||
-      typeof document ===
-        "undefined"
-    ) {
-      return;
-    }
+  useEffect(
+    () => {
+      if (
+        typeof window ===
+          "undefined" ||
+        typeof document ===
+          "undefined"
+      ) {
+        return;
+      }
 
-    if (
-      !isOpen ||
-      !currentStep
-    ) {
-      setTargetRect(
-        null
-      );
+      if (
+        !isOpen ||
+        !currentStep
+      ) {
+        setTargetRect(
+          null
+        );
+
+        setReady(
+          false
+        );
+
+        return;
+      }
+
+      let cancelled =
+        false;
+
+      let trackedElement:
+        HTMLElement | null =
+        null;
+
+      let resizeObserver:
+        ResizeObserver | null =
+        null;
+
+      /*
+       * IMPORTANT:
+       *
+       * These are browser window timers.
+       *
+       * window.setTimeout() returns a number,
+       * so use number | null rather than
+       * ReturnType<typeof setTimeout>.
+       *
+       * This prevents the NodeJS.Timeout vs
+       * number TypeScript build error.
+       */
+
+      let settleTimer:
+        number | null =
+        null;
+
+      let readyTimer:
+        number | null =
+        null;
+
+      let locateTimer:
+        number | null =
+        null;
+
+      // ======================================================
+      // GET ELEMENT RECT
+      // ======================================================
+
+      const updateRect =
+        (
+          element:
+            HTMLElement
+        ) => {
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          const rect =
+            element
+              .getBoundingClientRect();
+
+          const padding =
+            window.innerWidth <
+            640
+              ? 7
+              : 10;
+
+          const top =
+            Math.max(
+              6,
+
+              rect.top -
+                padding
+            );
+
+          const left =
+            Math.max(
+              6,
+
+              rect.left -
+                padding
+            );
+
+          const maxWidth =
+            Math.max(
+              0,
+
+              window.innerWidth -
+                left -
+                6
+            );
+
+          const maxHeight =
+            Math.max(
+              0,
+
+              window.innerHeight -
+                top -
+                6
+            );
+
+          const width =
+            Math.min(
+              rect.width +
+                padding *
+                  2,
+
+              maxWidth
+            );
+
+          const height =
+            Math.min(
+              rect.height +
+                padding *
+                  2,
+
+              maxHeight
+            );
+
+          setTargetRect({
+            top,
+
+            left,
+
+            width,
+
+            height,
+          });
+        };
+
+      // ======================================================
+      // LOCATE ELEMENT
+      // ======================================================
+
+      const locateTarget =
+        () => {
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          let element:
+            HTMLElement | null =
+            null;
+
+          try {
+            element =
+              document.querySelector(
+                currentStep.target
+              ) as
+                | HTMLElement
+                | null;
+          } catch (
+            selectorError
+          ) {
+            console.warn(
+              "[CLARITY TOUR] Invalid target selector:",
+
+              currentStep.target,
+
+              selectorError
+            );
+          }
+
+          // ==================================================
+          // NO TARGET
+          //
+          // Missing targets are intentionally supported.
+          //
+          // Clarity simply presents the step as a centred
+          // explanatory card instead.
+          // ==================================================
+
+          if (
+            !element
+          ) {
+            trackedElement =
+              null;
+
+            setTargetRect(
+              null
+            );
+
+            readyTimer =
+              window.setTimeout(
+                () => {
+                  if (
+                    !cancelled
+                  ) {
+                    setReady(
+                      true
+                    );
+                  }
+                },
+
+                120
+              );
+
+            return;
+          }
+
+          trackedElement =
+            element;
+
+          // ==================================================
+          // SCROLL TARGET INTO VIEW
+          // ==================================================
+
+          try {
+            element.scrollIntoView({
+              behavior:
+                "smooth",
+
+              block:
+                "center",
+
+              inline:
+                "nearest",
+            });
+          } catch {
+            element.scrollIntoView();
+          }
+
+          // ==================================================
+          // WAIT FOR SMOOTH SCROLL
+          // ==================================================
+
+          settleTimer =
+            window.setTimeout(
+              () => {
+                if (
+                  cancelled ||
+                  !trackedElement
+                ) {
+                  return;
+                }
+
+                updateRect(
+                  trackedElement
+                );
+
+                setReady(
+                  true
+                );
+
+                // ============================================
+                // TRACK TARGET SIZE CHANGES
+                // ============================================
+
+                if (
+                  typeof ResizeObserver !==
+                  "undefined"
+                ) {
+                  resizeObserver =
+                    new ResizeObserver(
+                      () => {
+                        if (
+                          !cancelled &&
+                          trackedElement
+                        ) {
+                          updateRect(
+                            trackedElement
+                          );
+                        }
+                      }
+                    );
+
+                  resizeObserver.observe(
+                    trackedElement
+                  );
+                }
+              },
+
+              450
+            );
+        };
+
+      // ======================================================
+      // SCROLL TRACKING
+      // ======================================================
+
+      const handleScroll =
+        () => {
+          if (
+            cancelled ||
+            !trackedElement
+          ) {
+            return;
+          }
+
+          updateRect(
+            trackedElement
+          );
+        };
+
+      // ======================================================
+      // RESIZE TRACKING
+      // ======================================================
+
+      const handleResize =
+        () => {
+          if (
+            cancelled ||
+            !trackedElement
+          ) {
+            return;
+          }
+
+          updateRect(
+            trackedElement
+          );
+        };
+
+      // ======================================================
+      // INITIALISE
+      // ======================================================
 
       setReady(
         false
       );
 
-      return;
-    }
-
-    let cancelled =
-      false;
-
-    let trackedElement:
-      HTMLElement | null =
-      null;
-
-    let resizeObserver:
-      ResizeObserver | null =
-      null;
-
-    let settleTimer:
-      ReturnType<
-        typeof window.setTimeout
-      > | null =
-      null;
-
-    let readyTimer:
-      ReturnType<
-        typeof window.setTimeout
-      > | null =
-      null;
-
-    // ========================================================
-    // GET ELEMENT RECT
-    // ========================================================
-
-    const updateRect = (
-      element: HTMLElement
-    ) => {
-      if (cancelled) {
-        return;
-      }
-
-      const rect =
-        element.getBoundingClientRect();
-
-      const padding =
-        window.innerWidth <
-        640
-          ? 7
-          : 10;
-
-      const top =
-        Math.max(
-          6,
-          rect.top -
-            padding
-        );
-
-      const left =
-        Math.max(
-          6,
-          rect.left -
-            padding
-        );
-
-      const maxWidth =
-        Math.max(
-          0,
-          window.innerWidth -
-            left -
-            6
-        );
-
-      const maxHeight =
-        Math.max(
-          0,
-          window.innerHeight -
-            top -
-            6
-        );
-
-      const width =
-        Math.min(
-          rect.width +
-            padding * 2,
-          maxWidth
-        );
-
-      const height =
-        Math.min(
-          rect.height +
-            padding * 2,
-          maxHeight
-        );
-
-      setTargetRect({
-        top,
-        left,
-        width,
-        height,
-      });
-    };
-
-    // ========================================================
-    // LOCATE ELEMENT
-    // ========================================================
-
-    const locateTarget =
-      () => {
-        if (cancelled) {
-          return;
-        }
-
-        let element:
-          HTMLElement | null =
-          null;
-
-        try {
-          element =
-            document.querySelector(
-              currentStep.target
-            ) as
-              | HTMLElement
-              | null;
-        } catch (
-          selectorError
-        ) {
-          console.warn(
-            "[CLARITY TOUR] Invalid target selector:",
-            currentStep.target,
-            selectorError
-          );
-        }
-
-        // ====================================================
-        // NO TARGET
-        //
-        // Missing targets are intentionally supported.
-        // The tour becomes a centred explanatory card.
-        // ====================================================
-
-        if (!element) {
-          trackedElement =
-            null;
-
-          setTargetRect(
-            null
-          );
-
-          readyTimer =
-            window.setTimeout(
-              () => {
-                if (
-                  !cancelled
-                ) {
-                  setReady(
-                    true
-                  );
-                }
-              },
-              120
-            );
-
-          return;
-        }
-
-        trackedElement =
-          element;
-
-        // ====================================================
-        // SCROLL TARGET INTO VIEW
-        // ====================================================
-
-        try {
-          element.scrollIntoView({
-            behavior:
-              "smooth",
-
-            block:
-              "center",
-
-            inline:
-              "nearest",
-          });
-        } catch {
-          element.scrollIntoView();
-        }
-
-        // ====================================================
-        // WAIT FOR SMOOTH SCROLL
-        // ====================================================
-
-        settleTimer =
-          window.setTimeout(
-            () => {
-              if (
-                cancelled ||
-                !trackedElement
-              ) {
-                return;
-              }
-
-              updateRect(
-                trackedElement
-              );
-
-              setReady(
-                true
-              );
-
-              // ==============================================
-              // TRACK TARGET SIZE CHANGES
-              // ==============================================
-
-              if (
-                typeof ResizeObserver !==
-                "undefined"
-              ) {
-                resizeObserver =
-                  new ResizeObserver(
-                    () => {
-                      if (
-                        !cancelled &&
-                        trackedElement
-                      ) {
-                        updateRect(
-                          trackedElement
-                        );
-                      }
-                    }
-                  );
-
-                resizeObserver.observe(
-                  trackedElement
-                );
-              }
-            },
-            450
-          );
-      };
-
-    // ========================================================
-    // SCROLL TRACKING
-    // ========================================================
-
-    const handleScroll =
-      () => {
-        if (
-          cancelled ||
-          !trackedElement
-        ) {
-          return;
-        }
-
-        updateRect(
-          trackedElement
-        );
-      };
-
-    // ========================================================
-    // RESIZE TRACKING
-    // ========================================================
-
-    const handleResize =
-      () => {
-        if (
-          cancelled ||
-          !trackedElement
-        ) {
-          return;
-        }
-
-        updateRect(
-          trackedElement
-        );
-      };
-
-    // ========================================================
-    // INITIALISE
-    // ========================================================
-
-    setReady(
-      false
-    );
-
-    setTargetRect(
-      null
-    );
-
-    const locateTimer =
-      window.setTimeout(
-        locateTarget,
-        180
+      setTargetRect(
+        null
       );
 
-    window.addEventListener(
-      "scroll",
-      handleScroll,
-      true
-    );
+      locateTimer =
+        window.setTimeout(
+          locateTarget,
 
-    window.addEventListener(
-      "resize",
-      handleResize
-    );
-
-    // ========================================================
-    // CLEANUP
-    // ========================================================
-
-    return () => {
-      cancelled =
-        true;
-
-      window.clearTimeout(
-        locateTimer
-      );
-
-      if (settleTimer) {
-        window.clearTimeout(
-          settleTimer
+          180
         );
-      }
 
-      if (readyTimer) {
-        window.clearTimeout(
-          readyTimer
-        );
-      }
-
-      resizeObserver?.disconnect();
-
-      window.removeEventListener(
+      window.addEventListener(
         "scroll",
+
         handleScroll,
+
         true
       );
 
-      window.removeEventListener(
+      window.addEventListener(
         "resize",
+
         handleResize
       );
-    };
-  }, [
-    isOpen,
-    currentStep,
-  ]);
+
+      // ======================================================
+      // CLEANUP
+      // ======================================================
+
+      return () => {
+        cancelled =
+          true;
+
+        if (
+          locateTimer !==
+          null
+        ) {
+          window.clearTimeout(
+            locateTimer
+          );
+        }
+
+        if (
+          settleTimer !==
+          null
+        ) {
+          window.clearTimeout(
+            settleTimer
+          );
+        }
+
+        if (
+          readyTimer !==
+          null
+        ) {
+          window.clearTimeout(
+            readyTimer
+          );
+        }
+
+        resizeObserver
+          ?.disconnect();
+
+        window.removeEventListener(
+          "scroll",
+
+          handleScroll,
+
+          true
+        );
+
+        window.removeEventListener(
+          "resize",
+
+          handleResize
+        );
+      };
+    },
+    [
+      isOpen,
+
+      currentStep,
+    ]
+  );
 
   // ==========================================================
   // CARD POSITION
   // ==========================================================
 
   const cardPosition =
-    useMemo(() => {
-      const safeViewportWidth =
-        Math.max(
-          viewport.width,
-          320
-        );
+    useMemo(
+      () => {
+        const safeViewportWidth =
+          Math.max(
+            viewport.width,
 
-      const safeViewportHeight =
-        Math.max(
-          viewport.height,
-          500
-        );
+            320
+          );
 
-      const width =
-        Math.max(
-          260,
-          Math.min(
-            CARD_WIDTH,
-            safeViewportWidth -
-              32
-          )
-        );
+        const safeViewportHeight =
+          Math.max(
+            viewport.height,
 
-      // ======================================================
-      // NO TARGET
-      // ======================================================
+            500
+          );
 
-      if (!targetRect) {
-        return {
-          top:
-            Math.max(
-              EDGE,
-              safeViewportHeight /
-                2 -
-                CARD_ESTIMATED_HEIGHT /
-                  2
-            ),
+        const width =
+          Math.max(
+            260,
 
-          left:
-            Math.max(
-              16,
-              safeViewportWidth /
-                2 -
-                width /
-                  2
-            ),
+            Math.min(
+              CARD_WIDTH,
 
-          width,
-        };
-      }
+              safeViewportWidth -
+                32
+            )
+          );
 
-      const placement =
-        currentStep
-          ?.placement ??
-        "bottom";
+        // ====================================================
+        // NO TARGET
+        // ====================================================
 
-      let top =
-        targetRect.top +
-        targetRect.height +
-        GAP;
+        if (
+          !targetRect
+        ) {
+          return {
+            top:
+              Math.max(
+                EDGE,
 
-      let left =
-        targetRect.left +
-        targetRect.width /
-          2 -
-        width /
-          2;
+                safeViewportHeight /
+                  2 -
+                  CARD_ESTIMATED_HEIGHT /
+                    2
+              ),
 
-      // ======================================================
-      // TOP
-      // ======================================================
+            left:
+              Math.max(
+                16,
 
-      if (
-        placement ===
-        "top"
-      ) {
-        top =
-          targetRect.top -
-          CARD_ESTIMATED_HEIGHT -
+                safeViewportWidth /
+                  2 -
+                  width /
+                    2
+              ),
+
+            width,
+          };
+        }
+
+        const placement =
+          currentStep
+            ?.placement ??
+          "bottom";
+
+        let top =
+          targetRect.top +
+          targetRect.height +
           GAP;
-      }
 
-      // ======================================================
-      // RIGHT
-      // ======================================================
-
-      if (
-        placement ===
-        "right"
-      ) {
-        left =
+        let left =
           targetRect.left +
-          targetRect.width +
-          GAP;
-
-        top =
-          targetRect.top +
-          targetRect.height /
-            2 -
-          CARD_ESTIMATED_HEIGHT /
-            2;
-      }
-
-      // ======================================================
-      // LEFT
-      // ======================================================
-
-      if (
-        placement ===
-        "left"
-      ) {
-        left =
-          targetRect.left -
-          width -
-          GAP;
-
-        top =
-          targetRect.top +
-          targetRect.height /
-            2 -
-          CARD_ESTIMATED_HEIGHT /
-            2;
-      }
-
-      // ======================================================
-      // CENTER
-      // ======================================================
-
-      if (
-        placement ===
-        "center"
-      ) {
-        left =
-          safeViewportWidth /
+          targetRect.width /
             2 -
           width /
             2;
 
-        top =
-          safeViewportHeight /
-            2 -
-          CARD_ESTIMATED_HEIGHT /
-            2;
-      }
+        // ====================================================
+        // TOP
+        // ====================================================
 
-      // ======================================================
-      // KEEP CARD WITHIN VIEWPORT
-      // ======================================================
+        if (
+          placement ===
+          "top"
+        ) {
+          top =
+            targetRect.top -
+            CARD_ESTIMATED_HEIGHT -
+            GAP;
+        }
 
-      left =
-        Math.max(
-          EDGE,
-          Math.min(
-            left,
-            safeViewportWidth -
-              width -
-              EDGE
-          )
-        );
+        // ====================================================
+        // RIGHT
+        // ====================================================
 
-      top =
-        Math.max(
-          EDGE,
-          Math.min(
-            top,
-            safeViewportHeight -
-              CARD_ESTIMATED_HEIGHT -
-              EDGE
-          )
-        );
+        if (
+          placement ===
+          "right"
+        ) {
+          left =
+            targetRect.left +
+            targetRect.width +
+            GAP;
 
-      // ======================================================
-      // MOBILE
-      //
-      // Keep the tour card above the mobile navigation.
-      // ======================================================
+          top =
+            targetRect.top +
+            targetRect.height /
+              2 -
+            CARD_ESTIMATED_HEIGHT /
+              2;
+        }
 
-      if (
-        safeViewportWidth <
-        640
-      ) {
+        // ====================================================
+        // LEFT
+        // ====================================================
+
+        if (
+          placement ===
+          "left"
+        ) {
+          left =
+            targetRect.left -
+            width -
+            GAP;
+
+          top =
+            targetRect.top +
+            targetRect.height /
+              2 -
+            CARD_ESTIMATED_HEIGHT /
+              2;
+        }
+
+        // ====================================================
+        // CENTER
+        // ====================================================
+
+        if (
+          placement ===
+          "center"
+        ) {
+          left =
+            safeViewportWidth /
+              2 -
+            width /
+              2;
+
+          top =
+            safeViewportHeight /
+              2 -
+            CARD_ESTIMATED_HEIGHT /
+              2;
+        }
+
+        // ====================================================
+        // KEEP CARD INSIDE VIEWPORT
+        // ====================================================
+
         left =
-          16;
+          Math.max(
+            EDGE,
+
+            Math.min(
+              left,
+
+              safeViewportWidth -
+                width -
+                EDGE
+            )
+          );
 
         top =
           Math.max(
-            16,
-            safeViewportHeight -
-              CARD_ESTIMATED_HEIGHT -
-              96
+            EDGE,
+
+            Math.min(
+              top,
+
+              safeViewportHeight -
+                CARD_ESTIMATED_HEIGHT -
+                EDGE
+            )
           );
-      }
 
-      return {
-        top,
-        left,
-        width,
-      };
-    }, [
-      currentStep
-        ?.placement,
+        // ====================================================
+        // MOBILE
+        //
+        // Keep the tour card clear of the bottom navigation.
+        // ====================================================
 
-      targetRect,
+        if (
+          safeViewportWidth <
+          640
+        ) {
+          left =
+            16;
 
-      viewport.width,
+          top =
+            Math.max(
+              16,
 
-      viewport.height,
-    ]);
+              safeViewportHeight -
+                CARD_ESTIMATED_HEIGHT -
+                96
+            );
+        }
+
+        return {
+          top,
+
+          left,
+
+          width,
+        };
+      },
+      [
+        currentStep
+          ?.placement,
+
+        targetRect,
+
+        viewport.width,
+
+        viewport.height,
+      ]
+    );
 
   // ==========================================================
   // NOTHING TO RENDER
@@ -741,7 +846,8 @@ export default function ClarityTourOverlay() {
       1;
 
   const progress =
-    totalSteps > 0
+    totalSteps >
+    0
       ? (
           (
             currentStepIndex +
@@ -762,7 +868,9 @@ export default function ClarityTourOverlay() {
       // NO TARGET
       // ======================================================
 
-      if (!targetRect) {
+      if (
+        !targetRect
+      ) {
         return (
           <motion.div
             initial={{
@@ -790,6 +898,9 @@ export default function ClarityTourOverlay() {
 
       // ======================================================
       // SPOTLIGHT PANELS
+      //
+      // Four separate backdrop panels create a transparent
+      // interactive hole over the target.
       // ======================================================
 
       return (
@@ -1147,7 +1258,9 @@ export default function ClarityTourOverlay() {
                     animate={{
                       boxShadow: [
                         "0 0 0 rgba(169,184,151,0)",
+
                         "0 0 22px rgba(169,184,151,.4)",
+
                         "0 0 0 rgba(169,184,151,0)",
                       ],
                     }}

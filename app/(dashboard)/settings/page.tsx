@@ -8,7 +8,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type LucideIcon,
 } from "react";
 
 import {
@@ -45,6 +44,7 @@ import {
   StickyNote,
   Users,
   WalletCards,
+  type LucideIcon,
 } from "lucide-react";
 
 import {
@@ -126,237 +126,136 @@ const DEFAULT_MOBILE_NAV = [
 const MOBILE_NAV_OPTIONS:
   MobileNavOption[] = [
   {
-    href:
-      "/dashboard",
-
-    label:
-      "Home",
-
+    href: "/dashboard",
+    label: "Home",
     description:
       "Dashboard and daily overview",
-
-    icon:
-      LayoutDashboard,
+    icon: LayoutDashboard,
   },
 
   {
-    href:
-      "/projects",
-
-    label:
-      "Projects",
-
+    href: "/projects",
+    label: "Projects",
     description:
       "Client work and delivery",
-
-    icon:
-      Briefcase,
+    icon: Briefcase,
   },
 
   {
-    href:
-      "/calendar",
-
-    label:
-      "Calendar",
-
+    href: "/calendar",
+    label: "Calendar",
     description:
       "Events and deadlines",
-
-    icon:
-      Calendar,
+    icon: Calendar,
   },
 
   {
-    href:
-      "/crm",
-
-    label:
-      "Contacts",
-
+    href: "/crm",
+    label: "Contacts",
     description:
       "Clients and contacts",
-
-    icon:
-      Users,
+    icon: Users,
   },
 
   {
-    href:
-      "/payments",
-
-    label:
-      "Finance",
-
+    href: "/payments",
+    label: "Finance",
     description:
       "Invoices and business finances",
-
-    icon:
-      WalletCards,
+    icon: WalletCards,
   },
 
   {
-    href:
-      "/campaigns",
-
-    label:
-      "Campaigns",
-
+    href: "/campaigns",
+    label: "Campaigns",
     description:
       "Marketing campaigns",
-
-    icon:
-      Megaphone,
+    icon: Megaphone,
   },
 
   {
-    href:
-      "/social",
-
-    label:
-      "Social",
-
+    href: "/social",
+    label: "Social",
     description:
       "Social Studio and publishing",
-
-    icon:
-      Globe,
+    icon: Globe,
   },
 
   {
-    href:
-      "/notes",
-
-    label:
-      "Notes",
-
+    href: "/notes",
+    label: "Notes",
     description:
       "Notes and business ideas",
-
-    icon:
-      StickyNote,
+    icon: StickyNote,
   },
 
   {
-    href:
-      "/settings",
-
-    label:
-      "Settings",
-
+    href: "/settings",
+    label: "Settings",
     description:
       "Workspace preferences",
-
-    icon:
-      SettingsIcon,
+    icon: SettingsIcon,
   },
 ];
 
 const DEFAULT_NOTIFICATION_PREFERENCES:
   NotificationPreferences = {
-  finance:
-    true,
-
-  tasks:
-    true,
-
-  projects:
-    true,
-
-  calendar:
-    true,
-
-  social:
-    true,
-
-  business:
-    true,
+  finance: true,
+  tasks: true,
+  projects: true,
+  calendar: true,
+  social: true,
+  business: true,
 };
 
 const NOTIFICATION_PREFERENCE_OPTIONS:
   NotificationPreferenceOption[] = [
   {
-    id:
-      "finance",
-
-    label:
-      "Invoices & payments",
-
+    id: "finance",
+    label: "Invoices & payments",
     description:
       "Invoices due or overdue, payments received and important finance activity.",
-
-    icon:
-      WalletCards,
+    icon: WalletCards,
   },
 
   {
-    id:
-      "tasks",
-
-    label:
-      "Tasks & deadlines",
-
+    id: "tasks",
+    label: "Tasks & deadlines",
     description:
       "Upcoming tasks, overdue work, assignments and important deadlines.",
-
-    icon:
-      CheckCircle2,
+    icon: CheckCircle2,
   },
 
   {
-    id:
-      "projects",
-
-    label:
-      "Projects",
-
+    id: "projects",
+    label: "Projects",
     description:
       "Project deadlines, delivery warnings and important project updates.",
-
-    icon:
-      Briefcase,
+    icon: Briefcase,
   },
 
   {
-    id:
-      "calendar",
-
-    label:
-      "Calendar & events",
-
+    id: "calendar",
+    label: "Calendar & events",
     description:
       "Upcoming meetings, appointments and calendar reminders.",
-
-    icon:
-      CalendarDays,
+    icon: CalendarDays,
   },
 
   {
-    id:
-      "social",
-
-    label:
-      "Social publishing",
-
+    id: "social",
+    label: "Social publishing",
     description:
       "Successful posts, publishing failures and scheduled social activity.",
-
-    icon:
-      Megaphone,
+    icon: Megaphone,
   },
 
   {
-    id:
-      "business",
-
-    label:
-      "Clients & business",
-
+    id: "business",
+    label: "Clients & business",
     description:
       "New business activity, client updates and important workspace alerts.",
-
-    icon:
-      Users,
+    icon: Users,
   },
 ];
 
@@ -398,9 +297,7 @@ function storeLogoUrl(
   const cleaned =
     value.trim();
 
-  if (
-    !cleaned
-  ) {
+  if (!cleaned) {
     return;
   }
 
@@ -479,13 +376,9 @@ function cleanOAuthUrl() {
 // ============================================================
 
 function decodeOAuthReason(
-  value:
-    | string
-    | null
+  value: string | null
 ) {
-  if (
-    !value
-  ) {
+  if (!value) {
     return null;
   }
 
@@ -501,8 +394,7 @@ function decodeOAuthReason(
 // ============================================================
 
 function normaliseMobileNav(
-  value:
-    unknown
+  value: unknown
 ) {
   if (
     !Array.isArray(
@@ -515,9 +407,7 @@ function normaliseMobileNav(
   const validRoutes =
     new Set(
       MOBILE_NAV_OPTIONS.map(
-        (
-          option
-        ) =>
+        (option) =>
           option.href
       )
     );
@@ -538,8 +428,7 @@ function normaliseMobileNav(
       )
     );
 
-  return cleaned.length ===
-    3
+  return cleaned.length === 3
     ? cleaned
     : DEFAULT_MOBILE_NAV;
 }
@@ -547,8 +436,7 @@ function normaliseMobileNav(
 // ============================================================
 
 function normaliseNotificationPreferences(
-  value:
-    unknown
+  value: unknown
 ): NotificationPreferences {
   if (
     !value ||
@@ -562,11 +450,10 @@ function normaliseNotificationPreferences(
   }
 
   const object =
-    value as
-      Record<
-        string,
-        unknown
-      >;
+    value as Record<
+      string,
+      unknown
+    >;
 
   return {
     finance:
@@ -619,14 +506,10 @@ function SettingsInner() {
     useSearchParams();
 
   const handledOAuthRef =
-    useRef(
-      false
-    );
+    useRef(false);
 
   const socialRefreshInProgressRef =
-    useRef(
-      false
-    );
+    useRef(false);
 
   // ==========================================================
   // GLOBAL SETTINGS CONTEXT
@@ -677,9 +560,7 @@ function SettingsInner() {
     selectedMobileNav,
     setSelectedMobileNav,
   ] =
-    useState<
-      string[]
-    >(
+    useState<string[]>(
       DEFAULT_MOBILE_NAV
     );
 
@@ -687,9 +568,7 @@ function SettingsInner() {
     mobileNavSaving,
     setMobileNavSaving,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   useEffect(
     () => {
@@ -707,8 +586,7 @@ function SettingsInner() {
   const toggleMobileNavOption =
     useCallback(
       (
-        href:
-          string
+        href: string
       ) => {
         setSelectedMobileNav(
           (
@@ -752,12 +630,11 @@ function SettingsInner() {
   const moveMobileNavOption =
     useCallback(
       (
-        index:
-          number,
+        index: number,
 
         direction:
-          "up" |
-          "down"
+          | "up"
+          | "down"
       ) => {
         setSelectedMobileNav(
           (
@@ -766,24 +643,20 @@ function SettingsInner() {
             const targetIndex =
               direction ===
               "up"
-                ? index -
-                  1
-                : index +
-                  1;
+                ? index - 1
+                : index + 1;
 
             if (
-              targetIndex <
-                0 ||
+              targetIndex < 0 ||
               targetIndex >=
                 current.length
             ) {
               return current;
             }
 
-            const next =
-              [
-                ...current,
-              ];
+            const next = [
+              ...current,
+            ];
 
             const temporary =
               next[index];
@@ -916,9 +789,7 @@ function SettingsInner() {
     notificationPreferences,
     setNotificationPreferences,
   ] =
-    useState<
-      NotificationPreferences
-    >(
+    useState<NotificationPreferences>(
       DEFAULT_NOTIFICATION_PREFERENCES
     );
 
@@ -926,17 +797,13 @@ function SettingsInner() {
     notificationPreferencesSaving,
     setNotificationPreferencesSaving,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   const [
     notificationPreferencesLoaded,
     setNotificationPreferencesLoaded,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   useEffect(
     () => {
@@ -1092,9 +959,7 @@ function SettingsInner() {
     notificationSupported,
     setNotificationSupported,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   const [
     notificationPermission,
@@ -1110,33 +975,25 @@ function SettingsInner() {
     notificationLoading,
     setNotificationLoading,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   const [
     serviceWorkerReady,
     setServiceWorkerReady,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   const [
     pushSupported,
     setPushSupported,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   const [
     pushSubscribed,
     setPushSubscribed,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   // ==========================================================
   // CHECK NOTIFICATION / PUSH STATUS
@@ -1513,7 +1370,11 @@ function SettingsInner() {
             );
 
           let result:
-            any =
+            {
+              error?: string;
+              sent?: number;
+              failed?: number;
+            } | null =
             null;
 
           try {
@@ -1550,8 +1411,7 @@ function SettingsInner() {
             0
           ) {
             toast.success(
-              sent ===
-              1
+              sent === 1
                 ? "Test push sent to your device"
                 : `Test push sent to ${sent} devices`
             );
@@ -1700,9 +1560,7 @@ function SettingsInner() {
     showConnectedModal,
     setShowConnectedModal,
   ] =
-    useState(
-      false
-    );
+    useState(false);
 
   const [
     connectedPlatformModal,
@@ -2168,7 +2026,6 @@ function SettingsInner() {
 
   return (
     <div className="min-h-screen w-full min-w-0 overflow-x-hidden bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] p-4 text-stone-900 sm:p-6 lg:p-8 xl:p-10">
-
       {/* ======================================================
           HEADER
       ====================================================== */}
@@ -2201,30 +2058,20 @@ function SettingsInner() {
           <motion.div
             key="account"
             initial={{
-              opacity:
-                0,
-
-              y:
-                20,
+              opacity: 0,
+              y: 20,
             }}
             animate={{
-              opacity:
-                1,
-
-              y:
-                0,
+              opacity: 1,
+              y: 0,
             }}
             exit={{
-              opacity:
-                0,
-
-              y:
-                -20,
+              opacity: 0,
+              y: -20,
             }}
             className="space-y-12"
           >
             <section className="space-y-10 rounded-[2rem] border border-stone-200 bg-white/90 p-4 shadow-[0_10px_40px_rgba(0,0,0,0.04)] backdrop-blur sm:p-6 lg:space-y-16 lg:rounded-[4rem] lg:p-8">
-
               {/* ==================================================
                   PROFILE
               ================================================== */}
@@ -2265,9 +2112,7 @@ function SettingsInner() {
                   <div>
                     <div className="flex items-center gap-2">
                       <Smartphone
-                        size={
-                          14
-                        }
+                        size={14}
                         className="text-[#829473]"
                       />
 
@@ -2314,16 +2159,12 @@ function SettingsInner() {
                     >
                       {mobileNavSaving ? (
                         <Loader2
-                          size={
-                            12
-                          }
+                          size={12}
                           className="animate-spin"
                         />
                       ) : (
                         <Save
-                          size={
-                            12
-                          }
+                          size={12}
                         />
                       )}
 
@@ -2353,9 +2194,7 @@ function SettingsInner() {
                       3 && (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8efe2] px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-[#647356]">
                         <Check
-                          size={
-                            9
-                          }
+                          size={9}
                         />
 
                         Ready
@@ -2394,9 +2233,7 @@ function SettingsInner() {
                             className="flex h-[58px] min-w-0 flex-col items-center justify-center gap-1 rounded-[1.2rem] text-stone-400"
                           >
                             <Icon
-                              size={
-                                20
-                              }
+                              size={20}
                               strokeWidth={
                                 1.7
                               }
@@ -2435,9 +2272,7 @@ function SettingsInner() {
 
                     <div className="flex h-[58px] min-w-0 flex-col items-center justify-center gap-1 rounded-[1.2rem] bg-[#a9b897] text-white">
                       <SettingsIcon
-                        size={
-                          20
-                        }
+                        size={20}
                         strokeWidth={
                           1.8
                         }
@@ -2499,9 +2334,7 @@ function SettingsInner() {
                                 </div>
 
                                 <Icon
-                                  size={
-                                    15
-                                  }
+                                  size={15}
                                   className="shrink-0 text-stone-400"
                                 />
 
@@ -2536,9 +2369,7 @@ function SettingsInner() {
                                     className="flex h-8 w-8 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-400 transition hover:text-stone-800 disabled:opacity-25"
                                   >
                                     <ArrowUp
-                                      size={
-                                        12
-                                      }
+                                      size={12}
                                     />
                                   </button>
 
@@ -2559,9 +2390,7 @@ function SettingsInner() {
                                     className="flex h-8 w-8 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-400 transition hover:text-stone-800 disabled:opacity-25"
                                   >
                                     <ArrowDown
-                                      size={
-                                        12
-                                      }
+                                      size={12}
                                     />
                                   </button>
                                 </div>
@@ -2644,9 +2473,7 @@ function SettingsInner() {
                             `}
                           >
                             <Icon
-                              size={
-                                17
-                              }
+                              size={17}
                             />
                           </div>
 
@@ -2728,21 +2555,15 @@ function SettingsInner() {
                         {notificationPermission ===
                         "denied" ? (
                           <BellOff
-                            size={
-                              19
-                            }
+                            size={19}
                           />
                         ) : notificationFullyEnabled ? (
                           <Radio
-                            size={
-                              19
-                            }
+                            size={19}
                           />
                         ) : (
                           <Bell
-                            size={
-                              19
-                            }
+                            size={19}
                           />
                         )}
                       </div>
@@ -2756,9 +2577,7 @@ function SettingsInner() {
                           {notificationFullyEnabled && (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8efe2] px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.16em] text-[#647356]">
                               <CheckCircle2
-                                size={
-                                  9
-                                }
+                                size={9}
                               />
 
                               Active
@@ -2769,9 +2588,7 @@ function SettingsInner() {
                             "denied" && (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.16em] text-red-500">
                               <BellOff
-                                size={
-                                  9
-                                }
+                                size={9}
                               />
 
                               Blocked
@@ -2782,9 +2599,7 @@ function SettingsInner() {
                             "default" && (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.16em] text-stone-500">
                               <Clock3
-                                size={
-                                  9
-                                }
+                                size={9}
                               />
 
                               Not enabled
@@ -2796,9 +2611,7 @@ function SettingsInner() {
                             !pushSubscribed && (
                               <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.16em] text-amber-600">
                                 <Clock3
-                                  size={
-                                    9
-                                  }
+                                  size={9}
                                 />
 
                                 Setup incomplete
@@ -2837,16 +2650,12 @@ function SettingsInner() {
                         >
                           {notificationLoading ? (
                             <Loader2
-                              size={
-                                13
-                              }
+                              size={13}
                               className="animate-spin"
                             />
                           ) : (
                             <Bell
-                              size={
-                                13
-                              }
+                              size={13}
                             />
                           )}
 
@@ -2870,16 +2679,12 @@ function SettingsInner() {
                         >
                           {notificationLoading ? (
                             <Loader2
-                              size={
-                                13
-                              }
+                              size={13}
                               className="animate-spin"
                             />
                           ) : (
                             <Radio
-                              size={
-                                13
-                              }
+                              size={13}
                             />
                           )}
 
@@ -2997,16 +2802,12 @@ function SettingsInner() {
                       >
                         {notificationPreferencesSaving ? (
                           <Loader2
-                            size={
-                              12
-                            }
+                            size={12}
                             className="animate-spin"
                           />
                         ) : (
                           <Save
-                            size={
-                              12
-                            }
+                            size={12}
                           />
                         )}
 
@@ -3090,9 +2891,7 @@ function SettingsInner() {
                               `}
                             >
                               <Icon
-                                size={
-                                  16
-                                }
+                                size={16}
                               />
                             </div>
 
@@ -3131,9 +2930,7 @@ function SettingsInner() {
                 {notificationFullyEnabled && (
                   <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[#dfe6d7] bg-[#f4f7f0] p-4">
                     <CheckCircle2
-                      size={
-                        16
-                      }
+                      size={16}
                       className="mt-0.5 shrink-0 text-[#71805f]"
                     />
 
@@ -3156,9 +2953,7 @@ function SettingsInner() {
 
                 <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[#dfe6d7] bg-[#f4f7f0] p-4">
                   <ShieldCheck
-                    size={
-                      16
-                    }
+                    size={16}
                     className="mt-0.5 shrink-0 text-[#71805f]"
                   />
 
@@ -3184,9 +2979,7 @@ function SettingsInner() {
                 ) && (
                   <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                     <BellOff
-                      size={
-                        16
-                      }
+                      size={16}
                       className="mt-0.5 shrink-0 text-amber-500"
                     />
 
@@ -3210,9 +3003,7 @@ function SettingsInner() {
                   <div className="flex items-start gap-4">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-stone-900 text-[#a9b897]">
                       <Music2
-                        size={
-                          18
-                        }
+                        size={18}
                       />
                     </div>
 
@@ -3224,9 +3015,7 @@ function SettingsInner() {
 
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-[#dfe8d5] px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.16em] text-[#647356]">
                           <Clock3
-                            size={
-                              9
-                            }
+                            size={9}
                           />
 
                           Coming soon
@@ -3433,9 +3222,7 @@ function SettingsLoadingScreen({
       <div className="flex flex-col items-center gap-4">
         <Loader2
           className="animate-spin text-stone-400"
-          size={
-            28
-          }
+          size={28}
         />
 
         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400">

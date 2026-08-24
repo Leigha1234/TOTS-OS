@@ -33,12 +33,12 @@ const vapidSubject =
 // TYPES
 // ============================================================
 
-type SendPushOptions = {
+export type SendPushOptions = {
   userId:
     string;
 
-  organisationId?:
-    string | null;
+  organisationId:
+    string;
 
   title:
     string;
@@ -59,61 +59,36 @@ type SendPushOptions = {
     >;
 };
 
+type PushSubscriptionRow = {
+  id:
+    string;
+
+  user_id:
+    string | null;
+
+  organisation_id:
+    string | null;
+
+  endpoint:
+    string;
+
+  p256dh:
+    string;
+
+  auth:
+    string;
+};
+
 export type SendPushResult = {
   sent:
     number;
 
   failed:
     number;
-
-  removed:
-    number;
 };
 
 // ============================================================
-// ADMIN CLIENT
-// ============================================================
-
-let adminClient:
-  ReturnType<
-    typeof createClient
-  > | null =
-  null;
-
-function getSupabaseAdmin() {
-  if (
-    adminClient
-  ) {
-    return adminClient;
-  }
-
-  if (
-    !supabaseUrl ||
-    !serviceRoleKey
-  ) {
-    return null;
-  }
-
-  adminClient =
-    createClient(
-      supabaseUrl,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken:
-            false,
-
-          persistSession:
-            false,
-        },
-      }
-    );
-
-  return adminClient;
-}
-
-// ============================================================
-// CLEAN STRING
+// HELPERS
 // ============================================================
 
 function cleanString(
@@ -131,7 +106,7 @@ function cleanString(
 }
 
 // ============================================================
-// SEND
+// SEND PUSH NOTIFICATION
 // ============================================================
 
 export async function sendPushNotification({
@@ -142,8 +117,13 @@ export async function sendPushNotification({
   url =
     "/dashboard",
   tag,
-  data,
+  data =
+    {},
 }: SendPushOptions): Promise<SendPushResult> {
+  // ==========================================================
+  // CLEAN INPUT
+  // ==========================================================
+
   const cleanedUserId =
     cleanString(
       userId
@@ -170,6 +150,11 @@ export async function sendPushNotification({
     ) ||
     "/dashboard";
 
+  const cleanedTag =
+    cleanString(
+      tag
+    );
+
   // ==========================================================
   // VALIDATION
   // ==========================================================
@@ -178,7 +163,7 @@ export async function sendPushNotification({
     !cleanedUserId
   ) {
     console.warn(
-      "[TOTS PUSH] Push skipped because user ID is missing."
+      "[TOTS PUSH] Push skipped because userId is missing."
     );
 
     return {
@@ -187,8 +172,21 @@ export async function sendPushNotification({
 
       failed:
         0,
+    };
+  }
 
-      removed:
+  if (
+    !cleanedOrganisationId
+  ) {
+    console.warn(
+      "[TOTS PUSH] Push skipped because organisationId is missing."
+    );
+
+    return {
+      sent:
+        0,
+
+      failed:
         0,
     };
   }
@@ -206,14 +204,11 @@ export async function sendPushNotification({
 
       failed:
         0,
-
-      removed:
-        0,
     };
   }
 
   // ==========================================================
-  // ENV
+  // ENVIRONMENT
   // ==========================================================
 
   if (
@@ -223,7 +218,28 @@ export async function sendPushNotification({
     !vapidPrivateKey
   ) {
     console.warn(
-      "[TOTS PUSH] Push environment variables missing."
+      "[TOTS PUSH] Push environment variables missing.",
+      {
+        hasSupabaseUrl:
+          Boolean(
+            supabaseUrl
+          ),
+
+        hasServiceRoleKey:
+          Boolean(
+            serviceRoleKey
+          ),
+
+        hasVapidPublicKey:
+          Boolean(
+            vapidPublicKey
+          ),
+
+        hasVapidPrivateKey:
+          Boolean(
+            vapidPrivateKey
+          ),
+      }
     );
 
     return {
@@ -231,9 +247,6 @@ export async function sendPushNotification({
         0,
 
       failed:
-        0,
-
-      removed:
         0,
     };
   }
@@ -249,40 +262,46 @@ export async function sendPushNotification({
   );
 
   // ==========================================================
-  // SUPABASE
+  // SUPABASE ADMIN
   // ==========================================================
 
   const supabaseAdmin =
-    getSupabaseAdmin();
+    createClient(
+      supabaseUrl,
+      serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken:
+            false,
 
-  if (
-    !supabaseAdmin
-  ) {
-    return {
-      sent:
-        0,
-
-      failed:
-        0,
-
-      removed:
-        0,
-    };
-  }
+          persistSession:
+            false,
+        },
+      }
+    );
 
   // ==========================================================
-  // SUBSCRIPTIONS
+  // LOAD PUSH SUBSCRIPTIONS
   //
   // IMPORTANT:
   //
-  // user_id is the primary filter.
+  // We filter by BOTH organisation and user.
   //
-  // This prevents a notification intended for one team member
-  // from being pushed to every device in the organisation.
+  // This means a notification created for one user does not
+  // automatically get pushed to every device in the entire
+  // organisation.
+  //
+  // Team-wide notifications can be implemented separately.
   // ==========================================================
 
-  let query =
-    supabaseAdmin
+  const {
+    data:
+      subscriptionData,
+
+    error:
+      subscriptionError,
+  } =
+    await supabaseAdmin
       .from(
         "push_subscriptions"
       )
@@ -297,46 +316,76 @@ export async function sendPushNotification({
         `
       )
       .eq(
+        "organisation_id",
+        cleanedOrganisationId
+      )
+      .eq(
         "user_id",
         cleanedUserId
       );
 
-  if (
-    cleanedOrganisationId
-  ) {
-    query =
-      query.eq(
-        "organisation_id",
-        cleanedOrganisationId
-      );
-  }
-
-  const {
-    data:
-      subscriptions,
-
-    error,
-  } =
-    await query;
+  // ==========================================================
+  // LOAD ERROR
+  // ==========================================================
 
   if (
-    error
+    subscriptionError
   ) {
     console.error(
       "[TOTS PUSH] Could not load subscriptions:",
-      error
+      subscriptionError
     );
 
-    throw error;
+    throw new Error(
+      subscriptionError.message ||
+      "Push subscriptions could not be loaded."
+    );
   }
 
+  // ==========================================================
+  // NORMALISE ROWS
+  //
+  // Explicit typing prevents TypeScript from resolving the
+  // Supabase response to `never`.
+  // ==========================================================
+
+  const subscriptions:
+    PushSubscriptionRow[] =
+    Array.isArray(
+      subscriptionData
+    )
+      ? (
+          subscriptionData as PushSubscriptionRow[]
+        ).filter(
+          (
+            subscription
+          ) =>
+            Boolean(
+              subscription.id &&
+              subscription.endpoint &&
+              subscription.p256dh &&
+              subscription.auth
+            )
+        )
+      : [];
+
+  // ==========================================================
+  // NO DEVICES
+  // ==========================================================
+
   if (
-    !subscriptions ||
     subscriptions.length ===
-      0
+    0
   ) {
     console.log(
-      `[TOTS PUSH] No subscriptions found for user ${cleanedUserId}.`
+      "[TOTS PUSH] No subscriptions found.",
+      {
+        userId:
+          cleanedUserId,
+
+        organisationId:
+          cleanedOrganisationId,
+      }
     );
 
     return {
@@ -344,9 +393,6 @@ export async function sendPushNotification({
         0,
 
       failed:
-        0,
-
-      removed:
         0,
     };
   }
@@ -361,7 +407,8 @@ export async function sendPushNotification({
         cleanedTitle,
 
       body:
-        cleanedBody,
+        cleanedBody ||
+        cleanedTitle,
 
       url:
         cleanedUrl,
@@ -373,19 +420,41 @@ export async function sendPushNotification({
         "/icon.png",
 
       tag:
-        tag ||
+        cleanedTag ||
         `tots-${Date.now()}`,
 
+      // ======================================================
+      // EXTRA NOTIFICATION DATA
+      //
+      // Examples:
+      //
+      // notificationId
+      // type
+      // category
+      // entityType
+      // entityId
+      //
+      // Your service worker can use these later to route users
+      // directly to the relevant invoice/project/task/etc.
+      // ======================================================
+
       data: {
+        ...data,
+
+        userId:
+          cleanedUserId,
+
+        organisationId:
+          cleanedOrganisationId,
+
         url:
           cleanedUrl,
-
-        ...(
-          data ||
-          {}
-        ),
       },
     });
+
+  // ==========================================================
+  // COUNTERS
+  // ==========================================================
 
   let sent =
     0;
@@ -393,11 +462,8 @@ export async function sendPushNotification({
   let failed =
     0;
 
-  let removed =
-    0;
-
   // ==========================================================
-  // SEND TO EACH OF THIS USER'S DEVICES
+  // SEND TO EACH DEVICE
   // ==========================================================
 
   for (
@@ -405,6 +471,10 @@ export async function sendPushNotification({
     subscriptions
   ) {
     try {
+      // ======================================================
+      // WEB PUSH
+      // ======================================================
+
       await webpush.sendNotification(
         {
           endpoint:
@@ -424,12 +494,61 @@ export async function sendPushNotification({
 
       sent +=
         1;
+
+      console.log(
+        "[TOTS PUSH] Delivered:",
+        {
+          subscriptionId:
+            subscription.id,
+
+          userId:
+            cleanedUserId,
+
+          organisationId:
+            cleanedOrganisationId,
+
+          title:
+            cleanedTitle,
+        }
+      );
     } catch (
       error:
-        any
+        unknown
     ) {
       failed +=
         1;
+
+      // ======================================================
+      // EXTRACT STATUS CODE SAFELY
+      // ======================================================
+
+      let statusCode:
+        number | null =
+        null;
+
+      if (
+        error &&
+        typeof error ===
+          "object" &&
+        "statusCode" in
+          error
+      ) {
+        const value =
+          (
+            error as {
+              statusCode?:
+                unknown;
+            }
+          ).statusCode;
+
+        if (
+          typeof value ===
+          "number"
+        ) {
+          statusCode =
+            value;
+        }
+      }
 
       console.error(
         "[TOTS PUSH] Delivery failed:",
@@ -440,64 +559,98 @@ export async function sendPushNotification({
           userId:
             cleanedUserId,
 
-          statusCode:
-            error?.statusCode,
+          organisationId:
+            cleanedOrganisationId,
 
-          message:
-            error?.message,
+          statusCode,
+
+          error,
         }
       );
 
       // ======================================================
       // REMOVE EXPIRED / INVALID SUBSCRIPTIONS
+      //
+      // 404 = subscription endpoint no longer exists
+      // 410 = subscription has expired
       // ======================================================
 
       if (
-        error?.statusCode ===
+        statusCode ===
           404 ||
-        error?.statusCode ===
+        statusCode ===
           410
       ) {
-        const {
-          error:
-            deleteError,
-        } =
-          await supabaseAdmin
-            .from(
-              "push_subscriptions"
-            )
-            .delete()
-            .eq(
-              "id",
+        try {
+          const {
+            error:
+              deleteError,
+          } =
+            await supabaseAdmin
+              .from(
+                "push_subscriptions"
+              )
+              .delete()
+              .eq(
+                "id",
+                subscription.id
+              );
+
+          if (
+            deleteError
+          ) {
+            console.error(
+              "[TOTS PUSH] Could not remove expired subscription:",
+              deleteError
+            );
+          } else {
+            console.log(
+              "[TOTS PUSH] Removed expired subscription:",
               subscription.id
             );
-
-        if (
+          }
+        } catch (
           deleteError
         ) {
-          console.warn(
-            "[TOTS PUSH] Could not remove expired subscription:",
+          console.error(
+            "[TOTS PUSH] Expired subscription cleanup failed:",
             deleteError
-          );
-        } else {
-          removed +=
-            1;
-
-          console.log(
-            `[TOTS PUSH] Removed expired subscription ${subscription.id}.`
           );
         }
       }
     }
   }
 
+  // ==========================================================
+  // RESULT
+  // ==========================================================
+
   console.log(
-    `[TOTS PUSH] User ${cleanedUserId}: sent ${sent}, failed ${failed}, removed ${removed}.`
+    "[TOTS PUSH] Send complete:",
+    {
+      userId:
+        cleanedUserId,
+
+      organisationId:
+        cleanedOrganisationId,
+
+      title:
+        cleanedTitle,
+
+      devices:
+        subscriptions.length,
+
+      sent,
+
+      failed,
+    }
   );
 
   return {
     sent,
+
     failed,
-    removed,
   };
 }
+
+export default sendPushNotification;

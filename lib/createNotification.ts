@@ -40,74 +40,54 @@ export type NotificationCategory =
   | "system";
 
 export type NotificationInput = {
-  userId:
-    string;
+  userId: string;
 
-  title:
-    string;
+  title: string;
 
-  message?:
-    string | null;
+  message?: string | null;
 
-  type?:
-    NotificationType;
+  type?: NotificationType;
 
-  category?:
-    NotificationCategory;
+  category?: NotificationCategory;
 
-  link?:
-    string | null;
+  link?: string | null;
 
-  organisationId?:
-    string | null;
+  organisationId?: string | null;
 
-  entityType?:
-    string | null;
+  entityType?: string | null;
 
-  entityId?:
-    string | null;
+  entityId?: string | null;
 
-  dedupeKey?:
-    string | null;
+  dedupeKey?: string | null;
 
-  metadata?:
-    Record<
-      string,
-      unknown
-    > | null;
+  metadata?: Record<
+    string,
+    unknown
+  > | null;
 
-  sendPush?:
-    boolean;
+  sendPush?: boolean;
 
-  forcePush?:
-    boolean;
+  forcePush?: boolean;
 };
 
 export type CreateNotificationResult = {
-  success:
-    boolean;
+  success: boolean;
 
-  duplicate?:
-    boolean;
+  duplicate?: boolean;
 
-  pushed?:
-    boolean;
+  pushed?: boolean;
 
-  pushSent?:
-    number;
+  pushSent?: number;
 
   notification?: {
-    id:
-      string;
+    id: string;
 
-    user_id:
-      string;
+    user_id: string;
 
     organisation_id?:
       string | null;
 
-    title:
-      string;
+    title: string;
 
     message?:
       string | null;
@@ -140,8 +120,7 @@ export type CreateNotificationResult = {
       string | null;
   } | null;
 
-  error?:
-    string;
+  error?: string;
 };
 
 // ============================================================
@@ -149,44 +128,32 @@ export type CreateNotificationResult = {
 // ============================================================
 
 type NotificationPreferences = {
-  finance:
-    boolean;
+  finance: boolean;
 
-  tasks:
-    boolean;
+  tasks: boolean;
 
-  projects:
-    boolean;
+  projects: boolean;
 
-  calendar:
-    boolean;
+  calendar: boolean;
 
-  social:
-    boolean;
+  social: boolean;
 
-  business:
-    boolean;
+  business: boolean;
 };
 
 const DEFAULT_NOTIFICATION_PREFERENCES:
   NotificationPreferences = {
-  finance:
-    true,
+  finance: true,
 
-  tasks:
-    true,
+  tasks: true,
 
-  projects:
-    true,
+  projects: true,
 
-  calendar:
-    true,
+  calendar: true,
 
-  social:
-    true,
+  social: true,
 
-  business:
-    true,
+  business: true,
 };
 
 // ============================================================
@@ -403,6 +370,163 @@ function normalisePreferences(
 }
 
 // ============================================================
+// RESOLVE USER ORGANISATION
+//
+// Notification callers do not all need to manually know the
+// organisation ID.
+//
+// Resolution order:
+//
+// 1. Explicit organisationId supplied to createNotification
+// 2. profiles.organisation_id
+// 3. team_members.organisation_id
+//
+// Returns null safely if the user does not belong to an org.
+// ============================================================
+
+async function resolveOrganisationId({
+  supabase,
+  userId,
+  organisationId,
+}: {
+  supabase:
+    SupabaseClient;
+
+  userId:
+    string;
+
+  organisationId:
+    string | null;
+}): Promise<string | null> {
+  // ==========================================================
+  // EXPLICIT ORGANISATION
+  // ==========================================================
+
+  if (
+    organisationId
+  ) {
+    return organisationId;
+  }
+
+  // ==========================================================
+  // PROFILE
+  // ==========================================================
+
+  try {
+    const {
+      data:
+        profile,
+
+      error:
+        profileError,
+    } =
+      await supabase
+        .from(
+          "profiles"
+        )
+        .select(
+          "organisation_id"
+        )
+        .eq(
+          "id",
+          userId
+        )
+        .maybeSingle();
+
+    if (
+      profileError
+    ) {
+      console.warn(
+        "[TOTS NOTIFICATIONS] Profile organisation lookup failed:",
+        profileError
+      );
+    }
+
+    const profileOrganisationId =
+      cleanOptionalString(
+        profile
+          ?.organisation_id
+      );
+
+    if (
+      profileOrganisationId
+    ) {
+      return profileOrganisationId;
+    }
+  } catch (
+    error
+  ) {
+    console.warn(
+      "[TOTS NOTIFICATIONS] Profile organisation lookup threw:",
+      error
+    );
+  }
+
+  // ==========================================================
+  // TEAM MEMBERSHIP
+  // ==========================================================
+
+  try {
+    const {
+      data:
+        membership,
+
+      error:
+        membershipError,
+    } =
+      await supabase
+        .from(
+          "team_members"
+        )
+        .select(
+          "organisation_id"
+        )
+        .eq(
+          "user_id",
+          userId
+        )
+        .limit(
+          1
+        )
+        .maybeSingle();
+
+    if (
+      membershipError
+    ) {
+      console.warn(
+        "[TOTS NOTIFICATIONS] Team organisation lookup failed:",
+        membershipError
+      );
+    }
+
+    const membershipOrganisationId =
+      cleanOptionalString(
+        membership
+          ?.organisation_id
+      );
+
+    if (
+      membershipOrganisationId
+    ) {
+      return membershipOrganisationId;
+    }
+  } catch (
+    error
+  ) {
+    console.warn(
+      "[TOTS NOTIFICATIONS] Team organisation lookup threw:",
+      error
+    );
+  }
+
+  // ==========================================================
+  // NONE FOUND
+  // ==========================================================
+
+  return null;
+}
+
+// ============================================================
 // CHECK WHETHER PUSH CATEGORY IS ENABLED
 // ============================================================
 
@@ -570,6 +694,10 @@ export async function createNotification(
     NotificationInput
 ): Promise<CreateNotificationResult> {
   try {
+    // ========================================================
+    // CLEAN INPUT
+    // ========================================================
+
     const userId =
       cleanString(
         input.userId
@@ -590,7 +718,7 @@ export async function createNotification(
         input.link
       );
 
-    const organisationId =
+    const suppliedOrganisationId =
       cleanOptionalString(
         input.organisationId
       );
@@ -661,13 +789,29 @@ export async function createNotification(
       getSupabaseAdmin();
 
     // ========================================================
+    // ORGANISATION
+    // ========================================================
+
+    const organisationId =
+      await resolveOrganisationId({
+        supabase,
+
+        userId,
+
+        organisationId:
+          suppliedOrganisationId,
+      });
+
+    // ========================================================
     // DEDUPE
     // ========================================================
 
     const existing =
       await findExistingNotification({
         supabase,
+
         userId,
+
         dedupeKey,
       });
 
@@ -678,7 +822,9 @@ export async function createNotification(
         "[TOTS NOTIFICATIONS] Duplicate skipped:",
         {
           userId,
+
           dedupeKey,
+
           existingId:
             existing.id,
         }
@@ -739,15 +885,14 @@ export async function createNotification(
           read_at:
             null,
 
-          metadata:
-            {
-              ...(
-                input.metadata ||
-                {}
-              ),
+          metadata: {
+            ...(
+              input.metadata ||
+              {}
+            ),
 
-              category,
-            },
+            category,
+          },
 
           entity_type:
             entityType,
@@ -797,6 +942,8 @@ export async function createNotification(
 
           userId,
 
+          organisationId,
+
           title,
 
           type,
@@ -820,8 +967,15 @@ export async function createNotification(
     // PUSH
     //
     // Bell notification is already safely persisted.
-    // A push failure therefore must NOT make createNotification
-    // report that the whole notification failed.
+    //
+    // A push failure must therefore NOT make the complete
+    // notification fail.
+    //
+    // IMPORTANT:
+    //
+    // sendPushNotification requires a genuine organisation ID.
+    // We therefore only call it once organisationId has been
+    // successfully resolved.
     // ========================================================
 
     let pushed =
@@ -834,18 +988,74 @@ export async function createNotification(
       sendPush
     ) {
       try {
+        // ====================================================
+        // USER PREFERENCE
+        // ====================================================
+
         const allowed =
           input.forcePush
             ? true
             : await shouldSendPush({
                 supabase,
+
                 userId,
+
                 category,
               });
 
+        // ====================================================
+        // PUSH DISABLED BY USER
+        // ====================================================
+
         if (
-          allowed
+          !allowed
         ) {
+          console.log(
+            "[TOTS NOTIFICATIONS] Push disabled by user preference:",
+            {
+              userId,
+
+              organisationId,
+
+              category,
+
+              title,
+            }
+          );
+        }
+
+        // ====================================================
+        // NO ORGANISATION
+        // ====================================================
+
+        else if (
+          !organisationId
+        ) {
+          console.warn(
+            "[TOTS NOTIFICATIONS] Push skipped because no organisation ID could be resolved:",
+            {
+              userId,
+
+              notificationId:
+                data?.id,
+
+              title,
+
+              type,
+
+              category,
+            }
+          );
+        }
+
+        // ====================================================
+        // SEND PUSH
+        //
+        // TypeScript now knows organisationId is a string
+        // inside this branch.
+        // ====================================================
+
+        else {
           const result =
             await sendPushNotification({
               userId,
@@ -886,13 +1096,22 @@ export async function createNotification(
 
           pushSent =
             result.sent;
-        } else {
+
           console.log(
-            "[TOTS NOTIFICATIONS] Push disabled by user preference:",
+            "[TOTS NOTIFICATIONS] Push result:",
             {
+              notificationId:
+                data.id,
+
               userId,
-              category,
-              title,
+
+              organisationId,
+
+              sent:
+                result.sent,
+
+              failed:
+                result.failed,
             }
           );
         }
@@ -917,6 +1136,8 @@ export async function createNotification(
           data?.id,
 
         userId,
+
+        organisationId,
 
         title,
 
@@ -1191,6 +1412,10 @@ export async function createTaskNotification(
 
     category:
       "tasks",
+
+    link:
+      input.link ||
+      "/projects",
   });
 }
 
@@ -1265,6 +1490,10 @@ export async function createEmailNotification(
 
     category:
       "business",
+
+    link:
+      input.link ||
+      "/campaigns",
   });
 }
 
@@ -1339,6 +1568,10 @@ export async function createOrderNotification(
 
     category:
       "business",
+
+    link:
+      input.link ||
+      "/payments",
   });
 }
 
@@ -1361,5 +1594,9 @@ export async function createSystemNotification(
 
     category:
       "system",
+
+    link:
+      input.link ||
+      "/dashboard",
   });
 }

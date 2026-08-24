@@ -2676,7 +2676,7 @@ export default function Clarity() {
           GLOBAL HELPERS
       ====================================================== */}
 
-      <style jsx global>{`
+      <style>{`
         .no-scrollbar::-webkit-scrollbar {
           display: none;
         }

@@ -28,6 +28,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Store,
+  ShieldCheck,
 } from "lucide-react";
 
 import {
@@ -43,6 +44,13 @@ import {
 } from "@/app/context/SettingsContext";
 
 // ============================================================
+// PRIVATE TOTS ADMIN USER
+// ============================================================
+
+const TOTS_ADMIN_USER_ID =
+  "f0524a73-0559-467f-9465-095e43c3952e";
+
+// ============================================================
 // TYPES
 // ============================================================
 
@@ -50,11 +58,16 @@ type SidebarLink = {
   href: string;
   label: string;
   icon: React.ElementType;
+
+  adminOnly?:
+    boolean;
 };
 
 type SidebarSection = {
   title?: string;
-  links: SidebarLink[];
+
+  links:
+    SidebarLink[];
 };
 
 // ============================================================
@@ -125,6 +138,15 @@ export default function Sidebar() {
     );
 
   const [
+    currentUserId,
+    setCurrentUserId,
+  ] =
+    useState<
+      string |
+      null
+    >(null);
+
+  const [
     localColor,
     setLocalColor,
   ] =
@@ -133,14 +155,26 @@ export default function Sidebar() {
     );
 
   // ==========================================================
+  // ADMIN ACCESS
+  // ==========================================================
+
+  const isTotsAdmin =
+    signedIn &&
+    currentUserId ===
+      TOTS_ADMIN_USER_ID;
+
+  // ==========================================================
   // ALL LINKS
   //
-  // STORE IS INCLUDED FOR ALL SIGNED-IN USERS.
+  // Store is visible to all authenticated users.
   //
-  // /store itself decides whether to show:
+  // /store itself determines whether the user sees:
   //
   // - Store dashboard
-  // - or £39/month Store upgrade screen
+  // - or £39/month upgrade screen
+  //
+  // TOTS Admin is completely separate and only visible to
+  // TOTS_ADMIN_USER_ID.
   // ==========================================================
 
   const allLinks:
@@ -247,6 +281,20 @@ export default function Sidebar() {
 
       {
         href:
+          "/tots-admin",
+
+        label:
+          "TOTS Admin",
+
+        icon:
+          ShieldCheck,
+
+        adminOnly:
+          true,
+      },
+
+      {
+        href:
           "/settings",
 
         label:
@@ -283,8 +331,6 @@ export default function Sidebar() {
 
         // ====================================================
         // MOBILE SIDEBAR
-        //
-        // Keep mobile narrow so every icon remains accessible.
         // ====================================================
 
         if (
@@ -368,11 +414,19 @@ export default function Sidebar() {
               false
             );
 
+            setCurrentUserId(
+              null
+            );
+
             return;
           }
 
           setSignedIn(
             true
+          );
+
+          setCurrentUserId(
+            user.id
           );
 
           // ==================================================
@@ -446,6 +500,10 @@ export default function Sidebar() {
             setSignedIn(
               false
             );
+
+            setCurrentUserId(
+              null
+            );
           }
         } finally {
           if (
@@ -479,10 +537,19 @@ export default function Sidebar() {
               return;
             }
 
+            const user =
+              session
+                ?.user;
+
             setSignedIn(
               Boolean(
-                session?.user?.id
+                user?.id
               )
+            );
+
+            setCurrentUserId(
+              user?.id ||
+              null
             );
           }
         );
@@ -521,6 +588,10 @@ export default function Sidebar() {
           false
         );
 
+        setCurrentUserId(
+          null
+        );
+
         toast.success(
           "Logged out successfully"
         );
@@ -556,11 +627,29 @@ export default function Sidebar() {
 
   // ==========================================================
   // VISIBLE LINKS
+  //
+  // Normal links:
+  // visible to every authenticated user.
+  //
+  // adminOnly links:
+  // visible only to TOTS_ADMIN_USER_ID.
   // ==========================================================
 
   const visibleLinks =
     signedIn
-      ? allLinks
+      ? allLinks.filter(
+          (
+            link
+          ) => {
+            if (
+              link.adminOnly
+            ) {
+              return isTotsAdmin;
+            }
+
+            return true;
+          }
+        )
       : [];
 
   // ==========================================================
@@ -681,8 +770,6 @@ export default function Sidebar() {
 
       // ======================================================
       // COMMERCE
-      //
-      // STORE APPEARS ON DESKTOP + MOBILE.
       // ======================================================
 
       {
@@ -743,6 +830,34 @@ export default function Sidebar() {
 
             icon:
               Calendar,
+          },
+        ],
+      },
+
+      // ======================================================
+      // PRIVATE TOTS ADMIN
+      //
+      // This section is filtered out automatically for every
+      // user except TOTS_ADMIN_USER_ID.
+      // ======================================================
+
+      {
+        title:
+          "TOTS Platform",
+
+        links: [
+          {
+            href:
+              "/tots-admin",
+
+            label:
+              "TOTS Admin",
+
+            icon:
+              ShieldCheck,
+
+            adminOnly:
+              true,
           },
         ],
       },
@@ -974,18 +1089,16 @@ export default function Sidebar() {
 
       {/* =====================================================
           NAVIGATION
-      //
-      // IMPORTANT:
-      // Always scrollable so Store cannot be pushed off-screen
-      // on smaller phones.
-      // ===================================================== */}
+      ===================================================== */}
 
       <nav
         className="
           min-h-0
           flex-1
+
           overflow-y-auto
           overscroll-contain
+
           px-2
           pb-3
 
@@ -1016,10 +1129,18 @@ export default function Sidebar() {
                   section.links.filter(
                     (
                       link
-                    ) =>
-                      canSee(
+                    ) => {
+                      if (
+                        link.adminOnly &&
+                        !isTotsAdmin
+                      ) {
+                        return false;
+                      }
+
+                      return canSee(
                         link.href
-                      )
+                      );
+                    }
                   );
 
                 if (
@@ -1186,6 +1307,7 @@ export default function Sidebar() {
           <div
             className={`
               shrink-0
+
               px-2
 
               sm:px-3

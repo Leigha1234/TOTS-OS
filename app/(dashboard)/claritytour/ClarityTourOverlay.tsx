@@ -13,7 +13,6 @@ import {
 
 import {
   ArrowLeft,
-  ArrowRight,
   Check,
   ChevronRight,
   Minimize2,
@@ -21,377 +20,778 @@ import {
   X,
 } from "lucide-react";
 
-import { useClarityTour } from "./ClarityTourProvider";
+import {
+  useClarityTour,
+} from "./ClarityTourProvider";
+
+// ============================================================
+// TYPES
+// ============================================================
 
 type TargetRect = {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
+  top:
+    number;
+
+  left:
+    number;
+
+  width:
+    number;
+
+  height:
+    number;
 };
 
-const CARD_WIDTH = 400;
-const CARD_ESTIMATED_HEIGHT = 330;
-const EDGE = 18;
-const GAP = 22;
+type ViewportSize = {
+  width:
+    number;
+
+  height:
+    number;
+};
+
+// ============================================================
+// CONSTANTS
+// ============================================================
+
+const CARD_WIDTH =
+  400;
+
+const CARD_ESTIMATED_HEIGHT =
+  330;
+
+const EDGE =
+  18;
+
+const GAP =
+  22;
+
+// ============================================================
+// COMPONENT
+// ============================================================
 
 export default function ClarityTourOverlay() {
   const {
     isOpen,
+
     currentStep,
+
     currentStepIndex,
+
     totalSteps,
+
     nextStep,
+
     previousStep,
+
     skipTour,
+
     closeTour,
-  } = useClarityTour();
+  } =
+    useClarityTour();
 
-  const [targetRect, setTargetRect] =
-    useState<TargetRect | null>(null);
+  // ==========================================================
+  // STATE
+  // ==========================================================
 
-  const [targetElement, setTargetElement] =
-    useState<HTMLElement | null>(null);
-
-  const [viewport, setViewport] =
-    useState({
-      width: 0,
-      height: 0,
-    });
-
-  const [ready, setReady] =
-    useState(false);
-
-  // ================================================
-  // VIEWPORT
-  // ================================================
-
-  useEffect(() => {
-    const updateViewport = () => {
-      setViewport({
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
-    };
-
-    updateViewport();
-
-    window.addEventListener(
-      "resize",
-      updateViewport
+  const [
+    targetRect,
+    setTargetRect,
+  ] =
+    useState<
+      TargetRect | null
+    >(
+      null
     );
 
-    return () => {
-      window.removeEventListener(
+  const [
+    viewport,
+    setViewport,
+  ] =
+    useState<ViewportSize>({
+      width:
+        0,
+
+      height:
+        0,
+    });
+
+  const [
+    ready,
+    setReady,
+  ] =
+    useState(
+      false
+    );
+
+  // ==========================================================
+  // VIEWPORT
+  // ==========================================================
+
+  useEffect(
+    () => {
+      if (
+        typeof window ===
+        "undefined"
+      ) {
+        return;
+      }
+
+      const updateViewport =
+        () => {
+          setViewport({
+            width:
+              window.innerWidth,
+
+            height:
+              window.innerHeight,
+          });
+        };
+
+      updateViewport();
+
+      window.addEventListener(
         "resize",
         updateViewport
       );
-    };
-  }, []);
 
-  // ================================================
-  // FIND TARGET
-  // ================================================
+      window.addEventListener(
+        "orientationchange",
+        updateViewport
+      );
 
-  useEffect(() => {
-    if (!isOpen || !currentStep) {
-      setTargetRect(null);
-      setTargetElement(null);
-      setReady(false);
+      return () => {
+        window.removeEventListener(
+          "resize",
+          updateViewport
+        );
 
-      return;
-    }
+        window.removeEventListener(
+          "orientationchange",
+          updateViewport
+        );
+      };
+    },
+    []
+  );
 
-    let cancelled = false;
+  // ==========================================================
+  // FIND / TRACK TARGET
+  // ==========================================================
 
-    let resizeObserver:
-      ResizeObserver | null = null;
-
-    let timer:
-      ReturnType<typeof setTimeout> | null =
-      null;
-
-    const getRect = (
-      element: HTMLElement
-    ) => {
-      const rect =
-        element.getBoundingClientRect();
-
-      const padding =
-        window.innerWidth < 640
-          ? 7
-          : 10;
-
-      setTargetRect({
-        top: Math.max(
-          6,
-          rect.top - padding
-        ),
-
-        left: Math.max(
-          6,
-          rect.left - padding
-        ),
-
-        width:
-          rect.width +
-          padding * 2,
-
-        height:
-          rect.height +
-          padding * 2,
-      });
-    };
-
-    const locate = () => {
-      if (cancelled) {
+  useEffect(
+    () => {
+      if (
+        typeof window ===
+          "undefined" ||
+        typeof document ===
+          "undefined"
+      ) {
         return;
       }
 
-      const element =
-        document.querySelector(
-          currentStep.target
-        ) as HTMLElement | null;
+      if (
+        !isOpen ||
+        !currentStep
+      ) {
+        setTargetRect(
+          null
+        );
 
-      /*
-       * IMPORTANT:
-       * Missing target is NOT an error.
-       *
-       * Clarity simply becomes a centred
-       * explanatory card.
-       */
-      if (!element) {
-        setTargetElement(null);
-        setTargetRect(null);
-
-        window.setTimeout(() => {
-          if (!cancelled) {
-            setReady(true);
-          }
-        }, 120);
+        setReady(
+          false
+        );
 
         return;
       }
 
-      setTargetElement(element);
+      let cancelled =
+        false;
 
-      element.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-        inline: "nearest",
-      });
+      let trackedElement:
+        HTMLElement | null =
+        null;
 
-      /*
-       * Give smooth scrolling time to settle.
-       */
-      timer =
-        setTimeout(() => {
-          if (cancelled) {
+      let resizeObserver:
+        ResizeObserver | null =
+        null;
+
+      let settleTimer:
+        ReturnType<
+          typeof window.setTimeout
+        > | null =
+        null;
+
+      let readyTimer:
+        ReturnType<
+          typeof window.setTimeout
+        > | null =
+        null;
+
+      // ======================================================
+      // GET ELEMENT RECT
+      // ======================================================
+
+      const updateRect =
+        (
+          element:
+            HTMLElement
+        ) => {
+          if (
+            cancelled
+          ) {
             return;
           }
 
-          getRect(element);
-          setReady(true);
+          const rect =
+            element.getBoundingClientRect();
 
-          resizeObserver =
-            new ResizeObserver(() => {
-              getRect(element);
+          const padding =
+            window.innerWidth <
+            640
+              ? 7
+              : 10;
+
+          const top =
+            Math.max(
+              6,
+              rect.top -
+                padding
+            );
+
+          const left =
+            Math.max(
+              6,
+              rect.left -
+                padding
+            );
+
+          const maxWidth =
+            Math.max(
+              0,
+              window.innerWidth -
+                left -
+                6
+            );
+
+          const maxHeight =
+            Math.max(
+              0,
+              window.innerHeight -
+                top -
+                6
+            );
+
+          const width =
+            Math.min(
+              rect.width +
+                padding *
+                  2,
+              maxWidth
+            );
+
+          const height =
+            Math.min(
+              rect.height +
+                padding *
+                  2,
+              maxHeight
+            );
+
+          setTargetRect({
+            top,
+
+            left,
+
+            width,
+
+            height,
+          });
+        };
+
+      // ======================================================
+      // LOCATE ELEMENT
+      // ======================================================
+
+      const locateTarget =
+        () => {
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          let element:
+            HTMLElement | null =
+            null;
+
+          try {
+            element =
+              document.querySelector(
+                currentStep.target
+              ) as
+                | HTMLElement
+                | null;
+          } catch (
+            selectorError
+          ) {
+            console.warn(
+              "[CLARITY TOUR] Invalid target selector:",
+              currentStep.target,
+              selectorError
+            );
+          }
+
+          // ==================================================
+          // NO TARGET
+          //
+          // This is intentionally supported.
+          //
+          // The tour card simply becomes a centred
+          // explanation.
+          // ==================================================
+
+          if (
+            !element
+          ) {
+            trackedElement =
+              null;
+
+            setTargetRect(
+              null
+            );
+
+            readyTimer =
+              window.setTimeout(
+                () => {
+                  if (
+                    !cancelled
+                  ) {
+                    setReady(
+                      true
+                    );
+                  }
+                },
+                120
+              );
+
+            return;
+          }
+
+          trackedElement =
+            element;
+
+          // ==================================================
+          // SCROLL TARGET INTO VIEW
+          // ==================================================
+
+          try {
+            element.scrollIntoView({
+              behavior:
+                "smooth",
+
+              block:
+                "center",
+
+              inline:
+                "nearest",
             });
+          } catch {
+            element.scrollIntoView();
+          }
 
-          resizeObserver.observe(
-            element
+          // ==================================================
+          // WAIT FOR SMOOTH SCROLL
+          // ==================================================
+
+          settleTimer =
+            window.setTimeout(
+              () => {
+                if (
+                  cancelled ||
+                  !trackedElement
+                ) {
+                  return;
+                }
+
+                updateRect(
+                  trackedElement
+                );
+
+                setReady(
+                  true
+                );
+
+                // ============================================
+                // TRACK TARGET SIZE CHANGES
+                // ============================================
+
+                if (
+                  typeof ResizeObserver !==
+                  "undefined"
+                ) {
+                  resizeObserver =
+                    new ResizeObserver(
+                      () => {
+                        if (
+                          !cancelled &&
+                          trackedElement
+                        ) {
+                          updateRect(
+                            trackedElement
+                          );
+                        }
+                      }
+                    );
+
+                  resizeObserver.observe(
+                    trackedElement
+                  );
+                }
+              },
+              450
+            );
+        };
+
+      // ======================================================
+      // SCROLL TRACKING
+      // ======================================================
+
+      const handleScroll =
+        () => {
+          if (
+            cancelled ||
+            !trackedElement
+          ) {
+            return;
+          }
+
+          updateRect(
+            trackedElement
           );
-        }, 450);
-    };
+        };
 
-    setReady(false);
+      // ======================================================
+      // RESIZE TRACKING
+      // ======================================================
 
-    const locateTimer =
-      setTimeout(locate, 180);
+      const handleResize =
+        () => {
+          if (
+            cancelled ||
+            !trackedElement
+          ) {
+            return;
+          }
 
-    /*
-     * Keep highlight aligned during scrolling.
-     */
-    const handleScroll = () => {
-      if (targetElement) {
-        getRect(targetElement);
-      }
-    };
+          updateRect(
+            trackedElement
+          );
+        };
 
-    window.addEventListener(
-      "scroll",
-      handleScroll,
-      true
-    );
+      // ======================================================
+      // INITIALISE
+      // ======================================================
 
-    return () => {
-      cancelled = true;
-
-      clearTimeout(
-        locateTimer
+      setReady(
+        false
       );
 
-      if (timer) {
-        clearTimeout(timer);
-      }
+      setTargetRect(
+        null
+      );
 
-      resizeObserver?.disconnect();
+      const locateTimer =
+        window.setTimeout(
+          locateTarget,
+          180
+        );
 
-      window.removeEventListener(
+      window.addEventListener(
         "scroll",
         handleScroll,
         true
       );
-    };
-  }, [
-    isOpen,
-    currentStep,
-    targetElement,
-  ]);
 
-  // ================================================
-  // POSITION CARD
-  // ================================================
-
-  const cardPosition = useMemo(() => {
-    const width =
-      Math.min(
-        CARD_WIDTH,
-        viewport.width - 32
+      window.addEventListener(
+        "resize",
+        handleResize
       );
 
-    /*
-     * No target?
-     *
-     * Make this a gorgeous centred
-     * explanation rather than exposing
-     * anything technical.
-     */
-    if (!targetRect) {
-      return {
-        top: Math.max(
-          EDGE,
-          viewport.height / 2 -
-            CARD_ESTIMATED_HEIGHT / 2
-        ),
+      // ======================================================
+      // CLEANUP
+      // ======================================================
 
-        left: Math.max(
-          16,
-          viewport.width / 2 -
-            width / 2
-        ),
+      return () => {
+        cancelled =
+          true;
 
-        width,
+        window.clearTimeout(
+          locateTimer
+        );
+
+        if (
+          settleTimer
+        ) {
+          window.clearTimeout(
+            settleTimer
+          );
+        }
+
+        if (
+          readyTimer
+        ) {
+          window.clearTimeout(
+            readyTimer
+          );
+        }
+
+        resizeObserver?.disconnect();
+
+        window.removeEventListener(
+          "scroll",
+          handleScroll,
+          true
+        );
+
+        window.removeEventListener(
+          "resize",
+          handleResize
+        );
       };
-    }
+    },
+    [
+      isOpen,
+      currentStep,
+    ]
+  );
 
-    const placement =
-      currentStep?.placement ??
-      "bottom";
+  // ==========================================================
+  // CARD POSITION
+  // ==========================================================
 
-    let top =
-      targetRect.top +
-      targetRect.height +
-      GAP;
+  const cardPosition =
+    useMemo(
+      () => {
+        const safeViewportWidth =
+          Math.max(
+            viewport.width,
+            320
+          );
 
-    let left =
-      targetRect.left +
-      targetRect.width / 2 -
-      width / 2;
+        const safeViewportHeight =
+          Math.max(
+            viewport.height,
+            500
+          );
 
-    if (placement === "top") {
-      top =
-        targetRect.top -
-        CARD_ESTIMATED_HEIGHT -
-        GAP;
-    }
+        const width =
+          Math.max(
+            260,
+            Math.min(
+              CARD_WIDTH,
+              safeViewportWidth -
+                32
+            )
+          );
 
-    if (placement === "right") {
-      left =
-        targetRect.left +
-        targetRect.width +
-        GAP;
+        // ====================================================
+        // NO TARGET
+        //
+        // Centre the explanation card.
+        // ====================================================
 
-      top =
-        targetRect.top +
-        targetRect.height / 2 -
-        CARD_ESTIMATED_HEIGHT / 2;
-    }
+        if (
+          !targetRect
+        ) {
+          return {
+            top:
+              Math.max(
+                EDGE,
+                safeViewportHeight /
+                  2 -
+                  CARD_ESTIMATED_HEIGHT /
+                    2
+              ),
 
-    if (placement === "left") {
-      left =
-        targetRect.left -
-        width -
-        GAP;
+            left:
+              Math.max(
+                16,
+                safeViewportWidth /
+                  2 -
+                  width /
+                    2
+              ),
 
-      top =
-        targetRect.top +
-        targetRect.height / 2 -
-        CARD_ESTIMATED_HEIGHT / 2;
-    }
+            width,
+          };
+        }
 
-    if (
-      placement === "center"
-    ) {
-      left =
-        viewport.width / 2 -
-        width / 2;
+        const placement =
+          currentStep
+            ?.placement ??
+          "bottom";
 
-      top =
-        viewport.height / 2 -
-        CARD_ESTIMATED_HEIGHT / 2;
-    }
+        let top =
+          targetRect.top +
+          targetRect.height +
+          GAP;
 
-    /*
-     * Keep card on screen.
-     */
-    left = Math.max(
-      EDGE,
-      Math.min(
-        left,
-        viewport.width -
-          width -
-          EDGE
-      )
+        let left =
+          targetRect.left +
+          targetRect.width /
+            2 -
+          width /
+            2;
+
+        // ====================================================
+        // TOP
+        // ====================================================
+
+        if (
+          placement ===
+          "top"
+        ) {
+          top =
+            targetRect.top -
+            CARD_ESTIMATED_HEIGHT -
+            GAP;
+        }
+
+        // ====================================================
+        // RIGHT
+        // ====================================================
+
+        if (
+          placement ===
+          "right"
+        ) {
+          left =
+            targetRect.left +
+            targetRect.width +
+            GAP;
+
+          top =
+            targetRect.top +
+            targetRect.height /
+              2 -
+            CARD_ESTIMATED_HEIGHT /
+              2;
+        }
+
+        // ====================================================
+        // LEFT
+        // ====================================================
+
+        if (
+          placement ===
+          "left"
+        ) {
+          left =
+            targetRect.left -
+            width -
+            GAP;
+
+          top =
+            targetRect.top +
+            targetRect.height /
+              2 -
+            CARD_ESTIMATED_HEIGHT /
+              2;
+        }
+
+        // ====================================================
+        // CENTER
+        // ====================================================
+
+        if (
+          placement ===
+          "center"
+        ) {
+          left =
+            safeViewportWidth /
+              2 -
+            width /
+              2;
+
+          top =
+            safeViewportHeight /
+              2 -
+            CARD_ESTIMATED_HEIGHT /
+              2;
+        }
+
+        // ====================================================
+        // KEEP CARD WITHIN VIEWPORT
+        // ====================================================
+
+        left =
+          Math.max(
+            EDGE,
+            Math.min(
+              left,
+              safeViewportWidth -
+                width -
+                EDGE
+            )
+          );
+
+        top =
+          Math.max(
+            EDGE,
+            Math.min(
+              top,
+              safeViewportHeight -
+                CARD_ESTIMATED_HEIGHT -
+                EDGE
+            )
+          );
+
+        // ====================================================
+        // MOBILE
+        //
+        // Keep tour card above the mobile navigation.
+        // ====================================================
+
+        if (
+          safeViewportWidth <
+          640
+        ) {
+          left =
+            16;
+
+          top =
+            Math.max(
+              16,
+              safeViewportHeight -
+                CARD_ESTIMATED_HEIGHT -
+                96
+            );
+        }
+
+        return {
+          top,
+
+          left,
+
+          width,
+        };
+      },
+      [
+        currentStep
+          ?.placement,
+
+        targetRect,
+
+        viewport.width,
+
+        viewport.height,
+      ]
     );
 
-    top = Math.max(
-      EDGE,
-      Math.min(
-        top,
-        viewport.height -
-          CARD_ESTIMATED_HEIGHT -
-          EDGE
-      )
-    );
-
-    /*
-     * On mobile always put the card
-     * near the bottom.
-     */
-    if (
-      viewport.width < 640
-    ) {
-      left = 16;
-
-      top = Math.max(
-        16,
-        viewport.height -
-          CARD_ESTIMATED_HEIGHT -
-          24
-      );
-    }
-
-    return {
-      top,
-      left,
-      width,
-    };
-  }, [
-    currentStep?.placement,
-    targetRect,
-    viewport,
-  ]);
+  // ==========================================================
+  // NOTHING TO RENDER
+  // ==========================================================
 
   if (
     !isOpen ||
@@ -400,133 +800,226 @@ export default function ClarityTourOverlay() {
     return null;
   }
 
+  // ==========================================================
+  // STEP DATA
+  // ==========================================================
+
   const isLast =
     currentStepIndex ===
-    totalSteps - 1;
+    totalSteps -
+      1;
 
   const progress =
-    totalSteps > 0
-      ? ((currentStepIndex + 1) /
-          totalSteps) *
+    totalSteps >
+    0
+      ? (
+          (
+            currentStepIndex +
+            1
+          ) /
+          totalSteps
+        ) *
         100
       : 0;
 
-  // ================================================
-  // OVERLAY PANELS
-  //
-  // Four panels surround the highlighted element.
-  // The hole itself remains interactive.
-  // ================================================
+  // ==========================================================
+  // BACKDROP
+  // ==========================================================
 
-  const renderBackdrop = () => {
-    if (!targetRect) {
+  const renderBackdrop =
+    () => {
+      // ======================================================
+      // NO TARGET
+      // ======================================================
+
+      if (
+        !targetRect
+      ) {
+        return (
+          <motion.div
+            initial={{
+              opacity:
+                0,
+            }}
+            animate={{
+              opacity:
+                1,
+            }}
+            exit={{
+              opacity:
+                0,
+            }}
+            className="
+              pointer-events-auto
+              fixed
+              inset-0
+              bg-stone-950/55
+              backdrop-blur-[3px]
+            "
+          />
+        );
+      }
+
+      // ======================================================
+      // SPOTLIGHT PANELS
+      //
+      // Four panels surround the target so the target itself
+      // remains interactive.
+      // ======================================================
+
       return (
-        <motion.div
-          initial={{
-            opacity: 0,
-          }}
-          animate={{
-            opacity: 1,
-          }}
-          className="pointer-events-auto fixed inset-0 bg-stone-950/55 backdrop-blur-[3px]"
-        />
+        <>
+          {/* TOP */}
+
+          <div
+            className="
+              pointer-events-auto
+              fixed
+              left-0
+              right-0
+              top-0
+              bg-stone-950/60
+              backdrop-blur-[2px]
+            "
+            style={{
+              height:
+                targetRect.top,
+            }}
+          />
+
+          {/* LEFT */}
+
+          <div
+            className="
+              pointer-events-auto
+              fixed
+              left-0
+              bg-stone-950/60
+              backdrop-blur-[2px]
+            "
+            style={{
+              top:
+                targetRect.top,
+
+              width:
+                targetRect.left,
+
+              height:
+                targetRect.height,
+            }}
+          />
+
+          {/* RIGHT */}
+
+          <div
+            className="
+              pointer-events-auto
+              fixed
+              right-0
+              bg-stone-950/60
+              backdrop-blur-[2px]
+            "
+            style={{
+              top:
+                targetRect.top,
+
+              left:
+                targetRect.left +
+                targetRect.width,
+
+              height:
+                targetRect.height,
+            }}
+          />
+
+          {/* BOTTOM */}
+
+          <div
+            className="
+              pointer-events-auto
+              fixed
+              bottom-0
+              left-0
+              right-0
+              bg-stone-950/60
+              backdrop-blur-[2px]
+            "
+            style={{
+              top:
+                targetRect.top +
+                targetRect.height,
+            }}
+          />
+        </>
       );
-    }
+    };
 
-    return (
-      <>
-        {/* TOP */}
-        <div
-          className="pointer-events-auto fixed left-0 right-0 top-0 bg-stone-950/60 backdrop-blur-[2px]"
-          style={{
-            height:
-              targetRect.top,
-          }}
-        />
-
-        {/* LEFT */}
-        <div
-          className="pointer-events-auto fixed left-0 bg-stone-950/60 backdrop-blur-[2px]"
-          style={{
-            top:
-              targetRect.top,
-
-            width:
-              targetRect.left,
-
-            height:
-              targetRect.height,
-          }}
-        />
-
-        {/* RIGHT */}
-        <div
-          className="pointer-events-auto fixed right-0 bg-stone-950/60 backdrop-blur-[2px]"
-          style={{
-            top:
-              targetRect.top,
-
-            left:
-              targetRect.left +
-              targetRect.width,
-
-            height:
-              targetRect.height,
-          }}
-        />
-
-        {/* BOTTOM */}
-        <div
-          className="pointer-events-auto fixed bottom-0 left-0 right-0 bg-stone-950/60 backdrop-blur-[2px]"
-          style={{
-            top:
-              targetRect.top +
-              targetRect.height,
-          }}
-        />
-      </>
-    );
-  };
+  // ==========================================================
+  // RENDER
+  // ==========================================================
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence
+      mode="wait"
+    >
       <motion.div
-        key={currentStep.id}
+        key={
+          currentStep.id
+        }
         initial={{
-          opacity: 0,
+          opacity:
+            0,
         }}
         animate={{
-          opacity: ready
-            ? 1
-            : 0,
+          opacity:
+            ready
+              ? 1
+              : 0,
         }}
         exit={{
-          opacity: 0,
+          opacity:
+            0,
         }}
         transition={{
-          duration: 0.3,
+          duration:
+            0.3,
         }}
-        className="pointer-events-none fixed inset-0 z-[10000]"
+        className="
+          pointer-events-none
+          fixed
+          inset-0
+          z-[10000]
+        "
       >
         {renderBackdrop()}
 
-        {/* =========================================
+        {/* ====================================================
             INTERACTIVE SPOTLIGHT
-        ========================================= */}
+        ==================================================== */}
 
         {targetRect && (
           <>
+            {/* MAIN OUTLINE */}
+
             <motion.div
               initial={{
-                opacity: 0,
-                scale: 0.96,
+                opacity:
+                  0,
+
+                scale:
+                  0.96,
               }}
               animate={{
-                opacity: 1,
-                scale: 1,
+                opacity:
+                  1,
+
+                scale:
+                  1,
               }}
               transition={{
-                duration: 0.45,
+                duration:
+                  0.45,
+
                 ease: [
                   0.16,
                   1,
@@ -534,7 +1027,13 @@ export default function ClarityTourOverlay() {
                   1,
                 ],
               }}
-              className="pointer-events-none fixed rounded-[1.6rem] border border-[#a9b897]/90"
+              className="
+                pointer-events-none
+                fixed
+                rounded-[1.6rem]
+                border
+                border-[#a9b897]/90
+              "
               style={{
                 top:
                   targetRect.top,
@@ -553,6 +1052,8 @@ export default function ClarityTourOverlay() {
               }}
             />
 
+            {/* PULSE OUTLINE */}
+
             <motion.div
               animate={{
                 opacity: [
@@ -568,11 +1069,22 @@ export default function ClarityTourOverlay() {
                 ],
               }}
               transition={{
-                duration: 2.4,
-                repeat: Infinity,
-                ease: "easeInOut",
+                duration:
+                  2.4,
+
+                repeat:
+                  Infinity,
+
+                ease:
+                  "easeInOut",
               }}
-              className="pointer-events-none fixed rounded-[1.8rem] border border-[#d9e2ce]/40"
+              className="
+                pointer-events-none
+                fixed
+                rounded-[1.8rem]
+                border
+                border-[#d9e2ce]/40
+              "
               style={{
                 top:
                   targetRect.top -
@@ -594,24 +1106,38 @@ export default function ClarityTourOverlay() {
           </>
         )}
 
-        {/* =========================================
+        {/* ====================================================
             CLARITY CARD
-        ========================================= */}
+        ==================================================== */}
 
         <motion.div
           initial={{
-            opacity: 0,
-            y: 18,
-            scale: 0.965,
+            opacity:
+              0,
+
+            y:
+              18,
+
+            scale:
+              0.965,
           }}
           animate={{
-            opacity: 1,
-            y: 0,
-            scale: 1,
+            opacity:
+              1,
+
+            y:
+              0,
+
+            scale:
+              1,
           }}
           transition={{
-            delay: 0.08,
-            duration: 0.45,
+            delay:
+              0.08,
+
+            duration:
+              0.45,
+
             ease: [
               0.16,
               1,
@@ -619,7 +1145,11 @@ export default function ClarityTourOverlay() {
               1,
             ],
           }}
-          className="pointer-events-auto fixed z-[10010]"
+          className="
+            pointer-events-auto
+            fixed
+            z-[10010]
+          "
           style={{
             top:
               cardPosition.top,
@@ -631,14 +1161,63 @@ export default function ClarityTourOverlay() {
               cardPosition.width,
           }}
         >
-          <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-[#171714]/95 text-white shadow-[0_30px_100px_rgba(0,0,0,.48)] backdrop-blur-3xl">
-            {/* TOP GLOW */}
+          <div
+            className="
+              overflow-hidden
+              rounded-[2rem]
+              border
+              border-white/10
+              bg-[#171714]/95
+              text-white
+              shadow-[0_30px_100px_rgba(0,0,0,.48)]
+              backdrop-blur-3xl
+            "
+          >
+            {/* ==================================================
+                HEADER
+            ================================================== */}
 
-            <div className="relative">
-              <div className="pointer-events-none absolute -left-20 -top-24 h-44 w-44 rounded-full bg-[#a9b897]/20 blur-[55px]" />
+            <div
+              className="
+                relative
+              "
+            >
+              {/* GLOW */}
 
-              <div className="relative flex items-center justify-between px-6 pb-3 pt-5">
-                <div className="flex items-center gap-3">
+              <div
+                className="
+                  pointer-events-none
+                  absolute
+                  -left-20
+                  -top-24
+                  h-44
+                  w-44
+                  rounded-full
+                  bg-[#a9b897]/20
+                  blur-[55px]
+                "
+              />
+
+              <div
+                className="
+                  relative
+                  flex
+                  items-center
+                  justify-between
+                  px-6
+                  pb-3
+                  pt-5
+                "
+              >
+                {/* BRAND */}
+
+                <div
+                  className="
+                    flex
+                    items-center
+                    gap-3
+                  "
+                >
                   <motion.div
                     animate={{
                       boxShadow: [
@@ -648,41 +1227,92 @@ export default function ClarityTourOverlay() {
                       ],
                     }}
                     transition={{
-                      duration: 2.5,
+                      duration:
+                        2.5,
+
                       repeat:
                         Infinity,
+
+                      ease:
+                        "easeInOut",
                     }}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#a9b897]/20 bg-[#a9b897]/10"
+                    className="
+                      flex
+                      h-9
+                      w-9
+                      items-center
+                      justify-center
+                      rounded-xl
+                      border
+                      border-[#a9b897]/20
+                      bg-[#a9b897]/10
+                    "
                   >
                     <Sparkles
-                      size={15}
-                      className="text-[#c8d4bc]"
+                      size={
+                        15
+                      }
+                      className="
+                        text-[#c8d4bc]
+                      "
                     />
                   </motion.div>
 
                   <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.34em] text-[#a9b897]">
+                    <p
+                      className="
+                        text-[8px]
+                        font-black
+                        uppercase
+                        tracking-[0.34em]
+                        text-[#a9b897]
+                      "
+                    >
                       Clarity
                     </p>
 
-                    <p className="mt-0.5 text-[9px] font-medium text-white/35">
-                      Your TOTS-OS
-                      guide
+                    <p
+                      className="
+                        mt-0.5
+                        text-[9px]
+                        font-medium
+                        text-white/35
+                      "
+                    >
+                      Your TOTS-OS guide
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1">
+                {/* HEADER ACTIONS */}
+
+                <div
+                  className="
+                    flex
+                    items-center
+                    gap-1
+                  "
+                >
                   <button
                     type="button"
                     onClick={
                       closeTour
                     }
                     title="Continue later"
-                    className="rounded-full p-2 text-white/30 transition hover:bg-white/[0.06] hover:text-white"
+                    aria-label="Continue tour later"
+                    className="
+                      rounded-full
+                      p-2
+                      text-white/30
+                      transition
+                      hover:bg-white/[0.06]
+                      hover:text-white
+                    "
                   >
                     <Minimize2
-                      size={14}
+                      size={
+                        14
+                      }
                     />
                   </button>
 
@@ -692,20 +1322,47 @@ export default function ClarityTourOverlay() {
                       skipTour
                     }
                     title="End tour"
-                    className="rounded-full p-2 text-white/30 transition hover:bg-white/[0.06] hover:text-white"
+                    aria-label="End tour"
+                    className="
+                      rounded-full
+                      p-2
+                      text-white/30
+                      transition
+                      hover:bg-white/[0.06]
+                      hover:text-white
+                    "
                   >
                     <X
-                      size={14}
+                      size={
+                        14
+                      }
                     />
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* PROGRESS */}
+            {/* ==================================================
+                PROGRESS
+            ================================================== */}
 
-            <div className="px-6">
-              <div className="flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.18em] text-white/25">
+            <div
+              className="
+                px-6
+              "
+            >
+              <div
+                className="
+                  flex
+                  items-center
+                  justify-between
+                  text-[8px]
+                  font-bold
+                  uppercase
+                  tracking-[0.18em]
+                  text-white/25
+                "
+              >
                 <span>
                   Getting started
                 </span>
@@ -718,22 +1375,49 @@ export default function ClarityTourOverlay() {
                 </span>
               </div>
 
-              <div className="mt-3 h-[2px] overflow-hidden rounded-full bg-white/[0.07]">
+              <div
+                className="
+                  mt-3
+                  h-[2px]
+                  overflow-hidden
+                  rounded-full
+                  bg-white/[0.07]
+                "
+              >
                 <motion.div
+                  initial={{
+                    width:
+                      0,
+                  }}
                   animate={{
-                    width: `${progress}%`,
+                    width:
+                      `${progress}%`,
                   }}
                   transition={{
-                    duration: 0.5,
+                    duration:
+                      0.5,
                   }}
-                  className="h-full bg-gradient-to-r from-[#7f9273] to-[#d5dfcb]"
+                  className="
+                    h-full
+                    bg-gradient-to-r
+                    from-[#7f9273]
+                    to-[#d5dfcb]
+                  "
                 />
               </div>
             </div>
 
-            {/* CONTENT */}
+            {/* ==================================================
+                CONTENT
+            ================================================== */}
 
-            <div className="px-6 pb-6 pt-6">
+            <div
+              className="
+                px-6
+                pb-6
+                pt-6
+              "
+            >
               <AnimatePresence
                 mode="wait"
               >
@@ -742,53 +1426,142 @@ export default function ClarityTourOverlay() {
                     currentStep.id
                   }
                   initial={{
-                    opacity: 0,
-                    y: 8,
+                    opacity:
+                      0,
+
+                    y:
+                      8,
                   }}
                   animate={{
-                    opacity: 1,
-                    y: 0,
+                    opacity:
+                      1,
+
+                    y:
+                      0,
                   }}
                   exit={{
-                    opacity: 0,
-                    y: -6,
+                    opacity:
+                      0,
+
+                    y:
+                      -6,
                   }}
                   transition={{
-                    duration: 0.28,
+                    duration:
+                      0.28,
                   }}
                 >
-                  <h3 className="font-serif text-[26px] italic leading-tight tracking-tight text-[#f5f3ed]">
+                  <h3
+                    className="
+                      font-serif
+                      text-[26px]
+                      italic
+                      leading-tight
+                      tracking-tight
+                      text-[#f5f3ed]
+                    "
+                  >
                     {
                       currentStep.title
                     }
                   </h3>
 
-                  <p className="mt-3 text-[13px] leading-[1.75] text-white/50">
+                  <p
+                    className="
+                      mt-3
+                      text-[13px]
+                      leading-[1.75]
+                      text-white/50
+                    "
+                  >
                     {
                       currentStep.description
                     }
                   </p>
 
-                  {targetRect && (
-                    <div className="mt-5 flex items-center gap-2 rounded-xl border border-[#a9b897]/10 bg-[#a9b897]/[0.06] px-3.5 py-3">
-                      <span className="relative flex h-2 w-2">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#a9b897] opacity-50" />
+                  {/* ============================================
+                      TARGET HINT
+                  ============================================ */}
 
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-[#a9b897]" />
+                  {targetRect && (
+                    <div
+                      className="
+                        mt-5
+                        flex
+                        items-center
+                        gap-2
+                        rounded-xl
+                        border
+                        border-[#a9b897]/10
+                        bg-[#a9b897]/[0.06]
+                        px-3.5
+                        py-3
+                      "
+                    >
+                      <span
+                        className="
+                          relative
+                          flex
+                          h-2
+                          w-2
+                        "
+                      >
+                        <span
+                          className="
+                            absolute
+                            inline-flex
+                            h-full
+                            w-full
+                            animate-ping
+                            rounded-full
+                            bg-[#a9b897]
+                            opacity-50
+                          "
+                        />
+
+                        <span
+                          className="
+                            relative
+                            inline-flex
+                            h-2
+                            w-2
+                            rounded-full
+                            bg-[#a9b897]
+                          "
+                        />
                       </span>
 
-                      <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#b8c5ae]">
-                        Try the highlighted
-                        area
+                      <span
+                        className="
+                          text-[9px]
+                          font-bold
+                          uppercase
+                          tracking-[0.16em]
+                          text-[#b8c5ae]
+                        "
+                      >
+                        Try the highlighted area
                       </span>
                     </div>
                   )}
                 </motion.div>
               </AnimatePresence>
 
-              {/* ACTIONS */}
+              {/* ==================================================
+                  ACTIONS
+              ================================================== */}
 
-              <div className="mt-7 flex items-center justify-between gap-3">
+              <div
+                className="
+                  mt-7
+                  flex
+                  items-center
+                  justify-between
+                  gap-3
+                "
+              >
+                {/* LEFT ACTION */}
+
                 <div>
                   {currentStepIndex >
                   0 ? (
@@ -797,10 +1570,27 @@ export default function ClarityTourOverlay() {
                       onClick={
                         previousStep
                       }
-                      className="flex items-center gap-2 rounded-full px-3 py-2 text-[9px] font-bold uppercase tracking-[0.14em] text-white/35 transition hover:bg-white/[0.05] hover:text-white/70"
+                      className="
+                        flex
+                        items-center
+                        gap-2
+                        rounded-full
+                        px-3
+                        py-2
+                        text-[9px]
+                        font-bold
+                        uppercase
+                        tracking-[0.14em]
+                        text-white/35
+                        transition
+                        hover:bg-white/[0.05]
+                        hover:text-white/70
+                      "
                     >
                       <ArrowLeft
-                        size={12}
+                        size={
+                          12
+                        }
                       />
 
                       Back
@@ -811,26 +1601,58 @@ export default function ClarityTourOverlay() {
                       onClick={
                         skipTour
                       }
-                      className="px-2 py-2 text-[8px] font-bold uppercase tracking-[0.16em] text-white/25 transition hover:text-white/50"
+                      className="
+                        px-2
+                        py-2
+                        text-[8px]
+                        font-bold
+                        uppercase
+                        tracking-[0.16em]
+                        text-white/25
+                        transition
+                        hover:text-white/50
+                      "
                     >
                       Skip tour
                     </button>
                   )}
                 </div>
 
+                {/* NEXT */}
+
                 <button
                   type="button"
                   onClick={
                     nextStep
                   }
-                  className="group flex h-12 items-center gap-3 rounded-full bg-[#d5dfcb] px-5 text-[9px] font-black uppercase tracking-[0.17em] text-[#171714] shadow-[0_8px_30px_rgba(169,184,151,.15)] transition hover:bg-white hover:shadow-[0_10px_38px_rgba(255,255,255,.1)]"
+                  className="
+                    group
+                    flex
+                    h-12
+                    items-center
+                    gap-3
+                    rounded-full
+                    bg-[#d5dfcb]
+                    px-5
+                    text-[9px]
+                    font-black
+                    uppercase
+                    tracking-[0.17em]
+                    text-[#171714]
+                    shadow-[0_8px_30px_rgba(169,184,151,.15)]
+                    transition
+                    hover:bg-white
+                    hover:shadow-[0_10px_38px_rgba(255,255,255,.1)]
+                  "
                 >
                   {isLast ? (
                     <>
                       Finish tour
 
                       <Check
-                        size={13}
+                        size={
+                          13
+                        }
                       />
                     </>
                   ) : (
@@ -838,8 +1660,13 @@ export default function ClarityTourOverlay() {
                       Next
 
                       <ChevronRight
-                        size={14}
-                        className="transition-transform group-hover:translate-x-0.5"
+                        size={
+                          14
+                        }
+                        className="
+                          transition-transform
+                          group-hover:translate-x-0.5
+                        "
                       />
                     </>
                   )}

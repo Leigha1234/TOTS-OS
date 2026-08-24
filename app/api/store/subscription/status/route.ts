@@ -18,51 +18,81 @@ export const runtime =
 // ENVIRONMENT
 // ============================================================
 
-const supabaseUrl =
+const rawSupabaseUrl =
   process.env
-    .NEXT_PUBLIC_SUPABASE_URL;
+    .NEXT_PUBLIC_SUPABASE_URL
+    ?.trim();
 
-const supabaseServiceRoleKey =
+const rawSupabaseServiceRoleKey =
   process.env
-    .SUPABASE_SERVICE_ROLE_KEY;
+    .SUPABASE_SERVICE_ROLE_KEY
+    ?.trim();
 
-const stripeSecretKey =
+const rawStripeSecretKey =
   process.env
-    .STRIPE_SECRET_KEY;
+    .STRIPE_SECRET_KEY
+    ?.trim();
 
-const storePriceId =
+const rawStorePriceId =
   process.env
-    .STRIPE_STORE_ADDON_PRICE_ID;
+    .STRIPE_STORE_ADDON_PRICE_ID
+    ?.trim();
 
 // ============================================================
 // VALIDATE ENVIRONMENT
+//
+// Assigning the validated values below to explicit `string`
+// variables also prevents TypeScript from continuing to treat
+// them as `string | undefined` later in this file.
 // ============================================================
 
-if (!supabaseUrl) {
+if (
+  !rawSupabaseUrl
+) {
   throw new Error(
     "NEXT_PUBLIC_SUPABASE_URL is missing"
   );
 }
 
 if (
-  !supabaseServiceRoleKey
+  !rawSupabaseServiceRoleKey
 ) {
   throw new Error(
     "SUPABASE_SERVICE_ROLE_KEY is missing"
   );
 }
 
-if (!stripeSecretKey) {
+if (
+  !rawStripeSecretKey
+) {
   throw new Error(
     "STRIPE_SECRET_KEY is missing"
   );
 }
 
-if (!storePriceId) {
+if (
+  !rawStorePriceId
+) {
   throw new Error(
     "STRIPE_STORE_ADDON_PRICE_ID is missing"
   );
 }
+
+const supabaseUrl:
+  string =
+  rawSupabaseUrl;
+
+const supabaseServiceRoleKey:
+  string =
+  rawSupabaseServiceRoleKey;
+
+const stripeSecretKey:
+  string =
+  rawStripeSecretKey;
+
+const storePriceId:
+  string =
+  rawStorePriceId;
 
 // ============================================================
 // CLIENTS
@@ -121,6 +151,47 @@ type OrganisationStoreRow = {
     string | null;
 };
 
+type StoreStatusResponse = {
+  subscribed:
+    boolean;
+
+  storeEnabled:
+    boolean;
+
+  status:
+    string | null;
+
+  subscriptionId:
+    string | null;
+
+  customerId:
+    string | null;
+
+  priceId:
+    string | null;
+
+  expectedPriceId:
+    string;
+
+  correctProduct:
+    boolean;
+
+  cancelAtPeriodEnd:
+    boolean;
+
+  currentPeriodEnd:
+    string | null;
+
+  needsPurchase:
+    boolean;
+
+  needsPaymentAttention:
+    boolean;
+
+  reason?:
+    string | null;
+};
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -139,6 +210,8 @@ function cleanString(
   return value.trim();
 }
 
+// ============================================================
+// BEARER TOKEN
 // ============================================================
 
 function getBearerToken(
@@ -161,12 +234,15 @@ function getBearerToken(
     return null;
   }
 
-  return (
+  const token =
     header
       .slice(
         7
       )
-      .trim() ||
+      .trim();
+
+  return (
+    token ||
     null
   );
 }
@@ -179,6 +255,10 @@ async function getOrganisationId(
   req:
     Request
 ) {
+  // ==========================================================
+  // TOKEN
+  // ==========================================================
+
   const token =
     getBearerToken(
       req
@@ -191,6 +271,10 @@ async function getOrganisationId(
       "UNAUTHENTICATED"
     );
   }
+
+  // ==========================================================
+  // USER
+  // ==========================================================
 
   const {
     data:
@@ -209,6 +293,11 @@ async function getOrganisationId(
     userError ||
     !userData.user
   ) {
+    console.error(
+      "[STORE SUBSCRIPTION] Authentication failed:",
+      userError
+    );
+
     throw new Error(
       "UNAUTHENTICATED"
     );
@@ -217,110 +306,171 @@ async function getOrganisationId(
   const userId =
     userData.user.id;
 
+  let organisationId =
+    "";
+
   // ==========================================================
-  // PROFILE
+  // PRIMARY:
+  // PROFILES
   // ==========================================================
 
-  const {
-    data:
-      profile,
+  try {
+    const {
+      data:
+        profile,
 
-    error:
-      profileError,
-  } =
-    await supabaseAdmin
-      .from(
-        "profiles"
-      )
-      .select(
-        "organisation_id"
-      )
-      .eq(
-        "id",
-        userId
-      )
-      .maybeSingle();
+      error:
+        profileError,
+    } =
+      await supabaseAdmin
+        .from(
+          "profiles"
+        )
+        .select(
+          "organisation_id"
+        )
+        .eq(
+          "id",
+          userId
+        )
+        .maybeSingle();
 
-  if (
+    if (
+      profileError
+    ) {
+      console.warn(
+        "[STORE SUBSCRIPTION] Profile lookup failed:",
+        profileError
+      );
+    } else {
+      organisationId =
+        cleanString(
+          profile
+            ?.organisation_id
+        );
+    }
+  } catch (
     profileError
   ) {
     console.warn(
-      "[STORE SUBSCRIPTION] Profile lookup failed:",
+      "[STORE SUBSCRIPTION] Profile lookup exception:",
       profileError
     );
   }
 
-  let organisationId =
-    cleanString(
-      profile
-        ?.organisation_id
-    );
-
   // ==========================================================
-  // USER ORGANISATIONS
+  // FALLBACK:
+  // USER_ORGANISATIONS
   // ==========================================================
 
   if (
     !organisationId
   ) {
-    const {
-      data:
-        memberships,
-    } =
-      await supabaseAdmin
-        .from(
-          "user_organisations"
-        )
-        .select(
-          "organisation_id"
-        )
-        .eq(
-          "user_id",
-          userId
-        )
-        .limit(
-          1
-        );
+    try {
+      const {
+        data:
+          memberships,
 
-    organisationId =
-      cleanString(
-        memberships?.[0]
-          ?.organisation_id
+        error:
+          membershipError,
+      } =
+        await supabaseAdmin
+          .from(
+            "user_organisations"
+          )
+          .select(
+            "organisation_id"
+          )
+          .eq(
+            "user_id",
+            userId
+          )
+          .limit(
+            1
+          );
+
+      if (
+        membershipError
+      ) {
+        console.warn(
+          "[STORE SUBSCRIPTION] user_organisations lookup failed:",
+          membershipError
+        );
+      } else {
+        organisationId =
+          cleanString(
+            memberships?.[0]
+              ?.organisation_id
+          );
+      }
+    } catch (
+      membershipError
+    ) {
+      console.warn(
+        "[STORE SUBSCRIPTION] user_organisations exception:",
+        membershipError
       );
+    }
   }
 
   // ==========================================================
-  // ORGANISATION MEMBERS
+  // FALLBACK:
+  // ORGANISATION_MEMBERS
   // ==========================================================
 
   if (
     !organisationId
   ) {
-    const {
-      data:
-        memberships,
-    } =
-      await supabaseAdmin
-        .from(
-          "organisation_members"
-        )
-        .select(
-          "organisation_id"
-        )
-        .eq(
-          "user_id",
-          userId
-        )
-        .limit(
-          1
-        );
+    try {
+      const {
+        data:
+          memberships,
 
-    organisationId =
-      cleanString(
-        memberships?.[0]
-          ?.organisation_id
+        error:
+          membershipError,
+      } =
+        await supabaseAdmin
+          .from(
+            "organisation_members"
+          )
+          .select(
+            "organisation_id"
+          )
+          .eq(
+            "user_id",
+            userId
+          )
+          .limit(
+            1
+          );
+
+      if (
+        membershipError
+      ) {
+        console.warn(
+          "[STORE SUBSCRIPTION] organisation_members lookup failed:",
+          membershipError
+        );
+      } else {
+        organisationId =
+          cleanString(
+            memberships?.[0]
+              ?.organisation_id
+          );
+      }
+    } catch (
+      membershipError
+    ) {
+      console.warn(
+        "[STORE SUBSCRIPTION] organisation_members exception:",
+        membershipError
       );
+    }
   }
+
+  // ==========================================================
+  // NO ORGANISATION
+  // ==========================================================
 
   if (
     !organisationId
@@ -334,10 +484,207 @@ async function getOrganisationId(
 }
 
 // ============================================================
+// GET CUSTOMER ID
+// ============================================================
+
+function getCustomerId(
+  subscription:
+    Stripe.Subscription
+) {
+  if (
+    typeof subscription
+      .customer ===
+    "string"
+  ) {
+    return subscription
+      .customer;
+  }
+
+  if (
+    subscription
+      .customer &&
+    typeof subscription
+      .customer ===
+      "object" &&
+    "id" in
+      subscription.customer
+  ) {
+    return subscription
+      .customer
+      .id;
+  }
+
+  return null;
+}
+
+// ============================================================
+// SUBSCRIPTION PRICE IDS
+// ============================================================
+
+function getSubscriptionPriceIds(
+  subscription:
+    Stripe.Subscription
+) {
+  return subscription
+    .items
+    .data
+    .map(
+      (
+        item
+      ) =>
+        cleanString(
+          item
+            .price
+            ?.id
+        )
+    )
+    .filter(
+      (
+        priceId
+      ):
+        priceId is string =>
+          Boolean(
+            priceId
+          )
+    );
+}
+
+// ============================================================
+// HAS CORRECT STORE PRODUCT
+//
+// SECURITY CRITICAL.
+//
+// The organisation only gets Store access when its Stripe
+// subscription actually contains STRIPE_STORE_ADDON_PRICE_ID.
+// ============================================================
+
+function subscriptionHasStorePrice(
+  subscription:
+    Stripe.Subscription
+) {
+  const priceIds =
+    getSubscriptionPriceIds(
+      subscription
+    );
+
+  return priceIds.includes(
+    storePriceId
+  );
+}
+
+// ============================================================
+// GET STORE PRICE FROM SUBSCRIPTION
+// ============================================================
+
+function getStorePriceFromSubscription(
+  subscription:
+    Stripe.Subscription
+) {
+  const item =
+    subscription
+      .items
+      .data
+      .find(
+        (
+          subscriptionItem
+        ) =>
+          subscriptionItem
+            .price
+            ?.id ===
+          storePriceId
+      );
+
+  return item
+    ?.price
+    ?.id ||
+    null;
+}
+
+// ============================================================
+// ACCESS STATUS
+//
+// Only active/trialing + the exact Store product unlocks
+// access.
+//
+// past_due
+// unpaid
+// incomplete
+// paused
+// canceled
+// etc.
+//
+// all remain locked.
+// ============================================================
+
+function subscriptionAllowsAccess(
+  subscription:
+    Stripe.Subscription
+) {
+  const validStatus =
+    [
+      "active",
+      "trialing",
+    ].includes(
+      subscription.status
+    );
+
+  const correctProduct =
+    subscriptionHasStorePrice(
+      subscription
+    );
+
+  return (
+    validStatus &&
+    correctProduct
+  );
+}
+
+// ============================================================
+// DOES SUBSCRIPTION STILL EXIST?
+//
+// A subscription can exist without granting access.
+//
+// Example:
+// past_due -> subscribed but locked
+// canceled -> no longer subscribed
+// ============================================================
+
+function isExistingSubscription(
+  subscription:
+    Stripe.Subscription
+) {
+  return ![
+    "canceled",
+    "incomplete_expired",
+  ].includes(
+    subscription.status
+  );
+}
+
+// ============================================================
+// PAYMENT ATTENTION
+// ============================================================
+
+function requiresPaymentAttention(
+  subscription:
+    Stripe.Subscription
+) {
+  return [
+    "past_due",
+    "unpaid",
+    "incomplete",
+    "paused",
+  ].includes(
+    subscription.status
+  );
+}
+
+// ============================================================
 // SUBSCRIPTION PERIOD END
 //
-// Stripe typings can vary depending on the Stripe SDK/API
-// version, so this safely extracts the current period end.
+// Different Stripe API / SDK versions expose this slightly
+// differently, so this safely checks both the subscription and
+// first Store subscription item.
 // ============================================================
 
 function getCurrentPeriodEnd(
@@ -345,37 +692,246 @@ function getCurrentPeriodEnd(
     Stripe.Subscription
 ) {
   const subscriptionLike =
-    subscription as Stripe.Subscription & {
-      current_period_end?:
-        number;
+    subscription as
+      Stripe.Subscription & {
+        current_period_end?:
+          number |
+          null;
 
-      items?: {
-        data?: Array<{
-          current_period_end?:
-            number;
-        }>;
+        items?: {
+          data?: Array<{
+            current_period_end?:
+              number |
+              null;
+
+            price?: {
+              id?:
+                string;
+            };
+          }>;
+        };
       };
-    };
 
-  const value =
+  // ==========================================================
+  // SUBSCRIPTION LEVEL
+  // ==========================================================
+
+  const subscriptionPeriodEnd =
     subscriptionLike
-      .current_period_end ||
-    subscriptionLike
-      .items
-      ?.data?.[0]
-      ?.current_period_end ||
-    null;
+      .current_period_end;
 
   if (
-    !value
+    typeof subscriptionPeriodEnd ===
+      "number" &&
+    subscriptionPeriodEnd >
+      0
   ) {
-    return null;
+    return new Date(
+      subscriptionPeriodEnd *
+        1000
+    ).toISOString();
   }
 
-  return new Date(
-    value *
-      1000
-  ).toISOString();
+  // ==========================================================
+  // STORE ITEM
+  // ==========================================================
+
+  const storeItem =
+    subscriptionLike
+      .items
+      ?.data
+      ?.find(
+        (
+          item
+        ) =>
+          item
+            .price
+            ?.id ===
+          storePriceId
+      );
+
+  if (
+    typeof storeItem
+      ?.current_period_end ===
+      "number" &&
+    storeItem
+      .current_period_end >
+      0
+  ) {
+    return new Date(
+      storeItem
+        .current_period_end *
+        1000
+    ).toISOString();
+  }
+
+  // ==========================================================
+  // FIRST ITEM FALLBACK
+  // ==========================================================
+
+  const firstItemPeriodEnd =
+    subscriptionLike
+      .items
+      ?.data
+      ?.[0]
+      ?.current_period_end;
+
+  if (
+    typeof firstItemPeriodEnd ===
+      "number" &&
+    firstItemPeriodEnd >
+      0
+  ) {
+    return new Date(
+      firstItemPeriodEnd *
+        1000
+    ).toISOString();
+  }
+
+  return null;
+}
+
+// ============================================================
+// DISABLE STORE ACCESS
+// ============================================================
+
+async function disableStoreAccess({
+  organisationId,
+  status,
+  subscriptionId,
+  customerId,
+  currentPeriodEnd,
+  cancelAtPeriodEnd,
+  priceId,
+}: {
+  organisationId:
+    string;
+
+  status:
+    string |
+    null;
+
+  subscriptionId:
+    string |
+    null;
+
+  customerId:
+    string |
+    null;
+
+  currentPeriodEnd:
+    string |
+    null;
+
+  cancelAtPeriodEnd:
+    boolean;
+
+  priceId:
+    string |
+    null;
+}) {
+  const {
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "organisations"
+      )
+      .update({
+        store_enabled:
+          false,
+
+        store_subscription_status:
+          status,
+
+        store_stripe_subscription_id:
+          subscriptionId,
+
+        store_stripe_customer_id:
+          customerId,
+
+        store_price_id:
+          priceId,
+
+        store_current_period_end:
+          currentPeriodEnd,
+
+        store_cancel_at_period_end:
+          cancelAtPeriodEnd,
+      })
+      .eq(
+        "id",
+        organisationId
+      );
+
+  if (
+    error
+  ) {
+    console.error(
+      "[STORE SUBSCRIPTION] Could not disable Store access:",
+      error
+    );
+  }
+}
+
+// ============================================================
+// BUILD NO SUBSCRIPTION RESPONSE
+// ============================================================
+
+function createNoSubscriptionResponse({
+  customerId,
+  status = null,
+  reason = null,
+}: {
+  customerId:
+    string |
+    null;
+
+  status?:
+    string |
+    null;
+
+  reason?:
+    string |
+    null;
+}): StoreStatusResponse {
+  return {
+    subscribed:
+      false,
+
+    storeEnabled:
+      false,
+
+    status,
+
+    subscriptionId:
+      null,
+
+    customerId,
+
+    priceId:
+      null,
+
+    expectedPriceId:
+      storePriceId,
+
+    correctProduct:
+      false,
+
+    cancelAtPeriodEnd:
+      false,
+
+    currentPeriodEnd:
+      null,
+
+    needsPurchase:
+      true,
+
+    needsPaymentAttention:
+      false,
+
+    reason,
+  };
 }
 
 // ============================================================
@@ -397,7 +953,7 @@ export async function GET(
       );
 
     // ========================================================
-    // DATABASE STATUS
+    // LOAD DATABASE STATUS
     // ========================================================
 
     const {
@@ -466,44 +1022,85 @@ export async function GET(
           .store_stripe_subscription_id
       );
 
+    const storedCustomerId =
+      cleanString(
+        row
+          .store_stripe_customer_id
+      ) ||
+      null;
+
     // ========================================================
-    // NO SUBSCRIPTION
+    // NO STRIPE SUBSCRIPTION
+    //
+    // IMPORTANT:
+    //
+    // Even if store_enabled was somehow accidentally true in
+    // Supabase, NO subscription means NO Store access.
     // ========================================================
 
     if (
       !subscriptionId
     ) {
-      return NextResponse.json(
-        {
-          subscribed:
-            false,
+      if (
+        row.store_enabled ===
+          true ||
+        row
+          .store_subscription_status !==
+          null
+      ) {
+        const {
+          error:
+            resetError,
+        } =
+          await supabaseAdmin
+            .from(
+              "organisations"
+            )
+            .update({
+              store_enabled:
+                false,
 
-          storeEnabled:
-            false,
+              store_subscription_status:
+                null,
 
-          status:
-            null,
+              store_stripe_subscription_id:
+                null,
 
-          subscriptionId:
-            null,
+              store_price_id:
+                null,
 
+              store_current_period_end:
+                null,
+
+              store_cancel_at_period_end:
+                false,
+            })
+            .eq(
+              "id",
+              organisationId
+            );
+
+        if (
+          resetError
+        ) {
+          console.warn(
+            "[STORE SUBSCRIPTION] No-subscription reset failed:",
+            resetError
+          );
+        }
+      }
+
+      const response =
+        createNoSubscriptionResponse({
           customerId:
-            row
-              .store_stripe_customer_id ||
-            null,
+            storedCustomerId,
 
-          priceId:
-            storePriceId,
+          reason:
+            "no_subscription",
+        });
 
-          cancelAtPeriodEnd:
-            false,
-
-          currentPeriodEnd:
-            null,
-
-          needsPurchase:
-            true,
-        },
+      return NextResponse.json(
+        response,
         {
           status:
             200,
@@ -517,7 +1114,9 @@ export async function GET(
     }
 
     // ========================================================
-    // LIVE STRIPE SUBSCRIPTION
+    // LOAD LIVE STRIPE SUBSCRIPTION
+    //
+    // Stripe is the source of truth.
     // ========================================================
 
     let subscription:
@@ -551,9 +1150,17 @@ export async function GET(
           ?.statusCode ===
           404;
 
+      // ======================================================
+      // SUBSCRIPTION NO LONGER EXISTS
+      // ======================================================
+
       if (
         missing
       ) {
+        console.warn(
+          `[STORE SUBSCRIPTION] Stripe subscription ${subscriptionId} no longer exists.`
+        );
+
         const {
           error:
             cleanupError,
@@ -570,6 +1177,9 @@ export async function GET(
                 "missing",
 
               store_stripe_subscription_id:
+                null,
+
+              store_price_id:
                 null,
 
               store_current_period_end:
@@ -592,37 +1202,20 @@ export async function GET(
           );
         }
 
-        return NextResponse.json(
-          {
-            subscribed:
-              false,
-
-            storeEnabled:
-              false,
+        const response =
+          createNoSubscriptionResponse({
+            customerId:
+              storedCustomerId,
 
             status:
               "missing",
 
-            subscriptionId:
-              null,
+            reason:
+              "subscription_missing",
+          });
 
-            customerId:
-              row
-                .store_stripe_customer_id ||
-              null,
-
-            priceId:
-              storePriceId,
-
-            cancelAtPeriodEnd:
-              false,
-
-            currentPeriodEnd:
-              null,
-
-            needsPurchase:
-              true,
-          },
+        return NextResponse.json(
+          response,
           {
             status:
               200,
@@ -639,27 +1232,46 @@ export async function GET(
     }
 
     // ========================================================
-    // ACCESS STATUS
+    // VERIFY THIS IS ACTUALLY THE STORE PRODUCT
+    //
+    // CRITICAL:
+    //
+    // We do NOT trust:
+    //
+    // store_enabled
+    // store_price_id
+    // subscription status alone
+    //
+    // We inspect the live Stripe Subscription's actual items.
     // ========================================================
 
-    const storeEnabled =
-      [
-        "active",
-        "trialing",
-      ].includes(
-        subscription.status
+    const correctProduct =
+      subscriptionHasStorePrice(
+        subscription
       );
 
-    const subscribed =
-      ![
-        "canceled",
-        "incomplete_expired",
-      ].includes(
-        subscription.status
+    const actualPriceIds =
+      getSubscriptionPriceIds(
+        subscription
+      );
+
+    const actualStorePriceId =
+      getStorePriceFromSubscription(
+        subscription
       );
 
     // ========================================================
-    // PERIOD END
+    // CUSTOMER
+    // ========================================================
+
+    const liveCustomerId =
+      getCustomerId(
+        subscription
+      ) ||
+      storedCustomerId;
+
+    // ========================================================
+    // CURRENT PERIOD END
     // ========================================================
 
     const currentPeriodEnd =
@@ -668,66 +1280,189 @@ export async function GET(
       );
 
     // ========================================================
-    // CUSTOMER
+    // SUBSCRIPTION FLAGS
     // ========================================================
 
-    const customerId =
-      typeof subscription
-        .customer ===
-      "string"
-        ? subscription
-            .customer
-        : subscription
-            .customer
-            ?.id ||
-          row
-            .store_stripe_customer_id ||
-          null;
+    const subscriptionExists =
+      isExistingSubscription(
+        subscription
+      );
+
+    const paymentAttention =
+      requiresPaymentAttention(
+        subscription
+      );
 
     // ========================================================
-    // PRICE
+    // ACCESS
+    //
+    // ONLY:
+    //
+    // correct Store product
+    // +
+    // active/trialing Stripe status
+    //
+    // can unlock Store.
     // ========================================================
 
-    const actualPriceId =
-      subscription
-        .items
-        .data?.[0]
-        ?.price
-        ?.id ||
-      row.store_price_id ||
-      storePriceId;
+    const storeEnabled =
+      subscriptionAllowsAccess(
+        subscription
+      );
 
     // ========================================================
-    // SAVE LIVE STATUS
+    // WRONG PRODUCT
+    //
+    // A subscription ID being stored against the organisation
+    // is not enough.
+    //
+    // If this is another TOTS subscription/product, Store stays
+    // completely locked.
     // ========================================================
 
-    const updatePayload: Record<
-      string,
-      unknown
-    > = {
-      store_enabled:
-        storeEnabled,
+    if (
+      !correctProduct
+    ) {
+      console.warn(
+        "[STORE SUBSCRIPTION] Organisation has a Stripe subscription but it is NOT the Store add-on:",
+        {
+          organisationId,
 
-      store_subscription_status:
-        subscription.status,
+          subscriptionId:
+            subscription.id,
 
-      store_stripe_subscription_id:
-        subscription.id,
+          subscriptionStatus:
+            subscription.status,
 
-      store_stripe_customer_id:
-        customerId,
+          expectedPriceId:
+            storePriceId,
 
-      store_price_id:
-        actualPriceId,
+          actualPriceIds,
+        }
+      );
 
-      store_current_period_end:
+      await disableStoreAccess({
+        organisationId,
+
+        status:
+          subscription.status,
+
+        subscriptionId:
+          subscription.id,
+
+        customerId:
+          liveCustomerId,
+
         currentPeriodEnd,
 
-      store_cancel_at_period_end:
-        subscription
-          .cancel_at_period_end ===
-        true,
-    };
+        cancelAtPeriodEnd:
+          subscription
+            .cancel_at_period_end ===
+          true,
+
+        /*
+         * Do not pretend this is the Store price.
+         */
+        priceId:
+          null,
+      });
+
+      const response:
+        StoreStatusResponse =
+        {
+          subscribed:
+            false,
+
+          storeEnabled:
+            false,
+
+          status:
+            subscription.status,
+
+          subscriptionId:
+            subscription.id,
+
+          customerId:
+            liveCustomerId,
+
+          priceId:
+            actualPriceIds[0] ||
+            null,
+
+          expectedPriceId:
+            storePriceId,
+
+          correctProduct:
+            false,
+
+          cancelAtPeriodEnd:
+            subscription
+              .cancel_at_period_end ===
+            true,
+
+          currentPeriodEnd,
+
+          needsPurchase:
+            true,
+
+          needsPaymentAttention:
+            false,
+
+          reason:
+            "wrong_product",
+        };
+
+      return NextResponse.json(
+        response,
+        {
+          status:
+            200,
+
+          headers: {
+            "Cache-Control":
+              "no-store",
+          },
+        }
+      );
+    }
+
+    // ========================================================
+    // CORRECT PRODUCT - SYNC LIVE STATUS
+    // ========================================================
+
+    const updatePayload:
+      Record<
+        string,
+        unknown
+      > =
+      {
+        store_enabled:
+          storeEnabled,
+
+        store_subscription_status:
+          subscription.status,
+
+        store_stripe_subscription_id:
+          subscription.id,
+
+        store_stripe_customer_id:
+          liveCustomerId,
+
+        store_price_id:
+          actualStorePriceId,
+
+        store_current_period_end:
+          currentPeriodEnd,
+
+        store_cancel_at_period_end:
+          subscription
+            .cancel_at_period_end ===
+          true,
+      };
+
+    // ========================================================
+    // FIRST ENABLED TIME
+    // ========================================================
 
     if (
       storeEnabled &&
@@ -737,6 +1472,10 @@ export async function GET(
         new Date()
           .toISOString();
     }
+
+    // ========================================================
+    // SAVE LIVE STRIPE STATE
+    // ========================================================
 
     const {
       error:
@@ -757,19 +1496,77 @@ export async function GET(
     if (
       updateError
     ) {
-      console.warn(
+      /*
+       * Do not incorrectly return Store access if our own
+       * database couldn't be brought into sync.
+       *
+       * This endpoint is an access gate, so fail closed.
+       */
+      console.error(
         "[STORE SUBSCRIPTION] Status sync failed:",
         updateError
       );
+
+      throw new Error(
+        "Store subscription status could not be synchronised."
+      );
     }
+
+    // ========================================================
+    // NEEDS PURCHASE
+    //
+    // If subscription still exists but is merely past_due, the
+    // user should manage billing rather than buy a second Store
+    // subscription.
+    //
+    // canceled/incomplete_expired -> buy again.
+    // ========================================================
+
+    const needsPurchase =
+      !subscriptionExists;
+
+    // ========================================================
+    // LOG
+    // ========================================================
+
+    console.log(
+      "[STORE SUBSCRIPTION] Status verified:",
+      {
+        organisationId,
+
+        subscriptionId:
+          subscription.id,
+
+        status:
+          subscription.status,
+
+        storeEnabled,
+
+        correctProduct,
+
+        expectedPriceId:
+          storePriceId,
+
+        actualPriceId:
+          actualStorePriceId,
+
+        cancelAtPeriodEnd:
+          subscription
+            .cancel_at_period_end ===
+          true,
+      }
+    );
 
     // ========================================================
     // RESPONSE
     // ========================================================
 
-    return NextResponse.json(
+    const response:
+      StoreStatusResponse =
       {
-        subscribed,
+        subscribed:
+          subscriptionExists &&
+          correctProduct,
 
         storeEnabled,
 
@@ -779,17 +1576,16 @@ export async function GET(
         subscriptionId:
           subscription.id,
 
-        customerId,
+        customerId:
+          liveCustomerId,
 
         priceId:
-          actualPriceId,
+          actualStorePriceId,
 
         expectedPriceId:
           storePriceId,
 
-        correctProduct:
-          actualPriceId ===
-          storePriceId,
+        correctProduct,
 
         cancelAtPeriodEnd:
           subscription
@@ -798,18 +1594,21 @@ export async function GET(
 
         currentPeriodEnd,
 
-        needsPurchase:
-          !subscribed,
+        needsPurchase,
 
         needsPaymentAttention:
-          [
-            "past_due",
-            "unpaid",
-            "incomplete",
-          ].includes(
-            subscription.status
-          ),
-      },
+          paymentAttention,
+
+        reason:
+          storeEnabled
+            ? "active"
+            : paymentAttention
+              ? "payment_attention"
+              : subscription.status,
+      };
+
+    return NextResponse.json(
+      response,
       {
         status:
           200,
@@ -828,6 +1627,10 @@ export async function GET(
       "[STORE SUBSCRIPTION] Status failed:",
       error
     );
+
+    // ========================================================
+    // AUTH ERROR
+    // ========================================================
 
     if (
       error instanceof
@@ -851,6 +1654,56 @@ export async function GET(
         }
       );
     }
+
+    // ========================================================
+    // STRIPE ERROR
+    // ========================================================
+
+    if (
+      error instanceof
+      Stripe.errors.StripeError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message ||
+            "Store subscription status could not be loaded.",
+
+          stripeError:
+            true,
+
+          type:
+            error.type,
+
+          code:
+            error.code ||
+            null,
+
+          requestId:
+            error.requestId ||
+            null,
+        },
+        {
+          status:
+            error.statusCode &&
+            error.statusCode >=
+              400 &&
+            error.statusCode <
+              600
+              ? error.statusCode
+              : 500,
+
+          headers: {
+            "Cache-Control":
+              "no-store",
+          },
+        }
+      );
+    }
+
+    // ========================================================
+    // GENERAL ERROR
+    // ========================================================
 
     return NextResponse.json(
       {

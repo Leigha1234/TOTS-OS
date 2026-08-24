@@ -101,6 +101,14 @@ export default function Sidebar() {
     );
 
   const [
+    isMobile,
+    setIsMobile,
+  ] =
+    useState(
+      false
+    );
+
+  const [
     loading,
     setLoading,
   ] =
@@ -127,17 +135,12 @@ export default function Sidebar() {
   // ==========================================================
   // ALL LINKS
   //
-  // IMPORTANT:
+  // STORE IS INCLUDED FOR ALL SIGNED-IN USERS.
   //
-  // Store is shown in navigation like any other area.
+  // /store itself decides whether to show:
   //
-  // Store access itself is controlled by /store.
-  //
-  // If the organisation has not purchased the £39/month
-  // Store add-on, /store displays the upgrade screen.
-  //
-  // This prevents the sidebar itself from accidentally
-  // disappearing because of subscription / permission data.
+  // - Store dashboard
+  // - or £39/month Store upgrade screen
   // ==========================================================
 
   const allLinks:
@@ -255,29 +258,55 @@ export default function Sidebar() {
     ];
 
   // ==========================================================
-  // COMPACT MODE
+  // RESPONSIVE MODE
   // ==========================================================
 
   useEffect(
     () => {
-      function syncCompactMode() {
-        setIsCompact(
+      function syncResponsiveMode() {
+        const mobile =
+          window.innerWidth <
+          768;
+
+        const compactHeight =
           window.innerHeight <=
-            820
+          820;
+
+        setIsMobile(
+          mobile
         );
+
+        setIsCompact(
+          mobile ||
+          compactHeight
+        );
+
+        // ====================================================
+        // MOBILE SIDEBAR
+        //
+        // Keep mobile narrow so every icon remains accessible.
+        // ====================================================
+
+        if (
+          mobile
+        ) {
+          setCollapsed(
+            true
+          );
+        }
       }
 
-      syncCompactMode();
+      syncResponsiveMode();
 
       window.addEventListener(
         "resize",
-        syncCompactMode
+        syncResponsiveMode
       );
 
       return () => {
         window.removeEventListener(
           "resize",
-          syncCompactMode
+          syncResponsiveMode
         );
       };
     },
@@ -286,12 +315,6 @@ export default function Sidebar() {
 
   // ==========================================================
   // SESSION + BRAND COLOUR
-  //
-  // Sidebar visibility now only depends on whether the user
-  // is authenticated.
-  //
-  // Plan / feature restrictions should be enforced by the
-  // destination page, not by hiding the navigation entirely.
   // ==========================================================
 
   useEffect(
@@ -355,10 +378,9 @@ export default function Sidebar() {
           // ==================================================
           // PROFILE
           //
-          // We only need the brand colour here.
+          // Only used for brand colour.
           //
-          // Do NOT make navigation visibility depend on this
-          // query succeeding.
+          // Navigation must not disappear if this fails.
           // ==================================================
 
           try {
@@ -421,10 +443,6 @@ export default function Sidebar() {
           if (
             !cancelled
           ) {
-            /*
-             * Do not leave a previously authenticated sidebar
-             * permanently stuck on the loading state.
-             */
             setSignedIn(
               false
             );
@@ -444,8 +462,6 @@ export default function Sidebar() {
 
       // ======================================================
       // AUTH STATE CHANGES
-      //
-      // Keeps the sidebar in sync if the session changes.
       // ======================================================
 
       const {
@@ -540,16 +556,6 @@ export default function Sidebar() {
 
   // ==========================================================
   // VISIBLE LINKS
-  //
-  // All standard navigation is visible to an authenticated
-  // TOTS-OS user.
-  //
-  // Store is deliberately included.
-  //
-  // The /store page decides whether to show:
-  //
-  // - the £39/month Store upgrade screen
-  // - or the actual Store dashboard
   // ==========================================================
 
   const visibleLinks =
@@ -676,10 +682,7 @@ export default function Sidebar() {
       // ======================================================
       // COMMERCE
       //
-      // Store is always visible to signed-in users.
-      //
-      // If they do not own the Store add-on, clicking it opens
-      // the £39/month upgrade page.
+      // STORE APPEARS ON DESKTOP + MOBILE.
       // ======================================================
 
       {
@@ -787,8 +790,6 @@ export default function Sidebar() {
         h-[100dvh]
         flex-col
 
-        overflow-visible
-
         border-r
         border-stone-200
 
@@ -799,7 +800,7 @@ export default function Sidebar() {
 
         ${
           collapsed
-            ? "w-20"
+            ? "w-16 sm:w-20"
             : "w-64"
         }
       `}
@@ -822,7 +823,7 @@ export default function Sidebar() {
 
           ${
             isCompact
-              ? "min-h-16 px-3"
+              ? "min-h-16 px-2 sm:px-3"
               : "min-h-24 px-4"
           }
         `}
@@ -868,14 +869,18 @@ export default function Sidebar() {
               src="/icon.png"
               alt="TOTS-OS"
               width={
-                isCompact
-                  ? 28
-                  : 34
+                isMobile
+                  ? 27
+                  : isCompact
+                    ? 28
+                    : 34
               }
               height={
-                isCompact
-                  ? 28
-                  : 34
+                isMobile
+                  ? 27
+                  : isCompact
+                    ? 28
+                    : 34
               }
               priority
               className="object-contain"
@@ -884,102 +889,108 @@ export default function Sidebar() {
         )}
 
         {/* ===================================================
-            COLLAPSE CONTROL
+            DESKTOP COLLAPSE CONTROL
         =================================================== */}
 
-        {!collapsed && (
-          <button
-            type="button"
-            onClick={() =>
-              setCollapsed(
-                true
-              )
-            }
-            title="Collapse sidebar"
-            className="
-              flex
-              h-9
-              w-9
-              shrink-0
-              items-center
-              justify-center
+        {!collapsed &&
+          !isMobile && (
+            <button
+              type="button"
+              onClick={() =>
+                setCollapsed(
+                  true
+                )
+              }
+              title="Collapse sidebar"
+              className="
+                flex
+                h-9
+                w-9
+                shrink-0
+                items-center
+                justify-center
 
-              rounded-xl
+                rounded-xl
 
-              text-stone-400
+                text-stone-400
 
-              transition
+                transition
 
-              hover:bg-white
-              hover:text-stone-800
-              hover:shadow-sm
-            "
-          >
-            <PanelLeftClose
-              size={17}
-              strokeWidth={1.7}
-            />
-          </button>
-        )}
+                hover:bg-white
+                hover:text-stone-800
+                hover:shadow-sm
+              "
+            >
+              <PanelLeftClose
+                size={17}
+                strokeWidth={1.7}
+              />
+            </button>
+          )}
       </div>
 
       {/* =====================================================
           COLLAPSED EXPAND CONTROL
       ===================================================== */}
 
-      {collapsed && (
-        <div className="shrink-0 px-3 pb-3">
-          <button
-            type="button"
-            onClick={() =>
-              setCollapsed(
-                false
-              )
-            }
-            title="Expand sidebar"
-            className="
-              mx-auto
+      {collapsed &&
+        !isMobile && (
+          <div className="shrink-0 px-3 pb-3">
+            <button
+              type="button"
+              onClick={() =>
+                setCollapsed(
+                  false
+                )
+              }
+              title="Expand sidebar"
+              className="
+                mx-auto
 
-              flex
-              h-9
-              w-9
-              items-center
-              justify-center
+                flex
+                h-9
+                w-9
+                items-center
+                justify-center
 
-              rounded-xl
+                rounded-xl
 
-              text-stone-400
+                text-stone-400
 
-              transition
+                transition
 
-              hover:bg-white
-              hover:text-stone-800
-              hover:shadow-sm
-            "
-          >
-            <PanelLeftOpen
-              size={17}
-              strokeWidth={1.7}
-            />
-          </button>
-        </div>
-      )}
+                hover:bg-white
+                hover:text-stone-800
+                hover:shadow-sm
+              "
+            >
+              <PanelLeftOpen
+                size={17}
+                strokeWidth={1.7}
+              />
+            </button>
+          </div>
+        )}
 
       {/* =====================================================
           NAVIGATION
-      ===================================================== */}
+      //
+      // IMPORTANT:
+      // Always scrollable so Store cannot be pushed off-screen
+      // on smaller phones.
+      // ===================================================== */}
 
       <nav
-        className={`
+        className="
+          min-h-0
           flex-1
-          px-3
+          overflow-y-auto
+          overscroll-contain
+          px-2
+          pb-3
 
-          ${
-            isCompact
-              ? "mt-1 overflow-y-auto pb-2"
-              : "mt-2 overflow-y-auto pb-4"
-          }
-        `}
+          sm:px-3
+        "
       >
         {loading ? (
           <div className="flex h-32 items-center justify-center">
@@ -1084,6 +1095,9 @@ export default function Sidebar() {
                               href={
                                 item.href
                               }
+                              aria-label={
+                                item.label
+                              }
                               title={
                                 collapsed
                                   ? item.label
@@ -1108,7 +1122,7 @@ export default function Sidebar() {
 
                                 ${
                                   isCompact
-                                    ? "rounded-lg px-2.5 py-1.5 text-[12px]"
+                                    ? "rounded-lg px-2.5 py-2 text-[12px]"
                                     : "rounded-xl px-3 py-2.5 text-sm"
                                 }
 
@@ -1127,9 +1141,11 @@ export default function Sidebar() {
                             >
                               <Icon
                                 size={
-                                  isCompact
-                                    ? 16
-                                    : 18
+                                  isMobile
+                                    ? 18
+                                    : isCompact
+                                      ? 16
+                                      : 18
                                 }
                                 strokeWidth={
                                   active
@@ -1170,7 +1186,9 @@ export default function Sidebar() {
           <div
             className={`
               shrink-0
-              px-3
+              px-2
+
+              sm:px-3
 
               ${
                 isCompact
@@ -1181,6 +1199,7 @@ export default function Sidebar() {
           >
             <Link
               href="/settings"
+              aria-label="Settings"
               title={
                 collapsed
                   ? "Settings"
@@ -1204,7 +1223,7 @@ export default function Sidebar() {
 
                 ${
                   isCompact
-                    ? "rounded-lg px-2.5 py-1.5 text-[12px]"
+                    ? "rounded-lg px-2.5 py-2 text-[12px]"
                     : "rounded-xl px-3 py-2.5 text-sm"
                 }
 
@@ -1225,9 +1244,11 @@ export default function Sidebar() {
             >
               <Settings
                 size={
-                  isCompact
-                    ? 16
-                    : 18
+                  isMobile
+                    ? 18
+                    : isCompact
+                      ? 16
+                      : 18
                 }
               />
 
@@ -1264,6 +1285,7 @@ export default function Sidebar() {
             onClick={() =>
               void handleLogout()
             }
+            aria-label="Logout"
             title={
               collapsed
                 ? "Logout"
@@ -1285,7 +1307,7 @@ export default function Sidebar() {
 
               ${
                 isCompact
-                  ? "rounded-lg px-2.5 py-1.5 text-[12px]"
+                  ? "rounded-lg px-2.5 py-2 text-[12px]"
                   : "rounded-xl px-3 py-2.5 text-sm"
               }
 
@@ -1298,9 +1320,11 @@ export default function Sidebar() {
           >
             <LogOut
               size={
-                isCompact
-                  ? 15
-                  : 17
+                isMobile
+                  ? 17
+                  : isCompact
+                    ? 15
+                    : 17
               }
             />
 

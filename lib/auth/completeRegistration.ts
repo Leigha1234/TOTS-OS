@@ -16,9 +16,22 @@ const supabaseServiceRoleKey =
   process.env
     .SUPABASE_SERVICE_ROLE_KEY;
 
-const encryptionKey =
+const rawEncryptionKey =
   process.env
-    .REGISTRATION_ENCRYPTION_KEY;
+    .REGISTRATION_ENCRYPTION_KEY
+    ?.trim();
+
+if (
+  !rawEncryptionKey
+) {
+  throw new Error(
+    "REGISTRATION_ENCRYPTION_KEY is missing"
+  );
+}
+
+const encryptionKey:
+  string =
+  rawEncryptionKey;
 
 const resendApiKey =
   process.env

@@ -57,17 +57,187 @@ type SidebarSection = {
   links: SidebarLink[];
 };
 
-type OrganisationStoreAccess = {
-  id: string;
+// ============================================================
+// CORE LINKS
+//
+// Store deliberately exists here, but is NOT included in any
+// TOTS-OS subscription tier.
+//
+// /store is an entry point for both:
+//
+// 1. Customers who already pay for Store
+// 2. Customers who need to buy Store for £39/month
+//
+// The /store page itself handles the subscription gate.
+// ============================================================
 
-  store_enabled:
-    | boolean
-    | null;
+const allLinks: SidebarLink[] =
+  [
+    {
+      href:
+        "/dashboard",
 
-  store_subscription_status:
-    | string
-    | null;
-};
+      label:
+        "Home",
+
+      icon:
+        LayoutDashboard,
+    },
+
+    {
+      href:
+        "/crm",
+
+      label:
+        "Contacts",
+
+      icon:
+        Users,
+    },
+
+    {
+      href:
+        "/campaigns",
+
+      label:
+        "Campaigns",
+
+      icon:
+        Megaphone,
+    },
+
+    {
+      href:
+        "/social",
+
+      label:
+        "Social",
+
+      icon:
+        Globe,
+    },
+
+    {
+      href:
+        "/payments",
+
+      label:
+        "Finance",
+
+      icon:
+        CircleDollarSign,
+    },
+
+    {
+      href:
+        "/notes",
+
+      label:
+        "Notes",
+
+      icon:
+        StickyNote,
+    },
+
+    {
+      href:
+        "/store",
+
+      label:
+        "Store",
+
+      icon:
+        Store,
+    },
+
+    {
+      href:
+        "/projects",
+
+      label:
+        "Clients & Projects",
+
+      icon:
+        Building2,
+    },
+
+    {
+      href:
+        "/calendar",
+
+      label:
+        "Calendar",
+
+      icon:
+        Calendar,
+    },
+
+    {
+      href:
+        "/settings",
+
+      label:
+        "Settings",
+
+      icon:
+        Settings,
+    },
+  ];
+
+// ============================================================
+// TIER ACCESS
+//
+// IMPORTANT:
+//
+// Store does NOT belong to any of these tiers.
+// ============================================================
+
+const tierLinks:
+  Record<
+    string,
+    string[]
+  > =
+  {
+    unpaid: [],
+
+    starter: [
+      "/dashboard",
+      "/calendar",
+      "/crm",
+      "/notes",
+      "/settings",
+    ],
+
+    standard: [
+      "/dashboard",
+      "/calendar",
+      "/crm",
+      "/notes",
+      "/settings",
+    ],
+
+    professional: [
+      "/dashboard",
+      "/calendar",
+      "/campaigns",
+      "/crm",
+      "/notes",
+      "/projects",
+      "/settings",
+    ],
+
+    elite: [
+      "/dashboard",
+      "/calendar",
+      "/campaigns",
+      "/crm",
+      "/notes",
+      "/projects",
+      "/social",
+      "/payments",
+      "/settings",
+    ],
+  };
 
 // ============================================================
 // SIDEBAR
@@ -130,38 +300,6 @@ export default function Sidebar() {
     );
 
   const [
-    userRole,
-    setUserRole,
-  ] =
-    useState<string>(
-      "guest"
-    );
-
-  const [
-    subscriptionTier,
-    setSubscriptionTier,
-  ] =
-    useState<string>(
-      "unpaid"
-    );
-
-  const [
-    organisationId,
-    setOrganisationId,
-  ] =
-    useState<
-      string | null
-    >(null);
-
-  const [
-    storeEnabled,
-    setStoreEnabled,
-  ] =
-    useState(
-      false
-    );
-
-  const [
     localColor,
     setLocalColor,
   ] =
@@ -169,183 +307,13 @@ export default function Sidebar() {
       "#a9b897"
     );
 
-  // ==========================================================
-  // TIER ACCESS
-  //
-  // IMPORTANT:
-  //
-  // Store is NOT part of any subscription tier.
-  //
-  // Store is a separate £39/month add-on.
-  // ==========================================================
-
-  const tierLinks:
-    Record<
-      string,
-      string[]
-    > =
-    {
-      unpaid: [],
-
-      starter: [
-        "/dashboard",
-        "/calendar",
-        "/crm",
-        "/notes",
-        "/settings",
-      ],
-
-      standard: [
-        "/dashboard",
-        "/calendar",
-        "/crm",
-        "/notes",
-        "/settings",
-      ],
-
-      professional: [
-        "/dashboard",
-        "/calendar",
-        "/campaigns",
-        "/crm",
-        "/notes",
-        "/projects",
-        "/settings",
-      ],
-
-      elite: [
-        "/dashboard",
-        "/calendar",
-        "/campaigns",
-        "/crm",
-        "/notes",
-        "/projects",
-        "/social",
-        "/payments",
-        "/settings",
-      ],
-    };
-
-  // ==========================================================
-  // ALL LINKS
-  //
-  // Store exists here so it can render in the sidebar,
-  // but access is controlled independently by storeEnabled.
-  // ==========================================================
-
-  const allLinks:
-    SidebarLink[] =
-    [
-      {
-        href:
-          "/dashboard",
-
-        label:
-          "Home",
-
-        icon:
-          LayoutDashboard,
-      },
-
-      {
-        href:
-          "/crm",
-
-        label:
-          "Contacts",
-
-        icon:
-          Users,
-      },
-
-      {
-        href:
-          "/campaigns",
-
-        label:
-          "Campaigns",
-
-        icon:
-          Megaphone,
-      },
-
-      {
-        href:
-          "/social",
-
-        label:
-          "Social",
-
-        icon:
-          Globe,
-      },
-
-      {
-        href:
-          "/payments",
-
-        label:
-          "Finance",
-
-        icon:
-          CircleDollarSign,
-      },
-
-      {
-        href:
-          "/notes",
-
-        label:
-          "Notes",
-
-        icon:
-          StickyNote,
-      },
-
-      {
-        href:
-          "/store",
-
-        label:
-          "Store",
-
-        icon:
-          Store,
-      },
-
-      {
-        href:
-          "/projects",
-
-        label:
-          "Clients & Projects",
-
-        icon:
-          Building2,
-      },
-
-      {
-        href:
-          "/calendar",
-
-        label:
-          "Calendar",
-
-        icon:
-          Calendar,
-      },
-
-      {
-        href:
-          "/settings",
-
-        label:
-          "Settings",
-
-        icon:
-          Settings,
-      },
-    ];
+  const [
+    signedIn,
+    setSignedIn,
+  ] =
+    useState(
+      false
+    );
 
   // ==========================================================
   // COMPACT MODE
@@ -399,8 +367,22 @@ export default function Sidebar() {
           const {
             data:
               sessionData,
+
+            error:
+              sessionError,
           } =
-            await supabase.auth.getSession();
+            await supabase
+              .auth
+              .getSession();
+
+          if (
+            sessionError
+          ) {
+            console.warn(
+              "Sidebar session load error:",
+              sessionError
+            );
+          }
 
           if (
             cancelled
@@ -413,22 +395,14 @@ export default function Sidebar() {
               ?.session
               ?.user;
 
+          // ==================================================
+          // NOT SIGNED IN
+          // ==================================================
+
           if (
             !user?.id
           ) {
-            setUserRole(
-              "guest"
-            );
-
-            setSubscriptionTier(
-              "unpaid"
-            );
-
-            setOrganisationId(
-              null
-            );
-
-            setStoreEnabled(
+            setSignedIn(
               false
             );
 
@@ -438,6 +412,10 @@ export default function Sidebar() {
 
             return;
           }
+
+          setSignedIn(
+            true
+          );
 
           // ==================================================
           // PROFILE + PERMISSIONS + MEMBERSHIP
@@ -472,7 +450,9 @@ export default function Sidebar() {
                   "permissions"
                 )
                 .select(
-                  "page_slug"
+                  `
+                    page_slug
+                  `
                 )
                 .eq(
                   "user_id",
@@ -525,15 +505,6 @@ export default function Sidebar() {
           }
 
           if (
-            membershipResult.error
-          ) {
-            console.warn(
-              "Sidebar team membership load error:",
-              membershipResult.error
-            );
-          }
-
-          if (
             permsResult.error
           ) {
             console.warn(
@@ -542,196 +513,56 @@ export default function Sidebar() {
             );
           }
 
+          if (
+            membershipResult.error
+          ) {
+            console.warn(
+              "Sidebar membership load error:",
+              membershipResult.error
+            );
+          }
+
           // ==================================================
           // ROLE
           // ==================================================
 
           const resolvedRole =
-            (
-              (
-                membership
-                  ?.role ||
-                profile
-                  ?.role ||
-                "user"
-              ) +
-              ""
+            String(
+              membership
+                ?.role ||
+              profile
+                ?.role ||
+              "user"
             )
               .toLowerCase()
               .trim();
 
-          setUserRole(
-            resolvedRole
-          );
-
           // ==================================================
-          // ORGANISATION
-          // ==================================================
-
-          let resolvedOrganisationId =
-            (
-              profile
-                ?.organisation_id ||
-              membership
-                ?.organisation_id ||
-              ""
-            )
-              .toString()
-              .trim();
-
-          // ==================================================
-          // FALLBACK:
-          // USER_ORGANISATIONS
-          // ==================================================
-
-          if (
-            !resolvedOrganisationId
-          ) {
-            try {
-              const {
-                data:
-                  userOrganisationRows,
-
-                error:
-                  userOrganisationError,
-              } =
-                await supabase
-                  .from(
-                    "user_organisations"
-                  )
-                  .select(
-                    "organisation_id"
-                  )
-                  .eq(
-                    "user_id",
-                    user.id
-                  )
-                  .limit(
-                    1
-                  );
-
-              if (
-                userOrganisationError
-              ) {
-                console.warn(
-                  "Sidebar user_organisations lookup failed:",
-                  userOrganisationError
-                );
-              } else {
-                resolvedOrganisationId =
-                  (
-                    userOrganisationRows?.[0]
-                      ?.organisation_id ||
-                    ""
-                  )
-                    .toString()
-                    .trim();
-              }
-            } catch (
-              error
-            ) {
-              console.warn(
-                "Sidebar user_organisations fallback failed:",
-                error
-              );
-            }
-          }
-
-          // ==================================================
-          // FALLBACK:
-          // ORGANISATION_MEMBERS
-          // ==================================================
-
-          if (
-            !resolvedOrganisationId
-          ) {
-            try {
-              const {
-                data:
-                  organisationMemberRows,
-
-                error:
-                  organisationMemberError,
-              } =
-                await supabase
-                  .from(
-                    "organisation_members"
-                  )
-                  .select(
-                    "organisation_id"
-                  )
-                  .eq(
-                    "user_id",
-                    user.id
-                  )
-                  .limit(
-                    1
-                  );
-
-              if (
-                organisationMemberError
-              ) {
-                console.warn(
-                  "Sidebar organisation_members lookup failed:",
-                  organisationMemberError
-                );
-              } else {
-                resolvedOrganisationId =
-                  (
-                    organisationMemberRows?.[0]
-                      ?.organisation_id ||
-                    ""
-                  )
-                    .toString()
-                    .trim();
-              }
-            } catch (
-              error
-            ) {
-              console.warn(
-                "Sidebar organisation_members fallback failed:",
-                error
-              );
-            }
-          }
-
-          setOrganisationId(
-            resolvedOrganisationId ||
-              null
-          );
-
-          // ==================================================
-          // TIER
+          // SUBSCRIPTION TIER
           // ==================================================
 
           const tier =
-            (
+            String(
               profile
                 ?.subscription_tier ||
               "unpaid"
             )
-              .toString()
               .toLowerCase()
               .trim();
 
-          setSubscriptionTier(
-            tier
-          );
-
           // ==================================================
-          // INDIVIDUAL PERMISSIONS
+          // EXPLICIT USER PERMISSIONS
           // ==================================================
 
-          const permsData =
-            permsResult
-              ?.data ??
+          const permissionRows =
+            permsResult.data ||
             [];
 
           const permissionSlugs =
             Array.isArray(
-              permsData
+              permissionRows
             )
-              ? permsData
+              ? permissionRows
                   .map(
                     (
                       permission:
@@ -741,7 +572,8 @@ export default function Sidebar() {
                         permission
                           ?.page_slug ||
                         ""
-                      ).trim()
+                      )
+                        .trim()
                   )
                   .filter(
                     Boolean
@@ -749,7 +581,12 @@ export default function Sidebar() {
               : [];
 
           // ==================================================
-          // NEVER ALLOW GENERAL PERMISSIONS TO UNLOCK STORE
+          // STORE MUST NEVER BE UNLOCKED BY CORE PERMISSIONS
+          //
+          // We show the Store link anyway, because /store
+          // contains the £39/month upgrade screen.
+          //
+          // But a permission row must not mean "Store paid".
           // ==================================================
 
           const corePermissionSlugs =
@@ -763,25 +600,24 @@ export default function Sidebar() {
 
           // ==================================================
           // ADMIN / OWNER
-          //
-          // Gets all core TOTS modules.
-          //
-          // Store remains separate.
           // ==================================================
 
           const isAdmin =
+            resolvedRole ===
+              "superadmin" ||
             resolvedRole.includes(
               "admin"
             ) ||
             resolvedRole.includes(
               "owner"
-            ) ||
-            resolvedRole ===
-              "superadmin";
+            );
 
           let resolvedAllowedSlugs:
-            string[] =
-            [];
+            string[];
+
+          // ==================================================
+          // ADMIN GETS ALL CORE MODULES
+          // ==================================================
 
           if (
             isAdmin
@@ -801,24 +637,18 @@ export default function Sidebar() {
                   ) =>
                     link.href
                 );
-          } else {
-            // ==================================================
-            // BASE TIER ACCESS
-            // ==================================================
+          }
 
+          // ==================================================
+          // NORMAL USER
+          // ==================================================
+
+          else {
             const tierAccess =
               tierLinks[
                 tier
               ] ||
               tierLinks.unpaid;
-
-            // ==================================================
-            // ADD EXPLICIT USER PERMISSIONS
-            //
-            // Important:
-            // permissions should add to tier access rather than
-            // replace the user's entire sidebar.
-            // ==================================================
 
             resolvedAllowedSlugs =
               Array.from(
@@ -832,15 +662,15 @@ export default function Sidebar() {
           // ==================================================
           // SAFETY FALLBACK
           //
-          // A signed-in user should never end up with a totally
-          // blank sidebar because one permission record is bad.
+          // Signed-in users should never end up with absolutely
+          // no navigation because a permissions lookup failed.
+          //
+          // We deliberately give Home + Settings as the minimum.
           // ==================================================
 
           if (
             resolvedAllowedSlugs.length ===
-            0 &&
-            tier !==
-            "unpaid"
+            0
           ) {
             resolvedAllowedSlugs =
               [
@@ -849,111 +679,15 @@ export default function Sidebar() {
               ];
           }
 
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
           setAllowedSlugs(
             resolvedAllowedSlugs
           );
-
-          // ==================================================
-          // STORE ADD-ON
-          //
-          // This reads the same organisations.store_enabled
-          // value used by the £39/month Store subscription.
-          // ==================================================
-
-          if (
-            resolvedOrganisationId
-          ) {
-            try {
-              const {
-                data:
-                  organisation,
-
-                error:
-                  organisationError,
-              } =
-                await supabase
-                  .from(
-                    "organisations"
-                  )
-                  .select(
-                    `
-                      id,
-                      store_enabled,
-                      store_subscription_status
-                    `
-                  )
-                  .eq(
-                    "id",
-                    resolvedOrganisationId
-                  )
-                  .maybeSingle();
-
-              if (
-                organisationError
-              ) {
-                console.warn(
-                  "Sidebar Store subscription lookup failed:",
-                  organisationError
-                );
-
-                setStoreEnabled(
-                  false
-                );
-              } else {
-                const storeAccess =
-                  organisation as
-                    | OrganisationStoreAccess
-                    | null;
-
-                const status =
-                  (
-                    storeAccess
-                      ?.store_subscription_status ||
-                    ""
-                  )
-                    .toString()
-                    .toLowerCase()
-                    .trim();
-
-                const statusAllowsAccess =
-                  [
-                    "active",
-                    "trialing",
-                    "trial",
-                  ].includes(
-                    status
-                  );
-
-                const enabled =
-                  storeAccess
-                    ?.store_enabled ===
-                    true &&
-                  (
-                    !status ||
-                    statusAllowsAccess
-                  );
-
-                setStoreEnabled(
-                  enabled
-                );
-              }
-            } catch (
-              storeError
-            ) {
-              console.error(
-                "Sidebar Store access check failed:",
-                storeError
-              );
-
-              setStoreEnabled(
-                false
-              );
-            }
-          } else {
-            setStoreEnabled(
-              false
-            );
-          }
 
           // ==================================================
           // BRAND COLOUR
@@ -976,21 +710,26 @@ export default function Sidebar() {
           );
 
           if (
-            !cancelled
+            cancelled
           ) {
-            // ==================================================
-            // DO NOT BLANK THE WHOLE SIDEBAR
-            // ==================================================
-
-            setAllowedSlugs([
-              "/dashboard",
-              "/settings",
-            ]);
-
-            setStoreEnabled(
-              false
-            );
+            return;
           }
+
+          // ==================================================
+          // CRITICAL FALLBACK
+          //
+          // Do not render an empty sidebar if Supabase has one
+          // failed lookup.
+          // ==================================================
+
+          setSignedIn(
+            true
+          );
+
+          setAllowedSlugs([
+            "/dashboard",
+            "/settings",
+          ]);
         } finally {
           if (
             !cancelled
@@ -1022,7 +761,9 @@ export default function Sidebar() {
         const {
           error,
         } =
-          await supabase.auth.signOut();
+          await supabase
+            .auth
+            .signOut();
 
         if (
           error
@@ -1066,9 +807,12 @@ export default function Sidebar() {
   // ==========================================================
   // VISIBLE LINKS
   //
-  // Core modules = subscription tier / permissions.
+  // Store is intentionally always visible while signed in.
   //
-  // Store = separate £39/month add-on.
+  // The Store page handles:
+  //
+  // no subscription -> £39/month purchase screen
+  // active subscription -> Store dashboard
   // ==========================================================
 
   const visibleLinks =
@@ -1080,7 +824,7 @@ export default function Sidebar() {
           link.href ===
           "/store"
         ) {
-          return storeEnabled;
+          return signedIn;
         }
 
         return allowedSlugs.includes(
@@ -1102,7 +846,7 @@ export default function Sidebar() {
         href ===
         "/store"
       ) {
-        return storeEnabled;
+        return signedIn;
       }
 
       return visibleLinks.some(
@@ -1209,7 +953,9 @@ export default function Sidebar() {
       // ======================================================
       // COMMERCE
       //
-      // Only renders when Store add-on is active.
+      // ALWAYS visible to signed-in users.
+      //
+      // /store handles the £39 subscription gate.
       // ======================================================
 
       {
@@ -1288,10 +1034,8 @@ export default function Sidebar() {
         href ===
         "/dashboard"
       ) {
-        return (
-          pathname ===
-          "/dashboard"
-        );
+        return pathname ===
+          "/dashboard";
       }
 
       return (

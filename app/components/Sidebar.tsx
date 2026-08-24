@@ -30,9 +30,13 @@ import {
   Store,
 } from "lucide-react";
 
-import { toast } from "sonner";
+import {
+  toast,
+} from "sonner";
 
-import { supabase } from "../../lib/supabase";
+import {
+  supabase,
+} from "../../lib/supabase";
 
 import {
   useSettings,
@@ -53,11 +57,16 @@ type SidebarSection = {
   links: SidebarLink[];
 };
 
-type OrganisationAddon = {
-  id?: string;
-  organisation_id: string;
-  addon_key: string;
-  status: string;
+type OrganisationStoreAccess = {
+  id: string;
+
+  store_enabled:
+    | boolean
+    | null;
+
+  store_subscription_status:
+    | string
+    | null;
 };
 
 // ============================================================
@@ -71,7 +80,8 @@ export default function Sidebar() {
   const router =
     useRouter();
 
-  let context: any =
+  let context:
+    any =
     null;
 
   try {
@@ -164,9 +174,9 @@ export default function Sidebar() {
   //
   // IMPORTANT:
   //
-  // STORE IS NOT INCLUDED HERE.
+  // Store is NOT part of any subscription tier.
   //
-  // Store is a completely separate paid add-on.
+  // Store is a separate £39/month add-on.
   // ==========================================================
 
   const tierLinks:
@@ -219,8 +229,8 @@ export default function Sidebar() {
   // ==========================================================
   // ALL LINKS
   //
-  // Store exists in navigation definitions but permission is
-  // handled independently using storeEnabled.
+  // Store exists here so it can render in the sidebar,
+  // but access is controlled independently by storeEnabled.
   // ==========================================================
 
   const allLinks:
@@ -423,7 +433,7 @@ export default function Sidebar() {
             );
 
             setAllowedSlugs(
-              tierLinks.unpaid
+              []
             );
 
             return;
@@ -434,23 +444,9 @@ export default function Sidebar() {
           // ==================================================
 
           const [
-            {
-              data:
-                profile,
-
-              error:
-                profileError,
-            },
-
+            profileResult,
             permsResult,
-
-            {
-              data:
-                membership,
-
-              error:
-                membershipError,
-            },
+            membershipResult,
           ] =
             await Promise.all([
               supabase
@@ -501,31 +497,49 @@ export default function Sidebar() {
                   "user_id",
                   user.id
                 )
+                .limit(
+                  1
+                )
                 .maybeSingle(),
             ]);
-
-          if (
-            profileError
-          ) {
-            console.warn(
-              "Sidebar profile load error:",
-              profileError
-            );
-          }
-
-          if (
-            membershipError
-          ) {
-            console.warn(
-              "Sidebar team membership load error:",
-              membershipError
-            );
-          }
 
           if (
             cancelled
           ) {
             return;
+          }
+
+          const profile =
+            profileResult.data;
+
+          const membership =
+            membershipResult.data;
+
+          if (
+            profileResult.error
+          ) {
+            console.warn(
+              "Sidebar profile load error:",
+              profileResult.error
+            );
+          }
+
+          if (
+            membershipResult.error
+          ) {
+            console.warn(
+              "Sidebar team membership load error:",
+              membershipResult.error
+            );
+          }
+
+          if (
+            permsResult.error
+          ) {
+            console.warn(
+              "Sidebar permissions load error:",
+              permsResult.error
+            );
           }
 
           // ==================================================
@@ -573,46 +587,54 @@ export default function Sidebar() {
           if (
             !resolvedOrganisationId
           ) {
-            const {
-              data:
-                userOrganisationRows,
+            try {
+              const {
+                data:
+                  userOrganisationRows,
 
-              error:
-                userOrganisationError,
-            } =
-              await supabase
-                .from(
-                  "user_organisations"
-                )
-                .select(
-                  "organisation_id"
-                )
-                .eq(
-                  "user_id",
-                  user.id
-                )
-                .limit(
-                  1
+                error:
+                  userOrganisationError,
+              } =
+                await supabase
+                  .from(
+                    "user_organisations"
+                  )
+                  .select(
+                    "organisation_id"
+                  )
+                  .eq(
+                    "user_id",
+                    user.id
+                  )
+                  .limit(
+                    1
+                  );
+
+              if (
+                userOrganisationError
+              ) {
+                console.warn(
+                  "Sidebar user_organisations lookup failed:",
+                  userOrganisationError
                 );
-
-            if (
-              userOrganisationError
+              } else {
+                resolvedOrganisationId =
+                  (
+                    userOrganisationRows?.[0]
+                      ?.organisation_id ||
+                    ""
+                  )
+                    .toString()
+                    .trim();
+              }
+            } catch (
+              error
             ) {
               console.warn(
-                "Sidebar user_organisations lookup failed:",
-                userOrganisationError
+                "Sidebar user_organisations fallback failed:",
+                error
               );
             }
-
-            resolvedOrganisationId =
-              (
-                userOrganisationRows
-                  ?.[0]
-                  ?.organisation_id ||
-                ""
-              )
-                .toString()
-                .trim();
           }
 
           // ==================================================
@@ -623,46 +645,54 @@ export default function Sidebar() {
           if (
             !resolvedOrganisationId
           ) {
-            const {
-              data:
-                organisationMemberRows,
+            try {
+              const {
+                data:
+                  organisationMemberRows,
 
-              error:
-                organisationMemberError,
-            } =
-              await supabase
-                .from(
-                  "organisation_members"
-                )
-                .select(
-                  "organisation_id"
-                )
-                .eq(
-                  "user_id",
-                  user.id
-                )
-                .limit(
-                  1
+                error:
+                  organisationMemberError,
+              } =
+                await supabase
+                  .from(
+                    "organisation_members"
+                  )
+                  .select(
+                    "organisation_id"
+                  )
+                  .eq(
+                    "user_id",
+                    user.id
+                  )
+                  .limit(
+                    1
+                  );
+
+              if (
+                organisationMemberError
+              ) {
+                console.warn(
+                  "Sidebar organisation_members lookup failed:",
+                  organisationMemberError
                 );
-
-            if (
-              organisationMemberError
+              } else {
+                resolvedOrganisationId =
+                  (
+                    organisationMemberRows?.[0]
+                      ?.organisation_id ||
+                    ""
+                  )
+                    .toString()
+                    .trim();
+              }
+            } catch (
+              error
             ) {
               console.warn(
-                "Sidebar organisation_members lookup failed:",
-                organisationMemberError
+                "Sidebar organisation_members fallback failed:",
+                error
               );
             }
-
-            resolvedOrganisationId =
-              (
-                organisationMemberRows
-                  ?.[0]
-                  ?.organisation_id ||
-                ""
-              )
-                .toString()
-                .trim();
           }
 
           setOrganisationId(
@@ -702,16 +732,6 @@ export default function Sidebar() {
               permsData
             )
               ? permsData
-                  .filter(
-                    (
-                      permission:
-                        any
-                    ) =>
-                      Boolean(
-                        permission
-                          ?.page_slug
-                      )
-                  )
                   .map(
                     (
                       permission:
@@ -719,9 +739,9 @@ export default function Sidebar() {
                     ) =>
                       String(
                         permission
-                          .page_slug
-                      )
-                        .trim()
+                          ?.page_slug ||
+                        ""
+                      ).trim()
                   )
                   .filter(
                     Boolean
@@ -729,13 +749,7 @@ export default function Sidebar() {
               : [];
 
           // ==================================================
-          // IMPORTANT:
-          //
-          // STORE MUST NOT BE UNLOCKED THROUGH GENERAL PAGE
-          // PERMISSIONS.
-          //
-          // This prevents someone from gaining the paid add-on
-          // simply because a /store permission row exists.
+          // NEVER ALLOW GENERAL PERMISSIONS TO UNLOCK STORE
           // ==================================================
 
           const corePermissionSlugs =
@@ -750,7 +764,7 @@ export default function Sidebar() {
           // ==================================================
           // ADMIN / OWNER
           //
-          // Admins get every CORE module.
+          // Gets all core TOTS modules.
           //
           // Store remains separate.
           // ==================================================
@@ -765,10 +779,14 @@ export default function Sidebar() {
             resolvedRole ===
               "superadmin";
 
+          let resolvedAllowedSlugs:
+            string[] =
+            [];
+
           if (
             isAdmin
           ) {
-            setAllowedSlugs(
+            resolvedAllowedSlugs =
               allLinks
                 .filter(
                   (
@@ -782,51 +800,64 @@ export default function Sidebar() {
                     link
                   ) =>
                     link.href
-                )
-            );
-          }
+                );
+          } else {
+            // ==================================================
+            // BASE TIER ACCESS
+            // ==================================================
 
-          // ==================================================
-          // ELITE
-          // ==================================================
-
-          else if (
-            tier ===
-            "elite"
-          ) {
-            setAllowedSlugs(
-              tierLinks.elite
-            );
-          }
-
-          // ==================================================
-          // INDIVIDUAL PERMISSIONS
-          // ==================================================
-
-          else if (
-            corePermissionSlugs.length >
-            0
-          ) {
-            setAllowedSlugs(
-              corePermissionSlugs
-            );
-          }
-
-          // ==================================================
-          // TIER DEFAULT
-          // ==================================================
-
-          else {
-            setAllowedSlugs(
+            const tierAccess =
               tierLinks[
                 tier
               ] ||
-                tierLinks.unpaid
-            );
+              tierLinks.unpaid;
+
+            // ==================================================
+            // ADD EXPLICIT USER PERMISSIONS
+            //
+            // Important:
+            // permissions should add to tier access rather than
+            // replace the user's entire sidebar.
+            // ==================================================
+
+            resolvedAllowedSlugs =
+              Array.from(
+                new Set([
+                  ...tierAccess,
+                  ...corePermissionSlugs,
+                ])
+              );
           }
 
           // ==================================================
+          // SAFETY FALLBACK
+          //
+          // A signed-in user should never end up with a totally
+          // blank sidebar because one permission record is bad.
+          // ==================================================
+
+          if (
+            resolvedAllowedSlugs.length ===
+            0 &&
+            tier !==
+            "unpaid"
+          ) {
+            resolvedAllowedSlugs =
+              [
+                "/dashboard",
+                "/settings",
+              ];
+          }
+
+          setAllowedSlugs(
+            resolvedAllowedSlugs
+          );
+
+          // ==================================================
           // STORE ADD-ON
+          //
+          // This reads the same organisations.store_enabled
+          // value used by the £39/month Store subscription.
           // ==================================================
 
           if (
@@ -835,69 +866,71 @@ export default function Sidebar() {
             try {
               const {
                 data:
-                  storeAddon,
+                  organisation,
 
                 error:
-                  storeAddonError,
+                  organisationError,
               } =
                 await supabase
                   .from(
-                    "organisation_addons"
+                    "organisations"
                   )
                   .select(
                     `
                       id,
-                      organisation_id,
-                      addon_key,
-                      status
+                      store_enabled,
+                      store_subscription_status
                     `
                   )
                   .eq(
-                    "organisation_id",
+                    "id",
                     resolvedOrganisationId
-                  )
-                  .eq(
-                    "addon_key",
-                    "store"
                   )
                   .maybeSingle();
 
               if (
-                storeAddonError
+                organisationError
               ) {
                 console.warn(
-                  "Sidebar Store add-on lookup failed:",
-                  storeAddonError
+                  "Sidebar Store subscription lookup failed:",
+                  organisationError
                 );
 
                 setStoreEnabled(
                   false
                 );
               } else {
-                const addon =
-                  storeAddon as
-                    OrganisationAddon |
-                    null;
+                const storeAccess =
+                  organisation as
+                    | OrganisationStoreAccess
+                    | null;
 
-                const addonStatus =
+                const status =
                   (
-                    addon?.status ||
+                    storeAccess
+                      ?.store_subscription_status ||
                     ""
                   )
                     .toString()
-                    .trim()
-                    .toLowerCase();
+                    .toLowerCase()
+                    .trim();
 
-                const enabled =
-                  Boolean(
-                    addon
-                  ) &&
+                const statusAllowsAccess =
                   [
                     "active",
                     "trialing",
                     "trial",
                   ].includes(
-                    addonStatus
+                    status
+                  );
+
+                const enabled =
+                  storeAccess
+                    ?.store_enabled ===
+                    true &&
+                  (
+                    !status ||
+                    statusAllowsAccess
                   );
 
                 setStoreEnabled(
@@ -908,7 +941,7 @@ export default function Sidebar() {
               storeError
             ) {
               console.error(
-                "Sidebar Store add-on check failed:",
+                "Sidebar Store access check failed:",
                 storeError
               );
 
@@ -945,9 +978,14 @@ export default function Sidebar() {
           if (
             !cancelled
           ) {
-            setAllowedSlugs(
-              tierLinks.unpaid
-            );
+            // ==================================================
+            // DO NOT BLANK THE WHOLE SIDEBAR
+            // ==================================================
+
+            setAllowedSlugs([
+              "/dashboard",
+              "/settings",
+            ]);
 
             setStoreEnabled(
               false
@@ -1028,8 +1066,9 @@ export default function Sidebar() {
   // ==========================================================
   // VISIBLE LINKS
   //
-  // Core modules = tier/permissions.
-  // Store = independent add-on.
+  // Core modules = subscription tier / permissions.
+  //
+  // Store = separate £39/month add-on.
   // ==========================================================
 
   const visibleLinks =
@@ -1170,7 +1209,7 @@ export default function Sidebar() {
       // ======================================================
       // COMMERCE
       //
-      // This section only appears when Store add-on is active.
+      // Only renders when Store add-on is active.
       // ======================================================
 
       {

@@ -380,6 +380,16 @@ type RefundFormState = {
     | "fraudulent";
 };
 
+
+type StoreSubscriptionStatus = {
+  active: boolean;
+  status: string | null;
+  customerId: string | null;
+  subscriptionId: string | null;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
+};
+
 // ============================================================
 // DEFAULTS
 // ============================================================
@@ -1124,6 +1134,47 @@ export default function StorePage() {
     );
 
   // ==========================================================
+  // STORE ADD-ON SUBSCRIPTION
+  // ==========================================================
+
+  const [
+    subscriptionLoading,
+    setSubscriptionLoading,
+  ] =
+    useState(
+      true
+    );
+
+  const [
+    subscriptionStatus,
+    setSubscriptionStatus,
+  ] =
+    useState<StoreSubscriptionStatus>({
+      active: false,
+      status: null,
+      customerId: null,
+      subscriptionId: null,
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: null,
+    });
+
+  const [
+    startingStoreCheckout,
+    setStartingStoreCheckout,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    subscriptionError,
+    setSubscriptionError,
+  ] =
+    useState<string | null>(
+      null
+    );
+
+  // ==========================================================
   // SETTINGS
   // ==========================================================
 
@@ -1513,6 +1564,260 @@ export default function StorePage() {
     useState<string | null>(
       null
     );
+
+  // ==========================================================
+  // STORE ADD-ON SUBSCRIPTION HELPERS
+  // ==========================================================
+
+  const loadStoreSubscriptionStatus =
+    useCallback(
+      async () => {
+        setSubscriptionLoading(
+          true
+        );
+
+        setSubscriptionError(
+          null
+        );
+
+        try {
+          const {
+            data: sessionData,
+            error: sessionError,
+          } =
+            await supabase.auth.getSession();
+
+          if (
+            sessionError ||
+            !sessionData.session?.access_token
+          ) {
+            throw new Error(
+              "You need to sign in again."
+            );
+          }
+
+          const response =
+            await fetch(
+              "/api/store/subscription/status",
+              {
+                method: "GET",
+                cache: "no-store",
+                headers: {
+                  Authorization:
+                    `Bearer ${sessionData.session.access_token}`,
+                },
+              }
+            );
+
+          const result =
+            await response
+              .json()
+              .catch(
+                () => ({})
+              );
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              result?.error ||
+                "Store subscription status could not be loaded."
+            );
+          }
+
+          const rawStatus =
+            firstString(
+              result?.status,
+              result?.subscriptionStatus,
+              result?.subscription?.status
+            );
+
+          const activeFromStatus =
+            [
+              "active",
+              "trialing",
+            ].includes(
+              String(
+                rawStatus ||
+                  ""
+              ).toLowerCase()
+            );
+
+          const active =
+            result?.active === true ||
+            result?.subscribed === true ||
+            result?.storeEnabled === true ||
+            result?.enabled === true ||
+            result?.hasAccess === true ||
+            activeFromStatus;
+
+          setSubscriptionStatus({
+            active,
+
+            status:
+              rawStatus ||
+              (active
+                ? "active"
+                : null),
+
+            customerId:
+              firstString(
+                result?.customerId,
+                result?.stripeCustomerId,
+                result?.subscription?.customerId
+              ),
+
+            subscriptionId:
+              firstString(
+                result?.subscriptionId,
+                result?.stripeSubscriptionId,
+                result?.subscription?.id
+              ),
+
+            cancelAtPeriodEnd:
+              result?.cancelAtPeriodEnd === true ||
+              result?.subscription?.cancelAtPeriodEnd === true,
+
+            currentPeriodEnd:
+              firstString(
+                result?.currentPeriodEnd,
+                result?.subscription?.currentPeriodEnd
+              ),
+          });
+        } catch (
+          error: unknown
+        ) {
+          console.error(
+            "Store subscription status load failed:",
+            error
+          );
+
+          setSubscriptionError(
+            error instanceof Error
+              ? error.message
+              : "Store subscription status could not be loaded."
+          );
+
+          setSubscriptionStatus((previous) => ({
+            ...previous,
+            active: false,
+          }));
+        } finally {
+          setSubscriptionLoading(
+            false
+          );
+        }
+      },
+      []
+    );
+
+  useEffect(
+    () => {
+      void loadStoreSubscriptionStatus();
+    },
+    [
+      loadStoreSubscriptionStatus,
+    ]
+  );
+
+  async function startStoreSubscriptionCheckout() {
+    if (
+      startingStoreCheckout
+    ) {
+      return;
+    }
+
+    setStartingStoreCheckout(
+      true
+    );
+
+    setSubscriptionError(
+      null
+    );
+
+    try {
+      const {
+        data: sessionData,
+        error: sessionError,
+      } =
+        await supabase.auth.getSession();
+
+      if (
+        sessionError ||
+        !sessionData.session?.access_token
+      ) {
+        throw new Error(
+          "You need to sign in again."
+        );
+      }
+
+      const response =
+        await fetch(
+          "/api/store/subscription/checkout",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${sessionData.session.access_token}`,
+            },
+            body: JSON.stringify({}),
+          }
+        );
+
+      const result =
+        await response
+          .json()
+          .catch(
+            () => ({})
+          );
+
+      if (
+        !response.ok
+      ) {
+        throw new Error(
+          result?.error ||
+            "Store checkout could not be started."
+        );
+      }
+
+      const checkoutUrl =
+        firstString(
+          result?.url,
+          result?.checkoutUrl
+        );
+
+      if (
+        !checkoutUrl
+      ) {
+        throw new Error(
+          "Stripe did not return a checkout URL."
+        );
+      }
+
+      window.location.href =
+        checkoutUrl;
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Store subscription checkout failed:",
+        error
+      );
+
+      setSubscriptionError(
+        error instanceof Error
+          ? error.message
+          : "Store checkout could not be started."
+      );
+    } finally {
+      setStartingStoreCheckout(
+        false
+      );
+    }
+  }
 
   // ==========================================================
   // LOAD DATA
@@ -5159,7 +5464,8 @@ if (orderError) {
   // ==========================================================
 
   if (
-    loading
+    loading ||
+    subscriptionLoading
   ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2]">
@@ -5170,8 +5476,180 @@ if (orderError) {
           />
 
           <p className="mt-4 text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">
-            Loading commerce
+            Checking Store access
           </p>
+        </div>
+      </main>
+    );
+  }
+
+  // ==========================================================
+  // STORE ADD-ON GATE
+  // ==========================================================
+
+  if (
+    !subscriptionStatus.active
+  ) {
+    return (
+      <main className="min-h-screen bg-[#f7f5f2] px-4 py-10 text-stone-900 sm:px-6 lg:px-8 lg:py-16">
+        <div className="mx-auto max-w-6xl">
+          <div className="overflow-hidden rounded-[2.5rem] border border-stone-200 bg-white shadow-sm">
+            <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
+              <section className="p-7 sm:p-10 lg:p-14">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#a9b897]/30 bg-[#a9b897]/10 px-4 py-2">
+                  <Store
+                    size={13}
+                    className="text-[#829473]"
+                  />
+
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                    TOTS Store Add-on
+                  </span>
+                </div>
+
+                <h1 className="mt-7 max-w-3xl font-serif text-5xl italic leading-[0.95] tracking-tight text-stone-900 sm:text-6xl lg:text-7xl">
+                  Turn TOTS-OS into your online store.
+                </h1>
+
+                <p className="mt-6 max-w-2xl text-sm leading-7 text-stone-500 sm:text-base">
+                  Sell products or services, take payments through your own connected Stripe account, manage orders, stock and discounts, and keep everything beside the rest of your business.
+                </p>
+
+                <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                  {[
+                    "Your own public storefront",
+                    "Products, stock and inventory",
+                    "Orders and fulfilment",
+                    "Discount codes",
+                    "Stripe payments and payouts",
+                    "Full and partial refunds",
+                    "Customer details linked to TOTS",
+                    "Store performance at a glance",
+                  ].map((feature) => (
+                    <div
+                      key={feature}
+                      className="flex items-center gap-3 rounded-2xl bg-stone-50 px-4 py-3"
+                    >
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#a9b897]/15 text-[#829473]">
+                        <Check
+                          size={13}
+                          strokeWidth={2.4}
+                        />
+                      </div>
+
+                      <span className="text-xs font-semibold text-stone-600">
+                        {feature}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <aside className="border-t border-stone-200 bg-stone-900 p-7 text-white sm:p-10 lg:border-l lg:border-t-0 lg:p-12">
+                <div className="flex h-full flex-col justify-between">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#b8c5ae]">
+                      Add to your TOTS-OS account
+                    </p>
+
+                    <div className="mt-6 flex items-end gap-2">
+                      <span className="font-serif text-7xl italic leading-none">
+                        £39
+                      </span>
+
+                      <span className="pb-2 text-sm font-semibold text-stone-400">
+                        / month
+                      </span>
+                    </div>
+
+                    <p className="mt-4 max-w-sm text-sm leading-6 text-stone-400">
+                      Store is a separate add-on, so you only pay for it when you need it. Your existing TOTS-OS plan stays exactly as it is.
+                    </p>
+
+                    <div className="mt-7 space-y-3 border-y border-white/10 py-6 text-xs text-stone-300">
+                      <div className="flex items-center justify-between gap-4">
+                        <span>Store add-on</span>
+                        <span className="font-bold text-white">£39/month</span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <span>Stripe account</span>
+                        <span className="font-bold text-white">Yours</span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <span>Store revenue</span>
+                        <span className="font-bold text-white">Paid to you</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-8">
+                    {subscriptionError && (
+                      <div className="mb-4 flex items-start gap-3 rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-xs leading-5 text-red-100">
+                        <AlertTriangle
+                          size={15}
+                          className="mt-0.5 shrink-0"
+                        />
+
+                        <span>
+                          {subscriptionError}
+                        </span>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void startStoreSubscriptionCheckout()
+                      }
+                      disabled={startingStoreCheckout}
+                      className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-5 text-[10px] font-black uppercase tracking-[0.17em] text-stone-900 transition hover:bg-[#b8c5ae] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {startingStoreCheckout ? (
+                        <Loader2
+                          size={16}
+                          className="animate-spin"
+                        />
+                      ) : (
+                        <ShoppingBag
+                          size={16}
+                        />
+                      )}
+
+                      {startingStoreCheckout
+                        ? "Opening checkout..."
+                        : "Add Store for £39/month"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void loadStoreSubscriptionStatus()
+                      }
+                      disabled={subscriptionLoading}
+                      className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-[8px] font-black uppercase tracking-[0.14em] text-stone-300 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+                    >
+                      <RefreshCw
+                        size={12}
+                        className={
+                          subscriptionLoading
+                            ? "animate-spin"
+                            : ""
+                        }
+                      />
+
+                      Already subscribed? Refresh access
+                    </button>
+
+                    <p className="mt-4 text-center text-[10px] leading-5 text-stone-500">
+                      Secure subscription checkout is handled by Stripe.
+                    </p>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </div>
         </div>
       </main>
     );

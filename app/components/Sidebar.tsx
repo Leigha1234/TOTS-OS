@@ -20,7 +20,6 @@ import {
   Megaphone,
   StickyNote,
   Globe,
-  Briefcase,
   Settings,
   Loader2,
   LogOut,
@@ -28,6 +27,7 @@ import {
   Building2,
   PanelLeftClose,
   PanelLeftOpen,
+  Store,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -53,6 +53,13 @@ type SidebarSection = {
   links: SidebarLink[];
 };
 
+type OrganisationAddon = {
+  id?: string;
+  organisation_id: string;
+  addon_key: string;
+  status: string;
+};
+
 // ============================================================
 // SIDEBAR
 // ============================================================
@@ -64,8 +71,7 @@ export default function Sidebar() {
   const router =
     useRouter();
 
-  let context:
-    any =
+  let context: any =
     null;
 
   try {
@@ -130,6 +136,22 @@ export default function Sidebar() {
     );
 
   const [
+    organisationId,
+    setOrganisationId,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    storeEnabled,
+    setStoreEnabled,
+  ] =
+    useState(
+      false
+    );
+
+  const [
     localColor,
     setLocalColor,
   ] =
@@ -139,6 +161,12 @@ export default function Sidebar() {
 
   // ==========================================================
   // TIER ACCESS
+  //
+  // IMPORTANT:
+  //
+  // STORE IS NOT INCLUDED HERE.
+  //
+  // Store is a completely separate paid add-on.
   // ==========================================================
 
   const tierLinks:
@@ -150,6 +178,14 @@ export default function Sidebar() {
       unpaid: [],
 
       starter: [
+        "/dashboard",
+        "/calendar",
+        "/crm",
+        "/notes",
+        "/settings",
+      ],
+
+      standard: [
         "/dashboard",
         "/calendar",
         "/crm",
@@ -182,6 +218,9 @@ export default function Sidebar() {
 
   // ==========================================================
   // ALL LINKS
+  //
+  // Store exists in navigation definitions but permission is
+  // handled independently using storeEnabled.
   // ==========================================================
 
   const allLinks:
@@ -255,13 +294,24 @@ export default function Sidebar() {
 
       {
         href:
+          "/store",
+
+        label:
+          "Store",
+
+        icon:
+          Store,
+      },
+
+      {
+        href:
           "/projects",
 
         label:
           "Clients & Projects",
 
         icon:
-          Briefcase,
+          Building2,
       },
 
       {
@@ -332,6 +382,10 @@ export default function Sidebar() {
             true
           );
 
+          // ==================================================
+          // SESSION
+          // ==================================================
+
           const {
             data:
               sessionData,
@@ -360,6 +414,14 @@ export default function Sidebar() {
               "unpaid"
             );
 
+            setOrganisationId(
+              null
+            );
+
+            setStoreEnabled(
+              false
+            );
+
             setAllowedSlugs(
               tierLinks.unpaid
             );
@@ -367,10 +429,17 @@ export default function Sidebar() {
             return;
           }
 
+          // ==================================================
+          // PROFILE + PERMISSIONS + MEMBERSHIP
+          // ==================================================
+
           const [
             {
               data:
                 profile,
+
+              error:
+                profileError,
             },
 
             permsResult,
@@ -378,6 +447,9 @@ export default function Sidebar() {
             {
               data:
                 membership,
+
+              error:
+                membershipError,
             },
           ] =
             await Promise.all([
@@ -386,7 +458,12 @@ export default function Sidebar() {
                   "profiles"
                 )
                 .select(
-                  "role, brand_color, subscription_tier"
+                  `
+                    role,
+                    brand_color,
+                    subscription_tier,
+                    organisation_id
+                  `
                 )
                 .eq(
                   "id",
@@ -415,7 +492,10 @@ export default function Sidebar() {
                   "team_members"
                 )
                 .select(
-                  "role"
+                  `
+                    role,
+                    organisation_id
+                  `
                 )
                 .eq(
                   "user_id",
@@ -423,6 +503,24 @@ export default function Sidebar() {
                 )
                 .maybeSingle(),
             ]);
+
+          if (
+            profileError
+          ) {
+            console.warn(
+              "Sidebar profile load error:",
+              profileError
+            );
+          }
+
+          if (
+            membershipError
+          ) {
+            console.warn(
+              "Sidebar team membership load error:",
+              membershipError
+            );
+          }
 
           if (
             cancelled
@@ -448,6 +546,130 @@ export default function Sidebar() {
               .toLowerCase()
               .trim();
 
+          setUserRole(
+            resolvedRole
+          );
+
+          // ==================================================
+          // ORGANISATION
+          // ==================================================
+
+          let resolvedOrganisationId =
+            (
+              profile
+                ?.organisation_id ||
+              membership
+                ?.organisation_id ||
+              ""
+            )
+              .toString()
+              .trim();
+
+          // ==================================================
+          // FALLBACK:
+          // USER_ORGANISATIONS
+          // ==================================================
+
+          if (
+            !resolvedOrganisationId
+          ) {
+            const {
+              data:
+                userOrganisationRows,
+
+              error:
+                userOrganisationError,
+            } =
+              await supabase
+                .from(
+                  "user_organisations"
+                )
+                .select(
+                  "organisation_id"
+                )
+                .eq(
+                  "user_id",
+                  user.id
+                )
+                .limit(
+                  1
+                );
+
+            if (
+              userOrganisationError
+            ) {
+              console.warn(
+                "Sidebar user_organisations lookup failed:",
+                userOrganisationError
+              );
+            }
+
+            resolvedOrganisationId =
+              (
+                userOrganisationRows
+                  ?.[0]
+                  ?.organisation_id ||
+                ""
+              )
+                .toString()
+                .trim();
+          }
+
+          // ==================================================
+          // FALLBACK:
+          // ORGANISATION_MEMBERS
+          // ==================================================
+
+          if (
+            !resolvedOrganisationId
+          ) {
+            const {
+              data:
+                organisationMemberRows,
+
+              error:
+                organisationMemberError,
+            } =
+              await supabase
+                .from(
+                  "organisation_members"
+                )
+                .select(
+                  "organisation_id"
+                )
+                .eq(
+                  "user_id",
+                  user.id
+                )
+                .limit(
+                  1
+                );
+
+            if (
+              organisationMemberError
+            ) {
+              console.warn(
+                "Sidebar organisation_members lookup failed:",
+                organisationMemberError
+              );
+            }
+
+            resolvedOrganisationId =
+              (
+                organisationMemberRows
+                  ?.[0]
+                  ?.organisation_id ||
+                ""
+              )
+                .toString()
+                .trim();
+          }
+
+          setOrganisationId(
+            resolvedOrganisationId ||
+              null
+          );
+
           // ==================================================
           // TIER
           // ==================================================
@@ -461,10 +683,6 @@ export default function Sidebar() {
               .toString()
               .toLowerCase()
               .trim();
-
-          setUserRole(
-            resolvedRole
-          );
 
           setSubscriptionTier(
             tier
@@ -499,13 +717,42 @@ export default function Sidebar() {
                       permission:
                         any
                     ) =>
-                      permission
-                        .page_slug
+                      String(
+                        permission
+                          .page_slug
+                      )
+                        .trim()
+                  )
+                  .filter(
+                    Boolean
                   )
               : [];
 
           // ==================================================
-          // ADMIN / OWNER OVERRIDE
+          // IMPORTANT:
+          //
+          // STORE MUST NOT BE UNLOCKED THROUGH GENERAL PAGE
+          // PERMISSIONS.
+          //
+          // This prevents someone from gaining the paid add-on
+          // simply because a /store permission row exists.
+          // ==================================================
+
+          const corePermissionSlugs =
+            permissionSlugs.filter(
+              (
+                slug
+              ) =>
+                slug !==
+                "/store"
+            );
+
+          // ==================================================
+          // ADMIN / OWNER
+          //
+          // Admins get every CORE module.
+          //
+          // Store remains separate.
           // ==================================================
 
           const isAdmin =
@@ -522,33 +769,156 @@ export default function Sidebar() {
             isAdmin
           ) {
             setAllowedSlugs(
-              allLinks.map(
-                (
-                  link
-                ) =>
-                  link.href
-              )
+              allLinks
+                .filter(
+                  (
+                    link
+                  ) =>
+                    link.href !==
+                    "/store"
+                )
+                .map(
+                  (
+                    link
+                  ) =>
+                    link.href
+                )
             );
-          } else if (
+          }
+
+          // ==================================================
+          // ELITE
+          // ==================================================
+
+          else if (
             tier ===
             "elite"
           ) {
             setAllowedSlugs(
               tierLinks.elite
             );
-          } else if (
-            permissionSlugs.length >
+          }
+
+          // ==================================================
+          // INDIVIDUAL PERMISSIONS
+          // ==================================================
+
+          else if (
+            corePermissionSlugs.length >
             0
           ) {
             setAllowedSlugs(
-              permissionSlugs
+              corePermissionSlugs
             );
-          } else {
+          }
+
+          // ==================================================
+          // TIER DEFAULT
+          // ==================================================
+
+          else {
             setAllowedSlugs(
               tierLinks[
                 tier
               ] ||
                 tierLinks.unpaid
+            );
+          }
+
+          // ==================================================
+          // STORE ADD-ON
+          // ==================================================
+
+          if (
+            resolvedOrganisationId
+          ) {
+            try {
+              const {
+                data:
+                  storeAddon,
+
+                error:
+                  storeAddonError,
+              } =
+                await supabase
+                  .from(
+                    "organisation_addons"
+                  )
+                  .select(
+                    `
+                      id,
+                      organisation_id,
+                      addon_key,
+                      status
+                    `
+                  )
+                  .eq(
+                    "organisation_id",
+                    resolvedOrganisationId
+                  )
+                  .eq(
+                    "addon_key",
+                    "store"
+                  )
+                  .maybeSingle();
+
+              if (
+                storeAddonError
+              ) {
+                console.warn(
+                  "Sidebar Store add-on lookup failed:",
+                  storeAddonError
+                );
+
+                setStoreEnabled(
+                  false
+                );
+              } else {
+                const addon =
+                  storeAddon as
+                    OrganisationAddon |
+                    null;
+
+                const addonStatus =
+                  (
+                    addon?.status ||
+                    ""
+                  )
+                    .toString()
+                    .trim()
+                    .toLowerCase();
+
+                const enabled =
+                  Boolean(
+                    addon
+                  ) &&
+                  [
+                    "active",
+                    "trialing",
+                    "trial",
+                  ].includes(
+                    addonStatus
+                  );
+
+                setStoreEnabled(
+                  enabled
+                );
+              }
+            } catch (
+              storeError
+            ) {
+              console.error(
+                "Sidebar Store add-on check failed:",
+                storeError
+              );
+
+              setStoreEnabled(
+                false
+              );
+            }
+          } else {
+            setStoreEnabled(
+              false
             );
           }
 
@@ -577,6 +947,10 @@ export default function Sidebar() {
           ) {
             setAllowedSlugs(
               tierLinks.unpaid
+            );
+
+            setStoreEnabled(
+              false
             );
           }
         } finally {
@@ -653,33 +1027,53 @@ export default function Sidebar() {
 
   // ==========================================================
   // VISIBLE LINKS
+  //
+  // Core modules = tier/permissions.
+  // Store = independent add-on.
   // ==========================================================
 
   const visibleLinks =
-    allowedSlugs.length >
-    0
-      ? allLinks.filter(
-          (
-            link
-          ) =>
-            allowedSlugs.includes(
-              link.href
-            )
-        )
-      : allLinks;
+    allLinks.filter(
+      (
+        link
+      ) => {
+        if (
+          link.href ===
+          "/store"
+        ) {
+          return storeEnabled;
+        }
+
+        return allowedSlugs.includes(
+          link.href
+        );
+      }
+    );
+
+  // ==========================================================
+  // CAN SEE
+  // ==========================================================
 
   const canSee =
     (
       href:
         string
-    ) =>
-      visibleLinks.some(
+    ) => {
+      if (
+        href ===
+        "/store"
+      ) {
+        return storeEnabled;
+      }
+
+      return visibleLinks.some(
         (
           link
         ) =>
           link.href ===
           href
       );
+    };
 
   // ==========================================================
   // SIDEBAR SECTIONS
@@ -688,6 +1082,10 @@ export default function Sidebar() {
   const sections:
     SidebarSection[] =
     [
+      // ======================================================
+      // HOME
+      // ======================================================
+
       {
         links: [
           {
@@ -702,6 +1100,10 @@ export default function Sidebar() {
           },
         ],
       },
+
+      // ======================================================
+      // MY BUSINESS
+      // ======================================================
 
       {
         title:
@@ -765,6 +1167,34 @@ export default function Sidebar() {
         ],
       },
 
+      // ======================================================
+      // COMMERCE
+      //
+      // This section only appears when Store add-on is active.
+      // ======================================================
+
+      {
+        title:
+          "Commerce",
+
+        links: [
+          {
+            href:
+              "/store",
+
+            label:
+              "Store",
+
+            icon:
+              Store,
+          },
+        ],
+      },
+
+      // ======================================================
+      // CLIENTS & PROJECTS
+      // ======================================================
+
       {
         title:
           "Clients & Projects",
@@ -782,6 +1212,10 @@ export default function Sidebar() {
           },
         ],
       },
+
+      // ======================================================
+      // PLANNING
+      // ======================================================
 
       {
         title:
@@ -839,13 +1273,18 @@ export default function Sidebar() {
       className={`
         relative
         z-[300]
+
         flex
         h-[100dvh]
         flex-col
+
         overflow-visible
+
         border-r
         border-stone-200
+
         bg-stone-50
+
         transition-all
         duration-300
 
@@ -955,9 +1394,13 @@ export default function Sidebar() {
               shrink-0
               items-center
               justify-center
+
               rounded-xl
+
               text-stone-400
+
               transition
+
               hover:bg-white
               hover:text-stone-800
               hover:shadow-sm
@@ -987,14 +1430,19 @@ export default function Sidebar() {
             title="Expand sidebar"
             className="
               mx-auto
+
               flex
               h-9
               w-9
               items-center
               justify-center
+
               rounded-xl
+
               text-stone-400
+
               transition
+
               hover:bg-white
               hover:text-stone-800
               hover:shadow-sm
@@ -1077,8 +1525,10 @@ export default function Sidebar() {
                         <p
                           className={`
                             px-3
+
                             font-semibold
                             uppercase
+
                             text-stone-400
 
                             ${
@@ -1138,9 +1588,12 @@ export default function Sidebar() {
                               }}
                               className={`
                                 group
+
                                 flex
                                 items-center
+
                                 font-medium
+
                                 transition-all
                                 duration-200
 
@@ -1234,7 +1687,9 @@ export default function Sidebar() {
               className={`
                 flex
                 items-center
+
                 font-medium
+
                 transition-all
 
                 ${
@@ -1282,6 +1737,7 @@ export default function Sidebar() {
       <div
         className={`
           shrink-0
+
           border-t
           border-stone-200
 
@@ -1306,9 +1762,13 @@ export default function Sidebar() {
             flex
             w-full
             items-center
+
             font-medium
+
             text-stone-500
+
             transition
+
             hover:bg-red-50
             hover:text-red-600
 

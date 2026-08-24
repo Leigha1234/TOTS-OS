@@ -19,37 +19,40 @@ export const runtime =
 // ENVIRONMENT
 // ============================================================
 
-const supabaseUrl =
+const rawSupabaseUrl =
   process.env
     .NEXT_PUBLIC_SUPABASE_URL
     ?.trim();
 
-const supabaseServiceRoleKey =
+const rawSupabaseServiceRoleKey =
   process.env
     .SUPABASE_SERVICE_ROLE_KEY
     ?.trim();
 
-const stripeSecretKey =
+const rawStripeSecretKey =
   process.env
     .STRIPE_SECRET_KEY
     ?.trim();
 
-const storePriceId =
+const rawStorePriceId =
   process.env
     .STRIPE_STORE_ADDON_PRICE_ID
     ?.trim();
 
-const storeSubscriptionWebhookSecret =
+const rawStoreSubscriptionWebhookSecret =
   process.env
     .STRIPE_STORE_SUBSCRIPTION_WEBHOOK_SECRET
     ?.trim();
 
 // ============================================================
-// VALIDATE ENVIRONMENT
+// VALIDATE REQUIRED ENVIRONMENT
+//
+// Explicit string assignments after validation stop TypeScript
+// treating these as string | undefined later in the file.
 // ============================================================
 
 if (
-  !supabaseUrl
+  !rawSupabaseUrl
 ) {
   throw new Error(
     "NEXT_PUBLIC_SUPABASE_URL is missing"
@@ -57,7 +60,7 @@ if (
 }
 
 if (
-  !supabaseServiceRoleKey
+  !rawSupabaseServiceRoleKey
 ) {
   throw new Error(
     "SUPABASE_SERVICE_ROLE_KEY is missing"
@@ -65,7 +68,7 @@ if (
 }
 
 if (
-  !stripeSecretKey
+  !rawStripeSecretKey
 ) {
   throw new Error(
     "STRIPE_SECRET_KEY is missing"
@@ -73,12 +76,43 @@ if (
 }
 
 if (
-  !storePriceId
+  !rawStorePriceId
 ) {
   throw new Error(
     "STRIPE_STORE_ADDON_PRICE_ID is missing"
   );
 }
+
+const supabaseUrl:
+  string =
+  rawSupabaseUrl;
+
+const supabaseServiceRoleKey:
+  string =
+  rawSupabaseServiceRoleKey;
+
+const stripeSecretKey:
+  string =
+  rawStripeSecretKey;
+
+const storePriceId:
+  string =
+  rawStorePriceId;
+
+// ============================================================
+// WEBHOOK SECRET
+//
+// This deliberately remains nullable here.
+//
+// Unlike the core environment values, we handle a missing
+// webhook secret inside POST() so the route can return a
+// controlled error rather than crashing module initialisation.
+// ============================================================
+
+const storeSubscriptionWebhookSecret:
+  string | null =
+  rawStoreSubscriptionWebhookSecret ||
+  null;
 
 // ============================================================
 // CLIENTS
@@ -105,6 +139,24 @@ const stripe =
   );
 
 // ============================================================
+// TYPES
+// ============================================================
+
+type OrganisationLookupRow = {
+  id:
+    string;
+
+  name?:
+    string | null;
+
+  store_stripe_customer_id?:
+    string | null;
+
+  store_stripe_subscription_id?:
+    string | null;
+};
+
+// ============================================================
 // HELPERS
 // ============================================================
 
@@ -123,6 +175,8 @@ function cleanString(
 }
 
 // ============================================================
+// TIMESTAMP -> ISO
+// ============================================================
 
 function timestampToIso(
   timestamp:
@@ -131,7 +185,13 @@ function timestampToIso(
     undefined
 ) {
   if (
-    !timestamp
+    typeof timestamp !==
+      "number" ||
+    !Number.isFinite(
+      timestamp
+    ) ||
+    timestamp <=
+      0
   ) {
     return null;
   }
@@ -148,25 +208,37 @@ function timestampToIso(
 
 function getCustomerId(
   value:
-    string |
-    Stripe.Customer |
-    Stripe.DeletedCustomer |
-    null
+    | string
+    | Stripe.Customer
+    | Stripe.DeletedCustomer
+    | null
+    | undefined
 ) {
   if (
     typeof value ===
     "string"
   ) {
-    return value;
+    return (
+      cleanString(
+        value
+      ) ||
+      null
+    );
   }
 
   if (
     value &&
     typeof value ===
       "object" &&
-    "id" in value
+    "id" in
+      value
   ) {
-    return value.id;
+    return (
+      cleanString(
+        value.id
+      ) ||
+      null
+    );
   }
 
   return null;
@@ -178,75 +250,162 @@ function getCustomerId(
 
 function getSubscriptionId(
   value:
-    string |
-    Stripe.Subscription |
-    null
+    | string
+    | Stripe.Subscription
+    | null
+    | undefined
 ) {
   if (
     typeof value ===
     "string"
   ) {
-    return value;
+    return (
+      cleanString(
+        value
+      ) ||
+      null
+    );
   }
 
   if (
     value &&
     typeof value ===
       "object" &&
-    "id" in value
+    "id" in
+      value
   ) {
-    return value.id;
+    return (
+      cleanString(
+        value.id
+      ) ||
+      null
+    );
   }
 
   return null;
 }
 
 // ============================================================
-// PRICE CHECK
-//
-// We never enable Store simply because an organisation has
-// some Stripe subscription.
-//
-// The subscription MUST contain the exact Store £39 price.
+// SUBSCRIPTION PRICE IDS
 // ============================================================
 
-function subscriptionHasStorePrice(
+function getSubscriptionPriceIds(
   subscription:
     Stripe.Subscription
 ) {
   return subscription
     .items
     .data
-    .some(
+    .map(
       (
         item
       ) =>
-        item.price.id ===
-        storePriceId
+        cleanString(
+          item
+            .price
+            ?.id
+        )
+    )
+    .filter(
+      (
+        priceId
+      ):
+        priceId is string =>
+          Boolean(
+            priceId
+          )
     );
 }
 
 // ============================================================
+// PRICE CHECK
+//
+// SECURITY CRITICAL:
+//
+// We NEVER enable Store because an organisation simply has a
+// Stripe subscription.
+//
+// The LIVE Stripe subscription must contain the exact:
+//
+// STRIPE_STORE_ADDON_PRICE_ID
+// ============================================================
+
+function subscriptionHasStorePrice(
+  subscription:
+    Stripe.Subscription
+) {
+  return getSubscriptionPriceIds(
+    subscription
+  ).includes(
+    storePriceId
+  );
+}
+
+// ============================================================
+// ACTUAL STORE PRICE
+// ============================================================
+
+function getStorePriceId(
+  subscription:
+    Stripe.Subscription
+) {
+  const item =
+    subscription
+      .items
+      .data
+      .find(
+        (
+          subscriptionItem
+        ) =>
+          cleanString(
+            subscriptionItem
+              .price
+              ?.id
+          ) ===
+          storePriceId
+      );
+
+  return (
+    cleanString(
+      item
+        ?.price
+        ?.id
+    ) ||
+    null
+  );
+}
+
+// ============================================================
 // ACTIVE ACCESS STATUS
+//
+// ONLY:
+//
+// active + correct price
+//
+// OR:
+//
+// trialing + correct price
+//
+// unlocks Store.
 // ============================================================
 
 function subscriptionAllowsStoreAccess(
   subscription:
     Stripe.Subscription
 ) {
-  if (
-    !subscriptionHasStorePrice(
+  const validStatus =
+    [
+      "active",
+      "trialing",
+    ].includes(
+      subscription.status
+    );
+
+  return (
+    validStatus &&
+    subscriptionHasStorePrice(
       subscription
     )
-  ) {
-    return false;
-  }
-
-  return [
-    "active",
-    "trialing",
-  ].includes(
-    subscription.status
   );
 }
 
@@ -260,9 +419,12 @@ function getOrganisationIdFromMetadata(
     null |
     undefined
 ) {
-  return cleanString(
-    metadata
-      ?.organisation_id
+  return (
+    cleanString(
+      metadata
+        ?.organisation_id
+    ) ||
+    null
   );
 }
 
@@ -305,7 +467,9 @@ async function findOrganisationByCustomerId(
     throw error;
   }
 
-  return data;
+  return data as
+    | OrganisationLookupRow
+    | null;
 }
 
 // ============================================================
@@ -347,11 +511,19 @@ async function findOrganisationBySubscriptionId(
     throw error;
   }
 
-  return data;
+  return data as
+    | OrganisationLookupRow
+    | null;
 }
 
 // ============================================================
 // RESOLVE ORGANISATION
+//
+// Priority:
+//
+// 1. Stripe metadata
+// 2. Known subscription ID
+// 3. Known Stripe customer ID
 // ============================================================
 
 async function resolveOrganisationId({
@@ -411,7 +583,7 @@ async function resolveOrganisationId({
   }
 
   // ==========================================================
-  // 2. SUBSCRIPTION ID
+  // 2. SUBSCRIPTION
   // ==========================================================
 
   if (
@@ -432,7 +604,7 @@ async function resolveOrganisationId({
   }
 
   // ==========================================================
-  // 3. CUSTOMER ID
+  // 3. CUSTOMER
   // ==========================================================
 
   if (
@@ -530,6 +702,12 @@ async function updateStoreAccess({
         cancelAtPeriodEnd,
     };
 
+  // ==========================================================
+  // ENABLED AT
+  //
+  // Only set when access is actually being enabled.
+  // ==========================================================
+
   if (
     enabled
   ) {
@@ -582,19 +760,25 @@ async function updateStoreAccess({
 }
 
 // ============================================================
-// GET SUBSCRIPTION CURRENT PERIOD END
+// CURRENT PERIOD END
 //
-// Depending on Stripe typings/API version this property can
-// live on the subscription itself.
+// IMPORTANT:
 //
-// We keep this isolated so it is easy to adjust later.
+// Do NOT access current_period_end on SubscriptionItem.
+//
+// The Stripe package currently used by the project does not
+// type that property on SubscriptionItem.
+//
+// Some Stripe API versions still expose current_period_end on
+// Subscription itself at runtime, so we safely narrow ONLY the
+// subscription object.
 // ============================================================
 
 function getCurrentPeriodEnd(
   subscription:
     Stripe.Subscription
 ) {
-  const subscriptionLike =
+  const subscriptionWithPeriod =
     subscription as
       Stripe.Subscription & {
         current_period_end?:
@@ -603,20 +787,29 @@ function getCurrentPeriodEnd(
       };
 
   return timestampToIso(
-    subscriptionLike
+    subscriptionWithPeriod
       .current_period_end
   );
 }
 
 // ============================================================
 // SYNC SUBSCRIPTION
+//
+// This is the central source of truth.
+//
+// Every subscription event eventually comes through here.
 // ============================================================
 
 async function syncSubscription(
   subscription:
     Stripe.Subscription
 ) {
-  const subscriptionId =
+  // ==========================================================
+  // REFERENCES
+  // ==========================================================
+
+  const subscriptionId:
+    string =
     subscription.id;
 
   const customerId =
@@ -629,11 +822,13 @@ async function syncSubscription(
       subscription.metadata
     );
 
+  // ==========================================================
+  // FIND TOTS ORGANISATION
+  // ==========================================================
+
   const organisationId =
     await resolveOrganisationId({
-      metadataOrganisationId:
-        metadataOrganisationId ||
-        null,
+      metadataOrganisationId,
 
       customerId,
 
@@ -649,11 +844,16 @@ async function syncSubscription(
   }
 
   // ==========================================================
-  // CRITICAL SECURITY CHECK
+  // VERIFY CORRECT STORE PRODUCT
   // ==========================================================
 
   const hasCorrectPrice =
     subscriptionHasStorePrice(
+      subscription
+    );
+
+  const actualPriceIds =
+    getSubscriptionPriceIds(
       subscription
     );
 
@@ -664,37 +864,41 @@ async function syncSubscription(
       "[STORE SUBSCRIPTION WEBHOOK] Subscription does not contain Store price:",
       {
         organisationId,
+
         subscriptionId:
           subscription.id,
 
         expectedPriceId:
           storePriceId,
 
-        actualPriceIds:
-          subscription.items.data.map(
-            (
-              item
-            ) =>
-              item.price.id
-          ),
+        actualPriceIds,
       }
     );
   }
+
+  // ==========================================================
+  // ACCESS
+  // ==========================================================
 
   const enabled =
     subscriptionAllowsStoreAccess(
       subscription
     );
 
-  const actualPrice =
-    subscription.items.data.find(
-      (
-        item
-      ) =>
-        item.price.id ===
-        storePriceId
-    )?.price.id ||
-    null;
+  // ==========================================================
+  // EXACT PRICE
+  // ==========================================================
+
+  const actualPriceId =
+    getStorePriceId(
+      subscription
+    );
+
+  // ==========================================================
+  // UPDATE ORGANISATION
+  //
+  // Wrong product = enabled false and priceId null.
+  // ==========================================================
 
   await updateStoreAccess({
     organisationId,
@@ -706,11 +910,12 @@ async function syncSubscription(
 
     customerId,
 
-    subscriptionId:
-      subscription.id,
+    subscriptionId,
 
     priceId:
-      actualPrice,
+      hasCorrectPrice
+        ? actualPriceId
+        : null,
 
     currentPeriodEnd:
       getCurrentPeriodEnd(
@@ -725,7 +930,11 @@ async function syncSubscription(
 
   return {
     organisationId,
+
     enabled,
+
+    correctProduct:
+      hasCorrectPrice,
   };
 }
 
@@ -738,7 +947,7 @@ async function handleCheckoutCompleted(
     Stripe.Checkout.Session
 ) {
   // ==========================================================
-  // ONLY STORE ADD-ON CHECKOUT
+  // ONLY HANDLE STORE ADD-ON CHECKOUT
   // ==========================================================
 
   const subscriptionType =
@@ -760,7 +969,7 @@ async function handleCheckoutCompleted(
   }
 
   // ==========================================================
-  // EXPECTED PRICE METADATA
+  // VERIFY PRICE METADATA
   // ==========================================================
 
   const metadataPriceId =
@@ -796,6 +1005,10 @@ async function handleCheckoutCompleted(
     );
   }
 
+  // ==========================================================
+  // LOAD LIVE SUBSCRIPTION
+  // ==========================================================
+
   const subscription =
     await stripe
       .subscriptions
@@ -804,7 +1017,9 @@ async function handleCheckoutCompleted(
       );
 
   // ==========================================================
-  // VERIFY PRICE FROM STRIPE ITSELF
+  // VERIFY PRODUCT FROM STRIPE
+  //
+  // Metadata alone is NOT enough.
   // ==========================================================
 
   if (
@@ -817,7 +1032,11 @@ async function handleCheckoutCompleted(
     );
   }
 
-  const metadataOrganisationId =
+  // ==========================================================
+  // ORGANISATION METADATA
+  // ==========================================================
+
+  const checkoutOrganisationId =
     getOrganisationIdFromMetadata(
       session.metadata
     );
@@ -828,13 +1047,13 @@ async function handleCheckoutCompleted(
     );
 
   // ==========================================================
-  // CHECK METADATA MATCHES
+  // VERIFY METADATA MATCH
   // ==========================================================
 
   if (
-    metadataOrganisationId &&
+    checkoutOrganisationId &&
     subscriptionOrganisationId &&
-    metadataOrganisationId !==
+    checkoutOrganisationId !==
       subscriptionOrganisationId
   ) {
     throw new Error(
@@ -842,8 +1061,38 @@ async function handleCheckoutCompleted(
     );
   }
 
+  // ==========================================================
+  // SYNC
+  // ==========================================================
+
   await syncSubscription(
     subscription
+  );
+}
+
+// ============================================================
+// INVOICE SUBSCRIPTION ID
+//
+// Stripe Invoice typings differ across SDK/API combinations.
+// Isolate the compatibility cast here.
+// ============================================================
+
+function getInvoiceSubscriptionId(
+  invoice:
+    Stripe.Invoice
+) {
+  const invoiceWithSubscription =
+    invoice as
+      Stripe.Invoice & {
+        subscription?:
+          | string
+          | Stripe.Subscription
+          | null;
+      };
+
+  return getSubscriptionId(
+    invoiceWithSubscription
+      .subscription
   );
 }
 
@@ -860,29 +1109,13 @@ async function handleInvoicePaymentFailed(
       invoice.customer
     );
 
-  let subscriptionId:
-    string |
-    null =
-    null;
-
-  const invoiceLike =
-    invoice as
-      Stripe.Invoice & {
-        subscription?:
-          | string
-          | Stripe.Subscription
-          | null;
-      };
-
-  subscriptionId =
-    getSubscriptionId(
-      invoiceLike.subscription ??
-      null
+  const subscriptionId =
+    getInvoiceSubscriptionId(
+      invoice
     );
 
   // ==========================================================
-  // IF WE CAN RETRIEVE SUBSCRIPTION, STRIPE STATUS REMAINS
-  // THE SOURCE OF TRUTH.
+  // IF SUBSCRIPTION EXISTS, LIVE STRIPE STATUS WINS
   // ==========================================================
 
   if (
@@ -896,6 +1129,10 @@ async function handleInvoicePaymentFailed(
             subscriptionId
           );
 
+      // ======================================================
+      // ONLY STORE SUBSCRIPTIONS
+      // ======================================================
+
       if (
         subscriptionHasStorePrice(
           subscription
@@ -904,9 +1141,9 @@ async function handleInvoicePaymentFailed(
         await syncSubscription(
           subscription
         );
-      }
 
-      return;
+        return;
+      }
     } catch (
       error
     ) {
@@ -938,6 +1175,13 @@ async function handleInvoicePaymentFailed(
     return;
   }
 
+  // ==========================================================
+  // FAIL CLOSED
+  //
+  // We cannot confirm a healthy subscription, therefore Store
+  // access stays disabled.
+  // ==========================================================
+
   await updateStoreAccess({
     organisationId:
       String(
@@ -959,6 +1203,12 @@ async function handleInvoicePaymentFailed(
       ) ||
       null,
 
+    /*
+     * This is the important TypeScript fix.
+     *
+     * storePriceId is now guaranteed to be `string`, not
+     * `string | undefined`.
+     */
     priceId:
       storePriceId,
 
@@ -968,6 +1218,49 @@ async function handleInvoicePaymentFailed(
     cancelAtPeriodEnd:
       false,
   });
+}
+
+// ============================================================
+// INVOICE PAID
+// ============================================================
+
+async function handleInvoicePaid(
+  invoice:
+    Stripe.Invoice
+) {
+  const subscriptionId =
+    getInvoiceSubscriptionId(
+      invoice
+    );
+
+  if (
+    !subscriptionId
+  ) {
+    return;
+  }
+
+  const subscription =
+    await stripe
+      .subscriptions
+      .retrieve(
+        subscriptionId
+      );
+
+  // ==========================================================
+  // ONLY STORE PRODUCT
+  // ==========================================================
+
+  if (
+    !subscriptionHasStorePrice(
+      subscription
+    )
+  ) {
+    return;
+  }
+
+  await syncSubscription(
+    subscription
+  );
 }
 
 // ============================================================
@@ -1096,7 +1389,10 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          "Invalid webhook signature.",
+          error instanceof
+            Error
+            ? `Invalid webhook signature: ${error.message}`
+            : "Invalid webhook signature.",
       },
       {
         status:
@@ -1122,7 +1418,7 @@ export async function POST(
   );
 
   // ==========================================================
-  // HANDLE EVENTS
+  // HANDLE EVENT
   // ==========================================================
 
   try {
@@ -1154,6 +1450,11 @@ export async function POST(
           event.data.object as
             Stripe.Subscription;
 
+        /*
+         * Only a real Store price subscription is allowed to
+         * create Store access.
+         */
+
         if (
           subscriptionHasStorePrice(
             subscription
@@ -1162,6 +1463,10 @@ export async function POST(
           await syncSubscription(
             subscription
           );
+        } else {
+          console.log(
+            `[STORE SUBSCRIPTION WEBHOOK] Ignoring non-Store subscription ${subscription.id}.`
+          );
         }
 
         break;
@@ -1169,6 +1474,16 @@ export async function POST(
 
       // ======================================================
       // SUBSCRIPTION UPDATED
+      //
+      // Handles:
+      //
+      // active
+      // trialing
+      // past_due
+      // unpaid
+      // paused
+      // cancel_at_period_end
+      // etc.
       // ======================================================
 
       case "customer.subscription.updated": {
@@ -1176,15 +1491,22 @@ export async function POST(
           event.data.object as
             Stripe.Subscription;
 
-        /*
-         * If this is the known Store subscription OR contains
-         * the Store price, sync it.
-         */
-
         const organisation =
           await findOrganisationBySubscriptionId(
             subscription.id
           );
+
+        /*
+         * Sync if:
+         *
+         * - we already know this as an organisation's Store
+         *   subscription
+         *
+         * OR
+         *
+         * - the live Stripe subscription contains the Store
+         *   product.
+         */
 
         if (
           organisation ||
@@ -1202,6 +1524,9 @@ export async function POST(
 
       // ======================================================
       // SUBSCRIPTION DELETED
+      //
+      // syncSubscription sees status=canceled and therefore
+      // disables Store.
       // ======================================================
 
       case "customer.subscription.deleted": {
@@ -1247,8 +1572,8 @@ export async function POST(
       // ======================================================
       // INVOICE PAID
       //
-      // Useful for recovering from past_due when Stripe later
-      // successfully collects payment.
+      // Important for recovering Store access after a failed
+      // renewal is later paid.
       // ======================================================
 
       case "invoice.paid": {
@@ -1256,48 +1581,15 @@ export async function POST(
           event.data.object as
             Stripe.Invoice;
 
-        const invoiceLike =
-          invoice as
-            Stripe.Invoice & {
-              subscription?:
-                | string
-                | Stripe.Subscription
-                | null;
-            };
-
-        const subscriptionId =
-          getSubscriptionId(
-            invoiceLike
-              .subscription ??
-            null
-          );
-
-        if (
-          subscriptionId
-        ) {
-          const subscription =
-            await stripe
-              .subscriptions
-              .retrieve(
-                subscriptionId
-              );
-
-          if (
-            subscriptionHasStorePrice(
-              subscription
-            )
-          ) {
-            await syncSubscription(
-              subscription
-            );
-          }
-        }
+        await handleInvoicePaid(
+          invoice
+        );
 
         break;
       }
 
       // ======================================================
-      // IGNORE EVERYTHING ELSE
+      // OTHER EVENTS
       // ======================================================
 
       default: {
@@ -1352,8 +1644,12 @@ export async function POST(
     );
 
     /*
-     * Return 500 so Stripe retries the event.
+     * Return a 500 deliberately.
+     *
+     * Stripe will then retry the webhook instead of assuming
+     * the subscription update was successfully processed.
      */
+
     return NextResponse.json(
       {
         error:

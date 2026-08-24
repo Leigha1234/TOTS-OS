@@ -21,9 +21,6 @@ function requireEnv(name: string): string {
 
 // ============================================================
 // ENVIRONMENT
-//
-// STRIPE_STORE_WEBHOOK_SECRET stays inside POST() so local
-// builds don't fail when the webhook secret is unavailable.
 // ============================================================
 
 const supabaseUrl = requireEnv(
@@ -63,29 +60,89 @@ const stripe = new Stripe(
 
 type StoreOrderRow = {
   id: string;
+
   organisation_id: string;
 
-  customer_id?: string | null;
+  customer_id?:
+    | string
+    | null;
 
   order_number: string;
 
-  customer_name: string | null;
-  customer_email: string | null;
-  customer_phone: string | null;
+  customer_name:
+    | string
+    | null;
 
-  subtotal: number | string;
-  discount_amount: number | string;
-  shipping_amount: number | string;
-  total: number | string;
+  customer_email:
+    | string
+    | null;
+
+  customer_phone:
+    | string
+    | null;
+
+  subtotal:
+    | number
+    | string;
+
+  discount_amount:
+    | number
+    | string;
+
+  shipping_amount:
+    | number
+    | string;
+
+  total:
+    | number
+    | string;
 
   payment_status: string;
+
   fulfilment_status: string;
 
   shipping_address:
     | Record<string, unknown>
     | null;
 
+  stripe_account_id?:
+    | string
+    | null;
+
+  stripe_checkout_session_id?:
+    | string
+    | null;
+
+  stripe_payment_intent_id?:
+    | string
+    | null;
+
+  stripe_customer_id?:
+    | string
+    | null;
+
+  currency?:
+    | string
+    | null;
+
+  checkout_completed_at?:
+    | string
+    | null;
+
+  paid_at?:
+    | string
+    | null;
+
+  discount_code?:
+    | string
+    | null;
+
+  discount_id?:
+    | string
+    | null;
+
   created_at: string;
+
   updated_at: string;
 };
 
@@ -94,32 +151,44 @@ type StoreOrderItemRow = {
 
   order_id: string;
 
-  product_id: string | null;
+  product_id:
+    | string
+    | null;
 
   product_name: string;
 
-  sku: string | null;
+  sku:
+    | string
+    | null;
 
   quantity: number;
 
-  unit_price: number | string;
-  total: number | string;
+  unit_price:
+    | number
+    | string;
+
+  total:
+    | number
+    | string;
 
   created_at: string;
 };
 
 type StoreProductRow = {
   id: string;
+
   organisation_id: string;
 
   name: string;
 
   stock: number;
+
   inventory_quantity: number;
 
   track_inventory: boolean;
 
   is_active: boolean;
+
   status: string;
 };
 
@@ -263,13 +332,21 @@ type ShippingDetailsLike = {
 };
 
 type NotificationRecipientRow = {
-  user_id?: string | null;
-  id?: string | null;
-  role?: string | null;
+  user_id?:
+    | string
+    | null;
+
+  id?:
+    | string
+    | null;
+
+  role?:
+    | string
+    | null;
 };
 
 // ============================================================
-// HELPERS
+// STRING
 // ============================================================
 
 function asString(
@@ -278,12 +355,15 @@ function asString(
     | null
     | undefined
 ) {
-  return typeof value === "string" &&
+  return typeof value ===
+    "string" &&
     value.trim()
     ? value.trim()
     : null;
 }
 
+// ============================================================
+// EMAIL
 // ============================================================
 
 function normaliseEmail(
@@ -293,7 +373,9 @@ function normaliseEmail(
     | undefined
 ) {
   const email =
-    asString(value);
+    asString(
+      value
+    );
 
   return email
     ? email.toLowerCase()
@@ -301,19 +383,29 @@ function normaliseEmail(
 }
 
 // ============================================================
+// NUMBER
+// ============================================================
 
 function safeInteger(
   value: unknown,
   fallback = 0
 ) {
   const number =
-    Number(value);
+    Number(
+      value
+    );
 
-  if (!Number.isFinite(number)) {
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
     return fallback;
   }
 
-  return Math.floor(number);
+  return Math.floor(
+    number
+  );
 }
 
 // ============================================================
@@ -323,9 +415,15 @@ function safeNumber(
   fallback = 0
 ) {
   const number =
-    Number(value);
+    Number(
+      value
+    );
 
-  if (!Number.isFinite(number)) {
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
     return fallback;
   }
 
@@ -333,23 +431,101 @@ function safeNumber(
 }
 
 // ============================================================
+// MONEY
+// ============================================================
 
 function formatMoney(
-  value: unknown
+  value: unknown,
+  currency = "GBP"
 ) {
-  return safeNumber(
-    value,
-    0
-  ).toLocaleString(
-    "en-GB",
-    {
-      style:
-        "currency",
+  try {
+    return safeNumber(
+      value,
+      0
+    ).toLocaleString(
+      "en-GB",
+      {
+        style:
+          "currency",
 
-      currency:
-        "GBP",
-    }
-  );
+        currency:
+          currency.toUpperCase(),
+      }
+    );
+  } catch {
+    return `£${safeNumber(
+      value,
+      0
+    ).toFixed(2)}`;
+  }
+}
+
+// ============================================================
+// EVENT CONNECTED ACCOUNT
+// ============================================================
+
+function getEventStripeAccountId(
+  event: Stripe.Event
+) {
+  const account =
+    event.account;
+
+  return typeof account ===
+    "string"
+    ? account
+    : null;
+}
+
+// ============================================================
+// PAYMENT INTENT ID
+// ============================================================
+
+function getPaymentIntentId(
+  session:
+    Stripe.Checkout.Session
+) {
+  if (
+    typeof session.payment_intent ===
+    "string"
+  ) {
+    return session.payment_intent;
+  }
+
+  if (
+    session.payment_intent &&
+    typeof session.payment_intent ===
+      "object"
+  ) {
+    return session.payment_intent.id;
+  }
+
+  return null;
+}
+
+// ============================================================
+// STRIPE CUSTOMER ID
+// ============================================================
+
+function getStripeCustomerId(
+  session:
+    Stripe.Checkout.Session
+) {
+  if (
+    typeof session.customer ===
+    "string"
+  ) {
+    return session.customer;
+  }
+
+  if (
+    session.customer &&
+    typeof session.customer ===
+      "object"
+  ) {
+    return session.customer.id;
+  }
+
+  return null;
 }
 
 // ============================================================
@@ -368,19 +544,23 @@ function getRawShippingDetails(
       | null
       | undefined;
 
-  if (collected) {
+  if (
+    collected
+  ) {
     return collected;
   }
 
   const legacySession =
-    session as Stripe.Checkout.Session & {
-      shipping_details?:
-        | ShippingDetailsLike
-        | null;
-    };
+    session as
+      Stripe.Checkout.Session & {
+        shipping_details?:
+          | ShippingDetailsLike
+          | null;
+      };
 
   return (
-    legacySession.shipping_details ??
+    legacySession
+      .shipping_details ??
     null
   );
 }
@@ -400,7 +580,9 @@ function getShippingAddress(
       session
     );
 
-  if (!shipping) {
+  if (
+    !shipping
+  ) {
     return null;
   }
 
@@ -413,19 +595,23 @@ function getShippingAddress(
       shipping.address
         ? {
             line1:
-              shipping.address.line1 ??
+              shipping.address
+                .line1 ??
               null,
 
             line2:
-              shipping.address.line2 ??
+              shipping.address
+                .line2 ??
               null,
 
             city:
-              shipping.address.city ??
+              shipping.address
+                .city ??
               null,
 
             state:
-              shipping.address.state ??
+              shipping.address
+                .state ??
               null,
 
             postal_code:
@@ -434,7 +620,8 @@ function getShippingAddress(
               null,
 
             country:
-              shipping.address.country ??
+              shipping.address
+                .country ??
               null,
           }
         : null,
@@ -454,7 +641,9 @@ function getShippingAddressText(
       session
     );
 
-  if (!shipping?.address) {
+  if (
+    !shipping?.address
+  ) {
     return null;
   }
 
@@ -467,22 +656,31 @@ function getShippingAddressText(
       shipping.address.postal_code,
       shipping.address.country,
     ]
-      .map((value) =>
-        asString(value)
+      .map(
+        (
+          value
+        ) =>
+          asString(
+            value
+          )
       )
       .filter(
         (
           value
         ): value is string =>
-          Boolean(value)
+          Boolean(
+            value
+          )
       )
-      .join(", ") ||
+      .join(
+        ", "
+      ) ||
     null
   );
 }
 
 // ============================================================
-// CUSTOMER DETAILS
+// CUSTOMER NAME
 // ============================================================
 
 function getCustomerName(
@@ -507,6 +705,8 @@ function getCustomerName(
 }
 
 // ============================================================
+// CUSTOMER EMAIL
+// ============================================================
 
 function getCustomerEmail(
   session:
@@ -521,6 +721,8 @@ function getCustomerEmail(
   );
 }
 
+// ============================================================
+// CUSTOMER PHONE
 // ============================================================
 
 function getCustomerPhone(
@@ -546,7 +748,9 @@ async function getOrder(
     error,
   } =
     await supabaseAdmin
-      .from("store_orders")
+      .from(
+        "store_orders"
+      )
       .select("*")
       .eq(
         "id",
@@ -554,7 +758,43 @@ async function getOrder(
       )
       .maybeSingle();
 
-  if (error) {
+  if (
+    error
+  ) {
+    throw error;
+  }
+
+  return data as
+    | StoreOrderRow
+    | null;
+}
+
+// ============================================================
+// GET ORDER BY PAYMENT INTENT
+// ============================================================
+
+async function getOrderByPaymentIntent(
+  paymentIntentId:
+    string
+) {
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "store_orders"
+      )
+      .select("*")
+      .eq(
+        "stripe_payment_intent_id",
+        paymentIntentId
+      )
+      .maybeSingle();
+
+  if (
+    error
+  ) {
     throw error;
   }
 
@@ -584,13 +824,204 @@ async function getOrderItems(
         orderId
       );
 
-  if (error) {
+  if (
+    error
+  ) {
     throw error;
   }
 
   return (
-    data || []
+    data ||
+    []
   ) as StoreOrderItemRow[];
+}
+
+// ============================================================
+// VERIFY CONNECTED ACCOUNT OWNS ORDER
+// ============================================================
+
+async function verifyOrderStripeAccount({
+  order,
+  eventStripeAccountId,
+}: {
+  order:
+    StoreOrderRow;
+
+  eventStripeAccountId:
+    string | null;
+}) {
+  const storedAccountId =
+    asString(
+      order
+        .stripe_account_id
+    );
+
+  if (
+    storedAccountId &&
+    eventStripeAccountId &&
+    storedAccountId !==
+      eventStripeAccountId
+  ) {
+    throw new Error(
+      `Stripe account mismatch for order ${order.order_number}.`
+    );
+  }
+
+  if (
+    eventStripeAccountId
+  ) {
+    const {
+      data:
+        connection,
+
+      error,
+    } =
+      await supabaseAdmin
+        .from(
+          "store_stripe_accounts"
+        )
+        .select(
+          "organisation_id, stripe_account_id"
+        )
+        .eq(
+          "organisation_id",
+          order.organisation_id
+        )
+        .eq(
+          "stripe_account_id",
+          eventStripeAccountId
+        )
+        .maybeSingle();
+
+    if (
+      error
+    ) {
+      throw error;
+    }
+
+    if (
+      !connection
+    ) {
+      throw new Error(
+        `Stripe account ${eventStripeAccountId} is not connected to organisation ${order.organisation_id}.`
+      );
+    }
+  }
+}
+
+// ============================================================
+// SAVE STRIPE REFERENCES
+// ============================================================
+
+async function saveStripeReferences({
+  order,
+  session,
+  eventStripeAccountId,
+}: {
+  order:
+    StoreOrderRow;
+
+  session:
+    Stripe.Checkout.Session;
+
+  eventStripeAccountId:
+    string | null;
+}) {
+  const paymentIntentId =
+    getPaymentIntentId(
+      session
+    );
+
+  const stripeCustomerId =
+    getStripeCustomerId(
+      session
+    );
+
+  const accountId =
+    eventStripeAccountId ||
+    asString(
+      session
+        .metadata
+        ?.stripe_account_id
+    ) ||
+    asString(
+      order
+        .stripe_account_id
+    );
+
+  const currency =
+    asString(
+      session.currency
+    )?.toLowerCase() ||
+    asString(
+      order.currency
+    )?.toLowerCase() ||
+    "gbp";
+
+  const payload: Record<
+    string,
+    unknown
+  > = {
+    stripe_checkout_session_id:
+      session.id,
+
+    currency,
+
+    updated_at:
+      new Date()
+        .toISOString(),
+  };
+
+  if (
+    accountId
+  ) {
+    payload.stripe_account_id =
+      accountId;
+  }
+
+  if (
+    paymentIntentId
+  ) {
+    payload.stripe_payment_intent_id =
+      paymentIntentId;
+  }
+
+  if (
+    stripeCustomerId
+  ) {
+    payload.stripe_customer_id =
+      stripeCustomerId;
+  }
+
+  const {
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "store_orders"
+      )
+      .update(
+        payload
+      )
+      .eq(
+        "id",
+        order.id
+      )
+      .eq(
+        "organisation_id",
+        order.organisation_id
+      );
+
+  if (
+    error
+  ) {
+    console.error(
+      `[TOTS STORE] Failed to save Stripe references for ${order.order_number}:`,
+      error
+    );
+
+    throw error;
+  }
 }
 
 // ============================================================
@@ -598,7 +1029,8 @@ async function getOrderItems(
 // ============================================================
 
 async function getOrganisationNotificationRecipients(
-  organisationId: string
+  organisationId:
+    string
 ) {
   const recipientIds =
     new Set<string>();
@@ -716,13 +1148,6 @@ async function getOrganisationNotificationRecipients(
 
 // ============================================================
 // CREATE ORDER NOTIFICATIONS
-//
-// Creates notification rows consumed by useNotifications().
-//
-// IMPORTANT:
-// dedupe_key is UNIQUE PER USER so Stripe retries do not create
-// duplicate alerts and multiple organisation users can still
-// each receive their own notification.
 // ============================================================
 
 async function createOrderNotifications({
@@ -754,7 +1179,7 @@ async function createOrderNotifications({
       0
     ) {
       console.warn(
-        `[TOTS NOTIFICATIONS] No users found for organisation ${order.organisation_id}. Order notification skipped.`
+        `[TOTS NOTIFICATIONS] No users found for organisation ${order.organisation_id}.`
       );
 
       return;
@@ -767,7 +1192,9 @@ async function createOrderNotifications({
 
     const money =
       formatMoney(
-        total
+        total,
+        order.currency ||
+          "GBP"
       );
 
     const message =
@@ -780,20 +1207,12 @@ async function createOrderNotifications({
     let createdCount =
       0;
 
-    // ========================================================
-    // CREATE ONE NOTIFICATION PER USER
-    // ========================================================
-
     for (
       const userId of
       recipients
     ) {
       const dedupeKey =
         `store-order-paid:${order.id}:${userId}`;
-
-      // ======================================================
-      // CHECK IF THIS USER ALREADY HAS THE NOTIFICATION
-      // ======================================================
 
       const {
         data:
@@ -837,16 +1256,8 @@ async function createOrderNotifications({
       if (
         existingNotification
       ) {
-        console.log(
-          `[TOTS NOTIFICATIONS] User ${userId} already notified about ${order.order_number}.`
-        );
-
         continue;
       }
-
-      // ======================================================
-      // INSERT
-      // ======================================================
 
       const {
         error:
@@ -918,6 +1329,10 @@ async function createOrderNotifications({
 
               fulfilment_status:
                 order.fulfilment_status,
+
+              stripe_account_id:
+                order.stripe_account_id ||
+                null,
             },
 
             created_at:
@@ -943,21 +1358,205 @@ async function createOrderNotifications({
     }
 
     console.log(
-      `[TOTS NOTIFICATIONS] Created ${createdCount} notification(s) for order ${order.order_number}.`
+      `[TOTS NOTIFICATIONS] Created ${createdCount} order notification(s) for ${order.order_number}.`
     );
   } catch (
     notificationError
   ) {
     /*
-     * Notification failures are intentionally non-fatal.
-     *
-     * We do not want Stripe retrying a successful payment
-     * because a notification could not be inserted.
+     * Notification failures must not make Stripe retry a
+     * successfully-processed payment.
      */
 
     console.error(
-      `[TOTS NOTIFICATIONS] Unable to notify organisation about order ${order.order_number}:`,
+      `[TOTS NOTIFICATIONS] Unable to notify organisation about ${order.order_number}:`,
       notificationError
+    );
+  }
+}
+
+// ============================================================
+// CREATE REFUND NOTIFICATIONS
+// ============================================================
+
+async function createRefundNotifications({
+  order,
+  refundId,
+  amount,
+}: {
+  order:
+    StoreOrderRow;
+
+  refundId:
+    string;
+
+  amount:
+    number;
+}) {
+  try {
+    const recipients =
+      await getOrganisationNotificationRecipients(
+        order.organisation_id
+      );
+
+    if (
+      recipients.length ===
+      0
+    ) {
+      return;
+    }
+
+    const money =
+      formatMoney(
+        amount,
+        order.currency ||
+          "GBP"
+      );
+
+    const message =
+      `${money} was refunded from order ${order.order_number}.`;
+
+    const now =
+      new Date()
+        .toISOString();
+
+    for (
+      const userId of
+      recipients
+    ) {
+      const dedupeKey =
+        `store-refund:${refundId}:${userId}`;
+
+      const {
+        data:
+          existing,
+
+        error:
+          lookupError,
+      } =
+        await supabaseAdmin
+          .from(
+            "notifications"
+          )
+          .select(
+            "id"
+          )
+          .eq(
+            "user_id",
+            userId
+          )
+          .eq(
+            "dedupe_key",
+            dedupeKey
+          )
+          .maybeSingle();
+
+      if (
+        lookupError
+      ) {
+        console.error(
+          "[TOTS NOTIFICATIONS] Refund duplicate lookup failed:",
+          lookupError
+        );
+
+        continue;
+      }
+
+      if (
+        existing
+      ) {
+        continue;
+      }
+
+      const {
+        error,
+      } =
+        await supabaseAdmin
+          .from(
+            "notifications"
+          )
+          .insert({
+            user_id:
+              userId,
+
+            organisation_id:
+              order.organisation_id,
+
+            type:
+              "order",
+
+            title:
+              "Store refund processed",
+
+            message,
+
+            content:
+              message,
+
+            link:
+              "/store",
+
+            href:
+              "/store",
+
+            entity_type:
+              "store_order",
+
+            entity_id:
+              order.id,
+
+            is_read:
+              false,
+
+            read:
+              false,
+
+            read_at:
+              null,
+
+            dedupe_key:
+              dedupeKey,
+
+            metadata: {
+              order_id:
+                order.id,
+
+              order_number:
+                order.order_number,
+
+              refund_id:
+                refundId,
+
+              refund_amount:
+                amount,
+
+              stripe_account_id:
+                order.stripe_account_id ||
+                null,
+            },
+
+            created_at:
+              now,
+
+            updated_at:
+              now,
+          });
+
+      if (
+        error
+      ) {
+        console.error(
+          "[TOTS NOTIFICATIONS] Refund notification failed:",
+          error
+        );
+      }
+    }
+  } catch (
+    error
+  ) {
+    console.error(
+      "[TOTS NOTIFICATIONS] Refund notification error:",
+      error
     );
   }
 }
@@ -1037,7 +1636,9 @@ async function findCustomerByEmail({
         "email",
         email
       )
-      .limit(1)
+      .limit(
+        1
+      )
       .maybeSingle();
 
   if (
@@ -1117,11 +1718,15 @@ async function createCustomer({
         client_type:
           "store_customer",
 
+        /*
+         * Purchasing from a store does not automatically mean
+         * the customer consented to marketing.
+         */
         on_mailing_list:
-          true,
+          false,
 
         mailing_list_category:
-          "Customers",
+          null,
 
         updated_at:
           new Date()
@@ -1142,11 +1747,7 @@ async function createCustomer({
   }
 
   console.log(
-    `[TOTS CRM] Created customer ${data.id} for ${
-      email ||
-      name ||
-      "store customer"
-    }.`
+    `[TOTS CRM] Created customer ${data.id}.`
   );
 
   return data as
@@ -1353,10 +1954,6 @@ async function findOrCreateCustomer({
     if (
       customer
     ) {
-      console.log(
-        `[TOTS CRM] Existing customer matched by email: ${email}`
-      );
-
       return updateCustomerDetails({
         customer,
 
@@ -1413,17 +2010,14 @@ async function findContactByCustomerId({
         "customer_id",
         customerId
       )
-      .limit(1)
+      .limit(
+        1
+      )
       .maybeSingle();
 
   if (
     error
   ) {
-    console.error(
-      "[TOTS CRM] Contact customer_id lookup failed:",
-      error
-    );
-
     throw error;
   }
 
@@ -1463,17 +2057,14 @@ async function findContactByEmail({
         "email",
         email
       )
-      .limit(1)
+      .limit(
+        1
+      )
       .maybeSingle();
 
   if (
     error
   ) {
-    console.error(
-      "[TOTS CRM] Contact email lookup failed:",
-      error
-    );
-
     throw error;
   }
 
@@ -1596,11 +2187,6 @@ async function updateCrmContact({
   if (
     error
   ) {
-    console.error(
-      "[TOTS CRM] Contact update failed:",
-      error
-    );
-
     throw error;
   }
 
@@ -1680,17 +2266,8 @@ async function createCrmContact({
   if (
     error
   ) {
-    console.error(
-      "[TOTS CRM] Contact creation failed:",
-      error
-    );
-
     throw error;
   }
-
-  console.log(
-    `[TOTS CRM] Created CRM contact ${data.id} linked to customer ${customerId}.`
-  );
 
   return data as
     CrmContactRow;
@@ -1769,10 +2346,6 @@ async function findOrCreateCrmContact({
     if (
       emailContact
     ) {
-      console.log(
-        `[TOTS CRM] Existing CRM contact matched by email: ${email}`
-      );
-
       return updateCrmContact({
         contact:
           emailContact,
@@ -1846,17 +2419,8 @@ async function linkOrderToCustomer({
   if (
     error
   ) {
-    console.error(
-      `[TOTS CRM] Order/customer link failed for ${order.order_number}:`,
-      error
-    );
-
     throw error;
   }
-
-  console.log(
-    `[TOTS CRM] Order ${order.order_number} linked to customer ${customerId}.`
-  );
 }
 
 // ============================================================
@@ -1890,7 +2454,7 @@ async function syncOrderToCrm({
     !customerName
   ) {
     console.warn(
-      `[TOTS CRM] Order ${order.order_number} has no customer name or email. CRM sync skipped.`
+      `[TOTS CRM] ${order.order_number} has no customer identity.`
     );
 
     return null;
@@ -1940,13 +2504,116 @@ async function syncOrderToCrm({
     });
 
   console.log(
-    `[TOTS CRM] Store order ${order.order_number} synced. Customer: ${customer.id}. Contact: ${contact.id}.`
+    `[TOTS CRM] ${order.order_number} synced to customer ${customer.id}.`
   );
 
   return {
     customer,
     contact,
   };
+}
+
+// ============================================================
+// CLAIM PAYMENT FOR PROCESSING
+//
+// This stops two simultaneous Stripe webhook deliveries from
+// both reducing inventory.
+//
+// pending -> processing
+// ============================================================
+
+async function claimOrderForPaymentProcessing(
+  order:
+    StoreOrderRow
+) {
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "store_orders"
+      )
+      .update({
+        payment_status:
+          "processing",
+
+        updated_at:
+          new Date()
+            .toISOString(),
+      })
+      .eq(
+        "id",
+        order.id
+      )
+      .eq(
+        "organisation_id",
+        order.organisation_id
+      )
+      .eq(
+        "payment_status",
+        "pending"
+      )
+      .select(
+        "id"
+      )
+      .maybeSingle();
+
+  if (
+    error
+  ) {
+    throw error;
+  }
+
+  return Boolean(
+    data
+  );
+}
+
+// ============================================================
+// RELEASE PROCESSING CLAIM
+// ============================================================
+
+async function releasePaymentProcessingClaim(
+  order:
+    StoreOrderRow
+) {
+  const {
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "store_orders"
+      )
+      .update({
+        payment_status:
+          "pending",
+
+        updated_at:
+          new Date()
+            .toISOString(),
+      })
+      .eq(
+        "id",
+        order.id
+      )
+      .eq(
+        "organisation_id",
+        order.organisation_id
+      )
+      .eq(
+        "payment_status",
+        "processing"
+      );
+
+  if (
+    error
+  ) {
+    console.error(
+      `[TOTS STORE] Could not release processing state for ${order.order_number}:`,
+      error
+    );
+  }
 }
 
 // ============================================================
@@ -2008,11 +2675,6 @@ async function reduceOrderStock(
     if (
       productError
     ) {
-      console.error(
-        `Could not load product ${item.product_id} for stock adjustment:`,
-        productError
-      );
-
       throw productError;
     }
 
@@ -2020,7 +2682,7 @@ async function reduceOrderStock(
       !productData
     ) {
       console.warn(
-        `Product ${item.product_id} no longer exists.`
+        `[TOTS STORE] Product ${item.product_id} no longer exists.`
       );
 
       continue;
@@ -2034,10 +2696,6 @@ async function reduceOrderStock(
       product.track_inventory ===
       false
     ) {
-      console.log(
-        `Skipping stock reduction for ${product.name} because inventory tracking is disabled.`
-      );
-
       continue;
     }
 
@@ -2120,34 +2778,142 @@ async function reduceOrderStock(
     if (
       updateError
     ) {
-      console.error(
-        `Stock reduction failed for ${product.name}:`,
-        updateError
-      );
-
       throw updateError;
     }
 
     console.log(
-      `[TOTS STORE] Reduced ${product.name} inventory by ${quantityPurchased}. New inventory: ${newInventory}.`
+      `[TOTS STORE] Reduced ${product.name} by ${quantityPurchased}. Inventory now ${newInventory}.`
     );
   }
 }
 
 // ============================================================
-// MARK ORDER PAID
+// INCREMENT DISCOUNT USAGE
 // ============================================================
 
-async function markOrderPaid({
+async function incrementDiscountUsage({
+  session,
+  organisationId,
+}: {
+  session:
+    Stripe.Checkout.Session;
+
+  organisationId:
+    string;
+}) {
+  const discountId =
+    asString(
+      session
+        .metadata
+        ?.discount_id
+    );
+
+  if (
+    !discountId
+  ) {
+    return;
+  }
+
+  const {
+    data:
+      discount,
+
+    error:
+      lookupError,
+  } =
+    await supabaseAdmin
+      .from(
+        "store_discounts"
+      )
+      .select(
+        "id, times_used"
+      )
+      .eq(
+        "id",
+        discountId
+      )
+      .eq(
+        "organisation_id",
+        organisationId
+      )
+      .maybeSingle();
+
+  if (
+    lookupError
+  ) {
+    throw lookupError;
+  }
+
+  if (
+    !discount
+  ) {
+    console.warn(
+      `[TOTS STORE] Discount ${discountId} no longer exists.`
+    );
+
+    return;
+  }
+
+  const timesUsed =
+    Math.max(
+      0,
+      safeInteger(
+        discount.times_used,
+        0
+      )
+    );
+
+  const {
+    error:
+      updateError,
+  } =
+    await supabaseAdmin
+      .from(
+        "store_discounts"
+      )
+      .update({
+        times_used:
+          timesUsed + 1,
+
+        updated_at:
+          new Date()
+            .toISOString(),
+      })
+      .eq(
+        "id",
+        discountId
+      )
+      .eq(
+        "organisation_id",
+        organisationId
+      );
+
+  if (
+    updateError
+  ) {
+    throw updateError;
+  }
+}
+
+// ============================================================
+// FINALISE PAID ORDER
+// ============================================================
+
+async function finaliseOrderPaid({
   order,
+  session,
   customerName,
   customerEmail,
   customerPhone,
   shippingAddress,
   stripeTotal,
+  eventStripeAccountId,
 }: {
   order:
     StoreOrderRow;
+
+  session:
+    Stripe.Checkout.Session;
 
   customerName:
     string | null;
@@ -2164,7 +2930,36 @@ async function markOrderPaid({
 
   stripeTotal:
     number;
+
+  eventStripeAccountId:
+    string | null;
 }) {
+  const paymentIntentId =
+    getPaymentIntentId(
+      session
+    );
+
+  const stripeCustomerId =
+    getStripeCustomerId(
+      session
+    );
+
+  const accountId =
+    eventStripeAccountId ||
+    asString(
+      session
+        .metadata
+        ?.stripe_account_id
+    ) ||
+    asString(
+      order
+        .stripe_account_id
+    );
+
+  const now =
+    new Date()
+      .toISOString();
+
   const {
     data,
     error,
@@ -2189,6 +2984,13 @@ async function markOrderPaid({
         total:
           stripeTotal,
 
+        currency:
+          (
+            session.currency ||
+            order.currency ||
+            "gbp"
+          ).toLowerCase(),
+
         payment_status:
           "paid",
 
@@ -2196,9 +2998,26 @@ async function markOrderPaid({
           order.fulfilment_status ||
           "new",
 
+        stripe_account_id:
+          accountId,
+
+        stripe_checkout_session_id:
+          session.id,
+
+        stripe_payment_intent_id:
+          paymentIntentId,
+
+        stripe_customer_id:
+          stripeCustomerId,
+
+        checkout_completed_at:
+          now,
+
+        paid_at:
+          now,
+
         updated_at:
-          new Date()
-            .toISOString(),
+          now,
       })
       .eq(
         "id",
@@ -2208,9 +3027,9 @@ async function markOrderPaid({
         "organisation_id",
         order.organisation_id
       )
-      .neq(
+      .eq(
         "payment_status",
-        "paid"
+        "processing"
       )
       .select(
         "id"
@@ -2223,19 +3042,29 @@ async function markOrderPaid({
     throw error;
   }
 
-  return Boolean(
-    data
-  );
+  if (
+    !data
+  ) {
+    throw new Error(
+      `Order ${order.order_number} could not be finalised as paid.`
+    );
+  }
 }
 
 // ============================================================
 // COMPLETE ORDER
 // ============================================================
 
-async function completeStoreOrder(
+async function completeStoreOrder({
+  session,
+  eventStripeAccountId,
+}: {
   session:
-    Stripe.Checkout.Session
-) {
+    Stripe.Checkout.Session;
+
+  eventStripeAccountId:
+    string | null;
+}) {
   // ==========================================================
   // ORDER ID
   // ==========================================================
@@ -2251,18 +3080,17 @@ async function completeStoreOrder(
     !orderId
   ) {
     console.warn(
-      "[TOTS STORE] Stripe Checkout session has no order_id metadata:",
-      session.id
+      `[TOTS STORE] Checkout ${session.id} has no order_id metadata.`
     );
 
     return;
   }
 
   // ==========================================================
-  // LOAD ORDER
+  // ORDER
   // ==========================================================
 
-  const order =
+  let order =
     await getOrder(
       orderId
     );
@@ -2279,7 +3107,62 @@ async function completeStoreOrder(
   }
 
   // ==========================================================
-  // CUSTOMER DATA
+  // ORGANISATION METADATA
+  // ==========================================================
+
+  const metadataOrganisationId =
+    asString(
+      session
+        .metadata
+        ?.organisation_id
+    );
+
+  if (
+    metadataOrganisationId &&
+    metadataOrganisationId !==
+      order.organisation_id
+  ) {
+    throw new Error(
+      `Organisation mismatch for order ${order.order_number}.`
+    );
+  }
+
+  // ==========================================================
+  // CONNECTED ACCOUNT
+  // ==========================================================
+
+  await verifyOrderStripeAccount({
+    order,
+
+    eventStripeAccountId,
+  });
+
+  // ==========================================================
+  // SAVE REFERENCES
+  // ==========================================================
+
+  await saveStripeReferences({
+    order,
+
+    session,
+
+    eventStripeAccountId,
+  });
+
+  // ==========================================================
+  // RELOAD AFTER REFERENCE UPDATE
+  // ==========================================================
+
+  order =
+    (
+      await getOrder(
+        order.id
+      )
+    ) ||
+    order;
+
+  // ==========================================================
+  // CUSTOMER
   // ==========================================================
 
   const customerName =
@@ -2314,7 +3197,7 @@ async function completeStoreOrder(
     );
 
   // ==========================================================
-  // STRIPE TOTAL
+  // TOTAL
   // ==========================================================
 
   const stripeTotal =
@@ -2330,8 +3213,7 @@ async function completeStoreOrder(
   // ==========================================================
   // ALREADY PAID
   //
-  // Stripe can retry webhooks. If the order is already paid,
-  // we skip stock but still repair missing CRM / notifications.
+  // Repair CRM / notification state without touching inventory.
   // ==========================================================
 
   if (
@@ -2339,7 +3221,7 @@ async function completeStoreOrder(
     "paid"
   ) {
     console.log(
-      `[TOTS STORE] Order ${order.order_number} already paid. Inventory reduction skipped.`
+      `[TOTS STORE] ${order.order_number} already paid.`
     );
 
     try {
@@ -2358,7 +3240,7 @@ async function completeStoreOrder(
       crmError
     ) {
       console.error(
-        `[TOTS CRM] Existing paid order sync failed for ${order.order_number}:`,
+        `[TOTS CRM] Repair failed for ${order.order_number}:`,
         crmError
       );
     }
@@ -2381,7 +3263,7 @@ async function completeStoreOrder(
   }
 
   // ==========================================================
-  // PAYMENT MUST BE PAID
+  // PAYMENT MUST ACTUALLY BE PAID
   // ==========================================================
 
   if (
@@ -2389,8 +3271,66 @@ async function completeStoreOrder(
     "paid"
   ) {
     console.log(
-      `[TOTS STORE] Checkout ${session.id} completed with payment status ${session.payment_status}.`
+      `[TOTS STORE] ${session.id} completed with payment_status=${session.payment_status}.`
     );
+
+    return;
+  }
+
+  // ==========================================================
+  // PROCESSING STATE
+  //
+  // Another webhook delivery may currently be processing this
+  // exact order.
+  // ==========================================================
+
+  if (
+    order.payment_status ===
+    "processing"
+  ) {
+    console.log(
+      `[TOTS STORE] ${order.order_number} is already being processed.`
+    );
+
+    return;
+  }
+
+  // ==========================================================
+  // CLAIM ORDER
+  // ==========================================================
+
+  const claimed =
+    await claimOrderForPaymentProcessing(
+      order
+    );
+
+  if (
+    !claimed
+  ) {
+    const latest =
+      await getOrder(
+        order.id
+      );
+
+    if (
+      latest?.payment_status ===
+      "paid"
+    ) {
+      await createOrderNotifications({
+        order:
+          latest,
+
+        customerName,
+
+        customerEmail,
+
+        total:
+          safeNumber(
+            latest.total,
+            stripeTotal
+          ),
+      });
+    }
 
     return;
   }
@@ -2399,17 +3339,62 @@ async function completeStoreOrder(
   // INVENTORY
   // ==========================================================
 
-  await reduceOrderStock(
-    order
-  );
+  try {
+    await reduceOrderStock(
+      order
+    );
+  } catch (
+    inventoryError
+  ) {
+    console.error(
+      `[TOTS STORE] Inventory failed for ${order.order_number}:`,
+      inventoryError
+    );
+
+    /*
+     * Release processing so Stripe can retry this event.
+     */
+    await releasePaymentProcessingClaim(
+      order
+    );
+
+    throw inventoryError;
+  }
 
   // ==========================================================
-  // MARK ORDER PAID
+  // DISCOUNT USAGE
   // ==========================================================
 
-  const markedPaid =
-    await markOrderPaid({
+  try {
+    await incrementDiscountUsage({
+      session,
+
+      organisationId:
+        order.organisation_id,
+    });
+  } catch (
+    discountError
+  ) {
+    /*
+     * Do not fail a paid order because discount analytics
+     * couldn't increment.
+     */
+
+    console.error(
+      `[TOTS STORE] Discount usage update failed for ${order.order_number}:`,
+      discountError
+    );
+  }
+
+  // ==========================================================
+  // FINALISE ORDER
+  // ==========================================================
+
+  try {
+    await finaliseOrderPaid({
       order,
+
+      session,
 
       customerName,
 
@@ -2420,49 +3405,35 @@ async function completeStoreOrder(
       shippingAddress,
 
       stripeTotal,
-    });
 
-  if (
-    !markedPaid
+      eventStripeAccountId,
+    });
+  } catch (
+    finaliseError
   ) {
-    console.log(
-      `[TOTS STORE] Order ${order.order_number} was already processed by another webhook execution.`
+    /*
+     * Do NOT reset to pending here.
+     *
+     * Stock has already been reduced.
+     *
+     * Resetting and retrying the whole operation would risk
+     * reducing stock twice.
+     */
+
+    console.error(
+      `[TOTS STORE] Final paid status failed for ${order.order_number}:`,
+      finaliseError
     );
 
-    const latestOrder =
-      await getOrder(
-        order.id
-      );
-
-    if (
-      latestOrder?.payment_status ===
-      "paid"
-    ) {
-      await createOrderNotifications({
-        order:
-          latestOrder,
-
-        customerName,
-
-        customerEmail,
-
-        total:
-          safeNumber(
-            latestOrder.total,
-            stripeTotal
-          ),
-      });
-    }
-
-    return;
+    throw finaliseError;
   }
 
   console.log(
-    `[TOTS STORE] Order ${order.order_number} marked paid.`
+    `[TOTS STORE] ${order.order_number} marked paid.`
   );
 
   // ==========================================================
-  // RELOAD UPDATED ORDER
+  // UPDATED ORDER
   // ==========================================================
 
   const updatedOrder =
@@ -2477,7 +3448,7 @@ async function completeStoreOrder(
   }
 
   // ==========================================================
-  // CRM SYNC
+  // CRM
   // ==========================================================
 
   try {
@@ -2496,14 +3467,18 @@ async function completeStoreOrder(
   } catch (
     crmError
   ) {
+    /*
+     * CRM sync is deliberately non-fatal.
+     */
+
     console.error(
-      `[TOTS CRM] CRM sync failed for paid order ${updatedOrder.order_number}:`,
+      `[TOTS CRM] CRM sync failed for ${updatedOrder.order_number}:`,
       crmError
     );
   }
 
   // ==========================================================
-  // CREATE IN-APP NOTIFICATION
+  // NOTIFICATION
   // ==========================================================
 
   await createOrderNotifications({
@@ -2526,10 +3501,16 @@ async function completeStoreOrder(
 // ASYNC PAYMENT FAILURE
 // ============================================================
 
-async function markOrderPaymentFailed(
+async function markOrderPaymentFailed({
+  session,
+  eventStripeAccountId,
+}: {
   session:
-    Stripe.Checkout.Session
-) {
+    Stripe.Checkout.Session;
+
+  eventStripeAccountId:
+    string | null;
+}) {
   const orderId =
     asString(
       session
@@ -2543,6 +3524,23 @@ async function markOrderPaymentFailed(
     return;
   }
 
+  const order =
+    await getOrder(
+      orderId
+    );
+
+  if (
+    !order
+  ) {
+    return;
+  }
+
+  await verifyOrderStripeAccount({
+    order,
+
+    eventStripeAccountId,
+  });
+
   const {
     error,
   } =
@@ -2554,6 +3552,24 @@ async function markOrderPaymentFailed(
         payment_status:
           "pending",
 
+        stripe_checkout_session_id:
+          session.id,
+
+        stripe_payment_intent_id:
+          getPaymentIntentId(
+            session
+          ),
+
+        stripe_customer_id:
+          getStripeCustomerId(
+            session
+          ),
+
+        stripe_account_id:
+          eventStripeAccountId ||
+          order.stripe_account_id ||
+          null,
+
         updated_at:
           new Date()
             .toISOString(),
@@ -2561,6 +3577,10 @@ async function markOrderPaymentFailed(
       .eq(
         "id",
         orderId
+      )
+      .eq(
+        "organisation_id",
+        order.organisation_id
       )
       .neq(
         "payment_status",
@@ -2574,7 +3594,7 @@ async function markOrderPaymentFailed(
   }
 
   console.log(
-    `[TOTS STORE] Order ${orderId} async payment failed.`
+    `[TOTS STORE] ${order.order_number} async payment failed.`
   );
 }
 
@@ -2582,10 +3602,16 @@ async function markOrderPaymentFailed(
 // PAYMENT INTENT CANCELLED
 // ============================================================
 
-async function handlePaymentIntentCancelled(
+async function handlePaymentIntentCancelled({
+  paymentIntent,
+  eventStripeAccountId,
+}: {
   paymentIntent:
-    Stripe.PaymentIntent
-) {
+    Stripe.PaymentIntent;
+
+  eventStripeAccountId:
+    string | null;
+}) {
   const orderId =
     asString(
       paymentIntent
@@ -2599,6 +3625,23 @@ async function handlePaymentIntentCancelled(
     return;
   }
 
+  const order =
+    await getOrder(
+      orderId
+    );
+
+  if (
+    !order
+  ) {
+    return;
+  }
+
+  await verifyOrderStripeAccount({
+    order,
+
+    eventStripeAccountId,
+  });
+
   const {
     error,
   } =
@@ -2610,6 +3653,14 @@ async function handlePaymentIntentCancelled(
         payment_status:
           "pending",
 
+        stripe_payment_intent_id:
+          paymentIntent.id,
+
+        stripe_account_id:
+          eventStripeAccountId ||
+          order.stripe_account_id ||
+          null,
+
         updated_at:
           new Date()
             .toISOString(),
@@ -2617,6 +3668,10 @@ async function handlePaymentIntentCancelled(
       .eq(
         "id",
         orderId
+      )
+      .eq(
+        "organisation_id",
+        order.organisation_id
       )
       .neq(
         "payment_status",
@@ -2630,8 +3685,239 @@ async function handlePaymentIntentCancelled(
   }
 
   console.log(
-    `[TOTS STORE] PaymentIntent cancelled for order ${orderId}.`
+    `[TOTS STORE] PaymentIntent ${paymentIntent.id} cancelled for ${order.order_number}.`
   );
+}
+
+// ============================================================
+// SYNC REFUND STATUS FROM CHARGE
+// ============================================================
+
+async function syncChargeRefundStatus({
+  charge,
+  eventStripeAccountId,
+}: {
+  charge:
+    Stripe.Charge;
+
+  eventStripeAccountId:
+    string | null;
+}) {
+  const paymentIntentId =
+    typeof charge.payment_intent ===
+    "string"
+      ? charge.payment_intent
+      : charge.payment_intent?.id ||
+        null;
+
+  let orderId =
+    asString(
+      charge
+        .metadata
+        ?.order_id
+    );
+
+  let order:
+    | StoreOrderRow
+    | null =
+    null;
+
+  if (
+    orderId
+  ) {
+    order =
+      await getOrder(
+        orderId
+      );
+  }
+
+  if (
+    !order &&
+    paymentIntentId
+  ) {
+    order =
+      await getOrderByPaymentIntent(
+        paymentIntentId
+      );
+  }
+
+  if (
+    !order
+  ) {
+    console.warn(
+      `[TOTS STORE] Could not find order for refunded charge ${charge.id}.`
+    );
+
+    return;
+  }
+
+  await verifyOrderStripeAccount({
+    order,
+
+    eventStripeAccountId,
+  });
+
+  const amountRefunded =
+    safeNumber(
+      charge.amount_refunded,
+      0
+    );
+
+  const originalAmount =
+    safeNumber(
+      charge.amount,
+      0
+    );
+
+  const fullyRefunded =
+    charge.refunded ===
+      true ||
+    (
+      originalAmount >
+        0 &&
+      amountRefunded >=
+        originalAmount
+    );
+
+  const paymentStatus =
+    fullyRefunded
+      ? "refunded"
+      : "partially_refunded";
+
+  const {
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "store_orders"
+      )
+      .update({
+        payment_status:
+          paymentStatus,
+
+        stripe_payment_intent_id:
+          paymentIntentId ||
+          order.stripe_payment_intent_id ||
+          null,
+
+        stripe_account_id:
+          eventStripeAccountId ||
+          order.stripe_account_id ||
+          null,
+
+        updated_at:
+          new Date()
+            .toISOString(),
+      })
+      .eq(
+        "id",
+        order.id
+      )
+      .eq(
+        "organisation_id",
+        order.organisation_id
+      );
+
+  if (
+    error
+  ) {
+    throw error;
+  }
+
+  console.log(
+    `[TOTS STORE] ${order.order_number} marked ${paymentStatus}.`
+  );
+}
+
+// ============================================================
+// REFUND CREATED
+//
+// This gives us the amount of THIS refund rather than the
+// cumulative refunded amount on charge.refunded.
+// ============================================================
+
+async function handleRefundCreated({
+  refund,
+  eventStripeAccountId,
+}: {
+  refund:
+    Stripe.Refund;
+
+  eventStripeAccountId:
+    string | null;
+}) {
+  const paymentIntentId =
+    typeof refund.payment_intent ===
+    "string"
+      ? refund.payment_intent
+      : refund.payment_intent?.id ||
+        null;
+
+  const metadataOrderId =
+    asString(
+      refund
+        .metadata
+        ?.order_id
+    );
+
+  let order:
+    | StoreOrderRow
+    | null =
+    null;
+
+  if (
+    metadataOrderId
+  ) {
+    order =
+      await getOrder(
+        metadataOrderId
+      );
+  }
+
+  if (
+    !order &&
+    paymentIntentId
+  ) {
+    order =
+      await getOrderByPaymentIntent(
+        paymentIntentId
+      );
+  }
+
+  if (
+    !order
+  ) {
+    console.warn(
+      `[TOTS STORE] Could not identify order for refund ${refund.id}.`
+    );
+
+    return;
+  }
+
+  await verifyOrderStripeAccount({
+    order,
+
+    eventStripeAccountId,
+  });
+
+  /*
+   * We use charge.refunded for authoritative full/partial
+   * status synchronisation.
+   *
+   * refund.created is ideal for notifying the business of the
+   * exact amount refunded.
+   */
+
+  await createRefundNotifications({
+    order,
+
+    refundId:
+      refund.id,
+
+    amount:
+      refund.amount /
+      100,
+  });
 }
 
 // ============================================================
@@ -2643,8 +3929,6 @@ export async function POST(
 ) {
   // ==========================================================
   // WEBHOOK SECRET
-  //
-  // Keep inside POST() to prevent local next build failures.
   // ==========================================================
 
   const stripeWebhookSecret =
@@ -2677,7 +3961,7 @@ export async function POST(
   }
 
   // ==========================================================
-  // STRIPE SIGNATURE
+  // SIGNATURE
   // ==========================================================
 
   const signature =
@@ -2689,7 +3973,7 @@ export async function POST(
     !signature
   ) {
     console.error(
-      "[TOTS STORE WEBHOOK] Missing stripe-signature header."
+      "[TOTS STORE WEBHOOK] Missing stripe-signature."
     );
 
     return NextResponse.json(
@@ -2712,8 +3996,7 @@ export async function POST(
   // ==========================================================
   // RAW BODY
   //
-  // Do not use req.json().
-  // Stripe requires the unmodified body for signature checks.
+  // Stripe signature validation requires the untouched body.
   // ==========================================================
 
   let body:
@@ -2727,7 +4010,7 @@ export async function POST(
       unknown
   ) {
     console.error(
-      "[TOTS STORE WEBHOOK] Could not read request body:",
+      "[TOTS STORE WEBHOOK] Could not read body:",
       error
     );
 
@@ -2749,7 +4032,7 @@ export async function POST(
   }
 
   // ==========================================================
-  // VERIFY STRIPE EVENT
+  // VERIFY WEBHOOK
   // ==========================================================
 
   let event:
@@ -2775,7 +4058,7 @@ export async function POST(
       {
         error:
           error instanceof
-          Error
+            Error
             ? `Webhook signature verification failed: ${error.message}`
             : "Invalid webhook signature.",
       },
@@ -2791,12 +4074,26 @@ export async function POST(
     );
   }
 
+  // ==========================================================
+  // CONNECTED STRIPE ACCOUNT
+  //
+  // For connected-account events Stripe supplies event.account.
+  // ==========================================================
+
+  const eventStripeAccountId =
+    getEventStripeAccountId(
+      event
+    );
+
   console.log(
-    `[TOTS STORE WEBHOOK] Received ${event.type} (${event.id})`
+    `[TOTS STORE WEBHOOK] ${event.type} (${event.id}) account=${
+      eventStripeAccountId ||
+      "platform"
+    }`
   );
 
   // ==========================================================
-  // HANDLE EVENT
+  // PROCESS EVENT
   // ==========================================================
 
   try {
@@ -2812,15 +4109,17 @@ export async function POST(
           event.data.object as
             Stripe.Checkout.Session;
 
-        await completeStoreOrder(
-          session
-        );
+        await completeStoreOrder({
+          session,
+
+          eventStripeAccountId,
+        });
 
         break;
       }
 
       // ======================================================
-      // ASYNC PAYMENT SUCCESS
+      // ASYNC PAYMENT SUCCEEDED
       // ======================================================
 
       case "checkout.session.async_payment_succeeded": {
@@ -2828,15 +4127,17 @@ export async function POST(
           event.data.object as
             Stripe.Checkout.Session;
 
-        await completeStoreOrder(
-          session
-        );
+        await completeStoreOrder({
+          session,
+
+          eventStripeAccountId,
+        });
 
         break;
       }
 
       // ======================================================
-      // ASYNC PAYMENT FAILURE
+      // ASYNC PAYMENT FAILED
       // ======================================================
 
       case "checkout.session.async_payment_failed": {
@@ -2844,9 +4145,11 @@ export async function POST(
           event.data.object as
             Stripe.Checkout.Session;
 
-        await markOrderPaymentFailed(
-          session
-        );
+        await markOrderPaymentFailed({
+          session,
+
+          eventStripeAccountId,
+        });
 
         break;
       }
@@ -2860,20 +4163,61 @@ export async function POST(
           event.data.object as
             Stripe.PaymentIntent;
 
-        await handlePaymentIntentCancelled(
-          paymentIntent
-        );
+        await handlePaymentIntentCancelled({
+          paymentIntent,
+
+          eventStripeAccountId,
+        });
 
         break;
       }
 
       // ======================================================
-      // OTHER EVENTS
+      // REFUND CREATED
+      // ======================================================
+
+      case "refund.created": {
+        const refund =
+          event.data.object as
+            Stripe.Refund;
+
+        await handleRefundCreated({
+          refund,
+
+          eventStripeAccountId,
+        });
+
+        break;
+      }
+
+      // ======================================================
+      // CHARGE REFUNDED
+      //
+      // Stripe Charge contains the cumulative refunded amount,
+      // so this is used for authoritative order status.
+      // ======================================================
+
+      case "charge.refunded": {
+        const charge =
+          event.data.object as
+            Stripe.Charge;
+
+        await syncChargeRefundStatus({
+          charge,
+
+          eventStripeAccountId,
+        });
+
+        break;
+      }
+
+      // ======================================================
+      // EVERYTHING ELSE
       // ======================================================
 
       default: {
         console.log(
-          `[TOTS STORE WEBHOOK] Ignoring unhandled event ${event.type}.`
+          `[TOTS STORE WEBHOOK] Ignoring ${event.type}.`
         );
 
         break;
@@ -2894,6 +4238,9 @@ export async function POST(
 
         eventId:
           event.id,
+
+        stripeAccountId:
+          eventStripeAccountId,
       },
       {
         status:
@@ -2915,15 +4262,15 @@ export async function POST(
     );
 
     /*
-     * Returning HTTP 500 is intentional for critical order
-     * processing failures so Stripe retries the event.
+     * 500 intentionally tells Stripe that processing failed and
+     * that it should retry the webhook.
      */
 
     return NextResponse.json(
       {
         error:
           error instanceof
-          Error
+            Error
             ? error.message
             : "Webhook processing failed.",
 
@@ -2932,6 +4279,9 @@ export async function POST(
 
         eventId:
           event.id,
+
+        stripeAccountId:
+          eventStripeAccountId,
       },
       {
         status:

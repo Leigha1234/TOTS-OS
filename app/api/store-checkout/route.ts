@@ -91,9 +91,39 @@ type StoreSettingsRow = {
 
   slug: string;
 
-  store_name: string | null;
+  store_name:
+    | string
+    | null;
 
-  is_live: boolean | null;
+  is_live:
+    | boolean
+    | null;
+};
+
+type StoreStripeAccountRow = {
+  id: string;
+
+  organisation_id: string;
+
+  stripe_account_id: string;
+
+  charges_enabled: boolean;
+
+  payouts_enabled: boolean;
+
+  details_submitted: boolean;
+
+  onboarding_complete: boolean;
+
+  default_currency: string;
+
+  created_at:
+    | string
+    | null;
+
+  updated_at:
+    | string
+    | null;
 };
 
 type StoreProductRow = {
@@ -105,11 +135,17 @@ type StoreProductRow = {
 
   slug: string;
 
-  description: string | null;
+  description:
+    | string
+    | null;
 
-  sku: string | null;
+  sku:
+    | string
+    | null;
 
-  category: string | null;
+  category:
+    | string
+    | null;
 
   price:
     | number
@@ -130,7 +166,9 @@ type StoreProductRow = {
 
   status: string;
 
-  image_url: string | null;
+  image_url:
+    | string
+    | null;
 };
 
 type StoreDiscountRow = {
@@ -312,6 +350,8 @@ function generateOrderNumber() {
   return `TOTS-${timestamp}-${random}`;
 }
 
+// ============================================================
+// BASE URL
 // ============================================================
 
 function getBaseUrl(
@@ -500,9 +540,7 @@ async function validateDiscount({
   subtotal,
 }: {
   organisationId: string;
-
   code: string;
-
   subtotal: number;
 }): Promise<ValidatedDiscount> {
   const normalisedCode =
@@ -517,10 +555,6 @@ async function validateDiscount({
       "Enter a discount code."
     );
   }
-
-  // ==========================================================
-  // FIND CODE
-  // ==========================================================
 
   const {
     data,
@@ -565,7 +599,7 @@ async function validateDiscount({
     error
   ) {
     console.error(
-      "Discount lookup failed:",
+      "[TOTS STORE] Discount lookup failed:",
       error
     );
 
@@ -598,12 +632,12 @@ async function validateDiscount({
     );
   }
 
+  const now =
+    new Date();
+
   // ==========================================================
   // START DATE
   // ==========================================================
-
-  const now =
-    new Date();
 
   if (
     discount.starts_at
@@ -717,12 +751,12 @@ async function validateDiscount({
     );
   }
 
-  // ==========================================================
-  // CALCULATE DISCOUNT
-  // ==========================================================
-
   let discountAmount =
     0;
+
+  // ==========================================================
+  // PERCENTAGE
+  // ==========================================================
 
   if (
     isPercentageDiscount(
@@ -744,16 +778,28 @@ async function validateDiscount({
         value /
         100
       );
-  } else if (
+  }
+
+  // ==========================================================
+  // FIXED
+  // ==========================================================
+
+  else if (
     isFixedDiscount(
       discount.discount_type
     )
   ) {
     discountAmount =
       value;
-  } else {
+  }
+
+  // ==========================================================
+  // UNKNOWN
+  // ==========================================================
+
+  else {
     console.error(
-      "Unknown discount type:",
+      "[TOTS STORE] Unknown discount type:",
       discount.discount_type
     );
 
@@ -763,7 +809,7 @@ async function validateDiscount({
   }
 
   // ==========================================================
-  // MAXIMUM DISCOUNT CAP
+  // MAXIMUM CAP
   // ==========================================================
 
   const maximumDiscount =
@@ -774,7 +820,7 @@ async function validateDiscount({
 
   if (
     maximumDiscount >
-      0
+    0
   ) {
     discountAmount =
       Math.min(
@@ -784,7 +830,7 @@ async function validateDiscount({
   }
 
   // ==========================================================
-  // NEVER DISCOUNT BELOW £0
+  // NEVER BELOW ZERO
   // ==========================================================
 
   discountAmount =
@@ -819,6 +865,398 @@ async function validateDiscount({
 }
 
 // ============================================================
+// LOAD CONNECTED STRIPE ACCOUNT
+// ============================================================
+
+async function getConnectedStripeAccount(
+  organisationId: string
+) {
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "store_stripe_accounts"
+      )
+      .select(
+        `
+          id,
+          organisation_id,
+          stripe_account_id,
+          charges_enabled,
+          payouts_enabled,
+          details_submitted,
+          onboarding_complete,
+          default_currency,
+          created_at,
+          updated_at
+        `
+      )
+      .eq(
+        "organisation_id",
+        organisationId
+      )
+      .maybeSingle();
+
+  if (
+    error
+  ) {
+    console.error(
+      "[TOTS STORE] Stripe connection lookup failed:",
+      error
+    );
+
+    throw error;
+  }
+
+  return (
+    data as
+      | StoreStripeAccountRow
+      | null
+  );
+}
+
+// ============================================================
+// VALIDATE CONNECTED STRIPE ACCOUNT
+// ============================================================
+
+async function validateConnectedStripeAccount(
+  connection:
+    StoreStripeAccountRow
+) {
+  const accountId =
+    cleanString(
+      connection
+        .stripe_account_id
+    );
+
+  if (
+    !accountId
+  ) {
+    throw new Error(
+      "This store has not connected Stripe yet."
+    );
+  }
+
+  let account:
+    Stripe.Account;
+
+  try {
+    const result =
+      await stripe
+        .accounts
+        .retrieve(
+          accountId
+        );
+
+    if (
+      "deleted" in
+        result &&
+      result.deleted
+    ) {
+      throw new Error(
+        "STRIPE_ACCOUNT_MISSING"
+      );
+    }
+
+    account =
+      result as
+        Stripe.Account;
+  } catch (
+    error:
+      unknown
+  ) {
+    console.error(
+      "[TOTS STORE] Stripe account lookup failed:",
+      error
+    );
+
+    const stripeError =
+      error as {
+        code?: string;
+        statusCode?: number;
+      };
+
+    const missing =
+      (
+        error instanceof
+          Error &&
+        error.message ===
+          "STRIPE_ACCOUNT_MISSING"
+      ) ||
+      stripeError
+        ?.code ===
+        "resource_missing" ||
+      stripeError
+        ?.statusCode ===
+        404;
+
+    if (
+      missing
+    ) {
+      const {
+        error:
+          staleDeleteError,
+      } =
+        await supabaseAdmin
+          .from(
+            "store_stripe_accounts"
+          )
+          .delete()
+          .eq(
+            "organisation_id",
+            connection.organisation_id
+          )
+          .eq(
+            "stripe_account_id",
+            accountId
+          );
+
+      if (
+        staleDeleteError
+      ) {
+        console.error(
+          "[TOTS STORE] Could not remove stale Stripe connection:",
+          staleDeleteError
+        );
+      }
+
+      throw new Error(
+        "This store's Stripe connection is no longer available. The business needs to reconnect Stripe."
+      );
+    }
+
+    throw new Error(
+      "The store's connected Stripe account could not be verified."
+    );
+  }
+
+  // ==========================================================
+  // LIVE ACCOUNT STATUS
+  // ==========================================================
+
+  const detailsSubmitted =
+    account
+      .details_submitted ===
+    true;
+
+  const chargesEnabled =
+    account
+      .charges_enabled ===
+    true;
+
+  const payoutsEnabled =
+    account
+      .payouts_enabled ===
+    true;
+
+  const onboardingComplete =
+    detailsSubmitted &&
+    chargesEnabled &&
+    payoutsEnabled;
+
+  // ==========================================================
+  // SYNC DATABASE
+  // ==========================================================
+
+  const {
+    error:
+      syncError,
+  } =
+    await supabaseAdmin
+      .from(
+        "store_stripe_accounts"
+      )
+      .update({
+        charges_enabled:
+          chargesEnabled,
+
+        payouts_enabled:
+          payoutsEnabled,
+
+        details_submitted:
+          detailsSubmitted,
+
+        onboarding_complete:
+          onboardingComplete,
+
+        default_currency:
+          cleanString(
+            account
+              .default_currency
+          ).toLowerCase() ||
+          connection
+            .default_currency ||
+          "gbp",
+
+        updated_at:
+          new Date()
+            .toISOString(),
+      })
+      .eq(
+        "id",
+        connection.id
+      )
+      .eq(
+        "organisation_id",
+        connection.organisation_id
+      );
+
+  if (
+    syncError
+  ) {
+    console.warn(
+      "[TOTS STORE] Stripe account state sync failed:",
+      syncError
+    );
+  }
+
+  // ==========================================================
+  // DETAILS SUBMITTED
+  // ==========================================================
+
+  if (
+    !detailsSubmitted
+  ) {
+    throw new Error(
+      "This store has not finished setting up Stripe yet."
+    );
+  }
+
+  // ==========================================================
+  // CHARGES ENABLED
+  // ==========================================================
+
+  if (
+    !chargesEnabled
+  ) {
+    const reason =
+      account
+        .requirements
+        ?.disabled_reason;
+
+    console.warn(
+      "[TOTS STORE] Stripe charges disabled:",
+      {
+        accountId,
+
+        reason,
+
+        currentlyDue:
+          account
+            .requirements
+            ?.currently_due ||
+          [],
+
+        pastDue:
+          account
+            .requirements
+            ?.past_due ||
+          [],
+      }
+    );
+
+    throw new Error(
+      "This store cannot currently accept Stripe payments. The business needs to check its Stripe account requirements."
+    );
+  }
+
+  return account;
+}
+
+// ============================================================
+// DELETE CONNECTED ACCOUNT COUPON
+// ============================================================
+
+async function deleteConnectedCoupon(
+  couponId:
+    | string
+    | null,
+
+  stripeAccountId:
+    | string
+    | null
+) {
+  if (
+    !couponId ||
+    !stripeAccountId
+  ) {
+    return;
+  }
+
+  try {
+    await stripe
+      .coupons
+      .del(
+        couponId,
+        {
+          stripeAccount:
+            stripeAccountId,
+        }
+      );
+  } catch (
+    error
+  ) {
+    console.error(
+      "[TOTS STORE] Connected Stripe coupon cleanup failed:",
+      error
+    );
+  }
+}
+
+// ============================================================
+// DELETE PENDING ORDER
+// ============================================================
+
+async function deletePendingOrder(
+  orderId:
+    | string
+    | null
+) {
+  if (
+    !orderId
+  ) {
+    return;
+  }
+
+  try {
+    const {
+      error,
+    } =
+      await supabaseAdmin
+        .from(
+          "store_orders"
+        )
+        .delete()
+        .eq(
+          "id",
+          orderId
+        )
+        .eq(
+          "payment_status",
+          "pending"
+        );
+
+    if (
+      error
+    ) {
+      console.error(
+        "[TOTS STORE] Pending order cleanup failed:",
+        error
+      );
+    }
+  } catch (
+    error
+  ) {
+    console.error(
+      "[TOTS STORE] Pending order cleanup failed:",
+      error
+    );
+  }
+}
+
+// ============================================================
 // POST
 // ============================================================
 
@@ -835,13 +1273,30 @@ export async function POST(
     | null =
     null;
 
+  let connectedStripeAccountId:
+    | string
+    | null =
+    null;
+
+  /*
+   * Once Stripe Checkout has actually been created, we must
+   * never blindly delete the order in the outer catch block.
+   *
+   * The Checkout Session could still be paid even if a later
+   * Supabase update failed.
+   */
+  let stripeCheckoutCreated =
+    false;
+
   try {
     // ========================================================
     // REQUEST BODY
     // ========================================================
 
     const body =
-      (await req.json()) as CheckoutRequest;
+      (
+        await req.json()
+      ) as CheckoutRequest;
 
     const storeSlug =
       cleanString(
@@ -861,7 +1316,7 @@ export async function POST(
         : [];
 
     // ========================================================
-    // VALIDATE STORE SLUG
+    // STORE SLUG
     // ========================================================
 
     if (
@@ -880,7 +1335,7 @@ export async function POST(
     }
 
     // ========================================================
-    // VALIDATE BASKET
+    // BASKET
     // ========================================================
 
     if (
@@ -933,7 +1388,7 @@ export async function POST(
       storeError
     ) {
       console.error(
-        "Store lookup failed:",
+        "[TOTS STORE] Store lookup failed:",
         storeError
       );
 
@@ -965,7 +1420,8 @@ export async function POST(
     }
 
     const store =
-      storeData as StoreSettingsRow;
+      storeData as
+        StoreSettingsRow;
 
     // ========================================================
     // STORE MUST BE LIVE
@@ -989,6 +1445,113 @@ export async function POST(
 
     const organisationId =
       store.organisation_id;
+
+    // ========================================================
+    // LOAD CONNECTED STRIPE ACCOUNT
+    // ========================================================
+
+    const stripeConnection =
+      await getConnectedStripeAccount(
+        organisationId
+      );
+
+    if (
+      !stripeConnection
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "This store has not connected Stripe yet and cannot currently accept payments.",
+
+          stripeRequired:
+            true,
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
+
+    connectedStripeAccountId =
+      cleanString(
+        stripeConnection
+          .stripe_account_id
+      ) ||
+      null;
+
+    if (
+      !connectedStripeAccountId
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "This store has not connected Stripe yet and cannot currently accept payments.",
+
+          stripeRequired:
+            true,
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
+
+    // ========================================================
+    // VERIFY ACCOUNT CAN TAKE PAYMENTS
+    // ========================================================
+
+    let connectedAccount:
+      Stripe.Account;
+
+    try {
+      connectedAccount =
+        await validateConnectedStripeAccount(
+          stripeConnection
+        );
+    } catch (
+      accountError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            accountError instanceof
+              Error
+              ? accountError.message
+              : "This store cannot currently accept Stripe payments.",
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
+
+    // ========================================================
+    // CURRENCY
+    // ========================================================
+
+    const currency =
+      cleanString(
+        connectedAccount
+          .default_currency
+      ).toLowerCase() ||
+      cleanString(
+        stripeConnection
+          .default_currency
+      ).toLowerCase() ||
+      "gbp";
+
+    /*
+     * Your current storefront and pricing are GBP based.
+     *
+     * Prevent a connected account with a different default
+     * currency from accidentally changing the currency of
+     * existing product prices.
+     */
+    const checkoutCurrency =
+      "gbp";
 
     // ========================================================
     // NORMALISE BASKET
@@ -1102,7 +1665,7 @@ export async function POST(
       productError
     ) {
       console.error(
-        "Product checkout lookup failed:",
+        "[TOTS STORE] Product checkout lookup failed:",
         productError
       );
 
@@ -1286,7 +1849,7 @@ export async function POST(
       const lineTotal =
         moneyRound(
           unitPrice *
-          quantity
+            quantity
         );
 
       validatedLines.push(
@@ -1374,7 +1937,7 @@ export async function POST(
           {
             error:
               discountError instanceof
-              Error
+                Error
                 ? discountError.message
                 : "This discount code could not be applied.",
           },
@@ -1406,6 +1969,22 @@ export async function POST(
             shippingAmount
         )
       );
+
+    if (
+      total <=
+      0
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "The order total must be greater than £0 to use Stripe checkout.",
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
 
     // ========================================================
     // CUSTOMER
@@ -1477,6 +2056,9 @@ export async function POST(
 
           total,
 
+          currency:
+            checkoutCurrency,
+
           payment_status:
             "pending",
 
@@ -1485,9 +2067,42 @@ export async function POST(
 
           shipping_address:
             null,
+
+          discount_code:
+            appliedDiscount?.code ||
+            null,
+
+          discount_id:
+            appliedDiscount?.id ||
+            null,
+
+          stripe_account_id:
+            connectedStripeAccountId,
+
+          stripe_checkout_session_id:
+            null,
+
+          stripe_payment_intent_id:
+            null,
+
+          stripe_customer_id:
+            null,
+
+          checkout_completed_at:
+            null,
+
+          paid_at:
+            null,
+
+          updated_at:
+            new Date()
+              .toISOString(),
         })
         .select(
-          "id, order_number"
+          `
+            id,
+            order_number
+          `
         )
         .single();
 
@@ -1496,7 +2111,7 @@ export async function POST(
       !orderData
     ) {
       console.error(
-        "Order creation failed:",
+        "[TOTS STORE] Order creation failed:",
         orderError
       );
 
@@ -1563,19 +2178,13 @@ export async function POST(
       orderItemsError
     ) {
       console.error(
-        "Order item creation failed:",
+        "[TOTS STORE] Order item creation failed:",
         orderItemsError
       );
 
-      await supabaseAdmin
-        .from(
-          "store_orders"
-        )
-        .delete()
-        .eq(
-          "id",
-          orderData.id
-        );
+      await deletePendingOrder(
+        orderData.id
+      );
 
       createdOrderId =
         null;
@@ -1636,7 +2245,7 @@ export async function POST(
 
             price_data: {
               currency:
-                "gbp",
+                checkoutCurrency,
 
               unit_amount:
                 priceToPence(
@@ -1651,7 +2260,7 @@ export async function POST(
       );
 
     // ========================================================
-    // SHIPPING REQUIRED?
+    // SHIPPING REQUIRED
     // ========================================================
 
     const requiresShipping =
@@ -1665,7 +2274,7 @@ export async function POST(
       );
 
     // ========================================================
-    // SITE URL
+    // URLS
     // ========================================================
 
     const baseUrl =
@@ -1684,20 +2293,7 @@ export async function POST(
       )}?checkout=cancelled`;
 
     // ========================================================
-    // STRIPE CHECKOUT SESSION
-    //
-    // IMPORTANT:
-    //
-    // DO NOT add allow_promotion_codes here.
-    //
-    // TOTS-OS validates its own discount codes and applies
-    // them using sessionParams.discounts below.
-    //
-    // Stripe does not allow:
-    //
-    // allow_promotion_codes + discounts
-    //
-    // on the same Checkout Session.
+    // STRIPE SESSION PARAMS
     // ========================================================
 
     const sessionParams:
@@ -1725,6 +2321,9 @@ export async function POST(
           organisation_id:
             organisationId,
 
+          stripe_account_id:
+            connectedStripeAccountId,
+
           store_slug:
             storeSlug,
 
@@ -1740,6 +2339,9 @@ export async function POST(
             discountAmount.toFixed(
               2
             ),
+
+          tots_source:
+            "store",
         },
 
         payment_intent_data: {
@@ -1752,6 +2354,9 @@ export async function POST(
 
             organisation_id:
               organisationId,
+
+            stripe_account_id:
+              connectedStripeAccountId,
 
             store_slug:
               storeSlug,
@@ -1768,6 +2373,9 @@ export async function POST(
               discountAmount.toFixed(
                 2
               ),
+
+            tots_source:
+              "store",
           },
         },
 
@@ -1781,22 +2389,34 @@ export async function POST(
       };
 
     // ========================================================
-    // APPLY TOTS DISCOUNT TO STRIPE
-    //
-    // Example:
-    //
-    // £795 subtotal
-    // WELCOME10 = 10%
-    //
-    // TOTS calculates £79.50.
-    //
-    // Stripe receives an exact £79.50 one-time coupon.
-    //
-    // Expected Stripe total:
-    //
-    // £795.00
-    // - £79.50
-    // = £715.50
+    // CUSTOMER EMAIL
+    // ========================================================
+
+    if (
+      customerEmail
+    ) {
+      sessionParams.customer_email =
+        customerEmail;
+    }
+
+    // ========================================================
+    // SHIPPING
+    // ========================================================
+
+    if (
+      requiresShipping
+    ) {
+      sessionParams
+        .shipping_address_collection =
+        {
+          allowed_countries: [
+            "GB",
+          ],
+        };
+    }
+
+    // ========================================================
+    // CREATE DISCOUNT INSIDE CONNECTED STRIPE ACCOUNT
     // ========================================================
 
     if (
@@ -1805,35 +2425,46 @@ export async function POST(
         0
     ) {
       const coupon =
-        await stripe.coupons.create({
-          amount_off:
-            priceToPence(
-              discountAmount
-            ),
+        await stripe
+          .coupons
+          .create(
+            {
+              amount_off:
+                priceToPence(
+                  discountAmount
+                ),
 
-          currency:
-            "gbp",
+              currency:
+                checkoutCurrency,
 
-          duration:
-            "once",
+              duration:
+                "once",
 
-          name:
-            appliedDiscount.code,
+              name:
+                appliedDiscount.code,
 
-          metadata: {
-            tots_discount_id:
-              appliedDiscount.id,
+              metadata: {
+                tots_discount_id:
+                  appliedDiscount.id,
 
-            tots_discount_code:
-              appliedDiscount.code,
+                tots_discount_code:
+                  appliedDiscount.code,
 
-            organisation_id:
-              organisationId,
+                organisation_id:
+                  organisationId,
 
-            order_id:
-              orderData.id,
-          },
-        });
+                order_id:
+                  orderData.id,
+
+                tots_source:
+                  "store",
+              },
+            },
+            {
+              stripeAccount:
+                connectedStripeAccountId,
+            }
+          );
 
       createdCouponId =
         coupon.id;
@@ -1848,34 +2479,16 @@ export async function POST(
     }
 
     // ========================================================
-    // CUSTOMER EMAIL
-    // ========================================================
-
-    if (
-      customerEmail
-    ) {
-      sessionParams.customer_email =
-        customerEmail;
-    }
-
-    // ========================================================
-    // SHIPPING ADDRESS
-    // ========================================================
-
-    if (
-      requiresShipping
-    ) {
-      sessionParams.shipping_address_collection =
-        {
-          allowed_countries:
-            [
-              "GB",
-            ],
-        };
-    }
-
-    // ========================================================
-    // CREATE STRIPE SESSION
+    // CREATE CHECKOUT SESSION
+    //
+    // IMPORTANT:
+    //
+    // stripeAccount here means the payment is created directly
+    // inside the STORE OWNER'S connected Stripe account.
+    //
+    // TOTS-OS is acting as the Stripe Connect platform.
+    //
+    // The payment does not land in the TOTS-OS platform balance.
     // ========================================================
 
     let session:
@@ -1883,105 +2496,203 @@ export async function POST(
 
     try {
       session =
-        await stripe.checkout.sessions.create(
-          sessionParams
-        );
+        await stripe
+          .checkout
+          .sessions
+          .create(
+            sessionParams,
+            {
+              stripeAccount:
+                connectedStripeAccountId,
+            }
+          );
+
+      stripeCheckoutCreated =
+        true;
     } catch (
       stripeError
     ) {
       console.error(
-        "Stripe session creation failed:",
+        "[TOTS STORE] Connected Stripe session creation failed:",
         stripeError
       );
 
-      // ======================================================
-      // CLEAN UP PENDING ORDER
-      // ======================================================
-
-      await supabaseAdmin
-        .from(
-          "store_orders"
-        )
-        .delete()
-        .eq(
-          "id",
-          orderData.id
-        );
+      await deletePendingOrder(
+        orderData.id
+      );
 
       createdOrderId =
         null;
 
-      // ======================================================
-      // CLEAN UP TEMPORARY STRIPE COUPON
-      // ======================================================
+      await deleteConnectedCoupon(
+        createdCouponId,
+        connectedStripeAccountId
+      );
 
-      if (
-        createdCouponId
-      ) {
-        try {
-          await stripe.coupons.del(
-            createdCouponId
-          );
-        } catch (
-          couponCleanupError
-        ) {
-          console.error(
-            "Stripe coupon cleanup failed:",
-            couponCleanupError
-          );
-        }
-
-        createdCouponId =
-          null;
-      }
+      createdCouponId =
+        null;
 
       throw stripeError;
     }
 
     // ========================================================
-    // CHECKOUT URL REQUIRED
+    // CHECKOUT URL
     // ========================================================
 
     if (
       !session.url
     ) {
+      console.error(
+        "[TOTS STORE] Stripe created a checkout session without a URL:",
+        session.id
+      );
+
+      /*
+       * Do NOT delete the TOTS order here.
+       *
+       * Stripe already created the Checkout Session.
+       */
+
+      throw new Error(
+        "Stripe created the checkout but did not return a checkout URL."
+      );
+    }
+
+    // ========================================================
+    // INITIAL PAYMENT INTENT
+    //
+    // Stripe Checkout may not assign the PaymentIntent until
+    // later in the lifecycle, so the webhook must also update
+    // this field after checkout.session.completed.
+    // ========================================================
+
+    const initialPaymentIntentId =
+      typeof session
+        .payment_intent ===
+      "string"
+        ? session
+            .payment_intent
+        : null;
+
+    // ========================================================
+    // STRIPE CUSTOMER
+    // ========================================================
+
+    const initialStripeCustomerId =
+      typeof session
+        .customer ===
+      "string"
+        ? session
+            .customer
+        : null;
+
+    // ========================================================
+    // SAVE STRIPE REFERENCES
+    // ========================================================
+
+    const {
+      error:
+        stripeReferenceError,
+    } =
       await supabaseAdmin
         .from(
           "store_orders"
         )
-        .delete()
+        .update({
+          stripe_account_id:
+            connectedStripeAccountId,
+
+          stripe_checkout_session_id:
+            session.id,
+
+          stripe_payment_intent_id:
+            initialPaymentIntentId,
+
+          stripe_customer_id:
+            initialStripeCustomerId,
+
+          currency:
+            checkoutCurrency,
+
+          discount_id:
+            appliedDiscount?.id ||
+            null,
+
+          discount_code:
+            appliedDiscount?.code ||
+            null,
+
+          updated_at:
+            new Date()
+              .toISOString(),
+        })
         .eq(
           "id",
           orderData.id
+        )
+        .eq(
+          "organisation_id",
+          organisationId
         );
 
-      createdOrderId =
-        null;
+    if (
+      stripeReferenceError
+    ) {
+      /*
+       * This is important:
+       *
+       * Stripe Checkout DOES exist at this point.
+       *
+       * We must not delete the store order, otherwise the buyer
+       * could still pay an orphaned Checkout Session.
+       *
+       * The Stripe session metadata contains order_id and
+       * organisation_id, so the webhook can still recover.
+       */
 
-      if (
-        createdCouponId
-      ) {
-        try {
-          await stripe.coupons.del(
-            createdCouponId
-          );
-        } catch (
-          couponCleanupError
-        ) {
-          console.error(
-            "Stripe coupon cleanup failed:",
-            couponCleanupError
-          );
-        }
+      console.error(
+        "[TOTS STORE] Stripe references could not be saved:",
+        stripeReferenceError
+      );
 
-        createdCouponId =
-          null;
-      }
-
-      throw new Error(
-        "Stripe did not return a checkout URL."
+      console.warn(
+        "[TOTS STORE] Continuing checkout because Stripe metadata can recover the order relationship."
       );
     }
+
+    // ========================================================
+    // LOG
+    // ========================================================
+
+    console.log(
+      "[TOTS STORE] Connected checkout created:",
+      {
+        organisationId,
+
+        stripeAccountId:
+          connectedStripeAccountId,
+
+        sessionId:
+          session.id,
+
+        paymentIntentId:
+          initialPaymentIntentId,
+
+        orderId:
+          orderData.id,
+
+        orderNumber:
+          orderData.order_number,
+
+        total,
+
+        currency:
+          checkoutCurrency,
+
+        connectedAccountCurrency:
+          currency,
+      }
+    );
 
     // ========================================================
     // RESPONSE
@@ -1997,6 +2708,12 @@ export async function POST(
 
         sessionId:
           session.id,
+
+        paymentIntentId:
+          initialPaymentIntentId,
+
+        stripeAccountId:
+          connectedStripeAccountId,
 
         orderId:
           orderData.id,
@@ -2015,8 +2732,17 @@ export async function POST(
         shippingAmount,
 
         total,
+
+        currency:
+          checkoutCurrency,
+
+        stripeReferencesSaved:
+          !stripeReferenceError,
       },
       {
+        status:
+          200,
+
         headers: {
           "Cache-Control":
             "no-store",
@@ -2024,59 +2750,100 @@ export async function POST(
       }
     );
   } catch (
-    error: unknown
+    error:
+      unknown
   ) {
     console.error(
-      "Store checkout error:",
+      "[TOTS STORE] Store checkout error:",
       error
     );
 
     // ========================================================
-    // LAST RESORT ORDER CLEANUP
+    // CLEAN UP ORDER
+    //
+    // ONLY delete it if Stripe Checkout has NOT been created.
+    //
+    // Once Stripe has created a session, the order must remain
+    // because that session may still be payable.
     // ========================================================
 
     if (
-      createdOrderId
+      createdOrderId &&
+      !stripeCheckoutCreated
     ) {
-      try {
-        await supabaseAdmin
-          .from(
-            "store_orders"
-          )
-          .delete()
-          .eq(
-            "id",
-            createdOrderId
-          );
-      } catch (
-        cleanupError
-      ) {
-        console.error(
-          "Checkout order cleanup failed:",
-          cleanupError
-        );
-      }
+      await deletePendingOrder(
+        createdOrderId
+      );
     }
 
     // ========================================================
-    // LAST RESORT COUPON CLEANUP
+    // CLEAN UP COUPON
+    //
+    // Only remove the coupon when checkout itself wasn't
+    // successfully created.
+    //
+    // A successfully-created Checkout Session may reference it.
     // ========================================================
 
     if (
-      createdCouponId
+      createdCouponId &&
+      connectedStripeAccountId &&
+      !stripeCheckoutCreated
     ) {
-      try {
-        await stripe.coupons.del(
-          createdCouponId
-        );
-      } catch (
-        couponCleanupError
-      ) {
-        console.error(
-          "Stripe coupon cleanup failed:",
-          couponCleanupError
-        );
-      }
+      await deleteConnectedCoupon(
+        createdCouponId,
+        connectedStripeAccountId
+      );
+    }
+
+    // ========================================================
+    // STRIPE ERROR
+    // ========================================================
+
+    if (
+      error instanceof
+      Stripe.errors.StripeError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message ||
+            "Stripe checkout could not be started.",
+
+          stripeError:
+            true,
+
+          type:
+            error.type,
+
+          code:
+            error.code ||
+            null,
+
+          declineCode:
+            error.decline_code ||
+            null,
+
+          requestId:
+            error.requestId ||
+            null,
+        },
+        {
+          status:
+            error.statusCode &&
+            error.statusCode >=
+              400 &&
+            error.statusCode <
+              600
+              ? error.statusCode
+              : 500,
+
+          headers: {
+            "Cache-Control":
+              "no-store",
+          },
+        }
+      );
     }
 
     // ========================================================
@@ -2087,7 +2854,7 @@ export async function POST(
       {
         error:
           error instanceof
-          Error
+            Error
             ? error.message
             : "Checkout could not be started.",
       },

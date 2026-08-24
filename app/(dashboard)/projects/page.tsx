@@ -31,6 +31,7 @@ import {
   UserRound,
   Users,
   X,
+  type LucideIcon,
 } from "lucide-react";
 
 import Link from "next/link";
@@ -2829,8 +2830,6 @@ export default function ProjectDirectory() {
               md:p-6
             "
           >
-            {/* BACKDROP */}
-
             <motion.div
               initial={{
                 opacity:
@@ -2862,13 +2861,6 @@ export default function ProjectDirectory() {
                 }
               }}
             />
-
-            {/* =================================================
-                MODAL
-
-                IMPORTANT:
-                project-modal-scroll provides a visible scrollbar.
-            ================================================= */}
 
             <motion.div
               initial={{
@@ -2946,10 +2938,6 @@ export default function ProjectDirectory() {
                 [-webkit-overflow-scrolling:touch]
               "
             >
-              {/* =============================================
-                  STICKY MODAL HEADER
-              ============================================= */}
-
               <div
                 className="
                   sticky
@@ -3042,10 +3030,6 @@ export default function ProjectDirectory() {
                 </div>
               </div>
 
-              {/* =============================================
-                  SCROLLABLE FORM CONTENT
-              ============================================= */}
-
               <div
                 className="
                   px-6
@@ -3066,8 +3050,6 @@ export default function ProjectDirectory() {
                   }
                   className="space-y-6"
                 >
-                  {/* PROJECT NAME */}
-
                   <div className="space-y-1">
                     <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
                       Project Name
@@ -3096,8 +3078,6 @@ export default function ProjectDirectory() {
                       placeholder="Website Redesign"
                     />
                   </div>
-
-                  {/* CLIENT */}
 
                   <div className="space-y-1">
                     <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
@@ -3209,8 +3189,6 @@ export default function ProjectDirectory() {
                     )}
                   </div>
 
-                  {/* CATEGORY / BUDGET */}
-
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-1">
                       <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
@@ -3309,8 +3287,6 @@ export default function ProjectDirectory() {
                     </div>
                   </div>
 
-                  {/* DATES */}
-
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-1">
                       <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
@@ -3391,8 +3367,6 @@ export default function ProjectDirectory() {
                     </div>
                   </div>
 
-                  {/* OBJECTIVE */}
-
                   <div className="space-y-1">
                     <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
                       Project Objective
@@ -3420,8 +3394,6 @@ export default function ProjectDirectory() {
                       placeholder="What does success look like?"
                     />
                   </div>
-
-                  {/* DESCRIPTION */}
 
                   <div className="space-y-1">
                     <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
@@ -3459,8 +3431,6 @@ export default function ProjectDirectory() {
                       />
                     </div>
                   </div>
-
-                  {/* SUBMIT */}
 
                   <button
                     type="submit"
@@ -3528,10 +3498,6 @@ export default function ProjectDirectory() {
         )}
       </AnimatePresence>
 
-      {/* =====================================================
-          GLOBAL STYLE
-      ===================================================== */}
-
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -3540,15 +3506,6 @@ export default function ProjectDirectory() {
             .font-serif {
               font-family: 'Instrument Serif', serif;
             }
-
-            /*
-             * =================================================
-             * PROJECT MODAL SCROLLBAR
-             * =================================================
-             *
-             * Unlike the previous no-scrollbar class, this
-             * deliberately keeps the scrollbar visible.
-             */
 
             .project-modal-scroll {
               scrollbar-width: thin;
@@ -3576,10 +3533,6 @@ export default function ProjectDirectory() {
             .project-modal-scroll::-webkit-scrollbar-thumb:hover {
               background: #8fa07d;
             }
-
-            /*
-             * Make scrolling on touch devices feel natural.
-             */
 
             .project-modal-scroll {
               -webkit-overflow-scrolling: touch;
@@ -3675,12 +3628,7 @@ function WorkspaceMetric({
     false,
 }: {
   icon:
-    React.ComponentType<{
-      size?:
-        number;
-      className?:
-        string;
-    }>;
+    LucideIcon;
 
   value:
     string;

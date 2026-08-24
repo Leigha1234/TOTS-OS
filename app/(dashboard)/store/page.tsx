@@ -11,6 +11,7 @@ import {
 import {
   AlertTriangle,
   ArrowRight,
+  Banknote,
   BadgePercent,
   Boxes,
   Check,
@@ -23,10 +24,12 @@ import {
   Eye,
   ImageIcon,
   Loader2,
+  Mail,
   Package,
   PackageCheck,
   Plus,
   RefreshCw,
+  RotateCcw,
   Search,
   Settings,
   ShoppingBag,
@@ -37,6 +40,7 @@ import {
   Trash2,
   TrendingUp,
   Users,
+  WalletCards,
   X,
 } from "lucide-react";
 
@@ -55,6 +59,7 @@ type StoreTab =
   | "Overview"
   | "Products"
   | "Orders"
+  | "Payments"
   | "Inventory"
   | "Discounts"
   | "Settings";
@@ -352,6 +357,27 @@ type OrganisationContext = {
 
   organisationName:
     string;
+};
+
+
+type StripeAccountStatus = {
+  connected: boolean;
+  accountId: string | null;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  detailsSubmitted: boolean;
+  availableBalance: number;
+  pendingBalance: number;
+  currency: string;
+};
+
+type RefundFormState = {
+  order: Order;
+  amount: string;
+  reason:
+    | "requested_by_customer"
+    | "duplicate"
+    | "fraudulent";
 };
 
 // ============================================================
@@ -1405,6 +1431,89 @@ export default function StorePage() {
       true
     );
 
+
+  // ==========================================================
+  // STRIPE CONNECT / PAYMENTS
+  // ==========================================================
+
+  const [
+    stripeStatus,
+    setStripeStatus,
+  ] =
+    useState<StripeAccountStatus>({
+      connected:
+        false,
+
+      accountId:
+        null,
+
+      chargesEnabled:
+        false,
+
+      payoutsEnabled:
+        false,
+
+      detailsSubmitted:
+        false,
+
+      availableBalance:
+        0,
+
+      pendingBalance:
+        0,
+
+      currency:
+        "GBP",
+    });
+
+  const [
+    loadingStripe,
+    setLoadingStripe,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    connectingStripe,
+    setConnectingStripe,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    openingStripeDashboard,
+    setOpeningStripeDashboard,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    requestingPayout,
+    setRequestingPayout,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    refundForm,
+    setRefundForm,
+  ] =
+    useState<RefundFormState | null>(
+      null
+    );
+
+  const [
+    refundingOrderId,
+    setRefundingOrderId,
+  ] =
+    useState<string | null>(
+      null
+    );
+
   // ==========================================================
   // LOAD DATA
   // ==========================================================
@@ -2380,6 +2489,559 @@ if (orderError) {
       loadData,
     ]
   );
+
+  // ==========================================================
+  // STRIPE CONNECT HELPERS
+  // ==========================================================
+
+  const loadStripeStatus =
+    useCallback(
+      async () => {
+        if (
+          !organisationId
+        ) {
+          return;
+        }
+
+        setLoadingStripe(
+          true
+        );
+
+        try {
+          const response =
+            await fetch(
+              `/api/store/stripe/status?organisationId=${encodeURIComponent(
+                organisationId
+              )}`,
+              {
+                method:
+                  "GET",
+
+                cache:
+                  "no-store",
+              }
+            );
+
+          const result =
+            await response
+              .json()
+              .catch(
+                () =>
+                  null
+              );
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              result?.error ||
+                "Stripe status could not be loaded."
+            );
+          }
+
+          setStripeStatus({
+            connected:
+              result?.connected ===
+              true,
+
+            accountId:
+              typeof result?.accountId ===
+              "string"
+                ? result.accountId
+                : null,
+
+            chargesEnabled:
+              result?.chargesEnabled ===
+              true,
+
+            payoutsEnabled:
+              result?.payoutsEnabled ===
+              true,
+
+            detailsSubmitted:
+              result?.detailsSubmitted ===
+              true,
+
+            availableBalance:
+              Number(
+                result?.availableBalance ||
+                  0
+              ),
+
+            pendingBalance:
+              Number(
+                result?.pendingBalance ||
+                  0
+              ),
+
+            currency:
+              typeof result?.currency ===
+              "string"
+                ? result.currency.toUpperCase()
+                : "GBP",
+          });
+        } catch (
+          error: unknown
+        ) {
+          console.error(
+            "Stripe status load failed:",
+            error
+          );
+        } finally {
+          setLoadingStripe(
+            false
+          );
+        }
+      },
+      [
+        organisationId,
+      ]
+    );
+
+  useEffect(
+    () => {
+      if (
+        !organisationId
+      ) {
+        return;
+      }
+
+      void loadStripeStatus();
+    },
+    [
+      organisationId,
+      loadStripeStatus,
+    ]
+  );
+
+  async function connectStripeAccount() {
+    if (
+      !organisationId ||
+      connectingStripe
+    ) {
+      return;
+    }
+
+    setConnectingStripe(
+      true
+    );
+
+    try {
+      const response =
+        await fetch(
+          "/api/store/stripe/connect",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                organisationId,
+              }),
+          }
+        );
+
+      const result =
+        await response
+          .json()
+          .catch(
+            () =>
+              null
+          );
+
+      if (
+        !response.ok ||
+        !result?.url
+      ) {
+        throw new Error(
+          result?.error ||
+            "Stripe onboarding could not be started."
+        );
+      }
+
+      window.location.href =
+        result.url;
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Stripe connection failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+        Error
+          ? error.message
+          : "Stripe could not be connected."
+      );
+
+      setConnectingStripe(
+        false
+      );
+    }
+  }
+
+  async function openStripeDashboard() {
+    if (
+      !organisationId ||
+      openingStripeDashboard
+    ) {
+      return;
+    }
+
+    setOpeningStripeDashboard(
+      true
+    );
+
+    try {
+      const response =
+        await fetch(
+          "/api/store/stripe/dashboard-link",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                organisationId,
+              }),
+          }
+        );
+
+      const result =
+        await response
+          .json()
+          .catch(
+            () =>
+              null
+          );
+
+      if (
+        !response.ok ||
+        !result?.url
+      ) {
+        throw new Error(
+          result?.error ||
+            "Stripe dashboard could not be opened."
+        );
+      }
+
+      window.open(
+        result.url,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Stripe dashboard link failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+        Error
+          ? error.message
+          : "Stripe dashboard could not be opened."
+      );
+    } finally {
+      setOpeningStripeDashboard(
+        false
+      );
+    }
+  }
+
+  async function requestStripePayout() {
+    if (
+      !organisationId ||
+      requestingPayout
+    ) {
+      return;
+    }
+
+    if (
+      stripeStatus.availableBalance <=
+      0
+    ) {
+      alert(
+        "There is no available Stripe balance to withdraw yet."
+      );
+
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Withdraw ${money(
+          stripeStatus.availableBalance
+        )} from the available Stripe balance?`
+      )
+    ) {
+      return;
+    }
+
+    setRequestingPayout(
+      true
+    );
+
+    try {
+      const response =
+        await fetch(
+          "/api/store/stripe/payout",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                organisationId,
+              }),
+          }
+        );
+
+      const result =
+        await response
+          .json()
+          .catch(
+            () =>
+              null
+          );
+
+      if (
+        !response.ok
+      ) {
+        throw new Error(
+          result?.error ||
+            "Payout could not be requested."
+        );
+      }
+
+      alert(
+        "Payout request submitted to Stripe."
+      );
+
+      await loadStripeStatus();
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Stripe payout failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+        Error
+          ? error.message
+          : "Payout could not be requested."
+      );
+    } finally {
+      setRequestingPayout(
+        false
+      );
+    }
+  }
+
+  function contactOrderCustomer(
+    order:
+      Order
+  ) {
+    if (
+      !order.email ||
+      order.email ===
+        "—"
+    ) {
+      alert(
+        "This order does not have a customer email address."
+      );
+
+      return;
+    }
+
+    const subject =
+      encodeURIComponent(
+        `Your order ${order.number}`
+      );
+
+    window.location.href =
+      `mailto:${order.email}?subject=${subject}`;
+  }
+
+  function openRefund(
+    order:
+      Order
+  ) {
+    if (
+      order.paymentStatus !==
+      "paid"
+    ) {
+      alert(
+        "Only paid orders can be refunded."
+      );
+
+      return;
+    }
+
+    if (
+      !stripeStatus.connected
+    ) {
+      alert(
+        "Connect Stripe before processing refunds."
+      );
+
+      return;
+    }
+
+    setRefundForm({
+      order,
+
+      amount:
+        order.total.toFixed(
+          2
+        ),
+
+      reason:
+        "requested_by_customer",
+    });
+  }
+
+  async function submitRefund() {
+    if (
+      !refundForm ||
+      refundingOrderId
+    ) {
+      return;
+    }
+
+    const amount =
+      Number(
+        refundForm.amount
+      );
+
+    if (
+      !Number.isFinite(
+        amount
+      ) ||
+      amount <=
+        0
+    ) {
+      alert(
+        "Enter a valid refund amount."
+      );
+
+      return;
+    }
+
+    if (
+      amount >
+      refundForm.order.total
+    ) {
+      alert(
+        "The refund cannot be more than the order total."
+      );
+
+      return;
+    }
+
+    setRefundingOrderId(
+      refundForm.order.id
+    );
+
+    try {
+      const response =
+        await fetch(
+          "/api/store/stripe/refund",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                organisationId,
+
+                orderId:
+                  refundForm.order.id,
+
+                amount,
+
+                reason:
+                  refundForm.reason,
+              }),
+          }
+        );
+
+      const result =
+        await response
+          .json()
+          .catch(
+            () =>
+              null
+          );
+
+      if (
+        !response.ok
+      ) {
+        throw new Error(
+          result?.error ||
+            "Refund could not be processed."
+        );
+      }
+
+      setRefundForm(
+        null
+      );
+
+      await loadData(
+        true
+      );
+
+      await loadStripeStatus();
+
+      alert(
+        "Refund processed successfully."
+      );
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Refund failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+        Error
+          ? error.message
+          : "Refund could not be processed."
+      );
+    } finally {
+      setRefundingOrderId(
+        null
+      );
+    }
+  }
 
   // ==========================================================
   // METRICS
@@ -4461,6 +5123,14 @@ if (orderError) {
 
     {
       label:
+        "Payments",
+
+      icon:
+        WalletCards,
+    },
+
+    {
+      label:
         "Inventory",
 
       icon:
@@ -5691,6 +6361,43 @@ if (orderError) {
                               <button
                                 type="button"
                                 onClick={() =>
+                                  contactOrderCustomer(
+                                    order
+                                  )
+                                }
+                                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 text-[8px] font-black uppercase tracking-[0.1em] text-stone-500 transition hover:border-[#a9b897] hover:text-stone-800"
+                              >
+                                <Mail
+                                  size={12}
+                                />
+
+                                Contact
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={
+                                  order.paymentStatus !==
+                                    "paid" ||
+                                  !stripeStatus.connected
+                                }
+                                onClick={() =>
+                                  openRefund(
+                                    order
+                                  )
+                                }
+                                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 text-[8px] font-black uppercase tracking-[0.1em] text-stone-500 transition hover:border-[#a9b897] hover:text-stone-800 disabled:cursor-not-allowed disabled:opacity-35"
+                              >
+                                <RotateCcw
+                                  size={12}
+                                />
+
+                                Refund
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
                                   setSelectedOrder(
                                     order
                                   )
@@ -5709,6 +6416,302 @@ if (orderError) {
                     )}
                   </div>
                 )}
+              </Panel>
+            </motion.div>
+          )}
+
+          {/* ==================================================
+              PAYMENTS
+          ================================================== */}
+
+          {activeTab ===
+            "Payments" && (
+            <motion.div
+              key="payments"
+              initial={{
+                opacity:
+                  0,
+              }}
+              animate={{
+                opacity:
+                  1,
+              }}
+              className="space-y-6"
+            >
+              <Panel>
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-stone-900 text-[#a9b897]">
+                      <WalletCards
+                        size={19}
+                      />
+                    </div>
+
+                    <div>
+                      <SectionEyebrow>
+                        Stripe Connect
+                      </SectionEyebrow>
+
+                      <h2 className="mt-1 font-serif text-3xl italic text-stone-900">
+                        Store payments & payouts
+                      </h2>
+
+                      <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-500">
+                        Connect your own Stripe account so customer payments are processed for your business. TOTS-OS gives you a simpler control panel while Stripe securely holds and pays out your funds.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {!stripeStatus.connected ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void connectStripeAccount()
+                        }
+                        disabled={
+                          connectingStripe
+                        }
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 text-[9px] font-black uppercase tracking-[0.13em] text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:opacity-50"
+                      >
+                        {connectingStripe ? (
+                          <Loader2
+                            size={13}
+                            className="animate-spin"
+                          />
+                        ) : (
+                          <CreditCard
+                            size={13}
+                          />
+                        )}
+
+                        Connect Stripe account
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void loadStripeStatus()
+                          }
+                          disabled={
+                            loadingStripe
+                          }
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-[8px] font-black uppercase tracking-[0.12em] text-stone-500 transition hover:text-stone-900 disabled:opacity-50"
+                        >
+                          <RefreshCw
+                            size={12}
+                            className={
+                              loadingStripe
+                                ? "animate-spin"
+                                : ""
+                            }
+                          />
+
+                          Refresh
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void openStripeDashboard()
+                          }
+                          disabled={
+                            openingStripeDashboard
+                          }
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 text-[8px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:opacity-50"
+                        >
+                          {openingStripeDashboard ? (
+                            <Loader2
+                              size={12}
+                              className="animate-spin"
+                            />
+                          ) : (
+                            <ExternalLink
+                              size={12}
+                            />
+                          )}
+
+                          Stripe dashboard
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-7 grid overflow-hidden rounded-2xl border border-stone-100 bg-stone-50 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="border-b border-stone-100 p-5 sm:border-r xl:border-b-0">
+                    <p className="text-[7px] font-black uppercase tracking-[0.15em] text-stone-400">
+                      Connection
+                    </p>
+
+                    <p className="mt-2 text-sm font-bold text-stone-700">
+                      {stripeStatus.connected
+                        ? "Connected"
+                        : "Not connected"}
+                    </p>
+                  </div>
+
+                  <div className="border-b border-stone-100 p-5 sm:border-r xl:border-b-0">
+                    <p className="text-[7px] font-black uppercase tracking-[0.15em] text-stone-400">
+                      Payments
+                    </p>
+
+                    <p className="mt-2 text-sm font-bold text-stone-700">
+                      {stripeStatus.chargesEnabled
+                        ? "Enabled"
+                        : "Not enabled"}
+                    </p>
+                  </div>
+
+                  <div className="border-b border-stone-100 p-5 sm:border-r xl:border-b-0">
+                    <p className="text-[7px] font-black uppercase tracking-[0.15em] text-stone-400">
+                      Payouts
+                    </p>
+
+                    <p className="mt-2 text-sm font-bold text-stone-700">
+                      {stripeStatus.payoutsEnabled
+                        ? "Enabled"
+                        : "Not enabled"}
+                    </p>
+                  </div>
+
+                  <div className="p-5">
+                    <p className="text-[7px] font-black uppercase tracking-[0.15em] text-stone-400">
+                      Stripe account
+                    </p>
+
+                    <p className="mt-2 truncate text-sm font-bold text-stone-700">
+                      {stripeStatus.accountId ||
+                        "—"}
+                    </p>
+                  </div>
+                </div>
+              </Panel>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Panel>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <SectionEyebrow>
+                        Available
+                      </SectionEyebrow>
+
+                      <p className="mt-3 font-serif text-5xl italic text-stone-900">
+                        {money(
+                          stripeStatus.availableBalance
+                        )}
+                      </p>
+
+                      <p className="mt-2 text-xs leading-5 text-stone-500">
+                        Funds Stripe currently reports as available for payout.
+                      </p>
+                    </div>
+
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#a9b897]/15 text-[#829473]">
+                      <Banknote
+                        size={17}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void requestStripePayout()
+                    }
+                    disabled={
+                      !stripeStatus.connected ||
+                      !stripeStatus.payoutsEnabled ||
+                      stripeStatus.availableBalance <=
+                        0 ||
+                      requestingPayout
+                    }
+                    className="mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#a9b897] px-4 text-[8px] font-black uppercase tracking-[0.13em] text-white transition hover:bg-[#98aa85] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {requestingPayout ? (
+                      <Loader2
+                        size={12}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <Banknote
+                        size={12}
+                      />
+                    )}
+
+                    Withdraw available balance
+                  </button>
+                </Panel>
+
+                <Panel>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
+                        Pending
+                      </p>
+
+                      <p className="mt-3 font-serif text-5xl italic text-stone-900">
+                        {money(
+                          stripeStatus.pendingBalance
+                        )}
+                      </p>
+
+                      <p className="mt-2 text-xs leading-5 text-stone-500">
+                        Payments still clearing through Stripe before they become available.
+                      </p>
+                    </div>
+
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-stone-100 text-stone-500">
+                      <CreditCard
+                        size={17}
+                      />
+                    </div>
+                  </div>
+                </Panel>
+              </div>
+
+              <Panel>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <SectionEyebrow>
+                      Account management
+                    </SectionEyebrow>
+
+                    <h3 className="mt-1 font-serif text-2xl italic text-stone-800">
+                      Bank details, payouts & verification
+                    </h3>
+
+                    <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-500">
+                      Bank account changes, identity verification and Stripe payout schedules are managed securely through Stripe rather than being stored inside TOTS-OS.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void openStripeDashboard()
+                    }
+                    disabled={
+                      !stripeStatus.connected ||
+                      openingStripeDashboard
+                    }
+                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-[8px] font-black uppercase tracking-[0.12em] text-stone-600 transition hover:border-[#a9b897] hover:text-stone-900 disabled:opacity-40"
+                  >
+                    {openingStripeDashboard ? (
+                      <Loader2
+                        size={12}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <ExternalLink
+                        size={12}
+                      />
+                    )}
+
+                    Manage in Stripe
+                  </button>
+                </div>
               </Panel>
             </motion.div>
           )}
@@ -6889,6 +7892,45 @@ if (orderError) {
               />
             </div>
 
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() =>
+                  contactOrderCustomer(
+                    selectedOrder
+                  )
+                }
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-[8px] font-black uppercase tracking-[0.12em] text-stone-600 transition hover:border-[#a9b897] hover:text-stone-900"
+              >
+                <Mail
+                  size={12}
+                />
+
+                Contact customer
+              </button>
+
+              <button
+                type="button"
+                disabled={
+                  selectedOrder.paymentStatus !==
+                    "paid" ||
+                  !stripeStatus.connected
+                }
+                onClick={() =>
+                  openRefund(
+                    selectedOrder
+                  )
+                }
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-[8px] font-black uppercase tracking-[0.12em] text-stone-600 transition hover:border-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                <RotateCcw
+                  size={12}
+                />
+
+                Refund order
+              </button>
+            </div>
+
             {![
               "delivered",
               "cancelled",
@@ -6953,6 +7995,220 @@ if (orderError) {
               </div>
             )}
           </ModalShell>
+        )}
+      </AnimatePresence>
+
+      {/* =====================================================
+          REFUND MODAL
+      ===================================================== */}
+
+      <AnimatePresence>
+        {refundForm && (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+            <motion.button
+              type="button"
+              aria-label="Close refund"
+              initial={{
+                opacity:
+                  0,
+              }}
+              animate={{
+                opacity:
+                  1,
+              }}
+              exit={{
+                opacity:
+                  0,
+              }}
+              onClick={() => {
+                if (
+                  !refundingOrderId
+                ) {
+                  setRefundForm(
+                    null
+                  );
+                }
+              }}
+              className="absolute inset-0 bg-stone-950/60 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{
+                opacity:
+                  0,
+
+                scale:
+                  0.96,
+
+                y:
+                  12,
+              }}
+              animate={{
+                opacity:
+                  1,
+
+                scale:
+                  1,
+
+                y:
+                  0,
+              }}
+              exit={{
+                opacity:
+                  0,
+
+                scale:
+                  0.96,
+
+                y:
+                  12,
+              }}
+              className="relative z-10 w-full max-w-md rounded-[2rem] border border-stone-200 bg-white p-6 shadow-2xl sm:p-8"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <SectionEyebrow>
+                    Stripe refund
+                  </SectionEyebrow>
+
+                  <h3 className="mt-1 font-serif text-3xl italic text-stone-900">
+                    Refund {refundForm.order.number}
+                  </h3>
+
+                  <p className="mt-2 text-xs leading-5 text-stone-500">
+                    Customer: {refundForm.order.customer} · Order total {money(
+                      refundForm.order.total
+                    )}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    Boolean(
+                      refundingOrderId
+                    )
+                  }
+                  onClick={() =>
+                    setRefundForm(
+                      null
+                    )
+                  }
+                  className="rounded-full p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-800 disabled:opacity-40"
+                >
+                  <X
+                    size={17}
+                  />
+                </button>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
+                    Refund amount
+                  </label>
+
+                  <input
+                    type="number"
+                    min="0.01"
+                    max={
+                      refundForm.order.total
+                    }
+                    step="0.01"
+                    value={
+                      refundForm.amount
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setRefundForm(
+                        (
+                          current
+                        ) =>
+                          current
+                            ? {
+                                ...current,
+
+                                amount:
+                                  event.target.value,
+                              }
+                            : current
+                      )
+                    }
+                    className="w-full rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm outline-none focus:border-[#a9b897] focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
+                    Reason
+                  </label>
+
+                  <select
+                    value={
+                      refundForm.reason
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setRefundForm(
+                        (
+                          current
+                        ) =>
+                          current
+                            ? {
+                                ...current,
+
+                                reason:
+                                  event.target.value as RefundFormState["reason"],
+                              }
+                            : current
+                      )
+                    }
+                    className="w-full rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm outline-none focus:border-[#a9b897] focus:bg-white"
+                  >
+                    <option value="requested_by_customer">
+                      Requested by customer
+                    </option>
+
+                    <option value="duplicate">
+                      Duplicate payment
+                    </option>
+
+                    <option value="fraudulent">
+                      Fraudulent payment
+                    </option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    void submitRefund()
+                  }
+                  disabled={
+                    Boolean(
+                      refundingOrderId
+                    )
+                  }
+                  className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 text-[9px] font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:opacity-50"
+                >
+                  {refundingOrderId ? (
+                    <Loader2
+                      size={13}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <RotateCcw
+                      size={13}
+                    />
+                  )}
+
+                  Process refund
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

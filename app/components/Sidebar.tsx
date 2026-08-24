@@ -58,188 +58,6 @@ type SidebarSection = {
 };
 
 // ============================================================
-// CORE LINKS
-//
-// Store deliberately exists here, but is NOT included in any
-// TOTS-OS subscription tier.
-//
-// /store is an entry point for both:
-//
-// 1. Customers who already pay for Store
-// 2. Customers who need to buy Store for £39/month
-//
-// The /store page itself handles the subscription gate.
-// ============================================================
-
-const allLinks: SidebarLink[] =
-  [
-    {
-      href:
-        "/dashboard",
-
-      label:
-        "Home",
-
-      icon:
-        LayoutDashboard,
-    },
-
-    {
-      href:
-        "/crm",
-
-      label:
-        "Contacts",
-
-      icon:
-        Users,
-    },
-
-    {
-      href:
-        "/campaigns",
-
-      label:
-        "Campaigns",
-
-      icon:
-        Megaphone,
-    },
-
-    {
-      href:
-        "/social",
-
-      label:
-        "Social",
-
-      icon:
-        Globe,
-    },
-
-    {
-      href:
-        "/payments",
-
-      label:
-        "Finance",
-
-      icon:
-        CircleDollarSign,
-    },
-
-    {
-      href:
-        "/notes",
-
-      label:
-        "Notes",
-
-      icon:
-        StickyNote,
-    },
-
-    {
-      href:
-        "/store",
-
-      label:
-        "Store",
-
-      icon:
-        Store,
-    },
-
-    {
-      href:
-        "/projects",
-
-      label:
-        "Clients & Projects",
-
-      icon:
-        Building2,
-    },
-
-    {
-      href:
-        "/calendar",
-
-      label:
-        "Calendar",
-
-      icon:
-        Calendar,
-    },
-
-    {
-      href:
-        "/settings",
-
-      label:
-        "Settings",
-
-      icon:
-        Settings,
-    },
-  ];
-
-// ============================================================
-// TIER ACCESS
-//
-// IMPORTANT:
-//
-// Store does NOT belong to any of these tiers.
-// ============================================================
-
-const tierLinks:
-  Record<
-    string,
-    string[]
-  > =
-  {
-    unpaid: [],
-
-    starter: [
-      "/dashboard",
-      "/calendar",
-      "/crm",
-      "/notes",
-      "/settings",
-    ],
-
-    standard: [
-      "/dashboard",
-      "/calendar",
-      "/crm",
-      "/notes",
-      "/settings",
-    ],
-
-    professional: [
-      "/dashboard",
-      "/calendar",
-      "/campaigns",
-      "/crm",
-      "/notes",
-      "/projects",
-      "/settings",
-    ],
-
-    elite: [
-      "/dashboard",
-      "/calendar",
-      "/campaigns",
-      "/crm",
-      "/notes",
-      "/projects",
-      "/social",
-      "/payments",
-      "/settings",
-    ],
-  };
-
-// ============================================================
 // SIDEBAR
 // ============================================================
 
@@ -250,8 +68,7 @@ export default function Sidebar() {
   const router =
     useRouter();
 
-  let context:
-    any =
+  let context: any =
     null;
 
   try {
@@ -284,19 +101,19 @@ export default function Sidebar() {
     );
 
   const [
-    allowedSlugs,
-    setAllowedSlugs,
-  ] =
-    useState<
-      string[]
-    >([]);
-
-  const [
     loading,
     setLoading,
   ] =
     useState(
       true
+    );
+
+  const [
+    signedIn,
+    setSignedIn,
+  ] =
+    useState(
+      false
     );
 
   const [
@@ -307,13 +124,135 @@ export default function Sidebar() {
       "#a9b897"
     );
 
-  const [
-    signedIn,
-    setSignedIn,
-  ] =
-    useState(
-      false
-    );
+  // ==========================================================
+  // ALL LINKS
+  //
+  // IMPORTANT:
+  //
+  // Store is shown in navigation like any other area.
+  //
+  // Store access itself is controlled by /store.
+  //
+  // If the organisation has not purchased the £39/month
+  // Store add-on, /store displays the upgrade screen.
+  //
+  // This prevents the sidebar itself from accidentally
+  // disappearing because of subscription / permission data.
+  // ==========================================================
+
+  const allLinks:
+    SidebarLink[] =
+    [
+      {
+        href:
+          "/dashboard",
+
+        label:
+          "Home",
+
+        icon:
+          LayoutDashboard,
+      },
+
+      {
+        href:
+          "/crm",
+
+        label:
+          "Contacts",
+
+        icon:
+          Users,
+      },
+
+      {
+        href:
+          "/campaigns",
+
+        label:
+          "Campaigns",
+
+        icon:
+          Megaphone,
+      },
+
+      {
+        href:
+          "/social",
+
+        label:
+          "Social",
+
+        icon:
+          Globe,
+      },
+
+      {
+        href:
+          "/payments",
+
+        label:
+          "Finance",
+
+        icon:
+          CircleDollarSign,
+      },
+
+      {
+        href:
+          "/notes",
+
+        label:
+          "Notes",
+
+        icon:
+          StickyNote,
+      },
+
+      {
+        href:
+          "/store",
+
+        label:
+          "Store",
+
+        icon:
+          Store,
+      },
+
+      {
+        href:
+          "/projects",
+
+        label:
+          "Clients & Projects",
+
+        icon:
+          Building2,
+      },
+
+      {
+        href:
+          "/calendar",
+
+        label:
+          "Calendar",
+
+        icon:
+          Calendar,
+      },
+
+      {
+        href:
+          "/settings",
+
+        label:
+          "Settings",
+
+        icon:
+          Settings,
+      },
+    ];
 
   // ==========================================================
   // COMPACT MODE
@@ -346,7 +285,13 @@ export default function Sidebar() {
   );
 
   // ==========================================================
-  // PERMISSIONS
+  // SESSION + BRAND COLOUR
+  //
+  // Sidebar visibility now only depends on whether the user
+  // is authenticated.
+  //
+  // Plan / feature restrictions should be enforced by the
+  // destination page, not by hiding the navigation entirely.
   // ==========================================================
 
   useEffect(
@@ -354,7 +299,7 @@ export default function Sidebar() {
       let cancelled =
         false;
 
-      async function syncPermissions() {
+      async function loadSidebarContext() {
         try {
           setLoading(
             true
@@ -371,9 +316,13 @@ export default function Sidebar() {
             error:
               sessionError,
           } =
-            await supabase
-              .auth
-              .getSession();
+            await supabase.auth.getSession();
+
+          if (
+            cancelled
+          ) {
+            return;
+          }
 
           if (
             sessionError
@@ -384,20 +333,10 @@ export default function Sidebar() {
             );
           }
 
-          if (
-            cancelled
-          ) {
-            return;
-          }
-
           const user =
             sessionData
               ?.session
               ?.user;
-
-          // ==================================================
-          // NOT SIGNED IN
-          // ==================================================
 
           if (
             !user?.id
@@ -406,10 +345,6 @@ export default function Sidebar() {
               false
             );
 
-            setAllowedSlugs(
-              []
-            );
-
             return;
           }
 
@@ -418,318 +353,82 @@ export default function Sidebar() {
           );
 
           // ==================================================
-          // PROFILE + PERMISSIONS + MEMBERSHIP
+          // PROFILE
+          //
+          // We only need the brand colour here.
+          //
+          // Do NOT make navigation visibility depend on this
+          // query succeeding.
           // ==================================================
 
-          const [
-            profileResult,
-            permsResult,
-            membershipResult,
-          ] =
-            await Promise.all([
-              supabase
+          try {
+            const {
+              data:
+                profile,
+
+              error:
+                profileError,
+            } =
+              await supabase
                 .from(
                   "profiles"
                 )
                 .select(
-                  `
-                    role,
-                    brand_color,
-                    subscription_tier,
-                    organisation_id
-                  `
+                  "brand_color"
                 )
                 .eq(
                   "id",
                   user.id
                 )
-                .maybeSingle(),
+                .maybeSingle();
 
-              supabase
-                .from(
-                  "permissions"
-                )
-                .select(
-                  `
-                    page_slug
-                  `
-                )
-                .eq(
-                  "user_id",
-                  user.id
-                )
-                .eq(
-                  "can_access",
-                  true
-                ),
-
-              supabase
-                .from(
-                  "team_members"
-                )
-                .select(
-                  `
-                    role,
-                    organisation_id
-                  `
-                )
-                .eq(
-                  "user_id",
-                  user.id
-                )
-                .limit(
-                  1
-                )
-                .maybeSingle(),
-            ]);
-
-          if (
-            cancelled
-          ) {
-            return;
-          }
-
-          const profile =
-            profileResult.data;
-
-          const membership =
-            membershipResult.data;
-
-          if (
-            profileResult.error
-          ) {
-            console.warn(
-              "Sidebar profile load error:",
-              profileResult.error
-            );
-          }
-
-          if (
-            permsResult.error
-          ) {
-            console.warn(
-              "Sidebar permissions load error:",
-              permsResult.error
-            );
-          }
-
-          if (
-            membershipResult.error
-          ) {
-            console.warn(
-              "Sidebar membership load error:",
-              membershipResult.error
-            );
-          }
-
-          // ==================================================
-          // ROLE
-          // ==================================================
-
-          const resolvedRole =
-            String(
-              membership
-                ?.role ||
-              profile
-                ?.role ||
-              "user"
-            )
-              .toLowerCase()
-              .trim();
-
-          // ==================================================
-          // SUBSCRIPTION TIER
-          // ==================================================
-
-          const tier =
-            String(
-              profile
-                ?.subscription_tier ||
-              "unpaid"
-            )
-              .toLowerCase()
-              .trim();
-
-          // ==================================================
-          // EXPLICIT USER PERMISSIONS
-          // ==================================================
-
-          const permissionRows =
-            permsResult.data ||
-            [];
-
-          const permissionSlugs =
-            Array.isArray(
-              permissionRows
-            )
-              ? permissionRows
-                  .map(
-                    (
-                      permission:
-                        any
-                    ) =>
-                      String(
-                        permission
-                          ?.page_slug ||
-                        ""
-                      )
-                        .trim()
-                  )
-                  .filter(
-                    Boolean
-                  )
-              : [];
-
-          // ==================================================
-          // STORE MUST NEVER BE UNLOCKED BY CORE PERMISSIONS
-          //
-          // We show the Store link anyway, because /store
-          // contains the £39/month upgrade screen.
-          //
-          // But a permission row must not mean "Store paid".
-          // ==================================================
-
-          const corePermissionSlugs =
-            permissionSlugs.filter(
-              (
-                slug
-              ) =>
-                slug !==
-                "/store"
-            );
-
-          // ==================================================
-          // ADMIN / OWNER
-          // ==================================================
-
-          const isAdmin =
-            resolvedRole ===
-              "superadmin" ||
-            resolvedRole.includes(
-              "admin"
-            ) ||
-            resolvedRole.includes(
-              "owner"
-            );
-
-          let resolvedAllowedSlugs:
-            string[];
-
-          // ==================================================
-          // ADMIN GETS ALL CORE MODULES
-          // ==================================================
-
-          if (
-            isAdmin
-          ) {
-            resolvedAllowedSlugs =
-              allLinks
-                .filter(
-                  (
-                    link
-                  ) =>
-                    link.href !==
-                    "/store"
-                )
-                .map(
-                  (
-                    link
-                  ) =>
-                    link.href
-                );
-          }
-
-          // ==================================================
-          // NORMAL USER
-          // ==================================================
-
-          else {
-            const tierAccess =
-              tierLinks[
-                tier
-              ] ||
-              tierLinks.unpaid;
-
-            resolvedAllowedSlugs =
-              Array.from(
-                new Set([
-                  ...tierAccess,
-                  ...corePermissionSlugs,
-                ])
+            if (
+              profileError
+            ) {
+              console.warn(
+                "Sidebar profile load error:",
+                profileError
               );
-          }
+            }
 
-          // ==================================================
-          // SAFETY FALLBACK
-          //
-          // Signed-in users should never end up with absolutely
-          // no navigation because a permissions lookup failed.
-          //
-          // We deliberately give Home + Settings as the minimum.
-          // ==================================================
-
-          if (
-            resolvedAllowedSlugs.length ===
-            0
+            if (
+              !cancelled &&
+              profile
+                ?.brand_color
+            ) {
+              setLocalColor(
+                String(
+                  profile.brand_color
+                )
+              );
+            }
+          } catch (
+            profileError
           ) {
-            resolvedAllowedSlugs =
-              [
-                "/dashboard",
-                "/settings",
-              ];
-          }
-
-          if (
-            cancelled
-          ) {
-            return;
-          }
-
-          setAllowedSlugs(
-            resolvedAllowedSlugs
-          );
-
-          // ==================================================
-          // BRAND COLOUR
-          // ==================================================
-
-          if (
-            profile
-              ?.brand_color
-          ) {
-            setLocalColor(
-              profile.brand_color
+            console.warn(
+              "Sidebar profile lookup failed:",
+              profileError
             );
           }
         } catch (
           error
         ) {
           console.error(
-            "Sidebar permission error:",
+            "Sidebar load error:",
             error
           );
 
           if (
-            cancelled
+            !cancelled
           ) {
-            return;
+            /*
+             * Do not leave a previously authenticated sidebar
+             * permanently stuck on the loading state.
+             */
+            setSignedIn(
+              false
+            );
           }
-
-          // ==================================================
-          // CRITICAL FALLBACK
-          //
-          // Do not render an empty sidebar if Supabase has one
-          // failed lookup.
-          // ==================================================
-
-          setSignedIn(
-            true
-          );
-
-          setAllowedSlugs([
-            "/dashboard",
-            "/settings",
-          ]);
         } finally {
           if (
             !cancelled
@@ -741,11 +440,44 @@ export default function Sidebar() {
         }
       }
 
-      void syncPermissions();
+      void loadSidebarContext();
+
+      // ======================================================
+      // AUTH STATE CHANGES
+      //
+      // Keeps the sidebar in sync if the session changes.
+      // ======================================================
+
+      const {
+        data:
+          authListener,
+      } =
+        supabase.auth.onAuthStateChange(
+          (
+            _event,
+            session
+          ) => {
+            if (
+              cancelled
+            ) {
+              return;
+            }
+
+            setSignedIn(
+              Boolean(
+                session?.user?.id
+              )
+            );
+          }
+        );
 
       return () => {
         cancelled =
           true;
+
+        authListener
+          .subscription
+          .unsubscribe();
       };
     },
     []
@@ -761,15 +493,17 @@ export default function Sidebar() {
         const {
           error,
         } =
-          await supabase
-            .auth
-            .signOut();
+          await supabase.auth.signOut();
 
         if (
           error
         ) {
           throw error;
         }
+
+        setSignedIn(
+          false
+        );
 
         toast.success(
           "Logged out successfully"
@@ -807,31 +541,21 @@ export default function Sidebar() {
   // ==========================================================
   // VISIBLE LINKS
   //
-  // Store is intentionally always visible while signed in.
+  // All standard navigation is visible to an authenticated
+  // TOTS-OS user.
   //
-  // The Store page handles:
+  // Store is deliberately included.
   //
-  // no subscription -> £39/month purchase screen
-  // active subscription -> Store dashboard
+  // The /store page decides whether to show:
+  //
+  // - the £39/month Store upgrade screen
+  // - or the actual Store dashboard
   // ==========================================================
 
   const visibleLinks =
-    allLinks.filter(
-      (
-        link
-      ) => {
-        if (
-          link.href ===
-          "/store"
-        ) {
-          return signedIn;
-        }
-
-        return allowedSlugs.includes(
-          link.href
-        );
-      }
-    );
+    signedIn
+      ? allLinks
+      : [];
 
   // ==========================================================
   // CAN SEE
@@ -843,10 +567,9 @@ export default function Sidebar() {
         string
     ) => {
       if (
-        href ===
-        "/store"
+        !signedIn
       ) {
-        return signedIn;
+        return false;
       }
 
       return visibleLinks.some(
@@ -953,9 +676,10 @@ export default function Sidebar() {
       // ======================================================
       // COMMERCE
       //
-      // ALWAYS visible to signed-in users.
+      // Store is always visible to signed-in users.
       //
-      // /store handles the £39 subscription gate.
+      // If they do not own the Store add-on, clicking it opens
+      // the £39/month upgrade page.
       // ======================================================
 
       {
@@ -1034,8 +758,10 @@ export default function Sidebar() {
         href ===
         "/dashboard"
       ) {
-        return pathname ===
-          "/dashboard";
+        return (
+          pathname ===
+          "/dashboard"
+        );
       }
 
       return (
@@ -1262,7 +988,7 @@ export default function Sidebar() {
               className="animate-spin text-stone-400"
             />
           </div>
-        ) : (
+        ) : signedIn ? (
           <div
             className={
               isCompact
@@ -1429,7 +1155,7 @@ export default function Sidebar() {
               }
             )}
           </div>
-        )}
+        ) : null}
       </nav>
 
       {/* =====================================================
@@ -1437,6 +1163,7 @@ export default function Sidebar() {
       ===================================================== */}
 
       {!loading &&
+        signedIn &&
         canSee(
           "/settings"
         ) && (
@@ -1517,72 +1244,74 @@ export default function Sidebar() {
           LOGOUT
       ===================================================== */}
 
-      <div
-        className={`
-          shrink-0
-
-          border-t
-          border-stone-200
-
-          ${
-            isCompact
-              ? "p-2"
-              : "p-3"
-          }
-        `}
-      >
-        <button
-          type="button"
-          onClick={() =>
-            void handleLogout()
-          }
-          title={
-            collapsed
-              ? "Logout"
-              : undefined
-          }
+      {signedIn && (
+        <div
           className={`
-            flex
-            w-full
-            items-center
+            shrink-0
 
-            font-medium
-
-            text-stone-500
-
-            transition
-
-            hover:bg-red-50
-            hover:text-red-600
+            border-t
+            border-stone-200
 
             ${
               isCompact
-                ? "rounded-lg px-2.5 py-1.5 text-[12px]"
-                : "rounded-xl px-3 py-2.5 text-sm"
-            }
-
-            ${
-              collapsed
-                ? "justify-center"
-                : "gap-3"
+                ? "p-2"
+                : "p-3"
             }
           `}
         >
-          <LogOut
-            size={
-              isCompact
-                ? 15
-                : 17
+          <button
+            type="button"
+            onClick={() =>
+              void handleLogout()
             }
-          />
+            title={
+              collapsed
+                ? "Logout"
+                : undefined
+            }
+            className={`
+              flex
+              w-full
+              items-center
 
-          {!collapsed && (
-            <span>
-              Logout
-            </span>
-          )}
-        </button>
-      </div>
+              font-medium
+
+              text-stone-500
+
+              transition
+
+              hover:bg-red-50
+              hover:text-red-600
+
+              ${
+                isCompact
+                  ? "rounded-lg px-2.5 py-1.5 text-[12px]"
+                  : "rounded-xl px-3 py-2.5 text-sm"
+              }
+
+              ${
+                collapsed
+                  ? "justify-center"
+                  : "gap-3"
+              }
+            `}
+          >
+            <LogOut
+              size={
+                isCompact
+                  ? 15
+                  : 17
+              }
+            />
+
+            {!collapsed && (
+              <span>
+                Logout
+              </span>
+            )}
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

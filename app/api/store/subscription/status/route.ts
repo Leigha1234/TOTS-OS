@@ -40,10 +40,6 @@ const rawStorePriceId =
 
 // ============================================================
 // VALIDATE ENVIRONMENT
-//
-// Assigning the validated values below to explicit `string`
-// variables also prevents TypeScript from continuing to treat
-// them as `string | undefined` later in this file.
 // ============================================================
 
 if (
@@ -310,8 +306,7 @@ async function getOrganisationId(
     "";
 
   // ==========================================================
-  // PRIMARY:
-  // PROFILES
+  // PRIMARY: PROFILES
   // ==========================================================
 
   try {
@@ -359,8 +354,7 @@ async function getOrganisationId(
   }
 
   // ==========================================================
-  // FALLBACK:
-  // USER_ORGANISATIONS
+  // FALLBACK: USER_ORGANISATIONS
   // ==========================================================
 
   if (
@@ -414,8 +408,7 @@ async function getOrganisationId(
   }
 
   // ==========================================================
-  // FALLBACK:
-  // ORGANISATION_MEMBERS
+  // FALLBACK: ORGANISATION_MEMBERS
   // ==========================================================
 
   if (
@@ -501,10 +494,8 @@ function getCustomerId(
   }
 
   if (
-    subscription
-      .customer &&
-    typeof subscription
-      .customer ===
+    subscription.customer &&
+    typeof subscription.customer ===
       "object" &&
     "id" in
       subscription.customer
@@ -554,8 +545,8 @@ function getSubscriptionPriceIds(
 //
 // SECURITY CRITICAL.
 //
-// The organisation only gets Store access when its Stripe
-// subscription actually contains STRIPE_STORE_ADDON_PRICE_ID.
+// Access is granted only if the live Stripe subscription
+// actually contains STRIPE_STORE_ADDON_PRICE_ID.
 // ============================================================
 
 function subscriptionHasStorePrice(
@@ -594,26 +585,18 @@ function getStorePriceFromSubscription(
           storePriceId
       );
 
-  return item
-    ?.price
-    ?.id ||
-    null;
+  return (
+    item
+      ?.price
+      ?.id ||
+    null
+  );
 }
 
 // ============================================================
 // ACCESS STATUS
 //
-// Only active/trialing + the exact Store product unlocks
-// access.
-//
-// past_due
-// unpaid
-// incomplete
-// paused
-// canceled
-// etc.
-//
-// all remain locked.
+// Only active/trialing + correct Store product unlocks access.
 // ============================================================
 
 function subscriptionAllowsAccess(
@@ -641,12 +624,6 @@ function subscriptionAllowsAccess(
 
 // ============================================================
 // DOES SUBSCRIPTION STILL EXIST?
-//
-// A subscription can exist without granting access.
-//
-// Example:
-// past_due -> subscribed but locked
-// canceled -> no longer subscribed
 // ============================================================
 
 function isExistingSubscription(
@@ -682,113 +659,50 @@ function requiresPaymentAttention(
 // ============================================================
 // SUBSCRIPTION PERIOD END
 //
-// Different Stripe API / SDK versions expose this slightly
-// differently, so this safely checks both the subscription and
-// first Store subscription item.
+// IMPORTANT:
+//
+// Do NOT read current_period_end from SubscriptionItem.
+//
+// The Stripe TypeScript definitions used by Vercel do not
+// expose current_period_end on Stripe.SubscriptionItem.
+//
+// Some Stripe SDK/API combinations still expose
+// current_period_end on the subscription object at runtime,
+// so we safely narrow the subscription object itself.
 // ============================================================
 
 function getCurrentPeriodEnd(
   subscription:
     Stripe.Subscription
 ) {
-  const subscriptionLike =
+  const subscriptionWithPeriod =
     subscription as
       Stripe.Subscription & {
         current_period_end?:
           number |
           null;
-
-        items?: {
-          data?: Array<{
-            current_period_end?:
-              number |
-              null;
-
-            price?: {
-              id?:
-                string;
-            };
-          }>;
-        };
       };
 
-  // ==========================================================
-  // SUBSCRIPTION LEVEL
-  // ==========================================================
-
-  const subscriptionPeriodEnd =
-    subscriptionLike
+  const periodEnd =
+    subscriptionWithPeriod
       .current_period_end;
 
   if (
-    typeof subscriptionPeriodEnd ===
-      "number" &&
-    subscriptionPeriodEnd >
+    typeof periodEnd !==
+      "number" ||
+    !Number.isFinite(
+      periodEnd
+    ) ||
+    periodEnd <=
       0
   ) {
-    return new Date(
-      subscriptionPeriodEnd *
-        1000
-    ).toISOString();
+    return null;
   }
 
-  // ==========================================================
-  // STORE ITEM
-  // ==========================================================
-
-  const storeItem =
-    subscriptionLike
-      .items
-      ?.data
-      ?.find(
-        (
-          item
-        ) =>
-          item
-            .price
-            ?.id ===
-          storePriceId
-      );
-
-  if (
-    typeof storeItem
-      ?.current_period_end ===
-      "number" &&
-    storeItem
-      .current_period_end >
-      0
-  ) {
-    return new Date(
-      storeItem
-        .current_period_end *
-        1000
-    ).toISOString();
-  }
-
-  // ==========================================================
-  // FIRST ITEM FALLBACK
-  // ==========================================================
-
-  const firstItemPeriodEnd =
-    subscriptionLike
-      .items
-      ?.data
-      ?.[0]
-      ?.current_period_end;
-
-  if (
-    typeof firstItemPeriodEnd ===
-      "number" &&
-    firstItemPeriodEnd >
-      0
-  ) {
-    return new Date(
-      firstItemPeriodEnd *
-        1000
-    ).toISOString();
-  }
-
-  return null;
+  return new Date(
+    periodEnd *
+      1000
+  ).toISOString();
 }
 
 // ============================================================
@@ -1032,10 +946,8 @@ export async function GET(
     // ========================================================
     // NO STRIPE SUBSCRIPTION
     //
-    // IMPORTANT:
-    //
-    // Even if store_enabled was somehow accidentally true in
-    // Supabase, NO subscription means NO Store access.
+    // Even if store_enabled was incorrectly true in Supabase,
+    // no subscription ID means Store must remain locked.
     // ========================================================
 
     if (
@@ -1046,7 +958,16 @@ export async function GET(
           true ||
         row
           .store_subscription_status !==
-          null
+          null ||
+        row
+          .store_price_id !==
+          null ||
+        row
+          .store_current_period_end !==
+          null ||
+        row
+          .store_cancel_at_period_end ===
+          true
       ) {
         const {
           error:
@@ -1232,17 +1153,18 @@ export async function GET(
     }
 
     // ========================================================
-    // VERIFY THIS IS ACTUALLY THE STORE PRODUCT
+    // VERIFY STORE PRODUCT
     //
-    // CRITICAL:
+    // SECURITY CRITICAL:
     //
     // We do NOT trust:
     //
-    // store_enabled
-    // store_price_id
-    // subscription status alone
+    // - store_enabled
+    // - store_price_id in Supabase
+    // - the existence of any Stripe subscription
     //
-    // We inspect the live Stripe Subscription's actual items.
+    // We verify that the LIVE Stripe subscription contains the
+    // exact configured Store add-on price.
     // ========================================================
 
     const correctProduct =
@@ -1298,11 +1220,10 @@ export async function GET(
     //
     // ONLY:
     //
-    // correct Store product
-    // +
-    // active/trialing Stripe status
+    // - active/trialing
+    // - exact Store price
     //
-    // can unlock Store.
+    // unlocks Store.
     // ========================================================
 
     const storeEnabled =
@@ -1313,11 +1234,8 @@ export async function GET(
     // ========================================================
     // WRONG PRODUCT
     //
-    // A subscription ID being stored against the organisation
-    // is not enough.
-    //
-    // If this is another TOTS subscription/product, Store stays
-    // completely locked.
+    // A Stripe subscription belonging to another TOTS product
+    // must NEVER unlock Store.
     // ========================================================
 
     if (
@@ -1360,9 +1278,6 @@ export async function GET(
             .cancel_at_period_end ===
           true,
 
-        /*
-         * Do not pretend this is the Store price.
-         */
         priceId:
           null,
       });
@@ -1427,7 +1342,7 @@ export async function GET(
     }
 
     // ========================================================
-    // CORRECT PRODUCT - SYNC LIVE STATUS
+    // CORRECT PRODUCT — SYNC LIVE STATUS
     // ========================================================
 
     const updatePayload:
@@ -1497,11 +1412,13 @@ export async function GET(
       updateError
     ) {
       /*
-       * Do not incorrectly return Store access if our own
-       * database couldn't be brought into sync.
+       * Fail closed.
        *
-       * This endpoint is an access gate, so fail closed.
+       * Stripe may say the subscription is active, but if
+       * TOTS-OS cannot synchronise that state securely, this
+       * endpoint should not falsely report successful access.
        */
+
       console.error(
         "[STORE SUBSCRIPTION] Status sync failed:",
         updateError
@@ -1515,11 +1432,14 @@ export async function GET(
     // ========================================================
     // NEEDS PURCHASE
     //
-    // If subscription still exists but is merely past_due, the
-    // user should manage billing rather than buy a second Store
-    // subscription.
+    // past_due / unpaid / incomplete:
     //
-    // canceled/incomplete_expired -> buy again.
+    // subscription still exists, so user should fix billing
+    // rather than create a duplicate subscription.
+    //
+    // canceled / incomplete_expired:
+    //
+    // user can purchase again.
     // ========================================================
 
     const needsPurchase =
@@ -1554,6 +1474,8 @@ export async function GET(
           subscription
             .cancel_at_period_end ===
           true,
+
+        currentPeriodEnd,
       }
     );
 

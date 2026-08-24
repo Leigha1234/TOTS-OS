@@ -21,7 +21,13 @@ import {
   motion,
 } from "framer-motion";
 
-import { useClarityTour } from "@/app/(dashboard)/claritytour/ClarityTourProvider";
+import {
+  useClarityTour,
+} from "@/app/(dashboard)/claritytour/ClarityTourProvider";
+
+// ============================================================
+// TYPES
+// ============================================================
 
 interface Message {
   id?: string;
@@ -36,6 +42,10 @@ interface Conversation {
   pinned?: boolean;
 }
 
+// ============================================================
+// THINKING MESSAGES
+// ============================================================
+
 const THINKING_MESSAGES = [
   "Looking through your workspace",
   "Connecting the dots",
@@ -43,159 +53,330 @@ const THINKING_MESSAGES = [
   "Preparing your answer",
 ];
 
+// ============================================================
+// COMPONENT
+// ============================================================
+
 export default function Clarity() {
-  // ==================================================
+  // ==========================================================
   // TOUR
-  // ==================================================
+  // ==========================================================
 
   const {
     startTour,
     continueTour,
     currentStepId,
-  } = useClarityTour();
+  } =
+    useClarityTour();
 
-  // ==================================================
+  // ==========================================================
   // UI STATE
-  // ==================================================
+  // ==========================================================
 
-  const [open, setOpen] =
-    useState(false);
+  const [
+    open,
+    setOpen,
+  ] =
+    useState(
+      false
+    );
 
-  const [message, setMessage] =
-    useState("");
+  const [
+    message,
+    setMessage,
+  ] =
+    useState(
+      ""
+    );
 
-  const [messages, setMessages] =
-    useState<Message[]>([]);
+  const [
+    messages,
+    setMessages,
+  ] =
+    useState<
+      Message[]
+    >(
+      []
+    );
 
   const [
     conversations,
     setConversations,
-  ] = useState<
-    Conversation[]
-  >([]);
+  ] =
+    useState<
+      Conversation[]
+    >(
+      []
+    );
 
   const [
     conversationId,
     setConversationId,
-  ] = useState<
-    string | null
-  >(null);
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
 
-  const [loading, setLoading] =
-    useState(false);
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(
+      false
+    );
 
   const [
     streaming,
     setStreaming,
-  ] = useState(false);
+  ] =
+    useState(
+      false
+    );
 
   const [
     businessContext,
     setBusinessContext,
-  ] = useState<any>(null);
+  ] =
+    useState<any>(
+      null
+    );
 
-  const [brief, setBrief] =
-    useState<any>(null);
+  const [
+    brief,
+    setBrief,
+  ] =
+    useState<any>(
+      null
+    );
 
   const [
     loadingBrief,
     setLoadingBrief,
-  ] = useState(false);
+  ] =
+    useState(
+      false
+    );
 
   const [
     thinkingIndex,
     setThinkingIndex,
-  ] = useState(0);
+  ] =
+    useState(
+      0
+    );
 
   const bottomRef =
-    useRef<HTMLDivElement | null>(
+    useRef<
+      HTMLDivElement | null
+    >(
       null
     );
 
-  // ==================================================
+  // ==========================================================
   // INITIAL LOAD
-  // ==================================================
+  // ==========================================================
 
-  useEffect(() => {
-    const savedConversation =
-      localStorage.getItem(
-        "clarity_conversation_id"
-      );
+  useEffect(
+    () => {
+      const savedConversation =
+        localStorage.getItem(
+          "clarity_conversation_id"
+        );
 
-    if (savedConversation) {
-      void loadConversation(
+      if (
         savedConversation
-      );
-    }
+      ) {
+        void loadConversation(
+          savedConversation
+        );
+      }
 
-    void loadConversations();
-  }, []);
-
-  useEffect(() => {
-    void loadBusinessContext();
-  }, []);
-
-  // ==================================================
-  // OPEN STATE
-  // ==================================================
-
-  useEffect(() => {
-    if (open) {
       void loadConversations();
-    }
-  }, [open]);
+    },
+    []
+  );
 
-  // ==================================================
+  useEffect(
+    () => {
+      void loadBusinessContext();
+    },
+    []
+  );
+
+  // ==========================================================
+  // OPEN STATE
+  // ==========================================================
+
+  useEffect(
+    () => {
+      if (
+        open
+      ) {
+        void loadConversations();
+      }
+    },
+    [
+      open,
+    ]
+  );
+
+  // ==========================================================
+  // LOCK BODY ON MOBILE
+  // ==========================================================
+
+  useEffect(
+    () => {
+      if (
+        !open ||
+        typeof window ===
+          "undefined" ||
+        window.innerWidth >=
+          640
+      ) {
+        return;
+      }
+
+      const previousOverflow =
+        document.body.style
+          .overflow;
+
+      const previousOverscroll =
+        document.body.style
+          .overscrollBehavior;
+
+      document.body.style.overflow =
+        "hidden";
+
+      document.body.style.overscrollBehavior =
+        "none";
+
+      return () => {
+        document.body.style.overflow =
+          previousOverflow;
+
+        document.body.style.overscrollBehavior =
+          previousOverscroll;
+      };
+    },
+    [
+      open,
+    ]
+  );
+
+  // ==========================================================
+  // ESCAPE TO CLOSE
+  // ==========================================================
+
+  useEffect(
+    () => {
+      if (
+        !open
+      ) {
+        return;
+      }
+
+      const handleKeyDown =
+        (
+          event:
+            KeyboardEvent
+        ) => {
+          if (
+            event.key ===
+            "Escape"
+          ) {
+            setOpen(
+              false
+            );
+          }
+        };
+
+      window.addEventListener(
+        "keydown",
+        handleKeyDown
+      );
+
+      return () => {
+        window.removeEventListener(
+          "keydown",
+          handleKeyDown
+        );
+      };
+    },
+    [
+      open,
+    ]
+  );
+
+  // ==========================================================
   // SCROLL
-  // ==================================================
+  // ==========================================================
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
-  }, [
-    messages,
-    loading,
-    streaming,
-  ]);
+  useEffect(
+    () => {
+      bottomRef.current?.scrollIntoView(
+        {
+          behavior:
+            "smooth",
+        }
+      );
+    },
+    [
+      messages,
+      loading,
+      streaming,
+    ]
+  );
 
-  // ==================================================
+  // ==========================================================
   // THINKING ANIMATION
-  // ==================================================
+  // ==========================================================
 
-  useEffect(() => {
-    if (
-      !loading ||
-      streaming
-    ) {
-      setThinkingIndex(0);
-      return;
-    }
+  useEffect(
+    () => {
+      if (
+        !loading ||
+        streaming
+      ) {
+        setThinkingIndex(
+          0
+        );
 
-    const interval =
-      window.setInterval(
-        () => {
-          setThinkingIndex(
-            (current) =>
-              (current + 1) %
-              THINKING_MESSAGES.length
-          );
-        },
-        1400
-      );
+        return;
+      }
 
-    return () =>
-      window.clearInterval(
-        interval
-      );
-  }, [
-    loading,
-    streaming,
-  ]);
+      const interval =
+        window.setInterval(
+          () => {
+            setThinkingIndex(
+              (
+                current
+              ) =>
+                (
+                  current +
+                  1
+                ) %
+                THINKING_MESSAGES.length
+            );
+          },
+          1400
+        );
 
-  // ==================================================
+      return () =>
+        window.clearInterval(
+          interval
+        );
+    },
+    [
+      loading,
+      streaming,
+    ]
+  );
+
+  // ==========================================================
   // LOAD CEO BRIEF
-  // ==================================================
+  // ==========================================================
 
   async function loadBrief() {
     try {
@@ -208,7 +389,9 @@ export default function Clarity() {
           "/api/clarity/brief"
         );
 
-      if (!response.ok) {
+      if (
+        !response.ok
+      ) {
         return;
       }
 
@@ -218,7 +401,9 @@ export default function Clarity() {
       setBrief(
         data.brief
       );
-    } catch (error) {
+    } catch (
+      error
+    ) {
       console.error(
         "Clarity brief error",
         error
@@ -230,9 +415,9 @@ export default function Clarity() {
     }
   }
 
-  // ==================================================
+  // ==========================================================
   // LOAD BUSINESS CONTEXT
-  // ==================================================
+  // ==========================================================
 
   async function loadBusinessContext() {
     try {
@@ -241,7 +426,9 @@ export default function Clarity() {
           "/api/clarity/context"
         );
 
-      if (!response.ok) {
+      if (
+        !response.ok
+      ) {
         return;
       }
 
@@ -252,7 +439,9 @@ export default function Clarity() {
         data.context ||
           data
       );
-    } catch (error) {
+    } catch (
+      error
+    ) {
       console.error(
         "Clarity context loading error",
         error
@@ -260,9 +449,9 @@ export default function Clarity() {
     }
   }
 
-  // ==================================================
+  // ==========================================================
   // LOAD CONVERSATIONS
-  // ==================================================
+  // ==========================================================
 
   async function loadConversations() {
     try {
@@ -275,7 +464,9 @@ export default function Clarity() {
           }
         );
 
-      if (!res.ok) {
+      if (
+        !res.ok
+      ) {
         throw new Error(
           "Failed to load conversations"
         );
@@ -291,7 +482,9 @@ export default function Clarity() {
           ? data.conversations
           : []
       );
-    } catch (error) {
+    } catch (
+      error
+    ) {
       console.error(
         "Clarity conversations error",
         error
@@ -299,9 +492,9 @@ export default function Clarity() {
     }
   }
 
-  // ==================================================
+  // ==========================================================
   // LOAD ONE CONVERSATION
-  // ==================================================
+  // ==========================================================
 
   async function loadConversation(
     id: string
@@ -325,7 +518,9 @@ export default function Clarity() {
           }
         );
 
-      if (!res.ok) {
+      if (
+        !res.ok
+      ) {
         localStorage.removeItem(
           "clarity_conversation_id"
         );
@@ -334,7 +529,9 @@ export default function Clarity() {
           null
         );
 
-        setMessages([]);
+        setMessages(
+          []
+        );
 
         throw new Error(
           "Failed to load conversation"
@@ -351,7 +548,9 @@ export default function Clarity() {
           ? data.messages
           : []
       );
-    } catch (error) {
+    } catch (
+      error
+    ) {
       console.error(
         "Clarity conversation load error",
         error
@@ -359,29 +558,35 @@ export default function Clarity() {
     }
   }
 
-  // ==================================================
+  // ==========================================================
   // NEW CONVERSATION
-  // ==================================================
+  // ==========================================================
 
   function newConversation() {
     setConversationId(
       null
     );
 
-    setMessages([]);
+    setMessages(
+      []
+    );
 
-    setMessage("");
+    setMessage(
+      ""
+    );
 
-    setBrief(null);
+    setBrief(
+      null
+    );
 
     localStorage.removeItem(
       "clarity_conversation_id"
     );
   }
 
-  // ==================================================
+  // ==========================================================
   // DELETE CONVERSATION
-  // ==================================================
+  // ==========================================================
 
   async function deleteConversation(
     id: string
@@ -396,17 +601,24 @@ export default function Clarity() {
           }
         );
 
-      if (!response.ok) {
+      if (
+        !response.ok
+      ) {
         throw new Error(
           "Failed to delete conversation"
         );
       }
 
       setConversations(
-        (current) =>
+        (
+          current
+        ) =>
           current.filter(
-            (item) =>
-              item.id !== id
+            (
+              item
+            ) =>
+              item.id !==
+              id
           )
       );
 
@@ -416,7 +628,9 @@ export default function Clarity() {
       ) {
         newConversation();
       }
-    } catch (error) {
+    } catch (
+      error
+    ) {
       console.error(
         "Clarity delete error",
         error
@@ -424,12 +638,14 @@ export default function Clarity() {
     }
   }
 
-  // ==================================================
+  // ==========================================================
   // TOUR
-  // ==================================================
+  // ==========================================================
 
   function launchTour() {
-    setOpen(false);
+    setOpen(
+      false
+    );
 
     window.setTimeout(
       () => {
@@ -445,9 +661,9 @@ export default function Clarity() {
     );
   }
 
-  // ==================================================
+  // ==========================================================
   // ASK CLARITY
-  // ==================================================
+  // ==========================================================
 
   async function askClarity() {
     const cleaned =
@@ -463,23 +679,30 @@ export default function Clarity() {
     const userMessage =
       cleaned;
 
-    setMessage("");
+    setMessage(
+      ""
+    );
 
-    const updatedMessages: Message[] =
-      [
-        ...messages,
-        {
-          role: "user",
-          content:
-            userMessage,
-        },
-      ];
+    const updatedMessages:
+      Message[] = [
+      ...messages,
+
+      {
+        role:
+          "user",
+
+        content:
+          userMessage,
+      },
+    ];
 
     setMessages(
       updatedMessages
     );
 
-    setLoading(true);
+    setLoading(
+      true
+    );
 
     setStreaming(
       false
@@ -499,22 +722,26 @@ export default function Clarity() {
             },
 
             body:
-              JSON.stringify({
-                message:
-                  userMessage,
+              JSON.stringify(
+                {
+                  message:
+                    userMessage,
 
-                conversationId,
+                  conversationId,
 
-                history:
-                  updatedMessages,
+                  history:
+                    updatedMessages,
 
-                context:
-                  businessContext,
-              }),
+                  context:
+                    businessContext,
+                }
+              ),
           }
         );
 
-      if (!res.ok) {
+      if (
+        !res.ok
+      ) {
         let errorMessage =
           "Clarity request failed";
 
@@ -527,7 +754,7 @@ export default function Clarity() {
             errorData.message ||
             errorMessage;
         } catch {
-          // ignore JSON parse failure
+          // Ignore JSON parse failure.
         }
 
         throw new Error(
@@ -555,9 +782,9 @@ export default function Clarity() {
         );
       }
 
-      // ----------------------------------------------
+      // ======================================================
       // CONVERSATION ID
-      // ----------------------------------------------
+      // ======================================================
 
       const returnedConversationId =
         data.metadata
@@ -577,9 +804,9 @@ export default function Clarity() {
         );
       }
 
-      // ----------------------------------------------
+      // ======================================================
       // ANSWER
-      // ----------------------------------------------
+      // ======================================================
 
       const answer =
         String(
@@ -591,119 +818,123 @@ export default function Clarity() {
             "Clarity could not generate a response."
         );
 
-      /*
-       * Remove the waiting dots and move into
-       * the streamed typing presentation.
-       */
       setStreaming(
         true
       );
 
-      let current = "";
-      let index = 0;
+      let current =
+        "";
+
+      let index =
+        0;
 
       setMessages(
-        (previous) => [
+        (
+          previous
+        ) => [
           ...previous,
+
           {
             role:
               "assistant",
-            content: "",
+
+            content:
+              "",
           },
         ]
       );
 
-      // ----------------------------------------------
+      // ======================================================
       // TYPEWRITER RESPONSE
-      // ----------------------------------------------
+      // ======================================================
 
       await new Promise<void>(
-        (resolve) => {
+        (
+          resolve
+        ) => {
           let lastTime =
             performance.now();
 
-          const typeNext = (
-            now: number
-          ) => {
-            /*
-             * Slowing this down slightly makes it feel
-             * intentional rather than instantly dumping
-             * the entire API response.
-             */
-            if (
-              now -
-                lastTime <
-              12
-            ) {
-              requestAnimationFrame(
-                typeNext
-              );
+          const typeNext =
+            (
+              now:
+                number
+            ) => {
+              if (
+                now -
+                  lastTime <
+                12
+              ) {
+                requestAnimationFrame(
+                  typeNext
+                );
 
-              return;
-            }
-
-            lastTime = now;
-
-            /*
-             * Slightly variable chunk sizing stops the
-             * typing from looking mechanically uniform.
-             */
-            const chunkSize =
-              Math.max(
-                1,
-                Math.min(
-                  4,
-                  Math.ceil(
-                    answer.length /
-                      500
-                  )
-                )
-              );
-
-            const chunk =
-              answer.slice(
-                index,
-                index +
-                  chunkSize
-              );
-
-            current +=
-              chunk;
-
-            index +=
-              chunkSize;
-
-            setMessages(
-              (previous) => {
-                const copy =
-                  [...previous];
-
-                copy[
-                  copy.length -
-                    1
-                ] = {
-                  role:
-                    "assistant",
-
-                  content:
-                    current,
-                };
-
-                return copy;
+                return;
               }
-            );
 
-            if (
-              index <
-              answer.length
-            ) {
-              requestAnimationFrame(
-                typeNext
+              lastTime =
+                now;
+
+              const chunkSize =
+                Math.max(
+                  1,
+                  Math.min(
+                    4,
+                    Math.ceil(
+                      answer.length /
+                        500
+                    )
+                  )
+                );
+
+              const chunk =
+                answer.slice(
+                  index,
+                  index +
+                    chunkSize
+                );
+
+              current +=
+                chunk;
+
+              index +=
+                chunkSize;
+
+              setMessages(
+                (
+                  previous
+                ) => {
+                  const copy =
+                    [
+                      ...previous,
+                    ];
+
+                  copy[
+                    copy.length -
+                      1
+                  ] = {
+                    role:
+                      "assistant",
+
+                    content:
+                      current,
+                  };
+
+                  return copy;
+                }
               );
-            } else {
-              resolve();
-            }
-          };
+
+              if (
+                index <
+                answer.length
+              ) {
+                requestAnimationFrame(
+                  typeNext
+                );
+              } else {
+                resolve();
+              }
+            };
 
           requestAnimationFrame(
             typeNext
@@ -718,15 +949,20 @@ export default function Clarity() {
       await loadConversations();
 
       await loadBrief();
-    } catch (error) {
+    } catch (
+      error
+    ) {
       console.error(
         "Clarity error",
         error
       );
 
       setMessages(
-        (previous) => [
+        (
+          previous
+        ) => [
           ...previous,
+
           {
             role:
               "assistant",
@@ -750,100 +986,206 @@ export default function Clarity() {
     }
   }
 
-  // ==================================================
+  // ==========================================================
   // RENDER
-  // ==================================================
+  // ==========================================================
 
   return (
     <>
-      {/* ==================================================
+      {/* ======================================================
           FLOATING CLARITY BUTTON
-      ================================================== */}
+      ====================================================== */}
 
-      <motion.button
-        type="button"
-        whileHover={{
-          scale: 1.06,
-        }}
-        whileTap={{
-          scale: 0.94,
-        }}
-        onClick={() =>
-          setOpen(true)
-        }
-        aria-label="Open Clarity AI assistant"
-        className="group fixed bottom-20 right-5 z-[80] flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-stone-900 text-white shadow-[0_15px_45px_rgba(28,25,23,0.3)] md:bottom-6 md:right-6"
-      >
-        <motion.div
-          animate={{
-            rotate: [
-              0,
-              5,
-              -5,
-              0,
-            ],
+      {!open && (
+        <motion.button
+          type="button"
+          whileHover={{
+            scale:
+              1.06,
           }}
-          transition={{
-            duration: 5,
-            repeat:
-              Infinity,
-            ease:
-              "easeInOut",
+          whileTap={{
+            scale:
+              0.94,
           }}
+          onClick={() =>
+            setOpen(
+              true
+            )
+          }
+          aria-label="Open Clarity AI assistant"
+          className="
+            group
+
+            fixed
+
+            bottom-[calc(6.3rem+env(safe-area-inset-bottom))]
+            right-4
+
+            z-[850]
+
+            flex
+
+            h-12
+            w-12
+
+            items-center
+            justify-center
+
+            rounded-full
+
+            border
+            border-white/10
+
+            bg-stone-900
+
+            text-white
+
+            shadow-[0_15px_45px_rgba(28,25,23,0.3)]
+
+            md:bottom-6
+            md:right-6
+            md:z-[80]
+          "
         >
-          <Sparkles
-            size={18}
-          />
-        </motion.div>
+          <motion.div
+            animate={{
+              rotate: [
+                0,
+                5,
+                -5,
+                0,
+              ],
+            }}
+            transition={{
+              duration:
+                5,
 
-        <span className="pointer-events-none absolute right-16 hidden whitespace-nowrap rounded-xl bg-stone-900 px-3 py-2 text-[10px] font-semibold text-white shadow-xl group-hover:block">
-          Ask Clarity
-        </span>
-      </motion.button>
+              repeat:
+                Infinity,
 
-      {/* ==================================================
+              ease:
+                "easeInOut",
+            }}
+          >
+            <Sparkles
+              size={
+                18
+              }
+            />
+          </motion.div>
+
+          <span
+            className="
+              pointer-events-none
+
+              absolute
+              right-16
+
+              hidden
+
+              whitespace-nowrap
+
+              rounded-xl
+
+              bg-stone-900
+
+              px-3
+              py-2
+
+              text-[10px]
+              font-semibold
+
+              text-white
+
+              shadow-xl
+
+              group-hover:block
+            "
+          >
+            Ask Clarity
+          </span>
+        </motion.button>
+      )}
+
+      {/* ======================================================
           CLARITY PANEL
-      ================================================== */}
+      ====================================================== */}
 
       <AnimatePresence>
         {open && (
           <>
-            {/* MOBILE BACKDROP */}
+            {/* =================================================
+                DESKTOP BACKDROP
+            ================================================= */}
 
-            <motion.div
+            <motion.button
+              type="button"
+              aria-label="Close Clarity"
+              onClick={() =>
+                setOpen(
+                  false
+                )
+              }
               initial={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
               animate={{
-                opacity: 1,
+                opacity:
+                  1,
               }}
               exit={{
-                opacity: 0,
+                opacity:
+                  0,
               }}
-              onClick={() =>
-                setOpen(false)
-              }
-              className="fixed inset-0 z-[69] bg-stone-950/20 backdrop-blur-sm sm:hidden"
+              className="
+                fixed
+                inset-0
+
+                z-[69]
+
+                hidden
+
+                cursor-default
+
+                bg-stone-950/10
+
+                backdrop-blur-[1px]
+
+                sm:block
+              "
             />
 
+            {/* =================================================
+                PANEL
+            ================================================= */}
+
             <motion.div
               initial={{
-                opacity: 0,
-                scale: 0.96,
-                y: -10,
+                opacity:
+                  0,
+
+                y:
+                  18,
               }}
               animate={{
-                opacity: 1,
-                scale: 1,
-                y: 0,
+                opacity:
+                  1,
+
+                y:
+                  0,
               }}
               exit={{
-                opacity: 0,
-                scale: 0.97,
-                y: -8,
+                opacity:
+                  0,
+
+                y:
+                  18,
               }}
               transition={{
-                duration: 0.25,
+                duration:
+                  0.22,
+
                 ease: [
                   0.16,
                   1,
@@ -851,29 +1193,177 @@ export default function Clarity() {
                   1,
                 ],
               }}
-              className="fixed inset-x-3 bottom-24 top-20 z-[70] flex flex-col overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-[0_30px_100px_rgba(28,25,23,0.22)] sm:inset-auto sm:right-6 sm:top-20 sm:h-[min(720px,calc(100vh-105px))] sm:w-[470px]"
-            >
-              {/* ==================================================
-                  HEADER
-              ================================================== */}
+              className="
+                fixed
+                inset-0
 
-              <div className="border-b border-stone-100 bg-gradient-to-b from-[#fdfbf8] to-white px-5 pb-4 pt-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-stone-900 text-[#a9b897] shadow-sm">
+                z-[10000]
+
+                flex
+
+                h-[100dvh]
+                w-screen
+
+                flex-col
+
+                overflow-hidden
+
+                bg-white
+
+                pt-[env(safe-area-inset-top)]
+                pb-[env(safe-area-inset-bottom)]
+
+                sm:inset-auto
+                sm:right-6
+                sm:top-20
+
+                sm:h-[min(720px,calc(100vh-105px))]
+                sm:w-[470px]
+
+                sm:rounded-[2rem]
+
+                sm:border
+                sm:border-stone-200
+
+                sm:pb-0
+                sm:pt-0
+
+                sm:shadow-[0_30px_100px_rgba(28,25,23,0.22)]
+              "
+            >
+              {/* =================================================
+                  HEADER
+              ================================================= */}
+
+              <div
+                className="
+                  shrink-0
+
+                  border-b
+                  border-stone-100
+
+                  bg-gradient-to-b
+                  from-[#fdfbf8]
+                  to-white
+
+                  px-4
+                  pb-4
+                  pt-4
+
+                  sm:px-5
+                  sm:pt-5
+                "
+              >
+                <div
+                  className="
+                    flex
+                    items-start
+                    justify-between
+                    gap-4
+                  "
+                >
+                  <div
+                    className="
+                      flex
+                      items-center
+                      gap-3
+                    "
+                  >
+                    <div
+                      className="
+                        relative
+
+                        flex
+
+                        h-11
+                        w-11
+
+                        items-center
+                        justify-center
+
+                        rounded-[1rem]
+
+                        bg-stone-900
+
+                        text-[#a9b897]
+
+                        shadow-sm
+
+                        sm:h-10
+                        sm:w-10
+                        sm:rounded-2xl
+                      "
+                    >
                       <Sparkles
-                        size={16}
+                        size={
+                          17
+                        }
                       />
 
-                      <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-[#a9b897]" />
+                      <span
+                        className="
+                          absolute
+
+                          -bottom-0.5
+                          -right-0.5
+
+                          h-3
+                          w-3
+
+                          rounded-full
+
+                          border-2
+                          border-white
+
+                          bg-[#a9b897]
+                        "
+                      />
                     </div>
 
                     <div>
-                      <h2 className="text-sm font-black text-stone-900">
+                      <p
+                        className="
+                          text-[8px]
+                          font-black
+                          uppercase
+                          tracking-[0.2em]
+
+                          text-[#829473]
+                        "
+                      >
+                        TOTS-OS
+                      </p>
+
+                      <h2
+                        className="
+                          mt-0.5
+
+                          font-serif
+
+                          text-[26px]
+                          italic
+                          leading-none
+
+                          text-stone-900
+
+                          sm:text-xl
+                        "
+                      >
                         Clarity
                       </h2>
 
-                      <p className="mt-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
+                      <p
+                        className="
+                          mt-1
+
+                          text-[8px]
+                          font-black
+                          uppercase
+                          tracking-[0.16em]
+
+                          text-stone-400
+                        "
+                      >
                         {loading &&
                         !streaming
                           ? THINKING_MESSAGES[
@@ -889,31 +1379,108 @@ export default function Clarity() {
                   <button
                     type="button"
                     onClick={() =>
-                      setOpen(false)
+                      setOpen(
+                        false
+                      )
                     }
                     aria-label="Close Clarity"
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-stone-900"
+                    className="
+                      flex
+
+                      h-11
+                      w-11
+
+                      shrink-0
+
+                      items-center
+                      justify-center
+
+                      rounded-[1.15rem]
+
+                      border
+                      border-stone-200
+
+                      bg-white
+
+                      text-stone-500
+
+                      shadow-sm
+
+                      transition-all
+
+                      hover:text-stone-900
+
+                      active:scale-95
+
+                      sm:h-9
+                      sm:w-9
+                      sm:rounded-full
+                      sm:border-0
+                      sm:bg-transparent
+                      sm:shadow-none
+                    "
                   >
                     <X
-                      size={16}
+                      size={
+                        18
+                      }
                     />
                   </button>
                 </div>
 
-                {/* ==============================================
+                {/* =============================================
                     ACTIONS
-                ============================================== */}
+                ============================================= */}
 
-                <div className="mt-4 grid grid-cols-3 gap-2">
+                <div
+                  className="
+                    mt-4
+
+                    grid
+                    grid-cols-3
+
+                    gap-2
+                  "
+                >
                   <button
                     type="button"
                     onClick={
                       newConversation
                     }
-                    className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-2 text-[9px] font-bold text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
+                    className="
+                      flex
+
+                      min-h-[46px]
+
+                      items-center
+                      justify-center
+
+                      gap-1.5
+
+                      rounded-xl
+
+                      border
+                      border-stone-200
+
+                      bg-white
+
+                      px-2
+
+                      text-[9px]
+                      font-bold
+
+                      text-stone-600
+
+                      transition
+
+                      hover:border-stone-300
+                      hover:bg-stone-50
+                    "
                   >
                     <Plus
-                      size={13}
+                      size={
+                        13
+                      }
                     />
 
                     New Chat
@@ -927,10 +1494,42 @@ export default function Clarity() {
                     disabled={
                       loadingBrief
                     }
-                    className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-2 text-[9px] font-bold text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 disabled:opacity-50"
+                    className="
+                      flex
+
+                      min-h-[46px]
+
+                      items-center
+                      justify-center
+
+                      gap-1.5
+
+                      rounded-xl
+
+                      border
+                      border-stone-200
+
+                      bg-white
+
+                      px-2
+
+                      text-[9px]
+                      font-bold
+
+                      text-stone-600
+
+                      transition
+
+                      hover:border-stone-300
+                      hover:bg-stone-50
+
+                      disabled:opacity-50
+                    "
                   >
                     <Sparkles
-                      size={13}
+                      size={
+                        13
+                      }
                     />
 
                     {loadingBrief
@@ -943,10 +1542,39 @@ export default function Clarity() {
                     onClick={
                       launchTour
                     }
-                    className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-[#a9b897]/40 bg-[#a9b897]/10 px-2 text-[9px] font-black text-stone-700 transition hover:bg-[#a9b897]/20"
+                    className="
+                      flex
+
+                      min-h-[46px]
+
+                      items-center
+                      justify-center
+
+                      gap-1.5
+
+                      rounded-xl
+
+                      border
+                      border-[#a9b897]/40
+
+                      bg-[#a9b897]/10
+
+                      px-2
+
+                      text-[9px]
+                      font-black
+
+                      text-stone-700
+
+                      transition
+
+                      hover:bg-[#a9b897]/20
+                    "
                   >
                     <Compass
-                      size={13}
+                      size={
+                        13
+                      }
                     />
 
                     {currentStepId
@@ -956,102 +1584,242 @@ export default function Clarity() {
                 </div>
               </div>
 
-              {/* ==================================================
+              {/* =================================================
                   CONVERSATIONS
-              ================================================== */}
+              ================================================= */}
 
               {conversations.length >
                 0 && (
-                <div className="border-b border-stone-100 bg-[#faf9f6]/70 px-4 py-3">
-                  <p className="mb-2 text-[7px] font-black uppercase tracking-[0.2em] text-stone-300">
+                <div
+                  className="
+                    shrink-0
+
+                    border-b
+                    border-stone-100
+
+                    bg-[#faf9f6]/70
+
+                    px-4
+                    py-3
+                  "
+                >
+                  <p
+                    className="
+                      mb-2
+
+                      text-[8px]
+                      font-black
+                      uppercase
+                      tracking-[0.2em]
+
+                      text-stone-300
+                    "
+                  >
                     Recent Conversations
                   </p>
 
-                  <div className="no-scrollbar flex gap-2 overflow-x-auto">
+                  <div
+                    className="
+                      no-scrollbar
+
+                      flex
+
+                      gap-2
+
+                      overflow-x-auto
+                    "
+                  >
                     {conversations.map(
                       (
                         conversation
                       ) => (
-                        <button
-                          type="button"
+                        <div
                           key={
                             conversation.id
                           }
-                          onClick={() =>
-                            void loadConversation(
-                              conversation.id
-                            )
-                          }
-                          className={`group flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-[9px] transition ${
-                            conversationId ===
-                            conversation.id
-                              ? "border-stone-900 bg-stone-900 text-white"
-                              : "border-stone-200 bg-white text-stone-500 hover:border-stone-300"
-                          }`}
-                        >
-                          <MessageSquare
-                            size={
-                              10
-                            }
-                          />
+                          className={`
+                            group
 
-                          <span className="max-w-[100px] truncate">
-                            {conversation.title ||
-                              "Conversation"}
-                          </span>
+                            flex
+                            shrink-0
+                            items-center
 
-                          <Trash2
-                            size={
-                              10
-                            }
-                            className={
+                            rounded-xl
+
+                            border
+
+                            transition
+
+                            ${
                               conversationId ===
                               conversation.id
-                                ? "text-white/50 hover:text-red-300"
-                                : "text-stone-300 hover:text-red-500"
+                                ? "border-stone-900 bg-stone-900 text-white"
+                                : "border-stone-200 bg-white text-stone-500 hover:border-stone-300"
                             }
-                            onClick={(
-                              event
-                            ) => {
-                              event.stopPropagation();
+                          `}
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void loadConversation(
+                                conversation.id
+                              )
+                            }
+                            className="
+                              flex
+                              items-center
+                              gap-2
 
+                              py-2
+                              pl-3
+                              pr-2
+
+                              text-[9px]
+                            "
+                          >
+                            <MessageSquare
+                              size={
+                                10
+                              }
+                            />
+
+                            <span
+                              className="
+                                max-w-[110px]
+
+                                truncate
+                              "
+                            >
+                              {conversation.title ||
+                                "Conversation"}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            aria-label="Delete conversation"
+                            onClick={() =>
                               void deleteConversation(
                                 conversation.id
-                              );
-                            }}
-                          />
-                        </button>
+                              )
+                            }
+                            className={`
+                              mr-1
+
+                              flex
+                              h-7
+                              w-7
+                              items-center
+                              justify-center
+
+                              rounded-lg
+
+                              transition
+
+                              ${
+                                conversationId ===
+                                conversation.id
+                                  ? "text-white/50 hover:bg-white/10 hover:text-red-300"
+                                  : "text-stone-300 hover:bg-stone-50 hover:text-red-500"
+                              }
+                            `}
+                          >
+                            <Trash2
+                              size={
+                                10
+                              }
+                            />
+                          </button>
+                        </div>
                       )
                     )}
                   </div>
                 </div>
               )}
 
-              {/* ==================================================
+              {/* =================================================
                   CHAT
-              ================================================== */}
+              ================================================= */}
 
-              <div className="flex-1 overflow-y-auto bg-[#faf9f6] p-4">
-                {/* CEO BRIEF */}
+              <div
+                className="
+                  min-h-0
+                  flex-1
+
+                  overflow-y-auto
+                  overscroll-contain
+
+                  bg-[#faf9f6]
+
+                  p-4
+
+                  [-webkit-overflow-scrolling:touch]
+                "
+              >
+                {/* =================================================
+                    CEO BRIEF
+                ================================================= */}
 
                 <AnimatePresence>
                   {brief && (
                     <motion.div
                       initial={{
-                        opacity: 0,
-                        y: -8,
+                        opacity:
+                          0,
+
+                        y:
+                          -8,
                       }}
                       animate={{
-                        opacity: 1,
-                        y: 0,
+                        opacity:
+                          1,
+
+                        y:
+                          0,
                       }}
                       exit={{
-                        opacity: 0,
+                        opacity:
+                          0,
                       }}
-                      className="mb-4 rounded-[1.5rem] border border-[#a9b897]/30 bg-[#a9b897]/10 p-4"
+                      className="
+                        mb-4
+
+                        rounded-[1.5rem]
+
+                        border
+                        border-[#a9b897]/30
+
+                        bg-[#a9b897]/10
+
+                        p-4
+                      "
                     >
-                      <div className="mb-3 flex items-center gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-stone-900 text-[#a9b897]">
+                      <div
+                        className="
+                          mb-3
+
+                          flex
+                          items-center
+                          gap-2
+                        "
+                      >
+                        <div
+                          className="
+                            flex
+
+                            h-7
+                            w-7
+
+                            items-center
+                            justify-center
+
+                            rounded-xl
+
+                            bg-stone-900
+
+                            text-[#a9b897]
+                          "
+                        >
                           <Sparkles
                             size={
                               11
@@ -1060,21 +1828,40 @@ export default function Clarity() {
                         </div>
 
                         <div>
-                          <p className="text-[9px] font-black uppercase tracking-[0.13em] text-stone-700">
-                            Daily CEO
-                            Brief
+                          <p
+                            className="
+                              text-[9px]
+                              font-black
+                              uppercase
+                              tracking-[0.13em]
+
+                              text-stone-700
+                            "
+                          >
+                            Daily CEO Brief
                           </p>
 
-                          <p className="text-[8px] text-stone-400">
-                            Clarity's
-                            overview of
-                            your business
+                          <p
+                            className="
+                              text-[8px]
+
+                              text-stone-400
+                            "
+                          >
+                            Clarity&apos;s overview of your business
                           </p>
                         </div>
                       </div>
 
                       {brief.summary && (
-                        <p className="text-[11px] leading-relaxed text-stone-600">
+                        <p
+                          className="
+                            text-[11px]
+                            leading-relaxed
+
+                            text-stone-600
+                          "
+                        >
                           {
                             brief.summary
                           }
@@ -1088,19 +1875,53 @@ export default function Clarity() {
                           .priorities
                           .length >
                           0 && (
-                          <div className="mt-3 space-y-2 border-t border-[#a9b897]/25 pt-3">
+                          <div
+                            className="
+                              mt-3
+
+                              space-y-2
+
+                              border-t
+                              border-[#a9b897]/25
+
+                              pt-3
+                            "
+                          >
                             {brief.priorities.map(
                               (
-                                item: string,
-                                index: number
+                                item:
+                                  string,
+                                index:
+                                  number
                               ) => (
                                 <div
                                   key={
                                     index
                                   }
-                                  className="flex items-start gap-2 text-[10px] text-stone-600"
+                                  className="
+                                    flex
+                                    items-start
+                                    gap-2
+
+                                    text-[10px]
+
+                                    text-stone-600
+                                  "
                                 >
-                                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#8fa07d]" />
+                                  <span
+                                    className="
+                                      mt-1
+
+                                      h-1.5
+                                      w-1.5
+
+                                      shrink-0
+
+                                      rounded-full
+
+                                      bg-[#8fa07d]
+                                    "
+                                  />
 
                                   <span>
                                     {
@@ -1116,45 +1937,119 @@ export default function Clarity() {
                   )}
                 </AnimatePresence>
 
-                {/* EMPTY STATE */}
+                {/* =================================================
+                    EMPTY STATE
+                ================================================= */}
 
                 {messages.length ===
                   0 && (
                   <motion.div
                     initial={{
-                      opacity: 0,
-                      y: 10,
+                      opacity:
+                        0,
+
+                      y:
+                        10,
                     }}
                     animate={{
-                      opacity: 1,
-                      y: 0,
+                      opacity:
+                        1,
+
+                      y:
+                        0,
                     }}
-                    className="flex min-h-[260px] flex-col items-center justify-center px-6 text-center"
+                    className="
+                      flex
+
+                      min-h-[48vh]
+
+                      flex-col
+
+                      items-center
+                      justify-center
+
+                      px-5
+
+                      text-center
+
+                      sm:min-h-[260px]
+                      sm:px-6
+                    "
                   >
-                    <div className="flex h-14 w-14 items-center justify-center rounded-[1.4rem] border border-stone-200 bg-white text-stone-900 shadow-sm">
+                    <div
+                      className="
+                        flex
+
+                        h-14
+                        w-14
+
+                        items-center
+                        justify-center
+
+                        rounded-[1.4rem]
+
+                        border
+                        border-stone-200
+
+                        bg-white
+
+                        text-stone-900
+
+                        shadow-sm
+                      "
+                    >
                       <Sparkles
-                        size={19}
+                        size={
+                          19
+                        }
                       />
                     </div>
 
-                    <h3 className="mt-5 font-serif text-2xl italic text-stone-800">
-                      What can I
-                      help with?
+                    <h3
+                      className="
+                        mt-5
+
+                        font-serif
+
+                        text-[27px]
+                        italic
+
+                        text-stone-800
+
+                        sm:text-2xl
+                      "
+                    >
+                      What can I help with?
                     </h3>
 
-                    <p className="mt-3 max-w-[300px] text-[11px] leading-relaxed text-stone-400">
-                      Ask me about
-                      sales,
-                      customers,
-                      projects,
-                      finance,
-                      calendar,
-                      tasks or your
-                      wider business
-                      performance.
+                    <p
+                      className="
+                        mt-3
+
+                        max-w-[310px]
+
+                        text-[11px]
+                        leading-relaxed
+
+                        text-stone-400
+                      "
+                    >
+                      Ask me about sales, customers,
+                      projects, finance, calendar, tasks
+                      or your wider business performance.
                     </p>
 
-                    <div className="mt-5 flex flex-wrap justify-center gap-2">
+                    <div
+                      className="
+                        mt-5
+
+                        flex
+                        flex-wrap
+                        justify-center
+
+                        gap-2
+                      "
+                    >
                       {[
                         "What should I focus on today?",
                         "How are my sales looking?",
@@ -1168,12 +2063,32 @@ export default function Clarity() {
                             key={
                               prompt
                             }
-                            onClick={() => {
+                            onClick={() =>
                               setMessage(
                                 prompt
-                              );
-                            }}
-                            className="rounded-full border border-stone-200 bg-white px-3 py-2 text-[9px] font-medium text-stone-500 transition hover:border-[#a9b897] hover:text-stone-800"
+                              )
+                            }
+                            className="
+                              rounded-full
+
+                              border
+                              border-stone-200
+
+                              bg-white
+
+                              px-3
+                              py-2.5
+
+                              text-[9px]
+                              font-medium
+
+                              text-stone-500
+
+                              transition
+
+                              hover:border-[#a9b897]
+                              hover:text-stone-800
+                            "
                           >
                             {
                               prompt
@@ -1185,9 +2100,15 @@ export default function Clarity() {
                   </motion.div>
                 )}
 
-                {/* MESSAGES */}
+                {/* =================================================
+                    MESSAGES
+                ================================================= */}
 
-                <div className="space-y-4">
+                <div
+                  className="
+                    space-y-4
+                  "
+                >
                   {messages.map(
                     (
                       item,
@@ -1209,30 +2130,83 @@ export default function Clarity() {
                             `${item.role}-${index}`
                           }
                           initial={{
-                            opacity: 0,
-                            y: 8,
+                            opacity:
+                              0,
+
+                            y:
+                              8,
                           }}
                           animate={{
-                            opacity: 1,
-                            y: 0,
+                            opacity:
+                              1,
+
+                            y:
+                              0,
                           }}
                           className={
                             isUser
-                              ? "ml-auto max-w-[86%]"
-                              : "max-w-[90%]"
+                              ? "ml-auto max-w-[88%] sm:max-w-[86%]"
+                              : "max-w-[94%] sm:max-w-[90%]"
                           }
                         >
                           {isUser ? (
-                            <div className="rounded-[1.4rem] rounded-tr-md bg-stone-900 px-4 py-3.5 text-white shadow-sm">
-                              <p className="whitespace-pre-line text-[11px] leading-[1.7]">
+                            <div
+                              className="
+                                rounded-[1.4rem]
+                                rounded-tr-md
+
+                                bg-stone-900
+
+                                px-4
+                                py-3.5
+
+                                text-white
+
+                                shadow-sm
+                              "
+                            >
+                              <p
+                                className="
+                                  whitespace-pre-line
+
+                                  text-[11px]
+                                  leading-[1.7]
+                                "
+                              >
                                 {
                                   item.content
                                 }
                               </p>
                             </div>
                           ) : (
-                            <div className="flex items-start gap-2.5">
-                              <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-stone-900 text-[#a9b897]">
+                            <div
+                              className="
+                                flex
+                                items-start
+                                gap-2.5
+                              "
+                            >
+                              <div
+                                className="
+                                  mt-1
+
+                                  flex
+
+                                  h-7
+                                  w-7
+
+                                  shrink-0
+
+                                  items-center
+                                  justify-center
+
+                                  rounded-xl
+
+                                  bg-stone-900
+
+                                  text-[#a9b897]
+                                "
+                              >
                                 <Sparkles
                                   size={
                                     11
@@ -1240,15 +2214,54 @@ export default function Clarity() {
                                 />
                               </div>
 
-                              <div className="rounded-[1.4rem] rounded-tl-md border border-stone-200 bg-white px-4 py-3.5 shadow-sm">
-                                <p className="whitespace-pre-line text-[11px] leading-[1.75] text-stone-600">
+                              <div
+                                className="
+                                  rounded-[1.4rem]
+                                  rounded-tl-md
+
+                                  border
+                                  border-stone-200
+
+                                  bg-white
+
+                                  px-4
+                                  py-3.5
+
+                                  shadow-sm
+                                "
+                              >
+                                <p
+                                  className="
+                                    whitespace-pre-line
+
+                                    text-[11px]
+                                    leading-[1.75]
+
+                                    text-stone-600
+                                  "
+                                >
                                   {
                                     item.content
                                   }
 
                                   {streaming &&
                                     isLast && (
-                                      <span className="ml-1 inline-block h-3.5 w-[2px] animate-pulse bg-[#8fa07d] align-middle" />
+                                      <span
+                                        className="
+                                          ml-1
+
+                                          inline-block
+
+                                          h-3.5
+                                          w-[2px]
+
+                                          animate-pulse
+
+                                          bg-[#8fa07d]
+
+                                          align-middle
+                                        "
+                                      />
                                     )}
                                 </p>
                               </div>
@@ -1259,44 +2272,83 @@ export default function Clarity() {
                     }
                   )}
 
-                  {/* ==================================================
+                  {/* =================================================
                       THINKING STATE
-                  ================================================== */}
+                  ================================================= */}
 
                   <AnimatePresence>
                     {loading &&
                       !streaming && (
                         <motion.div
                           initial={{
-                            opacity: 0,
-                            y: 8,
+                            opacity:
+                              0,
+
+                            y:
+                              8,
                           }}
                           animate={{
-                            opacity: 1,
-                            y: 0,
+                            opacity:
+                              1,
+
+                            y:
+                              0,
                           }}
                           exit={{
-                            opacity: 0,
-                            y: -4,
+                            opacity:
+                              0,
+
+                            y:
+                              -4,
                           }}
-                          className="flex max-w-[90%] items-start gap-2.5"
+                          className="
+                            flex
+
+                            max-w-[94%]
+
+                            items-start
+                            gap-2.5
+
+                            sm:max-w-[90%]
+                          "
                         >
-                          <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-stone-900 text-[#a9b897]">
+                          <div
+                            className="
+                              mt-1
+
+                              flex
+
+                              h-7
+                              w-7
+
+                              shrink-0
+
+                              items-center
+                              justify-center
+
+                              rounded-xl
+
+                              bg-stone-900
+
+                              text-[#a9b897]
+                            "
+                          >
                             <motion.div
                               animate={{
-                                rotate:
-                                  [
-                                    0,
-                                    7,
-                                    -7,
-                                    0,
-                                  ],
+                                rotate: [
+                                  0,
+                                  7,
+                                  -7,
+                                  0,
+                                ],
                               }}
                               transition={{
                                 duration:
                                   1.7,
+
                                 repeat:
                                   Infinity,
+
                                 ease:
                                   "easeInOut",
                               }}
@@ -1309,20 +2361,46 @@ export default function Clarity() {
                             </motion.div>
                           </div>
 
-                          <div className="rounded-[1.4rem] rounded-tl-md border border-stone-200 bg-white px-4 py-3.5 shadow-sm">
+                          <div
+                            className="
+                              rounded-[1.4rem]
+                              rounded-tl-md
+
+                              border
+                              border-stone-200
+
+                              bg-white
+
+                              px-4
+                              py-3.5
+
+                              shadow-sm
+                            "
+                          >
                             <motion.p
                               key={
                                 thinkingIndex
                               }
                               initial={{
-                                opacity: 0,
-                                y: 3,
+                                opacity:
+                                  0,
+
+                                y:
+                                  3,
                               }}
                               animate={{
-                                opacity: 1,
-                                y: 0,
+                                opacity:
+                                  1,
+
+                                y:
+                                  0,
                               }}
-                              className="text-[9px] font-medium text-stone-400"
+                              className="
+                                text-[9px]
+                                font-medium
+
+                                text-stone-400
+                              "
                             >
                               {
                                 THINKING_MESSAGES[
@@ -1332,7 +2410,15 @@ export default function Clarity() {
                               ...
                             </motion.p>
 
-                            <div className="mt-2.5 flex items-center gap-1.5">
+                            <div
+                              className="
+                                mt-2.5
+
+                                flex
+                                items-center
+                                gap-1.5
+                              "
+                            >
                               {[
                                 0,
                                 1,
@@ -1352,12 +2438,11 @@ export default function Clarity() {
                                         0,
                                       ],
 
-                                      opacity:
-                                        [
-                                          0.25,
-                                          1,
-                                          0.25,
-                                        ],
+                                      opacity: [
+                                        0.25,
+                                        1,
+                                        0.25,
+                                      ],
                                     }}
                                     transition={{
                                       duration:
@@ -1370,7 +2455,14 @@ export default function Clarity() {
                                         dot *
                                         0.14,
                                     }}
-                                    className="h-1.5 w-1.5 rounded-full bg-[#8fa07d]"
+                                    className="
+                                      h-1.5
+                                      w-1.5
+
+                                      rounded-full
+
+                                      bg-[#8fa07d]
+                                    "
                                   />
                                 )
                               )}
@@ -1384,17 +2476,54 @@ export default function Clarity() {
                     ref={
                       bottomRef
                     }
-                    className="h-px"
+                    className="
+                      h-px
+                    "
                   />
                 </div>
               </div>
 
-              {/* ==================================================
+              {/* =================================================
                   INPUT
-              ================================================== */}
+              ================================================= */}
 
-              <div className="border-t border-stone-100 bg-white p-3">
-                <div className="flex items-end gap-2 rounded-2xl border border-stone-200 bg-[#faf9f6] p-2 transition focus-within:border-stone-300 focus-within:bg-white">
+              <div
+                className="
+                  shrink-0
+
+                  border-t
+                  border-stone-100
+
+                  bg-white
+
+                  p-3
+
+                  pb-[calc(0.75rem+env(safe-area-inset-bottom))]
+
+                  sm:pb-3
+                "
+              >
+                <div
+                  className="
+                    flex
+                    items-end
+                    gap-2
+
+                    rounded-2xl
+
+                    border
+                    border-stone-200
+
+                    bg-[#faf9f6]
+
+                    p-2
+
+                    transition
+
+                    focus-within:border-stone-300
+                    focus-within:bg-white
+                  "
+                >
                   <textarea
                     value={
                       message
@@ -1421,9 +2550,33 @@ export default function Clarity() {
                         void askClarity();
                       }
                     }}
-                    rows={1}
+                    rows={
+                      1
+                    }
                     placeholder="Ask Clarity anything about your business..."
-                    className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-3 py-2.5 text-[11px] text-stone-700 outline-none placeholder:text-stone-300"
+                    className="
+                      max-h-28
+                      min-h-10
+
+                      flex-1
+
+                      resize-none
+
+                      bg-transparent
+
+                      px-3
+                      py-2.5
+
+                      text-[16px]
+
+                      text-stone-700
+
+                      outline-none
+
+                      placeholder:text-stone-300
+
+                      sm:text-[11px]
+                    "
                   />
 
                   <motion.button
@@ -1439,23 +2592,78 @@ export default function Clarity() {
                       loading ||
                       !message.trim()
                     }
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-900 text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-30"
+                    className="
+                      flex
+
+                      h-10
+                      w-10
+
+                      shrink-0
+
+                      items-center
+                      justify-center
+
+                      rounded-xl
+
+                      bg-stone-900
+
+                      text-white
+
+                      transition
+
+                      hover:bg-[#a9b897]
+                      hover:text-stone-900
+
+                      disabled:cursor-not-allowed
+                      disabled:opacity-30
+                    "
                     aria-label="Send message"
                   >
                     <Send
-                      size={14}
+                      size={
+                        14
+                      }
                     />
                   </motion.button>
                 </div>
 
-                <div className="mt-2 flex items-center justify-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#a9b897]" />
+                <div
+                  className="
+                    mt-2
 
-                  <p className="text-[7px] font-medium uppercase tracking-[0.14em] text-stone-300">
-                    Clarity uses
-                    information
-                    available in your
-                    TOTS-OS workspace
+                    flex
+                    items-center
+                    justify-center
+
+                    gap-1.5
+                  "
+                >
+                  <span
+                    className="
+                      h-1.5
+                      w-1.5
+
+                      shrink-0
+
+                      rounded-full
+
+                      bg-[#a9b897]
+                    "
+                  />
+
+                  <p
+                    className="
+                      text-center
+
+                      text-[7px]
+                      font-medium
+                      uppercase
+                      tracking-[0.12em]
+
+                      text-stone-300
+                    "
+                  >
+                    Clarity uses information available in your TOTS-OS workspace
                   </p>
                 </div>
               </div>
@@ -1464,9 +2672,9 @@ export default function Clarity() {
         )}
       </AnimatePresence>
 
-      {/* ==================================================
+      {/* ======================================================
           GLOBAL HELPERS
-      ================================================== */}
+      ====================================================== */}
 
       <style jsx global>{`
         .no-scrollbar::-webkit-scrollbar {

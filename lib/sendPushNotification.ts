@@ -34,8 +34,11 @@ const vapidSubject =
 // ============================================================
 
 type SendPushOptions = {
-  organisationId:
+  userId:
     string;
+
+  organisationId?:
+    string | null;
 
   title:
     string;
@@ -48,20 +51,171 @@ type SendPushOptions = {
 
   tag?:
     string;
+
+  data?:
+    Record<
+      string,
+      unknown
+    >;
 };
+
+export type SendPushResult = {
+  sent:
+    number;
+
+  failed:
+    number;
+
+  removed:
+    number;
+};
+
+// ============================================================
+// ADMIN CLIENT
+// ============================================================
+
+let adminClient:
+  ReturnType<
+    typeof createClient
+  > | null =
+  null;
+
+function getSupabaseAdmin() {
+  if (
+    adminClient
+  ) {
+    return adminClient;
+  }
+
+  if (
+    !supabaseUrl ||
+    !serviceRoleKey
+  ) {
+    return null;
+  }
+
+  adminClient =
+    createClient(
+      supabaseUrl,
+      serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken:
+            false,
+
+          persistSession:
+            false,
+        },
+      }
+    );
+
+  return adminClient;
+}
+
+// ============================================================
+// CLEAN STRING
+// ============================================================
+
+function cleanString(
+  value:
+    unknown
+) {
+  if (
+    typeof value !==
+    "string"
+  ) {
+    return "";
+  }
+
+  return value.trim();
+}
 
 // ============================================================
 // SEND
 // ============================================================
 
 export async function sendPushNotification({
+  userId,
   organisationId,
   title,
   body,
   url =
     "/dashboard",
   tag,
-}: SendPushOptions) {
+  data,
+}: SendPushOptions): Promise<SendPushResult> {
+  const cleanedUserId =
+    cleanString(
+      userId
+    );
+
+  const cleanedOrganisationId =
+    cleanString(
+      organisationId
+    );
+
+  const cleanedTitle =
+    cleanString(
+      title
+    );
+
+  const cleanedBody =
+    cleanString(
+      body
+    );
+
+  const cleanedUrl =
+    cleanString(
+      url
+    ) ||
+    "/dashboard";
+
+  // ==========================================================
+  // VALIDATION
+  // ==========================================================
+
+  if (
+    !cleanedUserId
+  ) {
+    console.warn(
+      "[TOTS PUSH] Push skipped because user ID is missing."
+    );
+
+    return {
+      sent:
+        0,
+
+      failed:
+        0,
+
+      removed:
+        0,
+    };
+  }
+
+  if (
+    !cleanedTitle
+  ) {
+    console.warn(
+      "[TOTS PUSH] Push skipped because title is missing."
+    );
+
+    return {
+      sent:
+        0,
+
+      failed:
+        0,
+
+      removed:
+        0,
+    };
+  }
+
+  // ==========================================================
+  // ENV
+  // ==========================================================
+
   if (
     !supabaseUrl ||
     !serviceRoleKey ||
@@ -77,6 +231,9 @@ export async function sendPushNotification({
         0,
 
       failed:
+        0,
+
+      removed:
         0,
     };
   }
@@ -96,23 +253,63 @@ export async function sendPushNotification({
   // ==========================================================
 
   const supabaseAdmin =
-    createClient(
-      supabaseUrl,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken:
-            false,
+    getSupabaseAdmin();
 
-          persistSession:
-            false,
-        },
-      }
-    );
+  if (
+    !supabaseAdmin
+  ) {
+    return {
+      sent:
+        0,
+
+      failed:
+        0,
+
+      removed:
+        0,
+    };
+  }
 
   // ==========================================================
   // SUBSCRIPTIONS
+  //
+  // IMPORTANT:
+  //
+  // user_id is the primary filter.
+  //
+  // This prevents a notification intended for one team member
+  // from being pushed to every device in the organisation.
   // ==========================================================
+
+  let query =
+    supabaseAdmin
+      .from(
+        "push_subscriptions"
+      )
+      .select(
+        `
+          id,
+          user_id,
+          organisation_id,
+          endpoint,
+          p256dh,
+          auth
+        `
+      )
+      .eq(
+        "user_id",
+        cleanedUserId
+      );
+
+  if (
+    cleanedOrganisationId
+  ) {
+    query =
+      query.eq(
+        "organisation_id",
+        cleanedOrganisationId
+      );
+  }
 
   const {
     data:
@@ -120,24 +317,11 @@ export async function sendPushNotification({
 
     error,
   } =
-    await supabaseAdmin
-      .from(
-        "push_subscriptions"
-      )
-      .select(
-        `
-          id,
-          endpoint,
-          p256dh,
-          auth
-        `
-      )
-      .eq(
-        "organisation_id",
-        organisationId
-      );
+    await query;
 
-  if (error) {
+  if (
+    error
+  ) {
     console.error(
       "[TOTS PUSH] Could not load subscriptions:",
       error
@@ -152,7 +336,7 @@ export async function sendPushNotification({
       0
   ) {
     console.log(
-      `[TOTS PUSH] No subscriptions for organisation ${organisationId}.`
+      `[TOTS PUSH] No subscriptions found for user ${cleanedUserId}.`
     );
 
     return {
@@ -160,6 +344,9 @@ export async function sendPushNotification({
         0,
 
       failed:
+        0,
+
+      removed:
         0,
     };
   }
@@ -170,11 +357,14 @@ export async function sendPushNotification({
 
   const payload =
     JSON.stringify({
-      title,
+      title:
+        cleanedTitle,
 
-      body,
+      body:
+        cleanedBody,
 
-      url,
+      url:
+        cleanedUrl,
 
       icon:
         "/icon.png",
@@ -185,6 +375,16 @@ export async function sendPushNotification({
       tag:
         tag ||
         `tots-${Date.now()}`,
+
+      data: {
+        url:
+          cleanedUrl,
+
+        ...(
+          data ||
+          {}
+        ),
+      },
     });
 
   let sent =
@@ -193,8 +393,11 @@ export async function sendPushNotification({
   let failed =
     0;
 
+  let removed =
+    0;
+
   // ==========================================================
-  // SEND TO EACH DEVICE
+  // SEND TO EACH OF THIS USER'S DEVICES
   // ==========================================================
 
   for (
@@ -230,44 +433,71 @@ export async function sendPushNotification({
 
       console.error(
         "[TOTS PUSH] Delivery failed:",
-        error
+        {
+          subscriptionId:
+            subscription.id,
+
+          userId:
+            cleanedUserId,
+
+          statusCode:
+            error?.statusCode,
+
+          message:
+            error?.message,
+        }
       );
 
       // ======================================================
-      // REMOVE EXPIRED SUBSCRIPTIONS
+      // REMOVE EXPIRED / INVALID SUBSCRIPTIONS
       // ======================================================
 
       if (
-        error
-          ?.statusCode ===
+        error?.statusCode ===
           404 ||
-        error
-          ?.statusCode ===
+        error?.statusCode ===
           410
       ) {
-        await supabaseAdmin
-          .from(
-            "push_subscriptions"
-          )
-          .delete()
-          .eq(
-            "id",
-            subscription.id
-          );
+        const {
+          error:
+            deleteError,
+        } =
+          await supabaseAdmin
+            .from(
+              "push_subscriptions"
+            )
+            .delete()
+            .eq(
+              "id",
+              subscription.id
+            );
 
-        console.log(
-          `[TOTS PUSH] Removed expired subscription ${subscription.id}.`
-        );
+        if (
+          deleteError
+        ) {
+          console.warn(
+            "[TOTS PUSH] Could not remove expired subscription:",
+            deleteError
+          );
+        } else {
+          removed +=
+            1;
+
+          console.log(
+            `[TOTS PUSH] Removed expired subscription ${subscription.id}.`
+          );
+        }
       }
     }
   }
 
   console.log(
-    `[TOTS PUSH] Sent ${sent}, failed ${failed}.`
+    `[TOTS PUSH] User ${cleanedUserId}: sent ${sent}, failed ${failed}, removed ${removed}.`
   );
 
   return {
     sent,
     failed,
+    removed,
   };
 }

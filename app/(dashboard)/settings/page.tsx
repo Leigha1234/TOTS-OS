@@ -8,6 +8,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type LucideIcon,
 } from "react";
 
 import {
@@ -21,14 +22,29 @@ import {
 } from "framer-motion";
 
 import {
+  ArrowDown,
+  ArrowUp,
   Bell,
   BellOff,
+  Briefcase,
+  Calendar,
+  CalendarDays,
+  Check,
   CheckCircle2,
   Clock3,
+  Globe,
+  LayoutDashboard,
   Loader2,
+  Megaphone,
   Music2,
   Radio,
+  Save,
+  Settings as SettingsIcon,
   ShieldCheck,
+  Smartphone,
+  StickyNote,
+  Users,
+  WalletCards,
 } from "lucide-react";
 
 import {
@@ -42,6 +58,10 @@ import {
 import {
   enablePushNotifications,
 } from "@/lib/pushNotifications";
+
+import {
+  useSettings,
+} from "@/app/context/SettingsContext";
 
 import LegalHub from "@/app/components/LegalHub";
 import PasswordSection from "@/app/components/PasswordSection";
@@ -60,11 +80,285 @@ import {
 } from "./hooks/useSocialConnections";
 
 // ============================================================
+// TYPES
+// ============================================================
+
+type MobileNavOption = {
+  href: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+};
+
+type NotificationPreferenceKey =
+  | "finance"
+  | "tasks"
+  | "projects"
+  | "calendar"
+  | "social"
+  | "business";
+
+type NotificationPreferences = Record<
+  NotificationPreferenceKey,
+  boolean
+>;
+
+type NotificationPreferenceOption = {
+  id: NotificationPreferenceKey;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+};
+
+// ============================================================
 // CONSTANTS
 // ============================================================
 
 const LOGO_STORAGE_KEY =
   "tots_os_profile_logo_url";
+
+const DEFAULT_MOBILE_NAV = [
+  "/dashboard",
+  "/projects",
+  "/calendar",
+];
+
+const MOBILE_NAV_OPTIONS:
+  MobileNavOption[] = [
+  {
+    href:
+      "/dashboard",
+
+    label:
+      "Home",
+
+    description:
+      "Dashboard and daily overview",
+
+    icon:
+      LayoutDashboard,
+  },
+
+  {
+    href:
+      "/projects",
+
+    label:
+      "Projects",
+
+    description:
+      "Client work and delivery",
+
+    icon:
+      Briefcase,
+  },
+
+  {
+    href:
+      "/calendar",
+
+    label:
+      "Calendar",
+
+    description:
+      "Events and deadlines",
+
+    icon:
+      Calendar,
+  },
+
+  {
+    href:
+      "/crm",
+
+    label:
+      "Contacts",
+
+    description:
+      "Clients and contacts",
+
+    icon:
+      Users,
+  },
+
+  {
+    href:
+      "/payments",
+
+    label:
+      "Finance",
+
+    description:
+      "Invoices and business finances",
+
+    icon:
+      WalletCards,
+  },
+
+  {
+    href:
+      "/campaigns",
+
+    label:
+      "Campaigns",
+
+    description:
+      "Marketing campaigns",
+
+    icon:
+      Megaphone,
+  },
+
+  {
+    href:
+      "/social",
+
+    label:
+      "Social",
+
+    description:
+      "Social Studio and publishing",
+
+    icon:
+      Globe,
+  },
+
+  {
+    href:
+      "/notes",
+
+    label:
+      "Notes",
+
+    description:
+      "Notes and business ideas",
+
+    icon:
+      StickyNote,
+  },
+
+  {
+    href:
+      "/settings",
+
+    label:
+      "Settings",
+
+    description:
+      "Workspace preferences",
+
+    icon:
+      SettingsIcon,
+  },
+];
+
+const DEFAULT_NOTIFICATION_PREFERENCES:
+  NotificationPreferences = {
+  finance:
+    true,
+
+  tasks:
+    true,
+
+  projects:
+    true,
+
+  calendar:
+    true,
+
+  social:
+    true,
+
+  business:
+    true,
+};
+
+const NOTIFICATION_PREFERENCE_OPTIONS:
+  NotificationPreferenceOption[] = [
+  {
+    id:
+      "finance",
+
+    label:
+      "Invoices & payments",
+
+    description:
+      "Invoices due or overdue, payments received and important finance activity.",
+
+    icon:
+      WalletCards,
+  },
+
+  {
+    id:
+      "tasks",
+
+    label:
+      "Tasks & deadlines",
+
+    description:
+      "Upcoming tasks, overdue work, assignments and important deadlines.",
+
+    icon:
+      CheckCircle2,
+  },
+
+  {
+    id:
+      "projects",
+
+    label:
+      "Projects",
+
+    description:
+      "Project deadlines, delivery warnings and important project updates.",
+
+    icon:
+      Briefcase,
+  },
+
+  {
+    id:
+      "calendar",
+
+    label:
+      "Calendar & events",
+
+    description:
+      "Upcoming meetings, appointments and calendar reminders.",
+
+    icon:
+      CalendarDays,
+  },
+
+  {
+    id:
+      "social",
+
+    label:
+      "Social publishing",
+
+    description:
+      "Successful posts, publishing failures and scheduled social activity.",
+
+    icon:
+      Megaphone,
+  },
+
+  {
+    id:
+      "business",
+
+    label:
+      "Clients & business",
+
+    description:
+      "New business activity, client updates and important workspace alerts.",
+
+    icon:
+      Users,
+  },
+];
 
 // ============================================================
 // HELPERS
@@ -116,9 +410,7 @@ function storeLogoUrl(
       cleaned
     );
   } catch {
-    /*
-     * Local storage is only a fallback.
-     */
+    // Local storage is only a fallback.
   }
 }
 
@@ -163,9 +455,7 @@ function clearOAuthStorage(
       "oauth_started_at"
     );
   } catch {
-    /*
-     * OAuth storage cleanup is best-effort.
-     */
+    // Best effort only.
   }
 }
 
@@ -209,6 +499,115 @@ function decodeOAuthReason(
 }
 
 // ============================================================
+
+function normaliseMobileNav(
+  value:
+    unknown
+) {
+  if (
+    !Array.isArray(
+      value
+    )
+  ) {
+    return DEFAULT_MOBILE_NAV;
+  }
+
+  const validRoutes =
+    new Set(
+      MOBILE_NAV_OPTIONS.map(
+        (
+          option
+        ) =>
+          option.href
+      )
+    );
+
+  const cleaned =
+    Array.from(
+      new Set(
+        value.filter(
+          (
+            item
+          ): item is string =>
+            typeof item ===
+              "string" &&
+            validRoutes.has(
+              item
+            )
+        )
+      )
+    );
+
+  return cleaned.length ===
+    3
+    ? cleaned
+    : DEFAULT_MOBILE_NAV;
+}
+
+// ============================================================
+
+function normaliseNotificationPreferences(
+  value:
+    unknown
+): NotificationPreferences {
+  if (
+    !value ||
+    typeof value !==
+      "object" ||
+    Array.isArray(
+      value
+    )
+  ) {
+    return DEFAULT_NOTIFICATION_PREFERENCES;
+  }
+
+  const object =
+    value as
+      Record<
+        string,
+        unknown
+      >;
+
+  return {
+    finance:
+      typeof object.finance ===
+      "boolean"
+        ? object.finance
+        : true,
+
+    tasks:
+      typeof object.tasks ===
+      "boolean"
+        ? object.tasks
+        : true,
+
+    projects:
+      typeof object.projects ===
+      "boolean"
+        ? object.projects
+        : true,
+
+    calendar:
+      typeof object.calendar ===
+      "boolean"
+        ? object.calendar
+        : true,
+
+    social:
+      typeof object.social ===
+      "boolean"
+        ? object.social
+        : true,
+
+    business:
+      typeof object.business ===
+      "boolean"
+        ? object.business
+        : true,
+  };
+}
+
+// ============================================================
 // SETTINGS INNER
 // ============================================================
 
@@ -228,6 +627,18 @@ function SettingsInner() {
     useRef(
       false
     );
+
+  // ==========================================================
+  // GLOBAL SETTINGS CONTEXT
+  // ==========================================================
+
+  const {
+    mobileNav:
+      contextMobileNav,
+
+    refreshSettings,
+  } =
+    useSettings();
 
   // ==========================================================
   // PROFILE
@@ -259,7 +670,422 @@ function SettingsInner() {
     useSettingsProfile();
 
   // ==========================================================
-  // NOTIFICATIONS
+  // MOBILE NAVIGATION
+  // ==========================================================
+
+  const [
+    selectedMobileNav,
+    setSelectedMobileNav,
+  ] =
+    useState<
+      string[]
+    >(
+      DEFAULT_MOBILE_NAV
+    );
+
+  const [
+    mobileNavSaving,
+    setMobileNavSaving,
+  ] =
+    useState(
+      false
+    );
+
+  useEffect(
+    () => {
+      setSelectedMobileNav(
+        normaliseMobileNav(
+          contextMobileNav
+        )
+      );
+    },
+    [
+      contextMobileNav,
+    ]
+  );
+
+  const toggleMobileNavOption =
+    useCallback(
+      (
+        href:
+          string
+      ) => {
+        setSelectedMobileNav(
+          (
+            current
+          ) => {
+            if (
+              current.includes(
+                href
+              )
+            ) {
+              return current.filter(
+                (
+                  item
+                ) =>
+                  item !==
+                  href
+              );
+            }
+
+            if (
+              current.length >=
+              3
+            ) {
+              toast.info(
+                "Choose a maximum of 3 mobile shortcuts."
+              );
+
+              return current;
+            }
+
+            return [
+              ...current,
+              href,
+            ];
+          }
+        );
+      },
+      []
+    );
+
+  const moveMobileNavOption =
+    useCallback(
+      (
+        index:
+          number,
+
+        direction:
+          "up" |
+          "down"
+      ) => {
+        setSelectedMobileNav(
+          (
+            current
+          ) => {
+            const targetIndex =
+              direction ===
+              "up"
+                ? index -
+                  1
+                : index +
+                  1;
+
+            if (
+              targetIndex <
+                0 ||
+              targetIndex >=
+                current.length
+            ) {
+              return current;
+            }
+
+            const next =
+              [
+                ...current,
+              ];
+
+            const temporary =
+              next[index];
+
+            next[index] =
+              next[
+                targetIndex
+              ];
+
+            next[
+              targetIndex
+            ] =
+              temporary;
+
+            return next;
+          }
+        );
+      },
+      []
+    );
+
+  const saveMobileNavigation =
+    useCallback(
+      async () => {
+        if (
+          selectedMobileNav.length !==
+          3
+        ) {
+          toast.error(
+            "Choose exactly 3 mobile navigation shortcuts."
+          );
+
+          return;
+        }
+
+        try {
+          setMobileNavSaving(
+            true
+          );
+
+          const {
+            data,
+            error:
+              authError,
+          } =
+            await supabase.auth.getUser();
+
+          if (
+            authError
+          ) {
+            throw authError;
+          }
+
+          if (
+            !data.user?.id
+          ) {
+            throw new Error(
+              "You must be signed in to update mobile navigation."
+            );
+          }
+
+          const {
+            error,
+          } =
+            await supabase
+              .from(
+                "profiles"
+              )
+              .update({
+                mobile_nav_config:
+                  selectedMobileNav,
+              })
+              .eq(
+                "id",
+                data.user.id
+              );
+
+          if (
+            error
+          ) {
+            throw error;
+          }
+
+          await refreshSettings();
+
+          toast.success(
+            "Mobile navigation updated"
+          );
+        } catch (
+          error
+        ) {
+          console.error(
+            "[TOTS SETTINGS] Mobile navigation save failed:",
+            error
+          );
+
+          toast.error(
+            error instanceof
+              Error
+              ? error.message
+              : "Mobile navigation could not be saved."
+          );
+        } finally {
+          setMobileNavSaving(
+            false
+          );
+        }
+      },
+      [
+        selectedMobileNav,
+        refreshSettings,
+      ]
+    );
+
+  const resetMobileNavigation =
+    useCallback(
+      () => {
+        setSelectedMobileNav(
+          DEFAULT_MOBILE_NAV
+        );
+      },
+      []
+    );
+
+  // ==========================================================
+  // NOTIFICATION CATEGORY PREFERENCES
+  // ==========================================================
+
+  const [
+    notificationPreferences,
+    setNotificationPreferences,
+  ] =
+    useState<
+      NotificationPreferences
+    >(
+      DEFAULT_NOTIFICATION_PREFERENCES
+    );
+
+  const [
+    notificationPreferencesSaving,
+    setNotificationPreferencesSaving,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    notificationPreferencesLoaded,
+    setNotificationPreferencesLoaded,
+  ] =
+    useState(
+      false
+    );
+
+  useEffect(
+    () => {
+      let cancelled =
+        false;
+
+      const loadPreferences =
+        async () => {
+          try {
+            const {
+              data,
+              error,
+            } =
+              await supabase.auth.getUser();
+
+            if (
+              error
+            ) {
+              throw error;
+            }
+
+            if (
+              cancelled
+            ) {
+              return;
+            }
+
+            const stored =
+              data.user
+                ?.user_metadata
+                ?.tots_notification_preferences;
+
+            setNotificationPreferences(
+              normaliseNotificationPreferences(
+                stored
+              )
+            );
+          } catch (
+            error
+          ) {
+            console.warn(
+              "[TOTS SETTINGS] Notification preference load failed:",
+              error
+            );
+          } finally {
+            if (
+              !cancelled
+            ) {
+              setNotificationPreferencesLoaded(
+                true
+              );
+            }
+          }
+        };
+
+      void loadPreferences();
+
+      return () => {
+        cancelled =
+          true;
+      };
+    },
+    []
+  );
+
+  const toggleNotificationPreference =
+    useCallback(
+      (
+        id:
+          NotificationPreferenceKey
+      ) => {
+        setNotificationPreferences(
+          (
+            current
+          ) => ({
+            ...current,
+
+            [id]:
+              !current[id],
+          })
+        );
+      },
+      []
+    );
+
+  const saveNotificationPreferences =
+    useCallback(
+      async () => {
+        try {
+          setNotificationPreferencesSaving(
+            true
+          );
+
+          const {
+            error,
+          } =
+            await supabase.auth.updateUser({
+              data: {
+                tots_notification_preferences:
+                  notificationPreferences,
+              },
+            });
+
+          if (
+            error
+          ) {
+            throw error;
+          }
+
+          toast.success(
+            "Notification preferences updated"
+          );
+        } catch (
+          error
+        ) {
+          console.error(
+            "[TOTS SETTINGS] Notification preferences save failed:",
+            error
+          );
+
+          toast.error(
+            error instanceof
+              Error
+              ? error.message
+              : "Notification preferences could not be saved."
+          );
+        } finally {
+          setNotificationPreferencesSaving(
+            false
+          );
+        }
+      },
+      [
+        notificationPreferences,
+      ]
+    );
+
+  const enableAllNotificationPreferences =
+    useCallback(
+      () => {
+        setNotificationPreferences(
+          DEFAULT_NOTIFICATION_PREFERENCES
+        );
+      },
+      []
+    );
+
+  // ==========================================================
+  // PUSH NOTIFICATIONS
   // ==========================================================
 
   const [
@@ -326,10 +1152,6 @@ function SettingsInner() {
           return;
         }
 
-        // ====================================================
-        // NOTIFICATION API
-        // ====================================================
-
         const notificationsAvailable =
           "Notification" in
           window;
@@ -346,10 +1168,6 @@ function SettingsInner() {
           );
         }
 
-        // ====================================================
-        // PUSH API
-        // ====================================================
-
         const pushAvailable =
           "PushManager" in
           window;
@@ -357,10 +1175,6 @@ function SettingsInner() {
         setPushSupported(
           pushAvailable
         );
-
-        // ====================================================
-        // SERVICE WORKER
-        // ====================================================
 
         if (
           !(
@@ -551,17 +1365,6 @@ function SettingsInner() {
             true
           );
 
-          // =================================================
-          // REAL PUSH SUBSCRIPTION
-          //
-          // This:
-          // 1. asks permission
-          // 2. registers / finds service worker
-          // 3. creates PushManager subscription
-          // 4. sends it to /api/push/subscribe
-          // 5. stores it in Supabase
-          // =================================================
-
           await enablePushNotifications();
 
           await refreshNotificationStatus();
@@ -620,7 +1423,7 @@ function SettingsInner() {
     );
 
   // ==========================================================
-  // SEND REAL TEST PUSH NOTIFICATION
+  // SEND REAL TEST PUSH
   // ==========================================================
 
   const sendTestNotification =
@@ -659,10 +1462,6 @@ function SettingsInner() {
             true
           );
 
-          // =================================================
-          // AUTH TOKEN
-          // =================================================
-
           const {
             data:
               sessionData,
@@ -692,13 +1491,6 @@ function SettingsInner() {
               "You must be signed in to send a test notification."
             );
           }
-
-          // =================================================
-          // SERVER-SENT PUSH
-          //
-          // This is intentionally NOT registration.showNotification().
-          // It tests the real server → push service → device flow.
-          // =================================================
 
           const response =
             await fetch(
@@ -1078,10 +1870,6 @@ function SettingsInner() {
                 "meta"
               );
 
-              console.log(
-                "[TOTS SOCIAL] Meta OAuth returned successfully."
-              );
-
               await refreshSocialState();
 
               if (
@@ -1358,7 +2146,7 @@ function SettingsInner() {
   }
 
   // ==========================================================
-  // NOTIFICATION COPY
+  // NOTIFICATION STATE
   // ==========================================================
 
   const notificationFullyEnabled =
@@ -1366,6 +2154,13 @@ function SettingsInner() {
       "granted" &&
     serviceWorkerReady &&
     pushSubscribed;
+
+  const enabledNotificationCount =
+    Object.values(
+      notificationPreferences
+    ).filter(
+      Boolean
+    ).length;
 
   // ==========================================================
   // RENDER
@@ -1462,15 +2257,431 @@ function SettingsInner() {
               />
 
               {/* ==================================================
+                  MOBILE EXPERIENCE
+              ================================================== */}
+
+              <div className="border-t border-stone-100 pt-10">
+                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Smartphone
+                        size={
+                          14
+                        }
+                        className="text-[#829473]"
+                      />
+
+                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">
+                        Mobile app
+                      </p>
+                    </div>
+
+                    <h2 className="mt-2 font-serif text-2xl italic text-stone-900">
+                      Your mobile navigation
+                    </h2>
+
+                    <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-500">
+                      Choose the 3 areas you use most.
+                      They&apos;ll appear in your bottom
+                      navigation bar on mobile. The fourth
+                      button is always More, so the rest of
+                      TOTS-OS stays available.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={
+                        resetMobileNavigation
+                      }
+                      className="min-h-10 rounded-xl border border-stone-200 bg-white px-4 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400 transition hover:border-stone-300 hover:text-stone-700"
+                    >
+                      Reset
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={
+                        mobileNavSaving ||
+                        selectedMobileNav.length !==
+                          3
+                      }
+                      onClick={() =>
+                        void saveMobileNavigation()
+                      }
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 text-[8px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {mobileNavSaving ? (
+                        <Loader2
+                          size={
+                            12
+                          }
+                          className="animate-spin"
+                        />
+                      ) : (
+                        <Save
+                          size={
+                            12
+                          }
+                        />
+                      )}
+
+                      Save layout
+                    </button>
+                  </div>
+                </div>
+
+                {/* ============================================
+                    CURRENT MOBILE DOCK PREVIEW
+                ============================================ */}
+
+                <div className="rounded-[1.75rem] border border-stone-200 bg-[#faf9f6] p-4 sm:p-5">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
+                        Mobile dock
+                      </p>
+
+                      <p className="mt-1 text-[10px] text-stone-500">
+                        {selectedMobileNav.length}
+                        /3 shortcuts selected
+                      </p>
+                    </div>
+
+                    {selectedMobileNav.length ===
+                      3 && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8efe2] px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-[#647356]">
+                        <Check
+                          size={
+                            9
+                          }
+                        />
+
+                        Ready
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-4 items-center gap-1 rounded-[1.5rem] border border-stone-200 bg-white p-1.5 shadow-sm">
+                    {selectedMobileNav.map(
+                      (
+                        href
+                      ) => {
+                        const option =
+                          MOBILE_NAV_OPTIONS.find(
+                            (
+                              item
+                            ) =>
+                              item.href ===
+                              href
+                          );
+
+                        if (
+                          !option
+                        ) {
+                          return null;
+                        }
+
+                        const Icon =
+                          option.icon;
+
+                        return (
+                          <div
+                            key={
+                              href
+                            }
+                            className="flex h-[58px] min-w-0 flex-col items-center justify-center gap-1 rounded-[1.2rem] text-stone-400"
+                          >
+                            <Icon
+                              size={
+                                20
+                              }
+                              strokeWidth={
+                                1.7
+                              }
+                            />
+
+                            <span className="max-w-full truncate px-1 text-[7px] font-bold uppercase tracking-[0.03em]">
+                              {
+                                option.label
+                              }
+                            </span>
+                          </div>
+                        );
+                      }
+                    )}
+
+                    {Array.from({
+                      length:
+                        Math.max(
+                          0,
+                          3 -
+                            selectedMobileNav.length
+                        ),
+                    }).map(
+                      (
+                        _,
+                        index
+                      ) => (
+                        <div
+                          key={`empty-nav-${index}`}
+                          className="flex h-[58px] items-center justify-center rounded-[1.2rem] border border-dashed border-stone-200 text-[8px] font-bold uppercase text-stone-300"
+                        >
+                          Empty
+                        </div>
+                      )
+                    )}
+
+                    <div className="flex h-[58px] min-w-0 flex-col items-center justify-center gap-1 rounded-[1.2rem] bg-[#a9b897] text-white">
+                      <SettingsIcon
+                        size={
+                          20
+                        }
+                        strokeWidth={
+                          1.8
+                        }
+                      />
+
+                      <span className="text-[7px] font-bold uppercase">
+                        More
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* ============================================
+                      ORDER
+                  ============================================ */}
+
+                  {selectedMobileNav.length >
+                    0 && (
+                    <div className="mt-5">
+                      <p className="mb-2 text-[8px] font-black uppercase tracking-[0.16em] text-stone-300">
+                        Display order
+                      </p>
+
+                      <div className="space-y-2">
+                        {selectedMobileNav.map(
+                          (
+                            href,
+                            index
+                          ) => {
+                            const option =
+                              MOBILE_NAV_OPTIONS.find(
+                                (
+                                  item
+                                ) =>
+                                  item.href ===
+                                  href
+                              );
+
+                            if (
+                              !option
+                            ) {
+                              return null;
+                            }
+
+                            const Icon =
+                              option.icon;
+
+                            return (
+                              <div
+                                key={
+                                  href
+                                }
+                                className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white p-3"
+                              >
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-stone-900 text-[#a9b897]">
+                                  <span className="text-[9px] font-black">
+                                    {index +
+                                      1}
+                                  </span>
+                                </div>
+
+                                <Icon
+                                  size={
+                                    15
+                                  }
+                                  className="shrink-0 text-stone-400"
+                                />
+
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[10px] font-bold text-stone-700">
+                                    {
+                                      option.label
+                                    }
+                                  </p>
+
+                                  <p className="truncate text-[8px] text-stone-400">
+                                    {
+                                      option.description
+                                    }
+                                  </p>
+                                </div>
+
+                                <div className="flex shrink-0 gap-1">
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      index ===
+                                      0
+                                    }
+                                    onClick={() =>
+                                      moveMobileNavOption(
+                                        index,
+                                        "up"
+                                      )
+                                    }
+                                    aria-label={`Move ${option.label} left`}
+                                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-400 transition hover:text-stone-800 disabled:opacity-25"
+                                  >
+                                    <ArrowUp
+                                      size={
+                                        12
+                                      }
+                                    />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      index ===
+                                      selectedMobileNav.length -
+                                        1
+                                    }
+                                    onClick={() =>
+                                      moveMobileNavOption(
+                                        index,
+                                        "down"
+                                      )
+                                    }
+                                    aria-label={`Move ${option.label} right`}
+                                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-400 transition hover:text-stone-800 disabled:opacity-25"
+                                  >
+                                    <ArrowDown
+                                      size={
+                                        12
+                                      }
+                                    />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ============================================
+                    AVAILABLE SHORTCUTS
+                ============================================ */}
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {MOBILE_NAV_OPTIONS.map(
+                    (
+                      option
+                    ) => {
+                      const selected =
+                        selectedMobileNav.includes(
+                          option.href
+                        );
+
+                      const selectionIndex =
+                        selectedMobileNav.indexOf(
+                          option.href
+                        );
+
+                      const Icon =
+                        option.icon;
+
+                      return (
+                        <button
+                          key={
+                            option.href
+                          }
+                          type="button"
+                          onClick={() =>
+                            toggleMobileNavOption(
+                              option.href
+                            )
+                          }
+                          className={`
+                            relative
+                            flex
+                            min-h-[82px]
+                            items-center
+                            gap-3
+                            rounded-[1.4rem]
+                            border
+                            p-4
+                            text-left
+                            transition
+
+                            ${
+                              selected
+                                ? "border-[#a9b897] bg-[#f4f7f0] shadow-sm"
+                                : "border-stone-200 bg-white hover:border-stone-300"
+                            }
+                          `}
+                        >
+                          <div
+                            className={`
+                              flex
+                              h-10
+                              w-10
+                              shrink-0
+                              items-center
+                              justify-center
+                              rounded-xl
+
+                              ${
+                                selected
+                                  ? "bg-[#a9b897] text-white"
+                                  : "bg-stone-100 text-stone-400"
+                              }
+                            `}
+                          >
+                            <Icon
+                              size={
+                                17
+                              }
+                            />
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold text-stone-700">
+                              {
+                                option.label
+                              }
+                            </p>
+
+                            <p className="mt-1 text-[8px] leading-4 text-stone-400">
+                              {
+                                option.description
+                              }
+                            </p>
+                          </div>
+
+                          {selected && (
+                            <div className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-stone-900 text-[7px] font-black text-white">
+                              {selectionIndex +
+                                1}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+              </div>
+
+              {/* ==================================================
                   PUSH NOTIFICATIONS
               ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
-
-                {/* ================================================
-                    HEADING
-                ================================================ */}
-
                 <div className="mb-6">
                   <p className="text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">
                     Notifications
@@ -1481,23 +2692,19 @@ function SettingsInner() {
                   </h2>
 
                   <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-500">
-                    Receive push notifications for new orders,
-                    invoices, payments, deadlines, tasks,
-                    projects and other important TOTS-OS
-                    activity — even when the app is closed.
+                    Receive push notifications for important
+                    TOTS-OS activity — even when the app is
+                    closed.
                   </p>
                 </div>
 
-                {/* ================================================
-                    MAIN NOTIFICATION CARD
-                ================================================ */}
+                {/* ============================================
+                    DEVICE PUSH STATUS
+                ============================================ */}
 
                 <div className="overflow-hidden rounded-[1.75rem] border border-stone-200 bg-[#faf9f6]">
                   <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
                     <div className="flex min-w-0 items-start gap-4">
-
-                      {/* ICON */}
-
                       <div
                         className={`
                           flex
@@ -1539,8 +2746,6 @@ function SettingsInner() {
                           />
                         )}
                       </div>
-
-                      {/* COPY */}
 
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -1610,20 +2815,13 @@ function SettingsInner() {
                               : notificationPermission ===
                                     "granted" &&
                                   !pushSubscribed
-                                ? "Permission is allowed, but this device has not finished registering for push notifications. Press Enable notifications to complete setup."
+                                ? "Permission is allowed, but this device has not finished registering for push notifications."
                                 : "Turn push notifications on so TOTS-OS can alert you about important business activity."}
                         </p>
                       </div>
                     </div>
 
-                    {/* ==========================================
-                        ACTIONS
-                    ========================================== */}
-
                     <div className="flex shrink-0 flex-wrap gap-2">
-
-                      {/* ENABLE / COMPLETE SETUP */}
-
                       {!notificationFullyEnabled && (
                         <button
                           type="button"
@@ -1635,26 +2833,7 @@ function SettingsInner() {
                             !notificationSupported ||
                             !pushSupported
                           }
-                          className="
-                            inline-flex
-                            min-h-11
-                            items-center
-                            justify-center
-                            gap-2
-                            rounded-xl
-                            bg-stone-900
-                            px-4
-                            text-[9px]
-                            font-black
-                            uppercase
-                            tracking-[0.12em]
-                            text-white
-                            transition
-                            hover:bg-[#a9b897]
-                            hover:text-stone-900
-                            disabled:cursor-not-allowed
-                            disabled:opacity-50
-                          "
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 text-[9px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {notificationLoading ? (
                             <Loader2
@@ -1678,8 +2857,6 @@ function SettingsInner() {
                         </button>
                       )}
 
-                      {/* SEND REAL PUSH TEST */}
-
                       {notificationFullyEnabled && (
                         <button
                           type="button"
@@ -1689,28 +2866,7 @@ function SettingsInner() {
                           disabled={
                             notificationLoading
                           }
-                          className="
-                            inline-flex
-                            min-h-11
-                            items-center
-                            justify-center
-                            gap-2
-                            rounded-xl
-                            border
-                            border-stone-200
-                            bg-white
-                            px-4
-                            text-[9px]
-                            font-black
-                            uppercase
-                            tracking-[0.12em]
-                            text-stone-600
-                            transition
-                            hover:border-stone-300
-                            hover:text-stone-900
-                            disabled:cursor-not-allowed
-                            disabled:opacity-50
-                          "
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-[9px] font-black uppercase tracking-[0.12em] text-stone-600 transition hover:border-stone-300 hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {notificationLoading ? (
                             <Loader2
@@ -1732,10 +2888,6 @@ function SettingsInner() {
                       )}
                     </div>
                   </div>
-
-                  {/* ==========================================
-                      STATUS ROW
-                  ========================================== */}
 
                   <div className="grid border-t border-stone-200 bg-white sm:grid-cols-2 xl:grid-cols-4">
                     <NotificationStatus
@@ -1795,9 +2947,186 @@ function SettingsInner() {
                   </div>
                 </div>
 
-                {/* ================================================
+                {/* ============================================
+                    WHAT TO NOTIFY ME ABOUT
+                ============================================ */}
+
+                <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-200 bg-white">
+                  <div className="flex flex-col gap-4 border-b border-stone-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                        Alert preferences
+                      </p>
+
+                      <h3 className="mt-2 text-sm font-bold text-stone-800">
+                        What should TOTS-OS notify you about?
+                      </h3>
+
+                      <p className="mt-2 max-w-xl text-[10px] leading-5 text-stone-500">
+                        Choose the business activity you want
+                        included in your alerts. You currently
+                        have {enabledNotificationCount} of{" "}
+                        {
+                          NOTIFICATION_PREFERENCE_OPTIONS.length
+                        }{" "}
+                        categories enabled.
+                      </p>
+                    </div>
+
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        type="button"
+                        onClick={
+                          enableAllNotificationPreferences
+                        }
+                        className="min-h-10 rounded-xl border border-stone-200 bg-white px-4 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400 transition hover:text-stone-700"
+                      >
+                        Enable all
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={
+                          notificationPreferencesSaving ||
+                          !notificationPreferencesLoaded
+                        }
+                        onClick={() =>
+                          void saveNotificationPreferences()
+                        }
+                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#a9b897] px-4 text-[8px] font-black uppercase tracking-[0.12em] text-stone-900 transition hover:bg-[#b6c5a5] disabled:opacity-50"
+                      >
+                        {notificationPreferencesSaving ? (
+                          <Loader2
+                            size={
+                              12
+                            }
+                            className="animate-spin"
+                          />
+                        ) : (
+                          <Save
+                            size={
+                              12
+                            }
+                          />
+                        )}
+
+                        Save alerts
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2">
+                    {NOTIFICATION_PREFERENCE_OPTIONS.map(
+                      (
+                        option,
+                        index
+                      ) => {
+                        const enabled =
+                          notificationPreferences[
+                            option.id
+                          ];
+
+                        const Icon =
+                          option.icon;
+
+                        return (
+                          <button
+                            key={
+                              option.id
+                            }
+                            type="button"
+                            onClick={() =>
+                              toggleNotificationPreference(
+                                option.id
+                              )
+                            }
+                            className={`
+                              flex
+                              items-start
+                              gap-4
+                              border-stone-100
+                              p-5
+                              text-left
+                              transition
+
+                              ${
+                                index <
+                                NOTIFICATION_PREFERENCE_OPTIONS.length -
+                                  2
+                                  ? "border-b"
+                                  : ""
+                              }
+
+                              ${
+                                index %
+                                  2 ===
+                                0
+                                  ? "sm:border-r"
+                                  : ""
+                              }
+
+                              ${
+                                enabled
+                                  ? "bg-[#fcfdfb]"
+                                  : "bg-white"
+                              }
+                            `}
+                          >
+                            <div
+                              className={`
+                                flex
+                                h-10
+                                w-10
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-xl
+
+                                ${
+                                  enabled
+                                    ? "bg-[#e8efe2] text-[#71805f]"
+                                    : "bg-stone-100 text-stone-300"
+                                }
+                              `}
+                            >
+                              <Icon
+                                size={
+                                  16
+                                }
+                              />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-[10px] font-bold text-stone-700">
+                                  {
+                                    option.label
+                                  }
+                                </p>
+
+                                <ToggleSwitch
+                                  enabled={
+                                    enabled
+                                  }
+                                />
+                              </div>
+
+                              <p className="mt-1.5 text-[9px] leading-5 text-stone-400">
+                                {
+                                  option.description
+                                }
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      }
+                    )}
+                  </div>
+                </div>
+
+                {/* ============================================
                     READY CONFIRMATION
-                ================================================ */}
+                ============================================ */}
 
                 {notificationFullyEnabled && (
                   <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[#dfe6d7] bg-[#f4f7f0] p-4">
@@ -1815,17 +3144,15 @@ function SettingsInner() {
 
                       <p className="mt-1 text-[10px] leading-5 text-stone-500">
                         Use Send push test to test the full
-                        server-to-device notification flow. You
-                        can lock your phone or close TOTS-OS
-                        before sending the test.
+                        server-to-device notification flow.
                       </p>
                     </div>
                   </div>
                 )}
 
-                {/* ================================================
+                {/* ============================================
                     IOS / PWA NOTE
-                ================================================ */}
+                ============================================ */}
 
                 <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[#dfe6d7] bg-[#f4f7f0] p-4">
                   <ShieldCheck
@@ -1847,9 +3174,9 @@ function SettingsInner() {
                   </p>
                 </div>
 
-                {/* ================================================
+                {/* ============================================
                     UNSUPPORTED NOTE
-                ================================================ */}
+                ============================================ */}
 
                 {(
                   !notificationSupported ||
@@ -1879,11 +3206,6 @@ function SettingsInner() {
               ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
-
-                {/* ================================================
-                    TIKTOK NOTICE
-                ================================================ */}
-
                 <div className="mb-6 overflow-hidden rounded-[1.75rem] border border-[#dfe6d7] bg-gradient-to-r from-[#f4f7f0] to-[#fafbf8] p-5 sm:p-6">
                   <div className="flex items-start gap-4">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-stone-900 text-[#a9b897]">
@@ -1974,6 +3296,56 @@ function SettingsInner() {
         }}
       />
     </div>
+  );
+}
+
+// ============================================================
+// TOGGLE SWITCH
+// ============================================================
+
+function ToggleSwitch({
+  enabled,
+}: {
+  enabled:
+    boolean;
+}) {
+  return (
+    <span
+      className={`
+        relative
+        inline-flex
+        h-6
+        w-11
+        shrink-0
+        items-center
+        rounded-full
+        transition-colors
+
+        ${
+          enabled
+            ? "bg-[#a9b897]"
+            : "bg-stone-200"
+        }
+      `}
+    >
+      <span
+        className={`
+          block
+          h-4
+          w-4
+          rounded-full
+          bg-white
+          shadow-sm
+          transition-transform
+
+          ${
+            enabled
+              ? "translate-x-6"
+              : "translate-x-1"
+          }
+        `}
+      />
+    </span>
   );
 }
 

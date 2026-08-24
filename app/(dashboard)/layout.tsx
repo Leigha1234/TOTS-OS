@@ -66,6 +66,16 @@ type MobileNavSection = {
 };
 
 // ============================================================
+// FALLBACK MOBILE NAV
+// ============================================================
+
+const FALLBACK_MOBILE_NAV = [
+  "/dashboard",
+  "/projects",
+  "/calendar",
+];
+
+// ============================================================
 // DASHBOARD LAYOUT
 // ============================================================
 
@@ -91,23 +101,14 @@ function DashboardLayoutInner({
   const [
     mobileMenuOpen,
     setMobileMenuOpen,
-  ] =
-    useState(
-      false
-    );
+  ] = useState(false);
 
   const pathname =
     usePathname();
 
   const {
-    mobileNav = [
-      "/dashboard",
-      "/clarity",
-      "/calendar",
-    ],
-
-    fontFamily =
-      "Inter",
+    mobileNav,
+    fontFamily,
   } =
     useSettings();
 
@@ -116,8 +117,7 @@ function DashboardLayoutInner({
   // ==========================================================
 
   const allLinks:
-    DashboardLink[] =
-    [
+    DashboardLink[] = [
       {
         href:
           "/dashboard",
@@ -223,8 +223,7 @@ function DashboardLayoutInner({
   // ==========================================================
 
   const mobileSections:
-    MobileNavSection[] =
-    [
+    MobileNavSection[] = [
       {
         links: [
           {
@@ -358,17 +357,51 @@ function DashboardLayoutInner({
     ];
 
   // ==========================================================
-  // PINNED MOBILE LINKS
+  // RESOLVE MOBILE NAV
+  //
+  // IMPORTANT:
+  // Map through mobileNav first rather than filtering allLinks.
+  //
+  // That means:
+  //
+  // ["/calendar", "/dashboard", "/projects"]
+  //
+  // actually renders:
+  //
+  // Calendar → Home → Projects
+  //
+  // instead of reverting to allLinks order.
   // ==========================================================
 
+  const requestedMobileNav =
+    Array.isArray(
+      mobileNav
+    ) &&
+    mobileNav.length ===
+      3
+      ? mobileNav
+      : FALLBACK_MOBILE_NAV;
+
   const pinnedMobileLinks =
-    allLinks
+    requestedMobileNav
+      .map(
+        (
+          href
+        ) =>
+          allLinks.find(
+            (
+              link
+            ) =>
+              link.href ===
+              href
+          )
+      )
       .filter(
         (
           link
-        ) =>
-          mobileNav?.includes(
-            link.href
+        ): link is DashboardLink =>
+          Boolean(
+            link
           )
       )
       .slice(
@@ -377,19 +410,133 @@ function DashboardLayoutInner({
       );
 
   // ==========================================================
+  // SAFE FALLBACK
+  // ==========================================================
+
+  const fallbackMobileLinks =
+    FALLBACK_MOBILE_NAV
+      .map(
+        (
+          href
+        ) =>
+          allLinks.find(
+            (
+              link
+            ) =>
+              link.href ===
+              href
+          )
+      )
+      .filter(
+        (
+          link
+        ): link is DashboardLink =>
+          Boolean(
+            link
+          )
+      );
+
+  const finalPinnedMobileLinks =
+    pinnedMobileLinks.length ===
+    3
+      ? pinnedMobileLinks
+      : fallbackMobileLinks;
+
+  // ==========================================================
+  // MORE ACTIVE STATE
+  //
+  // More becomes active whenever the current page isn't one
+  // of the user's three pinned shortcuts.
+  // ==========================================================
+
+  const isMoreActive =
+    !finalPinnedMobileLinks.some(
+      (
+        link
+      ) =>
+        pathname ===
+          link.href ||
+        pathname.startsWith(
+          `${link.href}/`
+        )
+    );
+
+  // ==========================================================
   // LOCK BODY WHEN MOBILE MENU IS OPEN
   // ==========================================================
 
   useEffect(
     () => {
+      if (
+        !mobileMenuOpen
+      ) {
+        return;
+      }
+
+      const previousOverflow =
+        document.body.style
+          .overflow;
+
+      const previousOverscroll =
+        document.body.style
+          .overscrollBehavior;
+
       document.body.style.overflow =
-        mobileMenuOpen
-          ? "hidden"
-          : "";
+        "hidden";
+
+      document.body.style.overscrollBehavior =
+        "none";
 
       return () => {
         document.body.style.overflow =
-          "";
+          previousOverflow;
+
+        document.body.style.overscrollBehavior =
+          previousOverscroll;
+      };
+    },
+    [
+      mobileMenuOpen,
+    ]
+  );
+
+  // ==========================================================
+  // ESCAPE CLOSE MOBILE MENU
+  // ==========================================================
+
+  useEffect(
+    () => {
+      if (
+        !mobileMenuOpen
+      ) {
+        return;
+      }
+
+      const handleKeyDown =
+        (
+          event:
+            KeyboardEvent
+        ) => {
+          if (
+            event.key ===
+            "Escape"
+          ) {
+            setMobileMenuOpen(
+              false
+            );
+          }
+        };
+
+      window.addEventListener(
+        "keydown",
+        handleKeyDown
+      );
+
+      return () => {
+        window.removeEventListener(
+          "keydown",
+          handleKeyDown
+        );
       };
     },
     [
@@ -412,7 +559,7 @@ function DashboardLayoutInner({
       "
       style={{
         fontFamily:
-          `'${fontFamily}', sans-serif`,
+          `'${fontFamily || "Inter"}', sans-serif`,
       }}
     >
       {/* ======================================================
@@ -447,19 +594,17 @@ function DashboardLayoutInner({
       >
         {/* ====================================================
             GLOBAL TOP-RIGHT ACTIONS
-
-            Clarity sits LEFT.
-            Notifications sit RIGHT.
-
-            Both are positioned together so they cannot overlap.
         ==================================================== */}
 
         <div
           className="
             pointer-events-none
+
             fixed
+
             right-4
-            top-4
+            top-[calc(1rem+env(safe-area-inset-top))]
+
             z-[500]
 
             flex
@@ -487,9 +632,6 @@ function DashboardLayoutInner({
 
           {/* ================================================
               NOTIFICATIONS
-
-              Desktop/global bell.
-              Hidden while mobile full-screen menu is open.
           ================================================ */}
 
           {!mobileMenuOpen && (
@@ -511,11 +653,13 @@ function DashboardLayoutInner({
           data-tour="dashboard-content"
           className="
             flex-1
+
             overflow-x-hidden
             overflow-y-auto
 
             p-4
-            pb-32
+
+            pb-[calc(7.5rem+env(safe-area-inset-bottom))]
 
             md:p-12
             md:pb-12
@@ -530,103 +674,143 @@ function DashboardLayoutInner({
             MOBILE BOTTOM NAV
         ==================================================== */}
 
-        <nav
-          data-tour="mobile-navigation"
-          className="
-            fixed
-            bottom-0
-            left-0
-            right-0
-            z-[90]
+        {!mobileMenuOpen && (
+          <nav
+            data-tour="mobile-navigation"
+            aria-label="Mobile navigation"
+            className="
+              fixed
 
-            flex
-            h-14
-            items-center
-            justify-between
+              bottom-[calc(0.65rem+env(safe-area-inset-bottom))]
+              left-3
+              right-3
 
-            border-t
-            border-stone-100
+              z-[900]
 
-            bg-white/90
+              grid
+              grid-cols-4
+              items-center
 
-            px-3
-            pb-safe
+              min-h-[72px]
 
-            backdrop-blur-2xl
+              rounded-[1.65rem]
 
-            md:hidden
-          "
-        >
-          {pinnedMobileLinks.map(
-            (
-              link
-            ) => (
-              <MobileNavItem
-                key={
-                  link.href
+              border
+              border-stone-200/80
+
+              bg-white/95
+
+              p-1.5
+
+              shadow-[0_12px_40px_rgba(28,25,23,0.10)]
+
+              backdrop-blur-2xl
+
+              md:hidden
+            "
+          >
+            {finalPinnedMobileLinks.map(
+              (
+                link
+              ) => (
+                <MobileNavItem
+                  key={
+                    link.href
+                  }
+                  href={
+                    link.href
+                  }
+                  icon={
+                    link.icon
+                  }
+                  label={
+                    link.label
+                  }
+                  isActive={
+                    pathname ===
+                      link.href ||
+                    pathname.startsWith(
+                      `${link.href}/`
+                    )
+                  }
+                />
+              )
+            )}
+
+            {/* ================================================
+                MORE BUTTON
+            ================================================ */}
+
+            <button
+              type="button"
+              onClick={() =>
+                setMobileMenuOpen(
+                  true
+                )
+              }
+              className={`
+                relative
+
+                flex
+
+                h-[58px]
+
+                min-w-0
+
+                flex-col
+                items-center
+                justify-center
+
+                gap-1.5
+
+                rounded-[1.25rem]
+
+                transition-all
+                duration-200
+
+                active:scale-[0.96]
+
+                ${
+                  isMoreActive
+                    ? "bg-[#a9b897] text-white shadow-sm"
+                    : "bg-transparent text-stone-400 hover:bg-stone-50"
                 }
-                href={
-                  link.href
+              `}
+              aria-label="Open full navigation menu"
+              aria-expanded={
+                mobileMenuOpen
+              }
+            >
+              <Menu
+                size={
+                  22
                 }
-                icon={
-                  link.icon
-                }
-                label={
-                  link.label
-                }
-                isActive={
-                  pathname ===
-                    link.href ||
-                  pathname.startsWith(
-                    `${link.href}/`
-                  )
+                strokeWidth={
+                  isMoreActive
+                    ? 2
+                    : 1.7
                 }
               />
-            )
-          )}
 
-          <button
-            type="button"
-            onClick={() =>
-              setMobileMenuOpen(
-                true
-              )
-            }
-            className="
-              flex
-              flex-col
-              items-center
-              gap-1
+              <span
+                className="
+                  max-w-full
 
-              text-stone-400
+                  truncate
 
-              transition-colors
+                  px-1
 
-              active:scale-90
-            "
-            aria-label="Open menu"
-          >
-            <Menu
-              size={
-                18
-              }
-              strokeWidth={
-                1.5
-              }
-            />
-
-            <span
-              className="
-                text-[7px]
-                font-black
-                uppercase
-                tracking-tighter
-              "
-            >
-              More
-            </span>
-          </button>
-        </nav>
+                  text-[9px]
+                  font-bold
+                  uppercase
+                  tracking-[0.04em]
+                "
+              >
+                More
+              </span>
+            </button>
+          </nav>
+        )}
 
         {/* ====================================================
             CLARITY PRODUCT TOUR
@@ -666,11 +850,20 @@ function DashboardLayoutInner({
               className="
                 fixed
                 inset-0
+
                 z-[5000]
 
+                h-[100dvh]
+
                 overflow-y-auto
+                overscroll-contain
 
                 bg-[#fcfaf7]
+
+                pt-[env(safe-area-inset-top)]
+                pb-[env(safe-area-inset-bottom)]
+
+                [-webkit-overflow-scrolling:touch]
 
                 md:hidden
               "
@@ -678,7 +871,9 @@ function DashboardLayoutInner({
               <div
                 className="
                   relative
+
                   min-h-full
+
                   p-5
                   pb-24
                 "
@@ -718,7 +913,9 @@ function DashboardLayoutInner({
                       className="
                         h-9
                         w-9
+
                         rounded-xl
+
                         object-contain
                       "
                     />
@@ -726,9 +923,11 @@ function DashboardLayoutInner({
                     <span
                       className="
                         font-serif
+
                         text-2xl
                         italic
                         tracking-tighter
+
                         text-stone-900
                       "
                     >
@@ -782,9 +981,12 @@ function DashboardLayoutInner({
                       }
                       className="
                         flex
+
                         h-11
                         w-11
+
                         shrink-0
+
                         items-center
                         justify-center
 
@@ -795,9 +997,14 @@ function DashboardLayoutInner({
 
                         bg-white
 
+                        text-stone-900
+
                         shadow-sm
 
-                        transition-transform
+                        transition-all
+                        duration-200
+
+                        hover:border-stone-300
 
                         active:scale-95
                       "
@@ -807,16 +1014,13 @@ function DashboardLayoutInner({
                         size={
                           20
                         }
-                        className="
-                          text-stone-900
-                        "
                       />
                     </button>
                   </div>
                 </div>
 
                 {/* ============================================
-                    NOTIFICATION INFORMATION
+                    MENU INTRO
                 ============================================ */}
 
                 <div
@@ -834,7 +1038,7 @@ function DashboardLayoutInner({
                     bg-white
 
                     px-4
-                    py-3
+                    py-4
 
                     shadow-sm
                   "
@@ -854,28 +1058,29 @@ function DashboardLayoutInner({
                     >
                       <p
                         className="
-                          text-[8px]
+                          text-[9px]
                           font-black
                           uppercase
                           tracking-[0.2em]
-                          text-stone-400
+
+                          text-[#829473]
                         "
                       >
-                        Notifications
+                        Your workspace
                       </p>
 
                       <p
                         className="
                           mt-1
+
                           text-xs
                           font-semibold
                           leading-5
+
                           text-stone-700
                         "
                       >
-                        Orders, deadlines,
-                        payments and business
-                        updates.
+                        Access every area of TOTS-OS from here.
                       </p>
                     </div>
 
@@ -883,8 +1088,11 @@ function DashboardLayoutInner({
                       className="
                         h-2
                         w-2
+
                         shrink-0
+
                         rounded-full
+
                         bg-[#a9b897]
                       "
                     />
@@ -900,6 +1108,7 @@ function DashboardLayoutInner({
                   className="
                     relative
                     z-[50]
+
                     space-y-5
                   "
                 >
@@ -920,10 +1129,11 @@ function DashboardLayoutInner({
                               mb-2
                               px-1
 
-                              text-[8px]
+                              text-[9px]
                               font-black
                               uppercase
                               tracking-[0.2em]
+
                               text-stone-400
                             "
                           >
@@ -954,6 +1164,15 @@ function DashboardLayoutInner({
                                   `${link.href}/`
                                 );
 
+                              const isPinned =
+                                finalPinnedMobileLinks.some(
+                                  (
+                                    pinned
+                                  ) =>
+                                    pinned.href ===
+                                    link.href
+                                );
+
                               return (
                                 <Link
                                   key={
@@ -974,8 +1193,12 @@ function DashboardLayoutInner({
                                       "-"
                                     )}`}
                                   className={`
+                                    relative
+
                                     flex
+
                                     h-20
+
                                     flex-col
                                     justify-between
 
@@ -988,42 +1211,66 @@ function DashboardLayoutInner({
                                     transition-all
                                     duration-300
 
+                                    active:scale-[0.98]
+
                                     ${
                                       isActive
-                                        ? "scale-[1.01] border-stone-200 bg-white shadow-md"
-                                        : "border-stone-100 bg-white/60 hover:bg-white active:scale-95"
+                                        ? "border-[#a9b897]/60 bg-white shadow-md"
+                                        : "border-stone-100 bg-white/60 hover:border-stone-200 hover:bg-white"
                                     }
                                   `}
                                 >
+                                  {/* PINNED DOT */}
+
+                                  {isPinned && (
+                                    <span
+                                      className="
+                                        absolute
+
+                                        right-3
+                                        top-3
+
+                                        h-1.5
+                                        w-1.5
+
+                                        rounded-full
+
+                                        bg-[#a9b897]
+                                      "
+                                    />
+                                  )}
+
                                   <div
                                     style={{
                                       color:
                                         isActive
-                                          ? "var(--brand-primary)"
-                                          : "#d6d3d1",
+                                          ? "var(--brand-primary, #829473)"
+                                          : "#a8a29e",
                                     }}
                                   >
                                     <Icon
                                       size={
-                                        18
+                                        19
                                       }
                                       strokeWidth={
-                                        1.5
+                                        isActive
+                                          ? 2
+                                          : 1.5
                                       }
                                     />
                                   </div>
 
                                   <span
                                     className={`
-                                      text-[7px]
+                                      text-[8px]
                                       font-black
                                       uppercase
-                                      tracking-[0.18em]
+                                      tracking-[0.14em]
 
                                       ${
                                         isActive
                                           ? "text-stone-900"
-                                          : "text-stone-400"
+                                          : "text-stone-500"
                                       }
                                     `}
                                   >
@@ -1083,23 +1330,34 @@ function MobileNavItem({
           " ",
           "-"
         )}`}
-      className="
+      className={`
+        relative
+
         flex
+
+        h-[58px]
+
+        min-w-0
+
         flex-col
         items-center
-        gap-1
+        justify-center
+
+        gap-1.5
+
+        rounded-[1.25rem]
 
         transition-all
-        duration-300
+        duration-200
 
-        active:scale-90
-      "
-      style={{
-        color:
+        active:scale-[0.96]
+
+        ${
           isActive
-            ? "var(--brand-primary)"
-            : "#d6d3d1",
-      }}
+            ? "bg-[#a9b897] text-white shadow-sm"
+            : "bg-transparent text-stone-400 hover:bg-stone-50"
+        }
+      `}
     >
       <Icon
         size={
@@ -1107,45 +1365,29 @@ function MobileNavItem({
         }
         strokeWidth={
           isActive
-            ? 2.5
-            : 1.5
+            ? 2
+            : 1.7
         }
       />
 
       <span
-        className={`
-          text-[7px]
-          font-black
-          uppercase
-          tracking-tighter
+        className="
+          max-w-full
 
-          ${
-            isActive
-              ? "opacity-100"
-              : "opacity-60"
-          }
-        `}
+          truncate
+
+          px-1
+
+          text-[9px]
+          font-bold
+          uppercase
+          tracking-[0.04em]
+        "
       >
         {
           label
         }
       </span>
-
-      {isActive && (
-        <motion.div
-          layoutId="activeTabIndicator"
-          className="
-            mt-0.5
-            h-1
-            w-1
-            rounded-full
-          "
-          style={{
-            backgroundColor:
-              "var(--brand-primary)",
-          }}
-        />
-      )}
     </Link>
   );
 }

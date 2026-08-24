@@ -50,80 +50,45 @@ import {
 
 type Project = {
   id: string;
-
   user_id: string;
-
   organisation_id: string;
-
   name: string;
-
   description?: string | null;
-
   objective_summary?: string | null;
-
   category?: string | null;
-
   status?: string | null;
-
   priority?: string | null;
-
   health?: string | null;
-
-  budget?:
-    | number
-    | string
-    | null;
-
+  budget?: number | string | null;
   start_date?: string | null;
-
   due_date?: string | null;
-
   members?: string[] | null;
-
   customer_id?: string | null;
-
   created_at?: string | null;
-
   updated_at?: string | null;
-
   deleted_at?: string | null;
 };
 
 type Customer = {
   id: string;
-
   name?: string | null;
-
   email?: string | null;
-
   phone?: string | null;
-
   company?: string | null;
-
   organisation_id?: string | null;
-
   status?: string | null;
 };
 
 type Contact = {
   id: string;
-
   name?: string | null;
-
   first_name?: string | null;
-
   last_name?: string | null;
-
   email?: string | null;
-
   phone?: string | null;
-
   company?: string | null;
-
   organisation_id?: string | null;
-
   customer_id?: string | null;
-
   status?: string | null;
 };
 
@@ -154,19 +119,12 @@ type ProjectWithCustomer =
 
 type ProjectForm = {
   name: string;
-
   client_key: string;
-
   objective_summary: string;
-
   description: string;
-
   category: string;
-
   start_date: string;
-
   due_date: string;
-
   budget: string;
 };
 
@@ -209,9 +167,7 @@ function getContactDisplayName(
     | null
     | undefined
 ) {
-  if (
-    !contact
-  ) {
+  if (!contact) {
     return "Unnamed contact";
   }
 
@@ -220,12 +176,8 @@ function getContactDisplayName(
       contact.first_name,
       contact.last_name,
     ]
-      .filter(
-        Boolean
-      )
-      .join(
-        " "
-      )
+      .filter(Boolean)
+      .join(" ")
       .trim();
 
   return (
@@ -243,9 +195,7 @@ function getCustomerDisplayName(
     | null
     | undefined
 ) {
-  if (
-    !customer
-  ) {
+  if (!customer) {
     return "Internal project";
   }
 
@@ -419,6 +369,91 @@ export default function ProjectDirectory() {
     );
 
   // =========================================================
+  // LOCK BACKGROUND WHILE MODAL OPEN
+  // =========================================================
+
+  useEffect(
+    () => {
+      if (
+        !showModal ||
+        typeof document ===
+          "undefined"
+      ) {
+        return;
+      }
+
+      const previousOverflow =
+        document.body.style
+          .overflow;
+
+      const previousOverscroll =
+        document.body.style
+          .overscrollBehavior;
+
+      document.body.style.overflow =
+        "hidden";
+
+      document.body.style.overscrollBehavior =
+        "none";
+
+      return () => {
+        document.body.style.overflow =
+          previousOverflow;
+
+        document.body.style.overscrollBehavior =
+          previousOverscroll;
+      };
+    },
+    [
+      showModal,
+    ]
+  );
+
+  // =========================================================
+  // ESC CLOSE
+  // =========================================================
+
+  useEffect(
+    () => {
+      if (!showModal) {
+        return;
+      }
+
+      const handleKeyDown =
+        (
+          event:
+            KeyboardEvent
+        ) => {
+          if (
+            event.key ===
+              "Escape" &&
+            !saving
+          ) {
+            setShowModal(
+              false
+            );
+          }
+        };
+
+      window.addEventListener(
+        "keydown",
+        handleKeyDown
+      );
+
+      return () => {
+        window.removeEventListener(
+          "keydown",
+          handleKeyDown
+        );
+      };
+    },
+    [
+      showModal,
+      saving,
+    ]
+  );
+
+  // =========================================================
   // LOAD ORGANISATION
   // =========================================================
 
@@ -565,10 +600,6 @@ export default function ProjectDirectory() {
             contactsResult,
           ] =
             await Promise.all([
-              // -----------------------------------------------
-              // PROJECTS
-              // -----------------------------------------------
-
               supabase
                 .from(
                   "projects"
@@ -591,10 +622,6 @@ export default function ProjectDirectory() {
                       false,
                   }
                 ),
-
-              // -----------------------------------------------
-              // CUSTOMERS
-              // -----------------------------------------------
 
               supabase
                 .from(
@@ -622,10 +649,6 @@ export default function ProjectDirectory() {
                       true,
                   }
                 ),
-
-              // -----------------------------------------------
-              // CRM CONTACTS
-              // -----------------------------------------------
 
               supabase
                 .from(
@@ -658,10 +681,6 @@ export default function ProjectDirectory() {
                 ),
             ]);
 
-          // -----------------------------------------------
-          // PROJECT ERRORS
-          // -----------------------------------------------
-
           if (
             projectsResult.error
           ) {
@@ -673,10 +692,6 @@ export default function ProjectDirectory() {
             throw projectsResult.error;
           }
 
-          // -----------------------------------------------
-          // CUSTOMER ERRORS
-          // -----------------------------------------------
-
           if (
             customersResult.error
           ) {
@@ -686,10 +701,6 @@ export default function ProjectDirectory() {
             );
           }
 
-          // -----------------------------------------------
-          // CONTACT ERRORS
-          // -----------------------------------------------
-
           if (
             contactsResult.error
           ) {
@@ -698,10 +709,6 @@ export default function ProjectDirectory() {
               contactsResult.error
             );
           }
-
-          // -----------------------------------------------
-          // SAFE DATA
-          // -----------------------------------------------
 
           const projectRows =
             (
@@ -732,10 +739,6 @@ export default function ProjectDirectory() {
             contactRows
           );
 
-          // -----------------------------------------------
-          // CUSTOMER LOOKUP
-          // -----------------------------------------------
-
           const customerMap =
             new Map<
               string,
@@ -750,10 +753,6 @@ export default function ProjectDirectory() {
                 ]
               )
             );
-
-          // -----------------------------------------------
-          // ENRICH PROJECTS
-          // -----------------------------------------------
 
           const enrichedProjects:
             ProjectWithCustomer[] =
@@ -837,10 +836,6 @@ export default function ProjectDirectory() {
             ClientOption
           >();
 
-        // -----------------------------------------------------
-        // EXISTING CUSTOMERS
-        // -----------------------------------------------------
-
         customers.forEach(
           (
             customer
@@ -881,22 +876,10 @@ export default function ProjectDirectory() {
           }
         );
 
-        // -----------------------------------------------------
-        // CRM CONTACTS
-        // -----------------------------------------------------
-
         contacts.forEach(
           (
             contact
           ) => {
-            /*
-             * If this contact already points to a customer that
-             * exists in our customer list, we don't need a
-             * duplicate contact entry.
-             *
-             * The corresponding customer is already available.
-             */
-
             if (
               contact.customer_id &&
               customers.some(
@@ -1002,19 +985,11 @@ export default function ProjectDirectory() {
         );
       }
 
-      // -----------------------------------------------------
-      // ALREADY HAS A CUSTOMER
-      // -----------------------------------------------------
-
       if (
         selectedClient.customer_id
       ) {
         return selectedClient.customer_id;
       }
-
-      // -----------------------------------------------------
-      // EXISTING CUSTOMER OPTION
-      // -----------------------------------------------------
 
       if (
         selectedClient.source ===
@@ -1024,10 +999,6 @@ export default function ProjectDirectory() {
           "Selected customer does not contain a valid customer ID."
         );
       }
-
-      // -----------------------------------------------------
-      // CONTACT -> CUSTOMER
-      // -----------------------------------------------------
 
       if (
         !selectedClient.contact_id
@@ -1053,13 +1024,6 @@ export default function ProjectDirectory() {
           "CRM contact no longer exists."
         );
       }
-
-      // -----------------------------------------------------
-      // SAFETY CHECK
-      //
-      // The contact may have become linked since the page
-      // loaded.
-      // -----------------------------------------------------
 
       const {
         data:
@@ -1099,10 +1063,6 @@ export default function ProjectDirectory() {
       ) {
         return latestContact.customer_id;
       }
-
-      // -----------------------------------------------------
-      // CREATE CUSTOMER
-      // -----------------------------------------------------
 
       const {
         data:
@@ -1181,10 +1141,6 @@ export default function ProjectDirectory() {
         );
       }
 
-      // -----------------------------------------------------
-      // LINK CONTACT TO CUSTOMER
-      // -----------------------------------------------------
-
       const {
         error:
           contactUpdateError,
@@ -1214,17 +1170,8 @@ export default function ProjectDirectory() {
           contactUpdateError
         );
 
-        /*
-         * The customer exists, but we do NOT want to continue
-         * silently if the source-of-truth contact link failed.
-         */
-
         throw contactUpdateError;
       }
-
-      // -----------------------------------------------------
-      // LOCAL CUSTOMER STATE
-      // -----------------------------------------------------
 
       setCustomers(
         (
@@ -1247,10 +1194,6 @@ export default function ProjectDirectory() {
               ];
         }
       );
-
-      // -----------------------------------------------------
-      // LOCAL CONTACT STATE
-      // -----------------------------------------------------
 
       setContacts(
         (
@@ -1317,16 +1260,8 @@ export default function ProjectDirectory() {
     );
 
     try {
-      // -----------------------------------------------------
-      // RESOLVE CRM CONTACT -> CUSTOMER
-      // -----------------------------------------------------
-
       const resolvedCustomerId =
         await resolveSelectedCustomer();
-
-      // -----------------------------------------------------
-      // PROJECT PAYLOAD
-      // -----------------------------------------------------
 
       const payload = {
         name:
@@ -1386,10 +1321,6 @@ export default function ProjectDirectory() {
           currentUserId,
       };
 
-      // -----------------------------------------------------
-      // INSERT PROJECT
-      // -----------------------------------------------------
-
       const {
         data:
           inserted,
@@ -1420,10 +1351,6 @@ export default function ProjectDirectory() {
         throw insertError;
       }
 
-      // -----------------------------------------------------
-      // GET CUSTOMER
-      // -----------------------------------------------------
-
       let selectedCustomer:
         Customer | null =
         null;
@@ -1440,12 +1367,6 @@ export default function ProjectDirectory() {
               inserted.customer_id
           ) ||
           null;
-
-        /*
-         * Customer may have just been created by
-         * resolveSelectedCustomer and the React state update
-         * has not propagated yet.
-         */
 
         if (
           !selectedCustomer
@@ -1511,10 +1432,6 @@ export default function ProjectDirectory() {
         }
       }
 
-      // -----------------------------------------------------
-      // LOCAL PROJECT
-      // -----------------------------------------------------
-
       const newProject:
         ProjectWithCustomer =
         {
@@ -1533,10 +1450,6 @@ export default function ProjectDirectory() {
         ]
       );
 
-      // -----------------------------------------------------
-      // RESET
-      // -----------------------------------------------------
-
       resetForm();
 
       setShowModal(
@@ -1549,7 +1462,8 @@ export default function ProjectDirectory() {
           : "Project created"
       );
     } catch (
-      error: any
+      error:
+        unknown
     ) {
       console.error(
         "Unexpected project create error:",
@@ -1557,8 +1471,10 @@ export default function ProjectDirectory() {
       );
 
       toast.error(
-        error?.message ||
-          "Unable to create project"
+        error instanceof
+          Error
+          ? error.message
+          : "Unable to create project"
       );
     } finally {
       setSaving(
@@ -1709,7 +1625,7 @@ export default function ProjectDirectory() {
   }
 
   // =========================================================
-  // CLIENT / INTERNAL PROJECTS
+  // PROJECT GROUPS
   // =========================================================
 
   const clientProjects =
@@ -1741,10 +1657,6 @@ export default function ProjectDirectory() {
         projects,
       ]
     );
-
-  // =========================================================
-  // COMPLETE / ACTIVE PROJECTS
-  // =========================================================
 
   const completedProjects =
     useMemo(
@@ -1809,9 +1721,7 @@ export default function ProjectDirectory() {
             .trim()
             .toLowerCase();
 
-        if (
-          !value
-        ) {
+        if (!value) {
           return projects;
         }
 
@@ -2686,20 +2596,12 @@ export default function ProjectDirectory() {
                             : "border-stone-200 hover:border-[#a9b897]"
                       }`}
                     >
-                      {/* =====================================
-                          COMPLETED ACCENT
-                      ===================================== */}
-
                       {completed && (
                         <div className="absolute inset-y-6 left-0 w-1 rounded-r-full bg-[#a9b897]" />
                       )}
 
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex min-w-0 items-center gap-4 md:gap-6">
-                          {/* =================================
-                              PROJECT ICON
-                          ================================= */}
-
                           <div
                             className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border transition ${
                               completed
@@ -2724,10 +2626,6 @@ export default function ProjectDirectory() {
                             )}
                           </div>
 
-                          {/* =================================
-                              PROJECT DETAILS
-                          ================================= */}
-
                           <div className="min-w-0">
                             <div className="mb-1 flex flex-wrap items-center gap-2">
                               <h3
@@ -2742,8 +2640,6 @@ export default function ProjectDirectory() {
                                 }
                               </h3>
 
-                              {/* CATEGORY */}
-
                               {project.category && (
                                 <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-stone-500">
                                   {
@@ -2751,8 +2647,6 @@ export default function ProjectDirectory() {
                                   }
                                 </span>
                               )}
-
-                              {/* COMPLETED */}
 
                               {completed && (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-[#a9b897]/15 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-[#6f8064]">
@@ -2766,15 +2660,11 @@ export default function ProjectDirectory() {
                                 </span>
                               )}
 
-                              {/* PAUSED */}
-
                               {paused && (
                                 <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-amber-600">
                                   Paused
                                 </span>
                               )}
-
-                              {/* ARCHIVED */}
 
                               {archived && (
                                 <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
@@ -2782,8 +2672,6 @@ export default function ProjectDirectory() {
                                 </span>
                               )}
                             </div>
-
-                            {/* CLIENT */}
 
                             <div className="mb-2 flex items-center gap-2">
                               <UserRound
@@ -2800,8 +2688,6 @@ export default function ProjectDirectory() {
                               </span>
                             </div>
 
-                            {/* OBJECTIVE */}
-
                             {project.objective_summary && (
                               <p className="mb-2 line-clamp-1 text-xs text-stone-400">
                                 {
@@ -2810,11 +2696,7 @@ export default function ProjectDirectory() {
                               </p>
                             )}
 
-                            {/* META */}
-
                             <div className="flex flex-wrap items-center gap-4 text-[9px] font-bold uppercase tracking-[0.12em] text-stone-400">
-                              {/* DEADLINE */}
-
                               <span className="flex items-center gap-1.5">
                                 <Calendar
                                   size={
@@ -2826,8 +2708,6 @@ export default function ProjectDirectory() {
                                   project.due_date
                                 )}
                               </span>
-
-                              {/* BUDGET */}
 
                               {Number(
                                 project.budget
@@ -2846,8 +2726,6 @@ export default function ProjectDirectory() {
                                 </span>
                               )}
 
-                              {/* COMPLETED STATUS */}
-
                               {completed ? (
                                 <span className="inline-flex items-center gap-1.5 text-[#829473]">
                                   <Check
@@ -2859,27 +2737,19 @@ export default function ProjectDirectory() {
                                   Project complete
                                 </span>
                               ) : (
-                                <>
-                                  {/* OVERDUE ONLY ACTIVE PROJECTS */}
-
-                                  {remaining !==
-                                    null &&
-                                    remaining <
-                                      0 &&
-                                    !archived && (
-                                      <span className="text-amber-600">
-                                        Overdue
-                                      </span>
-                                    )}
-                                </>
+                                remaining !==
+                                  null &&
+                                remaining <
+                                  0 &&
+                                !archived && (
+                                  <span className="text-amber-600">
+                                    Overdue
+                                  </span>
+                                )
                               )}
                             </div>
                           </div>
                         </div>
-
-                        {/* ===================================
-                            OPEN BUTTON
-                        =================================== */}
 
                         <div
                           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition ${
@@ -2941,7 +2811,24 @@ export default function ProjectDirectory() {
 
       <AnimatePresence>
         {showModal && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden p-4 md:p-6">
+          <div
+            className="
+              fixed
+              inset-0
+              z-[1000]
+
+              flex
+              items-center
+              justify-center
+
+              overflow-hidden
+
+              p-3
+
+              sm:p-4
+              md:p-6
+            "
+          >
             {/* BACKDROP */}
 
             <motion.div
@@ -2957,7 +2844,14 @@ export default function ProjectDirectory() {
                 opacity:
                   0,
               }}
-              className="absolute inset-0 bg-stone-900/60 backdrop-blur-md"
+              className="
+                absolute
+                inset-0
+
+                bg-stone-900/60
+
+                backdrop-blur-md
+              "
               onClick={() => {
                 if (
                   !saving
@@ -2969,7 +2863,12 @@ export default function ProjectDirectory() {
               }}
             />
 
-            {/* MODAL */}
+            {/* =================================================
+                MODAL
+
+                IMPORTANT:
+                project-modal-scroll provides a visible scrollbar.
+            ================================================= */}
 
             <motion.div
               initial={{
@@ -3002,115 +2901,182 @@ export default function ProjectDirectory() {
                 y:
                   15,
               }}
-              className="no-scrollbar relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[2.5rem] border border-stone-100 bg-white p-7 shadow-2xl md:p-10"
+              transition={{
+                duration:
+                  0.22,
+
+                ease: [
+                  0.16,
+                  1,
+                  0.3,
+                  1,
+                ],
+              }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="new-project-title"
+              className="
+                project-modal-scroll
+
+                relative
+                z-10
+
+                max-h-[calc(100dvh-1.5rem)]
+                w-full
+                max-w-2xl
+
+                overflow-x-hidden
+                overflow-y-scroll
+                overscroll-contain
+
+                rounded-[2rem]
+
+                border
+                border-stone-100
+
+                bg-white
+
+                shadow-2xl
+
+                sm:max-h-[92dvh]
+                sm:rounded-[2.5rem]
+
+                md:max-h-[90vh]
+
+                [-webkit-overflow-scrolling:touch]
+              "
             >
               {/* =============================================
-                  MODAL HEADER
+                  STICKY MODAL HEADER
               ============================================= */}
 
-              <div className="mb-9 flex items-start justify-between gap-4">
-                <div>
-                  <p className="mb-2 text-[8px] font-black uppercase tracking-[0.25em] text-[#829473]">
-                    Clients & Projects
-                  </p>
+              <div
+                className="
+                  sticky
+                  top-0
+                  z-20
 
-                  <h2 className="font-serif text-4xl italic text-stone-800">
-                    New Project
-                  </h2>
+                  border-b
+                  border-stone-100
 
-                  <p className="mt-2 max-w-lg text-xs leading-5 text-stone-400">
-                    Choose any client
-                    or CRM contact.
-                    TOTS will connect
-                    the project to the
-                    correct customer
-                    record automatically.
-                  </p>
-                </div>
+                  bg-white/95
 
-                <button
-                  type="button"
-                  disabled={
-                    saving
-                  }
-                  onClick={() =>
-                    setShowModal(
-                      false
-                    )
-                  }
-                  className="rounded-full p-3 transition-colors hover:bg-stone-50 disabled:opacity-50"
-                >
-                  <X
-                    size={
-                      20
+                  px-6
+                  pb-5
+                  pt-6
+
+                  backdrop-blur-xl
+
+                  sm:px-7
+                  sm:pb-6
+                  sm:pt-7
+
+                  md:px-10
+                  md:pt-9
+                "
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="mb-2 text-[8px] font-black uppercase tracking-[0.25em] text-[#829473]">
+                      Clients & Projects
+                    </p>
+
+                    <h2
+                      id="new-project-title"
+                      className="font-serif text-3xl italic text-stone-800 sm:text-4xl"
+                    >
+                      New Project
+                    </h2>
+
+                    <p className="mt-2 max-w-lg text-[11px] leading-5 text-stone-400 sm:text-xs">
+                      Choose any client or
+                      CRM contact. TOTS will
+                      connect the project to
+                      the correct customer
+                      record automatically.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={
+                      saving
                     }
-                  />
-                </button>
+                    onClick={() =>
+                      setShowModal(
+                        false
+                      )
+                    }
+                    aria-label="Close new project modal"
+                    className="
+                      flex
+                      h-10
+                      w-10
+                      shrink-0
+                      items-center
+                      justify-center
+
+                      rounded-full
+
+                      border
+                      border-stone-100
+
+                      bg-stone-50
+
+                      text-stone-500
+
+                      transition
+
+                      hover:bg-stone-100
+                      hover:text-stone-900
+
+                      disabled:opacity-50
+                    "
+                  >
+                    <X
+                      size={
+                        18
+                      }
+                    />
+                  </button>
+                </div>
               </div>
 
               {/* =============================================
-                  FORM
+                  SCROLLABLE FORM CONTENT
               ============================================= */}
 
-              <form
-                onSubmit={
-                  establishProject
-                }
-                className="space-y-6"
+              <div
+                className="
+                  px-6
+                  pb-8
+                  pt-6
+
+                  sm:px-7
+                  sm:pb-9
+
+                  md:px-10
+                  md:pb-10
+                  md:pt-8
+                "
               >
-                {/* ===========================================
-                    PROJECT NAME
-                =========================================== */}
+                <form
+                  onSubmit={
+                    establishProject
+                  }
+                  className="space-y-6"
+                >
+                  {/* PROJECT NAME */}
 
-                <div className="space-y-1">
-                  <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
-                    Project Name
-                  </label>
+                  <div className="space-y-1">
+                    <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
+                      Project Name
+                    </label>
 
-                  <input
-                    required
-                    value={
-                      form.name
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setForm(
-                        (
-                          previous
-                        ) => ({
-                          ...previous,
-
-                          name:
-                            event.target.value,
-                        })
-                      )
-                    }
-                    className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 font-serif text-base italic outline-none transition focus:border-[#a9b897] focus:bg-white"
-                    placeholder="Website Redesign"
-                  />
-                </div>
-
-                {/* ===========================================
-                    CLIENT
-                =========================================== */}
-
-                <div className="space-y-1">
-                  <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
-                    Client
-                  </label>
-
-                  <div className="relative">
-                    <UserRound
-                      size={
-                        14
-                      }
-                      className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
-                    />
-
-                    <select
+                    <input
+                      required
                       value={
-                        form.client_key
+                        form.name
                       }
                       onChange={(
                         event
@@ -3121,110 +3087,320 @@ export default function ProjectDirectory() {
                           ) => ({
                             ...previous,
 
-                            client_key:
+                            name:
                               event.target.value,
                           })
                         )
                       }
-                      className="w-full appearance-none rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 pr-10 text-xs outline-none transition focus:border-[#a9b897] focus:bg-white"
-                    >
-                      <option value="">
-                        Internal project / no client
-                      </option>
-
-                      {clientOptions.map(
-                        (
-                          client
-                        ) => (
-                          <option
-                            key={
-                              client.key
-                            }
-                            value={
-                              client.key
-                            }
-                          >
-                            {
-                              client.name
-                            }
-                            {client.email
-                              ? ` — ${client.email}`
-                              : ""}
-                          </option>
-                        )
-                      )}
-                    </select>
+                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 font-serif text-base italic outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                      placeholder="Website Redesign"
+                    />
                   </div>
 
-                  {/* CLIENT INFO */}
+                  {/* CLIENT */}
 
-                  {clientOptions.length >
-                  0 ? (
-                    <p className="ml-1 mt-2 text-[10px] leading-4 text-stone-400">
-                      {
-                        clientOptions.length
-                      }{" "}
-                      {clientOptions.length ===
-                      1
-                        ? "client/contact is"
-                        : "clients and contacts are"}{" "}
-                      available from
-                      your CRM.
-                    </p>
-                  ) : (
-                    <div className="ml-1 mt-2 flex items-start gap-2">
-                      <ContactRound
+                  <div className="space-y-1">
+                    <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
+                      Client
+                    </label>
+
+                    <div className="relative">
+                      <UserRound
                         size={
-                          12
+                          14
                         }
-                        className="mt-0.5 shrink-0 text-stone-300"
+                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
                       />
 
-                      <p className="text-[10px] leading-4 text-stone-400">
-                        No CRM contacts
-                        exist yet. You
-                        can create an
-                        internal project
-                        or add a contact
-                        from the Clients
-                        area first.
-                      </p>
-                    </div>
-                  )}
+                      <select
+                        value={
+                          form.client_key
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setForm(
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
 
-                  {/* SELECTED CLIENT PREVIEW */}
+                              client_key:
+                                event.target.value,
+                            })
+                          )
+                        }
+                        className="w-full appearance-none rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 pr-10 text-xs outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                      >
+                        <option value="">
+                          Internal project / no client
+                        </option>
 
-                  {form.client_key && (
-                    <SelectedClientPreview
-                      client={
-                        clientOptions.find(
+                        {clientOptions.map(
                           (
                             client
+                          ) => (
+                            <option
+                              key={
+                                client.key
+                              }
+                              value={
+                                client.key
+                              }
+                            >
+                              {
+                                client.name
+                              }
+                              {client.email
+                                ? ` — ${client.email}`
+                                : ""}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    {clientOptions.length >
+                    0 ? (
+                      <p className="ml-1 mt-2 text-[10px] leading-4 text-stone-400">
+                        {
+                          clientOptions.length
+                        }{" "}
+                        {clientOptions.length ===
+                        1
+                          ? "client/contact is"
+                          : "clients and contacts are"}{" "}
+                        available from your
+                        CRM.
+                      </p>
+                    ) : (
+                      <div className="ml-1 mt-2 flex items-start gap-2">
+                        <ContactRound
+                          size={
+                            12
+                          }
+                          className="mt-0.5 shrink-0 text-stone-300"
+                        />
+
+                        <p className="text-[10px] leading-4 text-stone-400">
+                          No CRM contacts
+                          exist yet. You can
+                          create an internal
+                          project or add a
+                          contact from the
+                          Clients area first.
+                        </p>
+                      </div>
+                    )}
+
+                    {form.client_key && (
+                      <SelectedClientPreview
+                        client={
+                          clientOptions.find(
+                            (
+                              client
+                            ) =>
+                              client.key ===
+                              form.client_key
+                          ) ||
+                          null
+                        }
+                      />
+                    )}
+                  </div>
+
+                  {/* CATEGORY / BUDGET */}
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
+                        Category
+                      </label>
+
+                      <select
+                        value={
+                          form.category
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setForm(
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
+
+                              category:
+                                event.target.value,
+                            })
+                          )
+                        }
+                        className="w-full appearance-none rounded-xl border border-stone-100 bg-stone-50 p-4 text-[10px] font-bold uppercase tracking-widest outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                      >
+                        <option value="Client Work">
+                          Client Work
+                        </option>
+
+                        <option value="Website">
+                          Website
+                        </option>
+
+                        <option value="Branding">
+                          Branding
+                        </option>
+
+                        <option value="Marketing">
+                          Marketing
+                        </option>
+
+                        <option value="Strategy">
+                          Strategy
+                        </option>
+
+                        <option value="Operational">
+                          Operational
+                        </option>
+
+                        <option value="Internal">
+                          Internal
+                        </option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
+                        Project Budget
+                      </label>
+
+                      <div className="relative">
+                        <Banknote
+                          size={
+                            14
+                          }
+                          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
+                        />
+
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          inputMode="decimal"
+                          value={
+                            form.budget
+                          }
+                          onChange={(
+                            event
                           ) =>
-                            client.key ===
-                            form.client_key
-                        ) ||
-                        null
-                      }
-                    />
-                  )}
-                </div>
+                            setForm(
+                              (
+                                previous
+                              ) => ({
+                                ...previous,
 
-                {/* ===========================================
-                    CATEGORY / BUDGET
-                =========================================== */}
+                                budget:
+                                  event.target.value,
+                              })
+                            )
+                          }
+                          className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-xs outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                          placeholder="6000"
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {/* CATEGORY */}
+                  {/* DATES */}
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
+                        Start Date
+                      </label>
+
+                      <div className="relative">
+                        <Calendar
+                          size={
+                            14
+                          }
+                          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
+                        />
+
+                        <input
+                          type="date"
+                          value={
+                            form.start_date
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setForm(
+                              (
+                                previous
+                              ) => ({
+                                ...previous,
+
+                                start_date:
+                                  event.target.value,
+                              })
+                            )
+                          }
+                          className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-[10px] font-bold outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
+                        Deadline
+                      </label>
+
+                      <div className="relative">
+                        <Calendar
+                          size={
+                            14
+                          }
+                          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
+                        />
+
+                        <input
+                          type="date"
+                          min={
+                            form.start_date ||
+                            undefined
+                          }
+                          value={
+                            form.due_date
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setForm(
+                              (
+                                previous
+                              ) => ({
+                                ...previous,
+
+                                due_date:
+                                  event.target.value,
+                              })
+                            )
+                          }
+                          className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-[10px] font-bold outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* OBJECTIVE */}
 
                   <div className="space-y-1">
                     <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
-                      Category
+                      Project Objective
                     </label>
 
-                    <select
+                    <input
                       value={
-                        form.category
+                        form.objective_summary
                       }
                       onChange={(
                         event
@@ -3235,283 +3411,118 @@ export default function ProjectDirectory() {
                           ) => ({
                             ...previous,
 
-                            category:
+                            objective_summary:
                               event.target.value,
                           })
                         )
                       }
-                      className="w-full appearance-none rounded-xl border border-stone-100 bg-stone-50 p-4 text-[10px] font-bold uppercase tracking-widest outline-none transition focus:border-[#a9b897] focus:bg-white"
-                    >
-                      <option value="Client Work">
-                        Client Work
-                      </option>
-
-                      <option value="Website">
-                        Website
-                      </option>
-
-                      <option value="Branding">
-                        Branding
-                      </option>
-
-                      <option value="Marketing">
-                        Marketing
-                      </option>
-
-                      <option value="Strategy">
-                        Strategy
-                      </option>
-
-                      <option value="Operational">
-                        Operational
-                      </option>
-
-                      <option value="Internal">
-                        Internal
-                      </option>
-                    </select>
-                  </div>
-
-                  {/* BUDGET */}
-
-                  <div className="space-y-1">
-                    <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
-                      Project Budget
-                    </label>
-
-                    <div className="relative">
-                      <Banknote
-                        size={
-                          14
-                        }
-                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
-                      />
-
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        inputMode="decimal"
-                        value={
-                          form.budget
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setForm(
-                            (
-                              previous
-                            ) => ({
-                              ...previous,
-
-                              budget:
-                                event.target.value,
-                            })
-                          )
-                        }
-                        className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-xs outline-none transition focus:border-[#a9b897] focus:bg-white"
-                        placeholder="6000"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* ===========================================
-                    DATES
-                =========================================== */}
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {/* START */}
-
-                  <div className="space-y-1">
-                    <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
-                      Start Date
-                    </label>
-
-                    <div className="relative">
-                      <Calendar
-                        size={
-                          14
-                        }
-                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
-                      />
-
-                      <input
-                        type="date"
-                        value={
-                          form.start_date
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setForm(
-                            (
-                              previous
-                            ) => ({
-                              ...previous,
-
-                              start_date:
-                                event.target.value,
-                            })
-                          )
-                        }
-                        className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-[10px] font-bold outline-none transition focus:border-[#a9b897] focus:bg-white"
-                      />
-                    </div>
-                  </div>
-
-                  {/* DEADLINE */}
-
-                  <div className="space-y-1">
-                    <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
-                      Deadline
-                    </label>
-
-                    <div className="relative">
-                      <Calendar
-                        size={
-                          14
-                        }
-                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
-                      />
-
-                      <input
-                        type="date"
-                        min={
-                          form.start_date ||
-                          undefined
-                        }
-                        value={
-                          form.due_date
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setForm(
-                            (
-                              previous
-                            ) => ({
-                              ...previous,
-
-                              due_date:
-                                event.target.value,
-                            })
-                          )
-                        }
-                        className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-[10px] font-bold outline-none transition focus:border-[#a9b897] focus:bg-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* ===========================================
-                    OBJECTIVE
-                =========================================== */}
-
-                <div className="space-y-1">
-                  <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
-                    Project Objective
-                  </label>
-
-                  <input
-                    value={
-                      form.objective_summary
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setForm(
-                        (
-                          previous
-                        ) => ({
-                          ...previous,
-
-                          objective_summary:
-                            event.target.value,
-                        })
-                      )
-                    }
-                    className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 font-serif text-sm italic outline-none transition focus:border-[#a9b897] focus:bg-white"
-                    placeholder="What does success look like?"
-                  />
-                </div>
-
-                {/* ===========================================
-                    DESCRIPTION
-                =========================================== */}
-
-                <div className="space-y-1">
-                  <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
-                    Description
-                  </label>
-
-                  <div className="relative">
-                    <AlignLeft
-                      size={
-                        14
-                      }
-                      className="pointer-events-none absolute left-4 top-5 text-stone-300"
-                    />
-
-                    <textarea
-                      value={
-                        form.description
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setForm(
-                          (
-                            previous
-                          ) => ({
-                            ...previous,
-
-                            description:
-                              event.target.value,
-                          })
-                        )
-                      }
-                      className="h-28 w-full resize-none rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-xs leading-relaxed outline-none transition focus:border-[#a9b897] focus:bg-white"
-                      placeholder="Scope, deliverables, requirements or useful project context..."
+                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 font-serif text-sm italic outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                      placeholder="What does success look like?"
                     />
                   </div>
-                </div>
 
-                {/* ===========================================
-                    SUBMIT
-                =========================================== */}
+                  {/* DESCRIPTION */}
 
-                <button
-                  type="submit"
-                  disabled={
-                    saving
-                  }
-                  className="flex w-full items-center justify-center gap-3 rounded-[1.6rem] bg-stone-900 py-5 text-[9px] font-black uppercase tracking-[0.3em] text-white shadow-xl transition hover:bg-[#a9b897] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2
+                  <div className="space-y-1">
+                    <label className="ml-1 text-[8px] font-black uppercase tracking-widest text-stone-400">
+                      Description
+                    </label>
+
+                    <div className="relative">
+                      <AlignLeft
                         size={
-                          16
+                          14
                         }
-                        className="animate-spin"
+                        className="pointer-events-none absolute left-4 top-5 text-stone-300"
                       />
 
-                      Creating
-                    </>
-                  ) : (
-                    <>
-                      <Plus
-                        size={
-                          15
+                      <textarea
+                        value={
+                          form.description
                         }
-                      />
+                        onChange={(
+                          event
+                        ) =>
+                          setForm(
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
 
-                      Create Project
-                    </>
-                  )}
-                </button>
-              </form>
+                              description:
+                                event.target.value,
+                            })
+                          )
+                        }
+                        className="h-28 w-full resize-none rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-xs leading-relaxed outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                        placeholder="Scope, deliverables, requirements or useful project context..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* SUBMIT */}
+
+                  <button
+                    type="submit"
+                    disabled={
+                      saving
+                    }
+                    className="
+                      flex
+                      w-full
+                      items-center
+                      justify-center
+                      gap-3
+
+                      rounded-[1.6rem]
+
+                      bg-stone-900
+
+                      py-5
+
+                      text-[9px]
+                      font-black
+                      uppercase
+                      tracking-[0.3em]
+
+                      text-white
+
+                      shadow-xl
+
+                      transition
+
+                      hover:bg-[#a9b897]
+                      hover:text-stone-900
+
+                      disabled:cursor-not-allowed
+                      disabled:opacity-40
+                    "
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2
+                          size={
+                            16
+                          }
+                          className="animate-spin"
+                        />
+
+                        Creating
+                      </>
+                    ) : (
+                      <>
+                        <Plus
+                          size={
+                            15
+                          }
+                        />
+
+                        Create Project
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
             </motion.div>
           </div>
         )}
@@ -3530,13 +3541,49 @@ export default function ProjectDirectory() {
               font-family: 'Instrument Serif', serif;
             }
 
-            .no-scrollbar::-webkit-scrollbar {
-              display: none;
+            /*
+             * =================================================
+             * PROJECT MODAL SCROLLBAR
+             * =================================================
+             *
+             * Unlike the previous no-scrollbar class, this
+             * deliberately keeps the scrollbar visible.
+             */
+
+            .project-modal-scroll {
+              scrollbar-width: thin;
+              scrollbar-color: #a9b897 #f5f5f4;
+              scrollbar-gutter: stable;
             }
 
-            .no-scrollbar {
-              -ms-overflow-style: none;
-              scrollbar-width: none;
+            .project-modal-scroll::-webkit-scrollbar {
+              width: 9px;
+            }
+
+            .project-modal-scroll::-webkit-scrollbar-track {
+              background: #f5f5f4;
+              border-radius: 999px;
+              margin-top: 24px;
+              margin-bottom: 24px;
+            }
+
+            .project-modal-scroll::-webkit-scrollbar-thumb {
+              background: #a9b897;
+              border-radius: 999px;
+              border: 2px solid #f5f5f4;
+            }
+
+            .project-modal-scroll::-webkit-scrollbar-thumb:hover {
+              background: #8fa07d;
+            }
+
+            /*
+             * Make scrolling on touch devices feel natural.
+             */
+
+            .project-modal-scroll {
+              -webkit-overflow-scrolling: touch;
+              overscroll-behavior: contain;
             }
           `,
         }}
@@ -3628,7 +3675,12 @@ function WorkspaceMetric({
     false,
 }: {
   icon:
-    any;
+    React.ComponentType<{
+      size?:
+        number;
+      className?:
+        string;
+    }>;
 
   value:
     string;

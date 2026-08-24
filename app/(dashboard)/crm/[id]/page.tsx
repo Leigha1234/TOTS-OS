@@ -20,7 +20,6 @@ import {
   FolderKanban,
   Loader2,
   Mail,
-  MessageSquareText,
   Pencil,
   Phone,
   Plus,
@@ -39,6 +38,7 @@ import Link from "next/link";
 
 import {
   useParams,
+  useRouter,
 } from "next/navigation";
 
 import {
@@ -556,6 +556,8 @@ function cleanString(
   return value.trim();
 }
 
+// ============================================================
+
 function safeArray(
   value:
     unknown
@@ -580,6 +582,8 @@ function safeArray(
   );
 }
 
+// ============================================================
+
 function isCompletedTask(
   status:
     unknown
@@ -597,6 +601,8 @@ function isCompletedTask(
       .toLowerCase()
   );
 }
+
+// ============================================================
 
 function isCompletedProject(
   status:
@@ -618,6 +624,8 @@ function isCompletedProject(
       .toLowerCase()
   );
 }
+
+// ============================================================
 
 function getCustomerSource(
   customer:
@@ -647,6 +655,8 @@ function getCustomerSource(
 
   return "CRM";
 }
+
+// ============================================================
 
 function getCustomerStageLabel(
   value:
@@ -683,6 +693,8 @@ function getCustomerStageLabel(
 
   return "Client";
 }
+
+// ============================================================
 
 function getInitials(
   name:
@@ -728,6 +740,8 @@ function getInitials(
   }`.toUpperCase();
 }
 
+// ============================================================
+
 function formatSafeDate(
   value:
     string | null | undefined,
@@ -771,12 +785,13 @@ export default function AccountProfilePage() {
   const params =
     useParams();
 
+  const router =
+    useRouter();
+
   /*
    * IMPORTANT:
    *
-   * /crm/[id] now means CUSTOMER ID.
-   *
-   * The CRM directory links here using customers.id.
+   * /crm/[id] means CUSTOMER ID.
    */
 
   const customerId =
@@ -805,16 +820,6 @@ export default function AccountProfilePage() {
     useState<CustomerRecord | null>(
       null
     );
-
-  /*
-   * Some existing TOTS features still use contact_id.
-   *
-   * This is NOT the source of truth.
-   *
-   * It is simply the legacy bridge:
-   *
-   * contacts.customer_id -> customers.id
-   */
 
   const [
     linkedContact,
@@ -1066,6 +1071,14 @@ export default function AccountProfilePage() {
   const [
     isSaving,
     setIsSaving,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    isDeleting,
+    setIsDeleting,
   ] =
     useState(
       false
@@ -1552,13 +1565,6 @@ export default function AccountProfilePage() {
         if (
           error
         ) {
-          /*
-           * This bridge is optional.
-           *
-           * If contacts isn't available or RLS blocks it,
-           * the customer page should still work.
-           */
-
           console.warn(
             "[TOTS CRM] Linked contact lookup unavailable:",
             error
@@ -1804,18 +1810,6 @@ export default function AccountProfilePage() {
         ) {
           return;
         }
-
-        /*
-         * store_orders currently does not have customer_id.
-         *
-         * Therefore the safest current bridge is the exact
-         * customer email.
-         *
-         * Once you add customer_id to store_orders we should
-         * replace this with:
-         *
-         * .eq("customer_id", customerRecord.id)
-         */
 
         const email =
           cleanString(
@@ -2333,6 +2327,7 @@ export default function AccountProfilePage() {
               {
                 ascending:
                   false,
+
                 nullsFirst:
                   false,
               }
@@ -2361,6 +2356,8 @@ export default function AccountProfilePage() {
         organisationId,
       ]
     );
+
+  // ==========================================================
 
   const fetchMessages =
     useCallback(
@@ -2599,7 +2596,7 @@ export default function AccountProfilePage() {
   );
 
   // ==========================================================
-  // LOAD CONTACT-BASED LEGACY DATA
+  // LOAD CONTACT LEGACY DATA
   // ==========================================================
 
   useEffect(
@@ -2833,11 +2830,6 @@ export default function AccountProfilePage() {
           false
         );
 
-        /*
-         * If a legacy contact link exists, keep the commonly
-         * shared fields in sync.
-         */
-
         if (
           linkedContact?.id
         ) {
@@ -2913,6 +2905,511 @@ export default function AccountProfilePage() {
     };
 
   // ==========================================================
+  // DELETE CUSTOMER
+  // ==========================================================
+
+  const handleDeleteCustomer =
+    async () => {
+      if (
+        !customerId ||
+        !organisationId ||
+        isDeleting
+      ) {
+        return;
+      }
+
+      const customerLabel =
+        customer?.company ||
+        customer?.name ||
+        "this customer";
+
+      const confirmed =
+        window.confirm(
+          `Delete ${customerLabel}?\n\nThis will remove them from your CRM. Existing projects, invoices, quotes, expenses and store orders will not be deliberately deleted.\n\nThis action cannot be undone.`
+        );
+
+      if (
+        !confirmed
+      ) {
+        return;
+      }
+
+      setIsDeleting(
+        true
+      );
+
+      try {
+        // ====================================================
+        // REMOVE LEGACY CONTACT REFERENCES
+        //
+        // We remove contact-linked secondary records first so
+        // that the legacy contact can be deleted cleanly.
+        // ====================================================
+
+        if (
+          linkedContact?.id
+        ) {
+          const contactId =
+            linkedContact.id;
+
+          const [
+            taskCommentsDelete,
+            notesDelete,
+            timelineDelete,
+            threadsLookup,
+          ] =
+            await Promise.all(
+              [
+                supabase
+                  .from(
+                    "task_comments"
+                  )
+                  .delete()
+                  .eq(
+                    "organisation_id",
+                    organisationId
+                  )
+                  .eq(
+                    "contact_id",
+                    contactId
+                  ),
+
+                supabase
+                  .from(
+                    "notes"
+                  )
+                  .delete()
+                  .eq(
+                    "organisation_id",
+                    organisationId
+                  )
+                  .eq(
+                    "contact_id",
+                    contactId
+                  ),
+
+                supabase
+                  .from(
+                    "contact_timeline"
+                  )
+                  .delete()
+                  .eq(
+                    "organisation_id",
+                    organisationId
+                  )
+                  .eq(
+                    "contact_id",
+                    contactId
+                  ),
+
+                supabase
+                  .from(
+                    "email_threads"
+                  )
+                  .select(
+                    "id"
+                  )
+                  .eq(
+                    "organisation_id",
+                    organisationId
+                  )
+                  .eq(
+                    "contact_id",
+                    contactId
+                  ),
+              ]
+            );
+
+          if (
+            taskCommentsDelete.error
+          ) {
+            console.warn(
+              "Task comment cleanup failed:",
+              taskCommentsDelete.error
+            );
+          }
+
+          if (
+            notesDelete.error
+          ) {
+            console.warn(
+              "Note cleanup failed:",
+              notesDelete.error
+            );
+          }
+
+          if (
+            timelineDelete.error
+          ) {
+            console.warn(
+              "Timeline cleanup failed:",
+              timelineDelete.error
+            );
+          }
+
+          if (
+            threadsLookup.error
+          ) {
+            console.warn(
+              "Email thread lookup failed:",
+              threadsLookup.error
+            );
+          } else {
+            const threadIds =
+              (
+                threadsLookup.data ||
+                []
+              ).map(
+                (
+                  thread
+                ) =>
+                  thread.id
+              );
+
+            if (
+              threadIds.length >
+              0
+            ) {
+              const {
+                error:
+                  messageDeleteError,
+              } =
+                await supabase
+                  .from(
+                    "email_messages"
+                  )
+                  .delete()
+                  .in(
+                    "thread_id",
+                    threadIds
+                  )
+                  .eq(
+                    "organisation_id",
+                    organisationId
+                  );
+
+              if (
+                messageDeleteError
+              ) {
+                console.warn(
+                  "Email message cleanup failed:",
+                  messageDeleteError
+                );
+              }
+
+              const {
+                error:
+                  threadDeleteError,
+              } =
+                await supabase
+                  .from(
+                    "email_threads"
+                  )
+                  .delete()
+                  .in(
+                    "id",
+                    threadIds
+                  )
+                  .eq(
+                    "organisation_id",
+                    organisationId
+                  );
+
+              if (
+                threadDeleteError
+              ) {
+                console.warn(
+                  "Email thread cleanup failed:",
+                  threadDeleteError
+                );
+              }
+            }
+          }
+
+          // ==================================================
+          // REMOVE CONTACT_ID FROM TASKS
+          //
+          // Tasks themselves remain because they can still
+          // belong to projects/customer history.
+          // ==================================================
+
+          const {
+            error:
+              taskDetachError,
+          } =
+            await supabase
+              .from(
+                "tasks"
+              )
+              .update({
+                contact_id:
+                  null,
+              })
+              .eq(
+                "organisation_id",
+                organisationId
+              )
+              .eq(
+                "contact_id",
+                contactId
+              );
+
+          if (
+            taskDetachError
+          ) {
+            console.warn(
+              "Task contact detach failed:",
+              taskDetachError
+            );
+          }
+
+          // ==================================================
+          // DELETE LEGACY CONTACT
+          // ==================================================
+
+          const {
+            error:
+              linkedContactDeleteError,
+          } =
+            await supabase
+              .from(
+                "contacts"
+              )
+              .delete()
+              .eq(
+                "id",
+                contactId
+              )
+              .eq(
+                "organisation_id",
+                organisationId
+              )
+              .eq(
+                "customer_id",
+                customerId
+              );
+
+          if (
+            linkedContactDeleteError
+          ) {
+            throw new Error(
+              `Could not remove the linked contact: ${linkedContactDeleteError.message}`
+            );
+          }
+        }
+
+        // ====================================================
+        // DETACH CUSTOMER FROM NON-CUSTOMER RECORDS
+        //
+        // Financial/project history is retained.
+        // ====================================================
+
+        const [
+          projectDetach,
+          taskDetach,
+          quoteDetach,
+          invoiceDetach,
+          expenseDetach,
+        ] =
+          await Promise.all(
+            [
+              supabase
+                .from(
+                  "projects"
+                )
+                .update({
+                  customer_id:
+                    null,
+                })
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .eq(
+                  "customer_id",
+                  customerId
+                ),
+
+              supabase
+                .from(
+                  "tasks"
+                )
+                .update({
+                  customer_id:
+                    null,
+                })
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .eq(
+                  "customer_id",
+                  customerId
+                ),
+
+              supabase
+                .from(
+                  "quotes"
+                )
+                .update({
+                  customer_id:
+                    null,
+                })
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .eq(
+                  "customer_id",
+                  customerId
+                ),
+
+              supabase
+                .from(
+                  "invoices"
+                )
+                .update({
+                  customer_id:
+                    null,
+                })
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .eq(
+                  "customer_id",
+                  customerId
+                ),
+
+              supabase
+                .from(
+                  "expenses"
+                )
+                .update({
+                  customer_id:
+                    null,
+                })
+                .eq(
+                  "organisation_id",
+                  organisationId
+                )
+                .eq(
+                  "customer_id",
+                  customerId
+                ),
+            ]
+          );
+
+        if (
+          projectDetach.error
+        ) {
+          throw new Error(
+            `Could not detach projects: ${projectDetach.error.message}`
+          );
+        }
+
+        if (
+          taskDetach.error
+        ) {
+          throw new Error(
+            `Could not detach tasks: ${taskDetach.error.message}`
+          );
+        }
+
+        if (
+          quoteDetach.error
+        ) {
+          throw new Error(
+            `Could not detach quotes: ${quoteDetach.error.message}`
+          );
+        }
+
+        if (
+          invoiceDetach.error
+        ) {
+          throw new Error(
+            `Could not detach invoices: ${invoiceDetach.error.message}`
+          );
+        }
+
+        if (
+          expenseDetach.error
+        ) {
+          throw new Error(
+            `Could not detach expenses: ${expenseDetach.error.message}`
+          );
+        }
+
+        // ====================================================
+        // DELETE CUSTOMER
+        // ====================================================
+
+        const {
+          data:
+            deletedCustomer,
+          error:
+            customerDeleteError,
+        } =
+          await supabase
+            .from(
+              "customers"
+            )
+            .delete()
+            .eq(
+              "id",
+              customerId
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            )
+            .select(
+              "id"
+            )
+            .maybeSingle();
+
+        if (
+          customerDeleteError
+        ) {
+          throw customerDeleteError;
+        }
+
+        if (
+          !deletedCustomer
+        ) {
+          throw new Error(
+            "The customer could not be deleted."
+          );
+        }
+
+        router.replace(
+          "/crm"
+        );
+
+        router.refresh();
+      } catch (
+        deleteError:
+          unknown
+      ) {
+        console.error(
+          "Customer delete error:",
+          deleteError
+        );
+
+        alert(
+          deleteError instanceof
+            Error
+            ? deleteError.message
+            : "Failed to delete customer."
+        );
+      } finally {
+        setIsDeleting(
+          false
+        );
+      }
+    };
+
+  // ==========================================================
   // CREATE TASK
   // ==========================================================
 
@@ -2979,17 +3476,8 @@ export default function AccountProfilePage() {
               status:
                 "todo",
 
-              /*
-               * CUSTOMER is now the primary link.
-               */
-
               customer_id:
                 customerId,
-
-              /*
-               * Keep contact_id only as a compatibility link
-               * when one exists.
-               */
 
               contact_id:
                 linkedContact?.id ||
@@ -3229,12 +3717,6 @@ export default function AccountProfilePage() {
         return;
       }
 
-      /*
-       * task_comments currently uses contact_id in the existing
-       * implementation, so comments require the compatibility
-       * contact link.
-       */
-
       if (
         !linkedContact?.id
       ) {
@@ -3384,10 +3866,6 @@ export default function AccountProfilePage() {
           );
         }
 
-        // ====================================================
-        // SEND ACTUAL EMAIL
-        // ====================================================
-
         const response =
           await fetch(
             "/api/send-email",
@@ -3430,14 +3908,6 @@ export default function AccountProfilePage() {
               "Failed to send email."
           );
         }
-
-        /*
-         * EMAIL LOGGING CURRENTLY NEEDS contact_id.
-         *
-         * We still allow the real email to send if this customer
-         * doesn't have a legacy contact, but we cannot create
-         * email_threads without the existing contact relationship.
-         */
 
         if (
           !linkedContact?.id
@@ -3643,18 +4113,9 @@ export default function AccountProfilePage() {
         return;
       }
 
-      /*
-       * Rich CRM notes currently use notes.contact_id.
-       */
-
       if (
         !linkedContact?.id
       ) {
-        /*
-         * Customer still has its main notes column, so keep this
-         * useful rather than blocking the user entirely.
-         */
-
         const existingNotes =
           cleanString(
             customer?.notes
@@ -3835,7 +4296,7 @@ export default function AccountProfilePage() {
         !linkedContact?.id
       ) {
         alert(
-          "This customer does not yet have a linked contact record. Automatic customer activity is still shown below, but manual contact timeline entries require the compatibility contact link."
+          "This customer does not yet have a linked contact record."
         );
 
         return;
@@ -4338,7 +4799,6 @@ export default function AccountProfilePage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#f7f5f2] pb-32 text-stone-900">
-
       <div className="mx-auto max-w-[1320px] px-4 pb-8 pt-8 sm:px-6 lg:px-8 lg:pt-12">
 
         {/* ====================================================
@@ -4346,7 +4806,6 @@ export default function AccountProfilePage() {
         ==================================================== */}
 
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-
           <Link
             href="/crm"
             className="inline-flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.16em] text-stone-400 no-underline transition hover:text-stone-700"
@@ -4374,7 +4833,6 @@ export default function AccountProfilePage() {
               ? "Refreshing..."
               : "Refresh"}
           </button>
-
         </div>
 
         {/* ====================================================
@@ -4382,13 +4840,10 @@ export default function AccountProfilePage() {
         ==================================================== */}
 
         <section className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm">
-
           <div className="p-6 sm:p-8 lg:p-10">
-
             <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
 
               <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center">
-
                 <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.5rem] bg-[#a9b897] text-xl font-black text-white shadow-sm">
                   {getInitials(
                     customer.name ||
@@ -4397,9 +4852,7 @@ export default function AccountProfilePage() {
                 </div>
 
                 <div className="min-w-0">
-
                   <div className="flex flex-wrap items-center gap-2">
-
                     <span className="rounded-full bg-[#a9b897]/15 px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-[#829473]">
                       {
                         stageLabel
@@ -4422,7 +4875,6 @@ export default function AccountProfilePage() {
                         Contact linked
                       </span>
                     )}
-
                   </div>
 
                   <h1 className="mt-4 break-words font-serif text-4xl italic leading-none tracking-tight text-stone-900 sm:text-5xl lg:text-6xl">
@@ -4440,7 +4892,6 @@ export default function AccountProfilePage() {
                   )}
 
                   <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-[10px] text-stone-400">
-
                     {customer.email && (
                       <span className="flex items-center gap-1.5">
                         <Mail
@@ -4464,17 +4915,13 @@ export default function AccountProfilePage() {
                         }
                       </span>
                     )}
-
                   </div>
-
                 </div>
-
               </div>
 
               {/* ACTIONS */}
 
               <div className="flex flex-wrap gap-2">
-
                 <button
                   type="button"
                   onClick={() => {
@@ -4531,16 +4978,38 @@ export default function AccountProfilePage() {
                   Edit
                 </button>
 
+                <button
+                  type="button"
+                  disabled={
+                    isDeleting
+                  }
+                  onClick={() =>
+                    void handleDeleteCustomer()
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-red-500 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {isDeleting ? (
+                    <Loader2
+                      size={12}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Trash2
+                      size={12}
+                    />
+                  )}
+
+                  {isDeleting
+                    ? "Deleting..."
+                    : "Delete"}
+                </button>
               </div>
-
             </div>
-
           </div>
 
           {/* MINI STATS */}
 
           <div className="grid border-t border-stone-100 sm:grid-cols-2 lg:grid-cols-4">
-
             <HeroStat
               label="Active projects"
               value={String(
@@ -4568,9 +5037,7 @@ export default function AccountProfilePage() {
                 openTasks.length
               )}
             />
-
           </div>
-
         </section>
 
         {/* ====================================================
@@ -4578,9 +5045,7 @@ export default function AccountProfilePage() {
         ==================================================== */}
 
         <div className="no-scrollbar mt-5 overflow-x-auto">
-
           <div className="flex min-w-max gap-1 rounded-2xl border border-stone-200 bg-white p-1.5 shadow-sm">
-
             {tabs.map(
               (
                 tab
@@ -4608,9 +5073,7 @@ export default function AccountProfilePage() {
                 </button>
               )
             )}
-
           </div>
-
         </div>
 
         {/* ====================================================
@@ -4620,13 +5083,8 @@ export default function AccountProfilePage() {
         {activeTab ===
           "overview" && (
           <div className="mt-6 space-y-6">
-
-            {/* TOTS SUMMARY */}
-
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
               <div className="flex items-start gap-4">
-
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#a9b897]/15 text-[#829473]">
                   <Sparkles
                     size={17}
@@ -4643,18 +5101,12 @@ export default function AccountProfilePage() {
                       "This customer is ready to be connected to projects, invoices, tasks and communication."}
                   </p>
                 </div>
-
               </div>
-
             </section>
-
-            {/* LEGACY BRIDGE NOTICE */}
 
             {!linkedContact && (
               <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
-
                 <div className="flex items-start gap-3">
-
                   <AlertCircle
                     size={16}
                     className="mt-0.5 shrink-0 text-amber-600"
@@ -4666,23 +5118,15 @@ export default function AccountProfilePage() {
                     </p>
 
                     <p className="mt-1 max-w-3xl text-xs leading-5 text-amber-700">
-                      Projects, invoices, expenses and tasks are already connected directly to this customer. Email history, contact timeline and task comments still use the older contact relationship until we finish migrating those tables to customer_id.
+                      Projects, invoices, expenses and tasks are already connected directly to this customer. Email history, contact timeline and task comments still use the older contact relationship until those tables are migrated fully to customer_id.
                     </p>
                   </div>
-
                 </div>
-
               </section>
             )}
 
-            {/* MAIN GRID */}
-
             <div className="grid gap-6 lg:grid-cols-12">
-
-              {/* CURRENT WORK */}
-
               <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm lg:col-span-7">
-
                 <SectionHeading
                   kicker="Current work"
                   title="Active projects"
@@ -4702,7 +5146,6 @@ export default function AccountProfilePage() {
                 />
 
                 <div className="mt-6">
-
                   {activeProjects.length ===
                   0 ? (
                     <EmptyState
@@ -4726,7 +5169,6 @@ export default function AccountProfilePage() {
                     />
                   ) : (
                     <div className="space-y-3">
-
                       {activeProjects
                         .slice(
                           0,
@@ -4763,25 +5205,18 @@ export default function AccountProfilePage() {
                             </Link>
                           )
                         )}
-
                     </div>
                   )}
-
                 </div>
-
               </section>
 
-              {/* COMMERCIAL */}
-
               <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm lg:col-span-5">
-
                 <SectionHeading
                   kicker="Commercial"
                   title="Client value"
                 />
 
                 <div className="mt-6 space-y-4">
-
                   <ClientMoneyRow
                     label="Quoted"
                     value={formatCurrency(
@@ -4816,7 +5251,6 @@ export default function AccountProfilePage() {
                       expensesTotal
                     )}
                   />
-
                 </div>
 
                 <button
@@ -4830,19 +5264,13 @@ export default function AccountProfilePage() {
                 >
                   View financial activity →
                 </button>
-
               </section>
-
             </div>
-
-            {/* STORE */}
 
             {storeOrders.length >
               0 && (
               <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-
                   <div>
                     <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#829473]">
                       TOTS Commerce
@@ -4864,11 +5292,9 @@ export default function AccountProfilePage() {
                       Paid store value
                     </p>
                   </div>
-
                 </div>
 
                 <div className="mt-6 grid gap-3 md:grid-cols-2">
-
                   {storeOrders
                     .slice(
                       0,
@@ -4885,7 +5311,6 @@ export default function AccountProfilePage() {
                           className="rounded-2xl bg-stone-50 p-4"
                         >
                           <div className="flex items-center justify-between gap-4">
-
                             <div>
                               <p className="text-sm font-semibold text-stone-700">
                                 {order.order_number ||
@@ -4906,17 +5331,13 @@ export default function AccountProfilePage() {
                                 order.total
                               )}
                             </p>
-
                           </div>
                         </div>
                       )
                     )}
-
                 </div>
-
               </section>
             )}
-
           </div>
         )}
 
@@ -4927,9 +5348,7 @@ export default function AccountProfilePage() {
         {activeTab ===
           "projects" && (
           <section className="mt-6 rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-
               <div>
                 <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#829473]">
                   Client projects
@@ -4957,11 +5376,9 @@ export default function AccountProfilePage() {
 
                 New project
               </Link>
-
             </div>
 
             <div className="mt-8">
-
               {clientDataLoading ? (
                 <Loader2
                   size={20}
@@ -4978,7 +5395,6 @@ export default function AccountProfilePage() {
                 />
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-
                   {clientProjects.map(
                     (
                       project
@@ -4991,7 +5407,6 @@ export default function AccountProfilePage() {
                         className="group rounded-2xl border border-stone-100 bg-stone-50 p-5 no-underline transition hover:border-[#a9b897] hover:bg-white"
                       >
                         <div className="flex items-start justify-between gap-4">
-
                           <div>
                             <p className="font-serif text-2xl italic text-stone-800">
                               {
@@ -5009,7 +5424,6 @@ export default function AccountProfilePage() {
                             size={15}
                             className="text-stone-300 group-hover:text-[#829473]"
                           />
-
                         </div>
 
                         {project.due_date && (
@@ -5020,16 +5434,12 @@ export default function AccountProfilePage() {
                             )}
                           </p>
                         )}
-
                       </Link>
                     )
                   )}
-
                 </div>
               )}
-
             </div>
-
           </section>
         )}
 
@@ -5040,16 +5450,13 @@ export default function AccountProfilePage() {
         {activeTab ===
           "money" && (
           <div className="mt-6 space-y-6">
-
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
               <SectionHeading
                 kicker="Client money"
                 title="Commercial relationship"
               />
 
               <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-5">
-
                 <ClientStatCard
                   label="Quoted"
                   value={formatCurrency(
@@ -5084,13 +5491,10 @@ export default function AccountProfilePage() {
                     expensesTotal
                   )}
                 />
-
               </div>
-
             </section>
 
             <div className="grid gap-6 lg:grid-cols-2">
-
               <ClientFinanceList
                 title="Invoices"
                 icon={
@@ -5116,13 +5520,10 @@ export default function AccountProfilePage() {
                   formatCurrency
                 }
               />
-
             </div>
 
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
               <div className="flex items-center justify-between gap-4">
-
                 <SectionHeading
                   kicker="Costs"
                   title="Client expenses"
@@ -5134,11 +5535,9 @@ export default function AccountProfilePage() {
                 >
                   Open Finance →
                 </Link>
-
               </div>
 
               <div className="mt-6 space-y-2">
-
                 {clientExpenses.length ===
                 0 ? (
                   <p className="text-sm text-stone-400">
@@ -5178,11 +5577,8 @@ export default function AccountProfilePage() {
                     )
                   )
                 )}
-
               </div>
-
             </section>
-
           </div>
         )}
 
@@ -5193,9 +5589,7 @@ export default function AccountProfilePage() {
         {activeTab ===
           "tasks" && (
           <div className="mt-6 space-y-6">
-
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
               <SectionHeading
                 kicker="Client tasks"
                 title="Actions & delivery"
@@ -5207,7 +5601,6 @@ export default function AccountProfilePage() {
                   createClientTask
                 }
               >
-
                 <input
                   className="tots-input"
                   placeholder="What needs to be done?"
@@ -5319,13 +5712,10 @@ export default function AccountProfilePage() {
                     ? "Creating..."
                     : "Create task"}
                 </button>
-
               </form>
-
             </section>
 
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
               {tasks.length ===
               0 ? (
                 <EmptyState
@@ -5337,7 +5727,6 @@ export default function AccountProfilePage() {
                 />
               ) : (
                 <div className="space-y-3">
-
                   {tasks.map(
                     (
                       task
@@ -5358,11 +5747,8 @@ export default function AccountProfilePage() {
                               : ""
                           }`}
                         >
-
                           <div className="flex items-start justify-between gap-4">
-
                             <div className="flex min-w-0 items-start gap-3">
-
                               <button
                                 type="button"
                                 onClick={() =>
@@ -5382,7 +5768,6 @@ export default function AccountProfilePage() {
                               </button>
 
                               <div className="min-w-0">
-
                                 <h4
                                   className={`font-semibold ${
                                     done
@@ -5414,9 +5799,7 @@ export default function AccountProfilePage() {
                                       "Project"}
                                   </Link>
                                 )}
-
                               </div>
-
                             </div>
 
                             <button
@@ -5432,13 +5815,9 @@ export default function AccountProfilePage() {
                                 size={14}
                               />
                             </button>
-
                           </div>
 
-                          {/* COMMENTS */}
-
                           <div className="mt-4 border-t border-stone-200 pt-4">
-
                             {!linkedContact && (
                               <p className="mb-3 text-[9px] leading-4 text-amber-600">
                                 Task comments still require the older contact link. The task itself is correctly linked to this customer.
@@ -5446,7 +5825,6 @@ export default function AccountProfilePage() {
                             )}
 
                             <div className="flex gap-2">
-
                               <input
                                 disabled={
                                   !linkedContact
@@ -5494,7 +5872,6 @@ export default function AccountProfilePage() {
                                   size={13}
                                 />
                               </button>
-
                             </div>
 
                             {(taskCommentThreads[
@@ -5503,7 +5880,6 @@ export default function AccountProfilePage() {
                               []).length >
                               0 && (
                               <div className="mt-3 space-y-2">
-
                                 {(taskCommentThreads[
                                   task.id
                                 ] ||
@@ -5535,22 +5911,16 @@ export default function AccountProfilePage() {
                                     </div>
                                   )
                                 )}
-
                               </div>
                             )}
-
                           </div>
-
                         </div>
                       );
                     }
                   )}
-
                 </div>
               )}
-
             </section>
-
           </div>
         )}
 
@@ -5561,10 +5931,8 @@ export default function AccountProfilePage() {
         {activeTab ===
           "email" && (
           <div className="mt-6">
-
             {!linkedContact && (
               <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-
                 <p className="text-sm font-semibold text-amber-800">
                   Email history is not linked yet
                 </p>
@@ -5572,18 +5940,12 @@ export default function AccountProfilePage() {
                 <p className="mt-1 text-xs leading-5 text-amber-700">
                   You can still send an email to this customer. Existing TOTS email-thread history requires a contact record linked through customer_id.
                 </p>
-
               </div>
             )}
 
             <div className="grid min-h-[680px] gap-6 lg:grid-cols-[320px_1fr]">
-
-              {/* THREAD LIST */}
-
               <aside className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white p-5 shadow-sm">
-
                 <div className="mb-4 flex items-center justify-between">
-
                   <div>
                     <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
                       Email
@@ -5599,7 +5961,6 @@ export default function AccountProfilePage() {
                       threads.length
                     }
                   </span>
-
                 </div>
 
                 <button
@@ -5635,7 +5996,6 @@ export default function AccountProfilePage() {
                 </button>
 
                 <div className="space-y-2">
-
                   {threads.length ===
                   0 ? (
                     <p className="rounded-xl bg-stone-50 p-4 text-xs leading-5 text-stone-400">
@@ -5694,17 +6054,11 @@ export default function AccountProfilePage() {
                       )
                     )
                   )}
-
                 </div>
-
               </aside>
 
-              {/* MESSAGES */}
-
               <section className="flex flex-col rounded-[2rem] border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
-
                 <div className="mb-4 flex flex-col gap-3 border-b border-stone-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
-
                   <div>
                     <h2 className="font-serif text-2xl italic text-stone-800">
                       {activeThread?.subject ||
@@ -5738,7 +6092,6 @@ export default function AccountProfilePage() {
                         ? "Reply"
                         : "Write email"}
                   </button>
-
                 </div>
 
                 {showComposer && (
@@ -5748,7 +6101,6 @@ export default function AccountProfilePage() {
                     }
                     className="mb-6 space-y-3 rounded-2xl bg-stone-50 p-4"
                   >
-
                     <input
                       className="tots-input bg-white"
                       placeholder="Subject"
@@ -5822,12 +6174,10 @@ export default function AccountProfilePage() {
                         </>
                       )}
                     </button>
-
                   </form>
                 )}
 
                 <div className="flex-1 space-y-3 overflow-y-auto">
-
                   {messages.length ===
                   0 ? (
                     <div className="py-14 text-center">
@@ -5857,7 +6207,6 @@ export default function AccountProfilePage() {
                           }`}
                         >
                           <div className="mb-2 flex items-center justify-between gap-4">
-
                             <span className="text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
                               {message.direction ===
                               "outbound"
@@ -5871,7 +6220,6 @@ export default function AccountProfilePage() {
                                 "dd MMM yyyy HH:mm"
                               )}
                             </span>
-
                           </div>
 
                           {message.subject && (
@@ -5891,13 +6239,9 @@ export default function AccountProfilePage() {
                       )
                     )
                   )}
-
                 </div>
-
               </section>
-
             </div>
-
           </div>
         )}
 
@@ -5909,11 +6253,9 @@ export default function AccountProfilePage() {
           "info" && (
           <div className="mt-6 space-y-6">
 
-            <div className="flex justify-end">
-
+            <div className="flex flex-wrap justify-end gap-2">
               {isEditing ? (
-                <div className="flex gap-2">
-
+                <>
                   <button
                     type="button"
                     disabled={
@@ -6005,41 +6347,62 @@ export default function AccountProfilePage() {
                       ? "Saving..."
                       : "Save changes"}
                   </button>
-
-                </div>
+                </>
               ) : (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setIsEditing(
-                      true
-                    )
-                  }
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#a9b897] px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] text-white"
-                >
-                  <Pencil
-                    size={11}
-                  />
+                <>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setIsEditing(
+                        true
+                      )
+                    }
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#a9b897] px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] text-white"
+                  >
+                    <Pencil
+                      size={11}
+                    />
 
-                  Edit customer
-                </button>
+                    Edit customer
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={
+                      isDeleting
+                    }
+                    onClick={() =>
+                      void handleDeleteCustomer()
+                    }
+                    className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] text-red-500 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {isDeleting ? (
+                      <Loader2
+                        size={11}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <Trash2
+                        size={11}
+                      />
+                    )}
+
+                    {isDeleting
+                      ? "Deleting..."
+                      : "Delete customer"}
+                  </button>
+                </>
               )}
-
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
-
-              {/* CONTACT DETAILS */}
-
               <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
                 <SectionHeading
                   kicker="Details"
                   title="Contact information"
                 />
 
                 <div className="mt-6 space-y-4">
-
                   {isEditing ? (
                     <>
                       <FormField
@@ -6200,22 +6563,16 @@ export default function AccountProfilePage() {
                       />
                     </>
                   )}
-
                 </div>
-
               </section>
 
-              {/* BUSINESS */}
-
               <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
                 <SectionHeading
                   kicker="Relationship"
                   title="Business information"
                 />
 
                 <div className="mt-6 space-y-4">
-
                   {isEditing ? (
                     <>
                       <FormField
@@ -6378,29 +6735,22 @@ export default function AccountProfilePage() {
                       />
                     </>
                   )}
-
                 </div>
-
               </section>
-
             </div>
 
             {/* MARKETING */}
 
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
               <SectionHeading
                 kicker="Marketing"
                 title="Mailing preferences"
               />
 
               <div className="mt-6">
-
                 {isEditing ? (
                   <div className="space-y-4">
-
                     <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl bg-stone-50 p-4">
-
                       <div>
                         <p className="text-sm font-semibold text-stone-700">
                           On mailing list
@@ -6432,7 +6782,6 @@ export default function AccountProfilePage() {
                         }
                         className="h-4 w-4 accent-[#829473]"
                       />
-
                     </label>
 
                     {editForm.onMailingList && (
@@ -6458,11 +6807,9 @@ export default function AccountProfilePage() {
                         placeholder="General"
                       />
                     )}
-
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
-
                     <InfoCard
                       label="Mailing list"
                       value={
@@ -6479,18 +6826,14 @@ export default function AccountProfilePage() {
                         "General"
                       }
                     />
-
                   </div>
                 )}
-
               </div>
-
             </section>
 
             {/* NOTES */}
 
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
               <SectionHeading
                 kicker="Customer notes"
                 title="Things worth remembering"
@@ -6524,7 +6867,6 @@ export default function AccountProfilePage() {
                     "No customer notes have been added yet."}
                 </p>
               )}
-
             </section>
 
             {/* TAGS */}
@@ -6534,14 +6876,12 @@ export default function AccountProfilePage() {
             ).length >
               0 && (
               <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
                 <SectionHeading
                   kicker="Tags"
                   title="Customer labels"
                 />
 
                 <div className="mt-5 flex flex-wrap gap-2">
-
                   {safeArray(
                     customer.tags
                   ).map(
@@ -6564,12 +6904,55 @@ export default function AccountProfilePage() {
                       </span>
                     )
                   )}
-
                 </div>
-
               </section>
             )}
 
+            {/* DANGER ZONE */}
+
+            <section className="rounded-[2rem] border border-red-100 bg-red-50/40 p-6 shadow-sm sm:p-8">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-[0.2em] text-red-400">
+                    Danger zone
+                  </p>
+
+                  <h2 className="mt-1 font-serif text-3xl italic text-stone-800">
+                    Delete customer
+                  </h2>
+
+                  <p className="mt-2 max-w-xl text-xs leading-5 text-stone-500">
+                    Removes this customer from your CRM. Project and finance records are retained and detached from the customer before deletion.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    isDeleting
+                  }
+                  onClick={() =>
+                    void handleDeleteCustomer()
+                  }
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 text-[8px] font-black uppercase tracking-[0.14em] text-red-500 transition hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {isDeleting ? (
+                    <Loader2
+                      size={12}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Trash2
+                      size={12}
+                    />
+                  )}
+
+                  {isDeleting
+                    ? "Deleting..."
+                    : "Delete customer"}
+                </button>
+              </div>
+            </section>
           </div>
         )}
 
@@ -6580,13 +6963,8 @@ export default function AccountProfilePage() {
         {activeTab ===
           "timeline" && (
           <div className="mt-6 space-y-6">
-
-            {/* HEALTH */}
-
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
               <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-
                 <div>
                   <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#829473]">
                     Customer health
@@ -6605,11 +6983,11 @@ export default function AccountProfilePage() {
                   {
                     healthScore
                   }
+
                   <span className="text-2xl text-stone-300">
                     /100
                   </span>
                 </p>
-
               </div>
 
               <div className="mt-6 h-2 overflow-hidden rounded-full bg-stone-100">
@@ -6621,13 +6999,9 @@ export default function AccountProfilePage() {
                   }}
                 />
               </div>
-
             </section>
 
-            {/* MANUAL TIMELINE */}
-
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
               <SectionHeading
                 kicker="Timeline"
                 title="Add an update"
@@ -6639,7 +7013,6 @@ export default function AccountProfilePage() {
                 }
                 className="mt-6 space-y-3"
               >
-
                 <textarea
                   disabled={
                     !linkedContact
@@ -6672,22 +7045,16 @@ export default function AccountProfilePage() {
                 >
                   Add to timeline
                 </button>
-
               </form>
-
             </section>
 
-            {/* ACTIVITY */}
-
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
               <SectionHeading
                 kicker="History"
                 title="Customer activity"
               />
 
               <div className="mt-6 space-y-3">
-
                 {timelineEvents.length ===
                 0 ? (
                   <p className="text-sm text-stone-400">
@@ -6705,9 +7072,7 @@ export default function AccountProfilePage() {
                         className="rounded-2xl border border-stone-100 bg-stone-50 p-4"
                       >
                         <div className="flex items-start justify-between gap-4">
-
                           <div className="min-w-0">
-
                             <p className="text-[8px] font-black uppercase tracking-[0.13em] text-[#829473]">
                               {
                                 event.type
@@ -6727,7 +7092,6 @@ export default function AccountProfilePage() {
                                 }
                               </p>
                             )}
-
                           </div>
 
                           <span className="shrink-0 text-[9px] text-stone-400">
@@ -6736,23 +7100,16 @@ export default function AccountProfilePage() {
                               "dd MMM yyyy HH:mm"
                             )}
                           </span>
-
                         </div>
                       </div>
                     )
                   )
                 )}
-
               </div>
-
             </section>
 
-            {/* NOTES */}
-
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
               <div className="flex items-center gap-3">
-
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a9b897]/15 text-[#829473]">
                   <FileText
                     size={15}
@@ -6768,7 +7125,6 @@ export default function AccountProfilePage() {
                     Relationship notes
                   </h3>
                 </div>
-
               </div>
 
               <form
@@ -6777,7 +7133,6 @@ export default function AccountProfilePage() {
                 }
                 className="mt-6 space-y-3"
               >
-
                 <select
                   value={
                     noteForm.type
@@ -6842,13 +7197,11 @@ export default function AccountProfilePage() {
                 >
                   Add note
                 </button>
-
               </form>
 
               {notes.length >
                 0 && (
                 <div className="mt-6 space-y-3">
-
                   {notes.map(
                     (
                       note
@@ -6880,19 +7233,14 @@ export default function AccountProfilePage() {
                       </div>
                     )
                   )}
-
                 </div>
               )}
-
             </section>
-
           </div>
         )}
-
       </div>
 
       <PageStyles />
-
     </main>
   );
 }
@@ -6913,7 +7261,6 @@ function HeroStat({
 }) {
   return (
     <div className="border-b border-stone-100 p-5 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
-
       <p className="font-serif text-2xl italic leading-none text-stone-900">
         {
           value
@@ -6925,7 +7272,6 @@ function HeroStat({
           label
         }
       </p>
-
     </div>
   );
 }
@@ -6946,7 +7292,6 @@ function ClientStatCard({
 }) {
   return (
     <div className="rounded-[1.4rem] border border-stone-200 bg-stone-50 p-5">
-
       <p className="font-serif text-2xl italic text-stone-800">
         {
           value
@@ -6958,7 +7303,6 @@ function ClientStatCard({
           label
         }
       </p>
-
     </div>
   );
 }
@@ -6979,7 +7323,6 @@ function ClientMoneyRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-stone-100 pb-4 last:border-0 last:pb-0">
-
       <span className="text-xs text-stone-400">
         {
           label
@@ -6991,7 +7334,6 @@ function ClientMoneyRow({
           value
         }
       </span>
-
     </div>
   );
 }
@@ -7027,11 +7369,8 @@ function ClientFinanceList({
 }) {
   return (
     <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
-
       <div className="flex items-center justify-between gap-4">
-
         <div className="flex items-center gap-3">
-
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a9b897]/15 text-[#829473]">
             <Icon
               size={14}
@@ -7043,7 +7382,6 @@ function ClientFinanceList({
               title
             }
           </h3>
-
         </div>
 
         <span className="rounded-full bg-stone-100 px-3 py-1 text-[9px] text-stone-500">
@@ -7051,11 +7389,9 @@ function ClientFinanceList({
             records.length
           }
         </span>
-
       </div>
 
       <div className="mt-6">
-
         {records.length ===
         0 ? (
           <p className="text-sm text-stone-400">
@@ -7065,7 +7401,6 @@ function ClientFinanceList({
           </p>
         ) : (
           <div className="space-y-2">
-
             {records.map(
               (
                 record
@@ -7099,12 +7434,9 @@ function ClientFinanceList({
                 </div>
               )
             )}
-
           </div>
         )}
-
       </div>
-
     </section>
   );
 }
@@ -7125,7 +7457,6 @@ function InfoRow({
 }) {
   return (
     <div className="flex items-start justify-between gap-6 border-b border-stone-100 pb-4 last:border-0 last:pb-0">
-
       <span className="text-xs text-stone-400">
         {
           label
@@ -7137,7 +7468,6 @@ function InfoRow({
           value
         }
       </span>
-
     </div>
   );
 }
@@ -7158,7 +7488,6 @@ function InfoCard({
 }) {
   return (
     <div className="rounded-xl bg-stone-50 p-4">
-
       <p className="text-[8px] font-black uppercase tracking-[0.13em] text-stone-400">
         {
           label
@@ -7170,7 +7499,6 @@ function InfoCard({
           value
         }
       </p>
-
     </div>
   );
 }
@@ -7195,7 +7523,6 @@ function SectionHeading({
 }) {
   return (
     <div className="flex items-end justify-between gap-4">
-
       <div>
         <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#829473]">
           {
@@ -7213,7 +7540,6 @@ function SectionHeading({
       {
         action
       }
-
     </div>
   );
 }
@@ -7243,7 +7569,6 @@ function EmptyState({
 }) {
   return (
     <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-8 text-center">
-
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-stone-300">
         <Icon
           size={19}
@@ -7265,7 +7590,6 @@ function EmptyState({
       {
         action
       }
-
     </div>
   );
 }
@@ -7291,7 +7615,6 @@ function FormField({
 }) {
   return (
     <div>
-
       <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
         {
           label
@@ -7299,7 +7622,6 @@ function FormField({
       </label>
 
       <div className="relative">
-
         <Icon
           size={13}
           className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-stone-300"
@@ -7308,9 +7630,7 @@ function FormField({
         {
           children
         }
-
       </div>
-
     </div>
   );
 }

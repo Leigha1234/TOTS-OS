@@ -38,6 +38,7 @@ import {
   Settings as SettingsIcon,
   ShieldCheck,
   Sparkles,
+  Store,
   Upload,
   Users,
   WalletCards,
@@ -96,6 +97,7 @@ type DemoKey =
   | "social"
   | "finance"
   | "notes"
+  | "store"
   | "workspace"
   | "calendar"
   | "settings";
@@ -325,6 +327,11 @@ const DEMO_NAV: {
     icon: NotebookPen,
   },
   {
+    key: "store",
+    label: "Store",
+    icon: Store,
+  },
+  {
     key: "workspace",
     label: "Workspace",
     icon: BriefcaseBusiness,
@@ -398,9 +405,18 @@ const TOUR_STEPS: TourStep[] = [
       "Use notes and task boards for the small things that usually end up forgotten in a notebook, phone note or your head.",
   },
   {
+    key: "store",
+    screen: "store",
+    eyebrow: "07 · Store",
+    title:
+      "Sell products from the same system that runs your business.",
+    text:
+      "Manage products, orders and payments inside TOTS-OS. New customers can flow into your CRM, while orders and payment activity stay connected to the rest of your workspace.",
+  },
+  {
     key: "workspace",
     screen: "workspace",
-    eyebrow: "07 · Workspace",
+    eyebrow: "08 · Workspace",
     title:
       "Connect clients to the work you're delivering.",
     text:
@@ -409,7 +425,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     key: "calendar",
     screen: "calendar",
-    eyebrow: "08 · Calendar",
+    eyebrow: "09 · Calendar",
     title:
       "Bookings, availability and schedule together.",
     text:
@@ -418,7 +434,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     key: "settings",
     screen: "settings",
-    eyebrow: "09 · Settings",
+    eyebrow: "10 · Settings",
     title:
       "Your own branded workspace.",
     text:
@@ -427,7 +443,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     key: "clarity",
     screen: "clarity",
-    eyebrow: "10 · Clarity AI",
+    eyebrow: "11 · Clarity AI",
     title:
       "Then ask your business what needs attention.",
     text:
@@ -2369,6 +2385,62 @@ function DemoNotes() {
 }
 
 /* ============================================================
+   STORE
+============================================================ */
+
+function DemoStore() {
+  const products = [
+    { name: "Signature Planner", price: "£24.00", stock: "18 in stock" },
+    { name: "Business Workbook", price: "£18.00", stock: "11 in stock" },
+    { name: "Client Welcome Pack", price: "£32.00", stock: "7 in stock" },
+  ];
+
+  return (
+    <div className="app-page contacts-page">
+      <div className="contacts-top">
+        <div>
+          <div className="app-kicker"><span />Store</div>
+          <h2>Products &amp; orders</h2>
+        </div>
+
+        <button className="square-black-button" type="button">
+          <Plus size={20} />
+        </button>
+      </div>
+
+      <div className="app-metrics-grid">
+        <DemoMetric label="Store revenue" value="£2,840" />
+        <DemoMetric label="Orders" value="86" />
+        <DemoMetric label="Customers" value="64" />
+      </div>
+
+      <div className="contact-list-real">
+        {products.map((product) => (
+          <div className="contact-row-real" key={product.name}>
+            <div className="contact-signal"><Store size={15} /></div>
+            <div className="contact-main">
+              <strong>{product.name}</strong>
+              <div><span>{product.stock}</span><b>LIVE</b></div>
+            </div>
+            <div className="contact-next">
+              <strong>{product.price}</strong>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="home-clarity-alert" style={{ marginTop: 16 }}>
+        <div className="clarity-alert-title">Connected commerce</div>
+        <p>
+          Orders, customers and payments stay connected to your TOTS-OS CRM
+          and wider business workspace.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
    WORKSPACE
 ============================================================ */
 
@@ -3199,6 +3271,9 @@ const DEMO_VIEWS: Record<
   notes:
     DemoNotes,
 
+  store:
+    DemoStore,
+
   workspace:
     DemoWorkspace,
 
@@ -3353,7 +3428,7 @@ function ProductDemo({
               See how the
               dashboard, CRM,
               campaigns, social,
-              finance, projects,
+              finance, store, projects,
               planning and
               Clarity all fit
               together before
@@ -14888,6 +14963,14 @@ export default function TotsOSLanding() {
 
               <a href="#about">
                 About
+              </a>
+
+              <a href="/privacy">
+                Privacy Policy
+              </a>
+
+              <a href="/terms">
+                Terms of Service
               </a>
             </div>
 

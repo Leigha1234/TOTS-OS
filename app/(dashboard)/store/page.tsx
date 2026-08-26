@@ -5217,10 +5217,28 @@ if (orderError) {
       if (
         storeCheckoutLoading
       ) {
+        console.log(
+          "[STORE CHECKOUT DEBUG] Checkout already loading — ignoring duplicate click."
+        );
         return;
       }
 
       try {
+        console.log(
+          "[STORE CHECKOUT DEBUG] ========================================"
+        );
+        console.log(
+          "[STORE CHECKOUT DEBUG] Buy Store Add-On clicked"
+        );
+        console.log(
+          "[STORE CHECKOUT DEBUG] Current page:",
+          window.location.href
+        );
+        console.log(
+          "[STORE CHECKOUT DEBUG] organisationId from page:",
+          organisationId || "(missing)"
+        );
+
         setStoreCheckoutLoading(
           true
         );
@@ -5229,9 +5247,292 @@ if (orderError) {
           null
         );
 
+        // ------------------------------------------------------
+        // 1. CHECK THE SESSION SUPABASE CURRENTLY HAS
+        // ------------------------------------------------------
+
+        console.log(
+          "[STORE CHECKOUT DEBUG] Calling supabase.auth.getSession()..."
+        );
+
+        let {
+          data: {
+            session,
+          },
+          error:
+            sessionError,
+        } =
+          await supabase.auth.getSession();
+
+        console.log(
+          "[STORE CHECKOUT DEBUG] getSession result:",
+          {
+            hasSession:
+              Boolean(
+                session
+              ),
+
+            hasAccessToken:
+              Boolean(
+                session
+                  ?.access_token
+              ),
+
+            accessTokenLength:
+              session
+                ?.access_token
+                ?.length ||
+              0,
+
+            userId:
+              session
+                ?.user
+                ?.id ||
+              null,
+
+            email:
+              session
+                ?.user
+                ?.email ||
+              null,
+
+            expiresAt:
+              session
+                ?.expires_at ||
+              null,
+
+            expiresAtReadable:
+              session
+                ?.expires_at
+                ? new Date(
+                    session.expires_at *
+                      1000
+                  ).toISOString()
+                : null,
+
+            sessionError:
+              sessionError
+                ? {
+                    message:
+                      sessionError.message,
+                    name:
+                      sessionError.name,
+                  }
+                : null,
+          }
+        );
+
+        if (
+          sessionError
+        ) {
+          console.error(
+            "[STORE CHECKOUT DEBUG] getSession error:",
+            sessionError
+          );
+        }
+
+        // ------------------------------------------------------
+        // 2. ASK SUPABASE TO VERIFY THE USER TOO
+        // ------------------------------------------------------
+
+        console.log(
+          "[STORE CHECKOUT DEBUG] Calling supabase.auth.getUser()..."
+        );
+
+        const {
+          data:
+            currentUserData,
+          error:
+            currentUserError,
+        } =
+          await supabase.auth.getUser();
+
+        console.log(
+          "[STORE CHECKOUT DEBUG] getUser result:",
+          {
+            hasUser:
+              Boolean(
+                currentUserData
+                  ?.user
+              ),
+
+            userId:
+              currentUserData
+                ?.user
+                ?.id ||
+              null,
+
+            email:
+              currentUserData
+                ?.user
+                ?.email ||
+              null,
+
+            error:
+              currentUserError
+                ? {
+                    message:
+                      currentUserError.message,
+                    name:
+                      currentUserError.name,
+                  }
+                : null,
+          }
+        );
+
+        // ------------------------------------------------------
+        // 3. REFRESH IF THERE IS NO ACCESS TOKEN
+        // ------------------------------------------------------
+
+        if (
+          !session?.access_token
+        ) {
+          console.warn(
+            "[STORE CHECKOUT DEBUG] No access token found. Calling refreshSession()..."
+          );
+
+          const {
+            data:
+              refreshData,
+            error:
+              refreshError,
+          } =
+            await supabase.auth.refreshSession();
+
+          console.log(
+            "[STORE CHECKOUT DEBUG] refreshSession result:",
+            {
+              hasSession:
+                Boolean(
+                  refreshData
+                    ?.session
+                ),
+
+              hasAccessToken:
+                Boolean(
+                  refreshData
+                    ?.session
+                    ?.access_token
+                ),
+
+              accessTokenLength:
+                refreshData
+                  ?.session
+                  ?.access_token
+                  ?.length ||
+                0,
+
+              userId:
+                refreshData
+                  ?.session
+                  ?.user
+                  ?.id ||
+                null,
+
+              expiresAt:
+                refreshData
+                  ?.session
+                  ?.expires_at ||
+                null,
+
+              error:
+                refreshError
+                  ? {
+                      message:
+                        refreshError.message,
+                      name:
+                        refreshError.name,
+                    }
+                  : null,
+            }
+          );
+
+          if (
+            refreshError
+          ) {
+            console.error(
+              "[STORE CHECKOUT DEBUG] refreshSession error:",
+              refreshError
+            );
+          }
+
+          session =
+            refreshData.session;
+        }
+
+        const accessToken =
+          session?.access_token;
+
+        console.log(
+          "[STORE CHECKOUT DEBUG] Token immediately before fetch:",
+          {
+            exists:
+              Boolean(
+                accessToken
+              ),
+
+            length:
+              accessToken
+                ?.length ||
+              0,
+
+            startsLikeJwt:
+              accessToken
+                ? accessToken
+                    .split(
+                      "."
+                    )
+                    .length ===
+                  3
+                : false,
+
+            // Deliberately DO NOT log the actual access token.
+          }
+        );
+
+        if (
+          !accessToken
+        ) {
+          console.error(
+            "[STORE CHECKOUT DEBUG] STOPPING: Supabase did not provide an access token."
+          );
+
+          throw new Error(
+            "Your session could not be verified. Please log out and sign back in."
+          );
+        }
+
+        // ------------------------------------------------------
+        // 4. SEND CHECKOUT REQUEST
+        // ------------------------------------------------------
+
+        const checkoutEndpoint =
+          "/api/store/subscription/checkout";
+
+        console.log(
+          "[STORE CHECKOUT DEBUG] Sending POST:",
+          {
+            endpoint:
+              checkoutEndpoint,
+
+            method:
+              "POST",
+
+            hasAuthorizationHeader:
+              true,
+
+            bearerTokenLength:
+              accessToken.length,
+
+            organisationId:
+              organisationId ||
+              null,
+          }
+        );
+
         const response =
           await fetch(
-            "/api/store/subscription/checkout",
+            checkoutEndpoint,
             {
               method:
                 "POST",
@@ -5239,7 +5540,13 @@ if (orderError) {
               headers: {
                 "Content-Type":
                   "application/json",
+
+                Authorization:
+                  `Bearer ${accessToken}`,
               },
+
+              cache:
+                "no-store",
 
               body:
                 JSON.stringify(
@@ -5252,22 +5559,92 @@ if (orderError) {
             }
           );
 
-        const result =
-          await response
-            .json()
-            .catch(
-              () => null
+        console.log(
+          "[STORE CHECKOUT DEBUG] API HTTP response:",
+          {
+            ok:
+              response.ok,
+
+            status:
+              response.status,
+
+            statusText:
+              response.statusText,
+
+            url:
+              response.url,
+
+            contentType:
+              response.headers.get(
+                "content-type"
+              ),
+          }
+        );
+
+        const rawResponse =
+          await response.text();
+
+        console.log(
+          "[STORE CHECKOUT DEBUG] Raw API response:",
+          rawResponse
+        );
+
+        let result:
+          any =
+          null;
+
+        if (
+          rawResponse
+        ) {
+          try {
+            result =
+              JSON.parse(
+                rawResponse
+              );
+          } catch (
+            parseError
+          ) {
+            console.error(
+              "[STORE CHECKOUT DEBUG] API response was not valid JSON:",
+              parseError
             );
+          }
+        }
+
+        console.log(
+          "[STORE CHECKOUT DEBUG] Parsed API result:",
+          result
+        );
 
         if (
           !response.ok
         ) {
+          console.error(
+            "[STORE CHECKOUT DEBUG] CHECKOUT FAILED:",
+            {
+              status:
+                response.status,
+
+              result,
+
+              likelyCause:
+                response.status ===
+                401
+                  ? "The API rejected the bearer token. Check Vercel function logs for [STORE SUBSCRIPTION] Authentication failed."
+                  : "The API returned a non-success response.",
+            }
+          );
+
           throw new Error(
             result?.error ||
               result?.message ||
-              "Unable to start Store checkout."
+              `Unable to start Store checkout (HTTP ${response.status}).`
           );
         }
+
+        // ------------------------------------------------------
+        // 5. FIND STRIPE CHECKOUT URL
+        // ------------------------------------------------------
 
         const checkoutUrl =
           result?.url ||
@@ -5275,6 +5652,20 @@ if (orderError) {
           result?.checkout_url ||
           result?.sessionUrl ||
           result?.session_url;
+
+        console.log(
+          "[STORE CHECKOUT DEBUG] Checkout URL returned:",
+          {
+            exists:
+              Boolean(
+                checkoutUrl
+              ),
+
+            value:
+              checkoutUrl ||
+              null,
+          }
+        );
 
         if (
           !checkoutUrl ||
@@ -5286,6 +5677,10 @@ if (orderError) {
           );
         }
 
+        console.log(
+          "[STORE CHECKOUT DEBUG] SUCCESS — redirecting to Stripe."
+        );
+
         window.location.assign(
           checkoutUrl
         );
@@ -5293,9 +5688,28 @@ if (orderError) {
         error
       ) {
         console.error(
-          "Store add-on checkout error:",
+          "[STORE CHECKOUT DEBUG] FINAL CHECKOUT ERROR:",
           error
         );
+
+        if (
+          error instanceof
+          Error
+        ) {
+          console.error(
+            "[STORE CHECKOUT DEBUG] Error details:",
+            {
+              name:
+                error.name,
+
+              message:
+                error.message,
+
+              stack:
+                error.stack,
+            }
+          );
+        }
 
         setPageError(
           error instanceof
@@ -5304,6 +5718,13 @@ if (orderError) {
             : "Unable to start Store checkout."
         );
       } finally {
+        console.log(
+          "[STORE CHECKOUT DEBUG] Checkout attempt finished."
+        );
+        console.log(
+          "[STORE CHECKOUT DEBUG] ========================================"
+        );
+
         setStoreCheckoutLoading(
           false
         );

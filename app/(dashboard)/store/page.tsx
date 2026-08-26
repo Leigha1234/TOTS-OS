@@ -357,6 +357,14 @@ type OrganisationContext = {
 
   organisationName:
     string;
+
+  /**
+   * Store access is deliberately strict:
+   * only the literal boolean `true` in organisations.store_enabled
+   * unlocks TOTS Commerce.
+   */
+  storeEnabled:
+    boolean;
 };
 
 
@@ -897,6 +905,9 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
                 ?.company_name
             ) ||
             "My Business",
+
+          storeEnabled:
+            organisation?.store_enabled === true,
         };
       }
     }
@@ -968,6 +979,9 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
               ?.company_name
           ) ||
           "My Business",
+
+        storeEnabled:
+          organisation?.store_enabled === true,
       };
     }
   } catch (
@@ -1048,6 +1062,9 @@ async function resolveOrganisationContext(): Promise<OrganisationContext> {
               ?.company_name
           ) ||
           "My Business",
+
+        storeEnabled:
+          organisation?.store_enabled === true,
       };
     }
   } catch (
@@ -1121,6 +1138,14 @@ export default function StorePage() {
   ] =
     useState(
       ""
+    );
+
+  const [
+    storeEnabled,
+    setStoreEnabled,
+  ] =
+    useState(
+      false
     );
 
   // ==========================================================
@@ -1557,6 +1582,27 @@ export default function StorePage() {
           setOrganisationName(
             context.organisationName
           );
+
+          const hasStoreAccess =
+            context.storeEnabled === true;
+
+          setStoreEnabled(
+            hasStoreAccess
+          );
+
+          // SECURITY / ACCESS GATE:
+          // Do not fetch products, orders, payments, settings,
+          // inventory or discounts unless organisations.store_enabled
+          // is literally TRUE for this organisation.
+          if (
+            !hasStoreAccess
+          ) {
+            setOrganisationId(
+              ""
+            );
+
+            return;
+          }
 
           // ===================================================
           // STORE SETTINGS
@@ -5172,6 +5218,44 @@ if (orderError) {
           <p className="mt-4 text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">
             Loading commerce
           </p>
+        </div>
+      </main>
+    );
+  }
+
+  // ==========================================================
+  // STORE ACCESS
+  // ==========================================================
+
+  if (
+    storeEnabled !== true
+  ) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5">
+        <div className="w-full max-w-lg rounded-[2rem] border border-stone-200 bg-white p-10 text-center shadow-sm">
+          <ShoppingBag
+            size={28}
+            className="mx-auto text-[#829473]"
+          />
+
+          <p className="mt-5 text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+            TOTS Commerce
+          </p>
+
+          <h1 className="mt-3 font-serif text-4xl italic text-stone-900">
+            Store isn&apos;t enabled
+          </h1>
+
+          <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-stone-500">
+            This organisation does not currently have access to the Store module.
+          </p>
+
+          <a
+            href="/"
+            className="mt-7 inline-flex items-center justify-center rounded-full bg-stone-900 px-6 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-white"
+          >
+            Back to TOTS-OS
+          </a>
         </div>
       </main>
     );

@@ -106,9 +106,6 @@ type OrganisationBillingRow = {
   name?:
     string | null;
 
-  company_name?:
-    string | null;
-
   store_enabled?:
     boolean | null;
 
@@ -433,7 +430,7 @@ async function getContext(
         "organisations"
       )
       .select(
-        "id, name, company_name"
+        "id, name, name"
       )
       .eq(
         "id",
@@ -465,7 +462,7 @@ async function getContext(
       organisation.name
     ) ||
     cleanString(
-      organisation.company_name
+      organisation.name
     ) ||
     "TOTS-OS Business";
 
@@ -502,7 +499,6 @@ async function getOrganisationBilling(
         `
           id,
           name,
-          company_name,
           store_enabled,
           store_subscription_status,
           store_stripe_subscription_id,

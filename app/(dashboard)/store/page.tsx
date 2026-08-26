@@ -1148,6 +1148,14 @@ export default function StorePage() {
       false
     );
 
+  const [
+    storeCheckoutLoading,
+    setStoreCheckoutLoading,
+  ] =
+    useState(
+      false
+    );
+
   // ==========================================================
   // SETTINGS
   // ==========================================================
@@ -5201,6 +5209,108 @@ if (orderError) {
   ];
 
   // ==========================================================
+  // STORE ADD-ON CHECKOUT
+  // ==========================================================
+
+  const handleBuyStore =
+    async () => {
+      if (
+        storeCheckoutLoading
+      ) {
+        return;
+      }
+
+      try {
+        setStoreCheckoutLoading(
+          true
+        );
+
+        setPageError(
+          null
+        );
+
+        const response =
+          await fetch(
+            "/api/store/subscription/checkout",
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify(
+                  {
+                    organisationId:
+                      organisationId ||
+                      undefined,
+                  }
+                ),
+            }
+          );
+
+        const result =
+          await response
+            .json()
+            .catch(
+              () => null
+            );
+
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            result?.error ||
+              result?.message ||
+              "Unable to start Store checkout."
+          );
+        }
+
+        const checkoutUrl =
+          result?.url ||
+          result?.checkoutUrl ||
+          result?.checkout_url ||
+          result?.sessionUrl ||
+          result?.session_url;
+
+        if (
+          !checkoutUrl ||
+          typeof checkoutUrl !==
+            "string"
+        ) {
+          throw new Error(
+            "Stripe checkout URL was not returned."
+          );
+        }
+
+        window.location.assign(
+          checkoutUrl
+        );
+      } catch (
+        error
+      ) {
+        console.error(
+          "Store add-on checkout error:",
+          error
+        );
+
+        setPageError(
+          error instanceof
+            Error
+            ? error.message
+            : "Unable to start Store checkout."
+        );
+      } finally {
+        setStoreCheckoutLoading(
+          false
+        );
+      }
+    };
+
+  // ==========================================================
   // LOADING
   // ==========================================================
 
@@ -5231,31 +5341,105 @@ if (orderError) {
     storeEnabled !== true
   ) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5">
-        <div className="w-full max-w-lg rounded-[2rem] border border-stone-200 bg-white p-10 text-center shadow-sm">
-          <ShoppingBag
-            size={28}
-            className="mx-auto text-[#829473]"
-          />
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5 py-10">
+        <div className="w-full max-w-xl rounded-[2.25rem] border border-stone-200 bg-white p-8 text-center shadow-sm sm:p-10">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#a9b897]/10 text-[#829473]">
+            <ShoppingBag
+              size={26}
+            />
+          </div>
 
           <p className="mt-5 text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
             TOTS Commerce
           </p>
 
-          <h1 className="mt-3 font-serif text-4xl italic text-stone-900">
-            Store isn&apos;t enabled
+          <h1 className="mt-3 font-serif text-4xl italic text-stone-900 sm:text-5xl">
+            Unlock your Store
           </h1>
 
           <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-stone-500">
-            This organisation does not currently have access to the Store module.
+            Add a fully connected online store to your TOTS-OS workspace.
+            Manage products, orders, customers, payments and your storefront
+            from the same system you already use to run your business.
           </p>
 
-          <a
-            href="/"
-            className="mt-7 inline-flex items-center justify-center rounded-full bg-stone-900 px-6 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-white"
-          >
-            Back to TOTS-OS
-          </a>
+          <div className="mx-auto mt-6 grid max-w-sm grid-cols-1 gap-2 text-left sm:grid-cols-2">
+            {[
+              "Products & inventory",
+              "Orders & customers",
+              "Stripe payments",
+              "Your own storefront",
+            ].map(
+              (item) => (
+                <div
+                  key={item}
+                  className="flex items-center gap-2 rounded-xl bg-stone-50 px-3 py-2.5 text-xs font-medium text-stone-600"
+                >
+                  <Check
+                    size={13}
+                    className="shrink-0 text-[#829473]"
+                  />
+
+                  {item}
+                </div>
+              )
+            )}
+          </div>
+
+          <div className="mt-7">
+            <span className="font-serif text-4xl italic text-stone-900">
+              £39
+            </span>
+
+            <span className="ml-1 text-xs font-medium text-stone-400">
+              / month
+            </span>
+          </div>
+
+          {pageError && (
+            <div className="mx-auto mt-5 max-w-md rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-left text-xs leading-5 text-red-700">
+              {pageError}
+            </div>
+          )}
+
+          <div className="mt-7 flex flex-col items-center gap-4">
+            <button
+              type="button"
+              onClick={() =>
+                void handleBuyStore()
+              }
+              disabled={
+                storeCheckoutLoading
+              }
+              className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-full bg-stone-900 px-7 text-[9px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-[#a9b897] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {storeCheckoutLoading ? (
+                <>
+                  <Loader2
+                    size={14}
+                    className="animate-spin"
+                  />
+
+                  Opening Checkout
+                </>
+              ) : (
+                <>
+                  Buy Store Add-On
+
+                  <ArrowRight
+                    size={14}
+                  />
+                </>
+              )}
+            </button>
+
+            <a
+              href="/dashboard"
+              className="text-[9px] font-black uppercase tracking-[0.14em] text-stone-400 transition hover:text-stone-700"
+            >
+              Maybe later — back to TOTS-OS
+            </a>
+          </div>
         </div>
       </main>
     );

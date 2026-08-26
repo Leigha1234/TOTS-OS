@@ -968,7 +968,7 @@ export async function POST(
           "auto",
 
         allow_promotion_codes:
-          false,
+          true,
 
         client_reference_id:
           context.organisationId,

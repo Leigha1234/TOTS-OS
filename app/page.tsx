@@ -119,6 +119,9 @@ const LOGO_SRC = "/icon.png";
 const SIGNUP_URL =
   "https://tots-os.co.uk/login";
 
+const SHOP_BUY_URL =
+  "https://tots-os.co.uk/login";
+
 const NAV_ITEMS: NavItem[] = [
   {
     label: "Product",
@@ -135,6 +138,10 @@ const NAV_ITEMS: NavItem[] = [
   {
     label: "Clarity",
     href: "#clarity",
+  },
+  {
+    label: "Shop",
+    href: "#shop",
   },
   {
     label: "Pricing",
@@ -407,11 +414,11 @@ const TOUR_STEPS: TourStep[] = [
   {
     key: "store",
     screen: "store",
-    eyebrow: "07 · Store",
+    eyebrow: "07 · TOTS Commerce",
     title:
-      "Sell products from the same system that runs your business.",
+      "Your store, connected to your business.",
     text:
-      "Manage products, orders and payments inside TOTS-OS. New customers can flow into your CRM, while orders and payment activity stay connected to the rest of your workspace.",
+      "Manage products, orders, stock, payments, discounts and your public storefront from one commerce workspace. The overview gives you live order, revenue and stock visibility while the store stays connected to the rest of TOTS-OS.",
   },
   {
     key: "workspace",
@@ -2389,52 +2396,123 @@ function DemoNotes() {
 ============================================================ */
 
 function DemoStore() {
-  const products = [
-    { name: "Signature Planner", price: "£24.00", stock: "18 in stock" },
-    { name: "Business Workbook", price: "£18.00", stock: "11 in stock" },
-    { name: "Client Welcome Pack", price: "£32.00", stock: "7 in stock" },
+  const tabs = [
+    "Overview",
+    "Products",
+    "Orders",
+    "Payments",
+    "Inventory",
+    "Discounts",
+    "Settings",
+  ];
+
+  const orders = [
+    { id: "TOTS-44459602-SD1U", meta: "1 item · 23 Aug 2026" },
+    { id: "TOTS-44116567-6Q98", meta: "1 item · 23 Aug 2026" },
   ];
 
   return (
-    <div className="app-page contacts-page">
-      <div className="contacts-top">
+    <div className="app-page commerce-page">
+      <div className="commerce-heading">
         <div>
-          <div className="app-kicker"><span />Store</div>
-          <h2>Products &amp; orders</h2>
+          <div className="app-kicker commerce-kicker"><span />TOTS Commerce</div>
+          <h2>Your store, connected to your business.</h2>
+          <p>
+            Manage products, orders, stock and your public storefront alongside
+            the rest of TOTS-OS.
+          </p>
         </div>
 
-        <button className="square-black-button" type="button">
-          <Plus size={20} />
-        </button>
+        <div className="commerce-actions">
+          <button type="button" className="commerce-outline-button">
+            <ArrowUpRight size={13} />View storefront
+          </button>
+          <button type="button" className="commerce-outline-button">
+            <RefreshCw size={13} />Refresh
+          </button>
+          <button type="button" className="commerce-primary-button">
+            <Plus size={14} />New product
+          </button>
+        </div>
       </div>
 
-      <div className="app-metrics-grid">
-        <DemoMetric label="Store revenue" value="£2,840" />
-        <DemoMetric label="Orders" value="86" />
-        <DemoMetric label="Customers" value="64" />
-      </div>
-
-      <div className="contact-list-real">
-        {products.map((product) => (
-          <div className="contact-row-real" key={product.name}>
-            <div className="contact-signal"><Store size={15} /></div>
-            <div className="contact-main">
-              <strong>{product.name}</strong>
-              <div><span>{product.stock}</span><b>LIVE</b></div>
-            </div>
-            <div className="contact-next">
-              <strong>{product.price}</strong>
-            </div>
+      <div className="commerce-tabs">
+        {tabs.map((tab, index) => (
+          <div key={tab} className={`commerce-tab ${index === 0 ? "active" : ""}`}>
+            {index === 0 && <Store size={12} />}
+            {tab}
           </div>
         ))}
       </div>
 
-      <div className="home-clarity-alert" style={{ marginTop: 16 }}>
-        <div className="clarity-alert-title">Connected commerce</div>
-        <p>
-          Orders, customers and payments stay connected to your TOTS-OS CRM
-          and wider business workspace.
-        </p>
+      <div className="commerce-summary">
+        <div className="commerce-summary-icon"><Sparkles size={16} /></div>
+        <div>
+          <span>TOTS Commerce summary</span>
+          <p>
+            Your store currently has <strong>27 products</strong>,{" "}
+            <strong>6 active orders</strong> and <strong>0 stock warnings</strong>.
+            Paid order value currently visible is <strong>£0.00</strong>.
+          </p>
+        </div>
+      </div>
+
+      <div className="commerce-metrics">
+        <div className="commerce-metric-card">
+          <CircleDollarSign size={15} /><strong>£0.00</strong><span>Revenue</span>
+        </div>
+        <div className="commerce-metric-card">
+          <Store size={15} /><strong>10</strong><span>Orders</span>
+        </div>
+        <div className="commerce-metric-card">
+          <ArrowUpRight size={15} /><strong>£0.00</strong><span>Avg order</span>
+        </div>
+        <div className="commerce-metric-card">
+          <ShieldCheck size={15} /><strong>0</strong><span>Low stock</span>
+        </div>
+      </div>
+
+      <div className="commerce-lower-grid">
+        <div className="commerce-panel">
+          <div className="commerce-panel-head">
+            <div><span>Fulfilment</span><h3>Orders needing attention</h3></div>
+            <button type="button">View all</button>
+          </div>
+
+          <div className="commerce-order-list">
+            {orders.map((order) => (
+              <div className="commerce-order-row" key={order.id}>
+                <div>
+                  <strong>{order.id}<em>New</em></strong>
+                  <span>Customer</span>
+                  <small>{order.meta}</small>
+                </div>
+                <div className="commerce-order-side">
+                  <strong>£0.00</strong>
+                  <button type="button">Process <ChevronRight size={12} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="commerce-panel commerce-snapshot">
+          <div className="commerce-panel-head">
+            <div><span>Store snapshot</span><h3>Current position</h3></div>
+          </div>
+
+          {[
+            ["Storefront", "Live"],
+            ["Open orders", "6"],
+            ["Paid orders", "5"],
+            ["Order value", "£0.00"],
+            ["Active products", "27"],
+          ].map(([label, value]) => (
+            <div className="commerce-snapshot-row" key={label}>
+              <span>{label}</span><strong>{value}</strong>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -9544,6 +9622,124 @@ export default function TotsOSLanding() {
         }
 
         /* =====================================================
+           COMMERCE / STORE
+        ===================================================== */
+
+        .commerce-page { padding-top: 58px; min-width: 900px; }
+        .commerce-heading {
+          display: flex; align-items: flex-end; justify-content: space-between;
+          gap: 24px;
+        }
+        .commerce-kicker { color: var(--sage-dark); }
+        .commerce-heading h2 {
+          margin-top: 10px !important; font-size: 23px; font-style: italic; font-weight: 500;
+        }
+        .commerce-heading p {
+          margin-top: 14px !important; color: var(--app-muted); font-size: 10px;
+        }
+        .commerce-actions { display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+        .commerce-outline-button, .commerce-primary-button {
+          min-height: 34px; padding: 0 13px; display: inline-flex; align-items: center;
+          justify-content: center; gap: 7px; border-radius: 8px; font-size: 8px;
+          font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+        }
+        .commerce-outline-button {
+          border: 1px solid var(--app-border); background: white; color: #6f6b63;
+        }
+        .commerce-primary-button {
+          border: 1px solid #1f1e1b; background: #1f1e1b; color: white;
+        }
+        .commerce-tabs {
+          margin-top: 23px; min-height: 45px; padding: 5px; display: flex; align-items: center;
+          gap: 3px; border: 1px solid var(--app-border); border-radius: 10px; background: white;
+        }
+        .commerce-tab {
+          min-height: 33px; padding: 0 13px; display: inline-flex; align-items: center;
+          gap: 6px; border-radius: 8px; color: #9a958d; font-size: 7px; font-weight: 800;
+          letter-spacing: .11em; text-transform: uppercase; white-space: nowrap;
+        }
+        .commerce-tab.active { background: #201f1c; color: white; }
+        .commerce-summary {
+          margin-top: 18px; padding: 22px 24px; display: flex; gap: 15px; align-items: flex-start;
+          border: 1px solid var(--app-border); border-radius: 18px; background: white;
+        }
+        .commerce-summary-icon {
+          width: 36px; height: 36px; flex: 0 0 auto; display: flex; align-items: center;
+          justify-content: center; border-radius: 11px; background: var(--sage-light);
+          color: var(--sage-dark);
+        }
+        .commerce-summary span, .commerce-panel-head span {
+          color: var(--sage-dark); font-size: 7px; font-weight: 800; letter-spacing: .14em;
+          text-transform: uppercase;
+        }
+        .commerce-summary p {
+          margin-top: 8px !important; color: #4e4b45; font-size: 12px; line-height: 1.55;
+        }
+        .commerce-metrics {
+          margin-top: 15px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+        }
+        .commerce-metric-card {
+          min-height: 98px; padding: 15px; border: 1px solid var(--app-border);
+          border-radius: 16px; background: white; color: #c3bfb7;
+        }
+        .commerce-metric-card strong, .commerce-metric-card span { display: block; }
+        .commerce-metric-card strong {
+          margin-top: 17px; color: #302e2a; font-size: 20px; font-weight: 500; font-style: italic;
+        }
+        .commerce-metric-card span {
+          margin-top: 3px; color: #99948c; font-size: 7px; font-weight: 800;
+          letter-spacing: .08em; text-transform: uppercase;
+        }
+        .commerce-lower-grid {
+          margin-top: 15px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px;
+        }
+        .commerce-panel {
+          padding: 22px; border: 1px solid var(--app-border); border-radius: 18px; background: white;
+        }
+        .commerce-panel-head {
+          display: flex; align-items: center; justify-content: space-between; gap: 16px;
+        }
+        .commerce-panel-head h3 {
+          margin-top: 5px !important; font-size: 19px; font-style: italic; font-weight: 500;
+        }
+        .commerce-panel-head > button {
+          padding: 8px 13px; border: 0; border-radius: 999px; background: var(--sage);
+          color: white; font-size: 8px; font-weight: 700;
+        }
+        .commerce-order-list { margin-top: 17px; display: grid; gap: 8px; }
+        .commerce-order-row {
+          padding: 13px 14px; display: flex; align-items: center; justify-content: space-between;
+          gap: 14px; border-radius: 12px; background: #fcfbf8;
+        }
+        .commerce-order-row > div:first-child { min-width: 0; }
+        .commerce-order-row strong, .commerce-order-row span, .commerce-order-row small { display: block; }
+        .commerce-order-row > div > strong { color: #32302c; font-size: 9px; }
+        .commerce-order-row em {
+          margin-left: 7px; padding: 3px 6px; border-radius: 999px; background: #edf4ff;
+          color: #4380df; font-size: 6px; font-style: normal; text-transform: uppercase;
+        }
+        .commerce-order-row span, .commerce-order-row small {
+          margin-top: 4px; color: #9a968e; font-size: 7px;
+        }
+        .commerce-order-side {
+          display: flex; align-items: center; gap: 12px; flex: 0 0 auto;
+        }
+        .commerce-order-side > strong {
+          font-size: 11px !important; font-style: italic; font-weight: 500;
+        }
+        .commerce-order-side button {
+          min-height: 28px; padding: 0 9px; display: inline-flex; align-items: center; gap: 4px;
+          border: 0; border-radius: 999px; background: white; color: #767168; font-size: 7px;
+          font-weight: 800; text-transform: uppercase;
+        }
+        .commerce-snapshot-row {
+          min-height: 34px; display: flex; align-items: center; justify-content: space-between;
+          gap: 12px; border-bottom: 1px solid #f0eee9; color: #9c978f; font-size: 8px;
+        }
+        .commerce-snapshot-row:first-of-type { margin-top: 14px; }
+        .commerce-snapshot-row strong { color: #4a4741; font-size: 8px; }
+
+        /* =====================================================
            WORKSPACE
         ===================================================== */
 
@@ -12927,6 +13123,111 @@ export default function TotsOSLanding() {
           .footer-bottom { flex-direction: column; align-items: flex-start; }
         }
 
+        /* ---------------- TOTS COMMERCE PUBLIC SECTION ---------------- */
+        .shop-showcase {
+          position: relative; overflow: hidden; border: 1px solid rgba(55,55,53,.11);
+          border-radius: 34px; background: #fffefd; box-shadow: 0 28px 70px rgba(55,55,53,.07);
+        }
+        .shop-showcase::before {
+          content: ""; position: absolute; width: 420px; height: 420px; right: -120px; top: -160px;
+          border-radius: 50%; background: radial-gradient(circle, rgba(170,189,150,.24), transparent 68%);
+          pointer-events: none;
+        }
+        .shop-showcase-grid {
+          position: relative; z-index: 1; padding: 68px; display: grid;
+          grid-template-columns: .8fr 1.2fr; gap: 58px; align-items: center;
+        }
+        .shop-copy .section-title { margin-top: 18px !important; }
+        .shop-copy > p {
+          margin-top: 22px !important; max-width: 520px; color: var(--muted);
+          font-size: 15px; line-height: 1.7;
+        }
+        .shop-price-line { margin-top: 28px; display: flex; align-items: baseline; gap: 10px; }
+        .shop-price-line strong {
+          font-family: 'Manrope', sans-serif; font-size: 52px; font-weight: 500; letter-spacing: -.06em;
+        }
+        .shop-price-line span { color: var(--muted); font-size: 14px; }
+        .shop-benefits {
+          margin-top: 25px; display: grid; grid-template-columns: repeat(2,minmax(0,1fr));
+          gap: 10px 18px;
+        }
+        .shop-benefit {
+          display: flex; align-items: flex-start; gap: 9px; color: var(--charcoal-soft);
+          font-size: 12px; line-height: 1.5;
+        }
+        .shop-benefit svg { margin-top: 2px; flex: 0 0 auto; color: var(--sage-dark); }
+        .shop-actions { margin-top: 30px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .shop-note { color: var(--muted); font-size: 10px; }
+        .shop-visual-stack { position: relative; min-height: 470px; }
+        .shop-backend-card, .shop-storefront-card {
+          position: absolute; overflow: hidden; border: 1px solid rgba(55,55,53,.11);
+          background: white; box-shadow: 0 25px 55px rgba(55,55,53,.11);
+        }
+        .shop-backend-card {
+          width: 88%; left: 0; top: 0; border-radius: 22px; transform: rotate(-2deg);
+        }
+        .shop-storefront-card {
+          width: 76%; right: 0; bottom: 0; border-radius: 20px; transform: rotate(2deg);
+        }
+        .shop-browser-bar {
+          height: 34px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between;
+          border-bottom: 1px solid #ece9e2; background: #f7f6f3; color: #aaa59d; font-size: 7px;
+          font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+        }
+        .shop-backend-body { padding: 18px; background: #fbfaf7; }
+        .shop-backend-title {
+          display: flex; justify-content: space-between; gap: 12px; align-items: center;
+        }
+        .shop-backend-title strong { font-size: 12px; font-weight: 600; }
+        .shop-backend-title span {
+          padding: 6px 8px; border-radius: 7px; background: #24231f; color: white;
+          font-size: 6px; text-transform: uppercase;
+        }
+        .shop-mini-tabs {
+          margin-top: 13px; height: 30px; padding: 4px; display: flex; gap: 4px;
+          border: 1px solid #e7e4de; border-radius: 8px; background: white;
+        }
+        .shop-mini-tabs i { flex: 1; border-radius: 5px; background: #f3f1ec; }
+        .shop-mini-tabs i:first-child { background: #24231f; }
+        .shop-mini-summary {
+          margin-top: 10px; height: 55px; border: 1px solid #e7e4de;
+          border-radius: 11px; background: white;
+        }
+        .shop-mini-metrics {
+          margin-top: 9px; display: grid; grid-template-columns: repeat(4,1fr); gap: 6px;
+        }
+        .shop-mini-metrics i {
+          height: 50px; border: 1px solid #e7e4de; border-radius: 9px; background: white;
+        }
+        .shop-mini-lower {
+          margin-top: 7px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 7px;
+        }
+        .shop-mini-lower i {
+          height: 90px; border: 1px solid #e7e4de; border-radius: 10px; background: white;
+        }
+        .shop-storefront-body { padding: 15px; background: #faf9f5; }
+        .shop-storefront-head {
+          display: flex; justify-content: space-between; align-items: center; color: #4b4842;
+          font-size: 8px; font-weight: 700;
+        }
+        .shop-storefront-pills { margin-top: 13px; display: flex; gap: 5px; }
+        .shop-storefront-pills i {
+          width: 46px; height: 12px; border-radius: 999px; background: #eeece7;
+        }
+        .shop-storefront-pills i:first-child { background: var(--sage); }
+        .shop-product-row {
+          margin-top: 17px; display: grid; grid-template-columns: repeat(3,1fr); gap: 7px;
+        }
+        .shop-product-row > div {
+          overflow: hidden; border: 1px solid #e7e4de; border-radius: 9px; background: white;
+        }
+        .shop-product-row i {
+          height: 58px; display: block; background: linear-gradient(135deg,#e7e1d7,#f6f4ef);
+        }
+        .shop-product-row span {
+          height: 24px; display: block; margin: 7px; border-radius: 5px; background: #f3f1ec;
+        }
+
                     /* =====================================================
            RESPONSIVE
         ===================================================== */
@@ -12995,6 +13296,15 @@ export default function TotsOSLanding() {
           .clarity-grid {
             grid-template-columns:
               1fr;
+          }
+
+          .shop-showcase-grid {
+            grid-template-columns: 1fr;
+            padding: 52px;
+          }
+
+          .shop-visual-stack {
+            min-height: 430px;
           }
 
           .tour-layout {
@@ -13254,6 +13564,31 @@ export default function TotsOSLanding() {
           .button-secondary {
             width:
               100%;
+          }
+
+          .shop-showcase-grid {
+            padding: 30px 22px;
+            gap: 34px;
+          }
+
+          .shop-benefits {
+            grid-template-columns: 1fr;
+          }
+
+          .shop-price-line strong {
+            font-size: 44px;
+          }
+
+          .shop-visual-stack {
+            min-height: 330px;
+          }
+
+          .shop-backend-card {
+            width: 94%;
+          }
+
+          .shop-storefront-card {
+            width: 82%;
           }
 
           .trusted-row {
@@ -14436,6 +14771,106 @@ export default function TotsOSLanding() {
         </section>
 
         {/* ====================================================
+            TOTS COMMERCE
+        ==================================================== */}
+
+        <section className="tots-section soft" id="shop">
+          <div className="tots-container">
+            <Reveal>
+              <div className="shop-showcase">
+                <div className="shop-showcase-grid">
+                  <div className="shop-copy">
+                    <Eyebrow>TOTS Commerce</Eyebrow>
+
+                    <h2 className="section-title">
+                      Your shop. Your brand.{" "}
+                      <span className="gold-text">One backend.</span>
+                    </h2>
+
+                    <p>
+                      Sell products or services through your own branded public
+                      storefront, while TOTS Commerce handles the operational side:
+                      products, orders, stock, payments, discounts and fulfilment.
+                      It is built to sit alongside the rest of TOTS-OS, so commerce
+                      does not become another disconnected system to manage.
+                    </p>
+
+                    <div className="shop-price-line">
+                      <strong>£39</strong>
+                      <span>/ month</span>
+                    </div>
+
+                    <div className="shop-benefits">
+                      {[
+                        "Branded public storefront",
+                        "Product & service management",
+                        "Orders and fulfilment in one place",
+                        "Payment visibility",
+                        "Inventory and low-stock visibility",
+                        "Discount controls",
+                        "Customers connected to your business data",
+                        "No separate website shop backend to juggle",
+                      ].map((benefit) => (
+                        <div className="shop-benefit" key={benefit}>
+                          <Check size={14} />
+                          <span>{benefit}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="shop-actions">
+                      <a href={SHOP_BUY_URL} className="button-primary button-large">
+                        Buy TOTS Commerce
+                        <ArrowRight size={15} />
+                      </a>
+
+                      <span className="shop-note">
+                        Standalone commerce module · £39/month
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="shop-visual-stack" aria-label="TOTS Commerce preview">
+                    <div className="shop-backend-card">
+                      <div className="shop-browser-bar">
+                        <span>TOTS-OS</span><span>Commerce backend</span>
+                      </div>
+                      <div className="shop-backend-body">
+                        <div className="shop-backend-title">
+                          <strong>Your store, connected to your business.</strong>
+                          <span>+ New product</span>
+                        </div>
+                        <div className="shop-mini-tabs"><i /><i /><i /><i /><i /><i /></div>
+                        <div className="shop-mini-summary" />
+                        <div className="shop-mini-metrics"><i /><i /><i /><i /></div>
+                        <div className="shop-mini-lower"><i /><i /></div>
+                      </div>
+                    </div>
+
+                    <div className="shop-storefront-card">
+                      <div className="shop-browser-bar">
+                        <span>Your brand</span><span>Public storefront</span>
+                      </div>
+                      <div className="shop-storefront-body">
+                        <div className="shop-storefront-head">
+                          <span>The Organised Types</span><span>Basket</span>
+                        </div>
+                        <div className="shop-storefront-pills"><i /><i /><i /><i /></div>
+                        <div className="shop-product-row">
+                          <div><i /><span /></div>
+                          <div><i /><span /></div>
+                          <div><i /><span /></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ====================================================
             PRICING
         ==================================================== */}
 
@@ -14955,6 +15390,10 @@ export default function TotsOSLanding() {
 
               <a href="#clarity">
                 Clarity
+              </a>
+
+              <a href="#shop">
+                Shop
               </a>
 
               <a href="#pricing">

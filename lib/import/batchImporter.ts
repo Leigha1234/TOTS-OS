@@ -23,6 +23,20 @@ type PreparedPayload =
     unknown
   >;
 
+type DatabaseRecord =
+  Record<
+    string,
+    any
+  >;
+
+type CustomerResolution = {
+  customer:
+    DatabaseRecord;
+
+  created:
+    boolean;
+};
+
 // ============================================================
 // ALLOWED DATABASE COLUMNS
 // ============================================================
@@ -62,7 +76,7 @@ const ALLOWED_COLUMNS:
 };
 
 // ============================================================
-// HELPERS
+// GENERAL HELPERS
 // ============================================================
 
 function hasValue(
@@ -119,6 +133,20 @@ function cleanEmail(
   return stringValue(
     value
   ).toLowerCase();
+}
+
+// ============================================================
+
+function normalisePhone(
+  value:
+    unknown
+): string {
+  return stringValue(
+    value
+  ).replace(
+    /[^0-9+]/g,
+    ""
+  );
 }
 
 // ============================================================
@@ -182,6 +210,189 @@ function cleanPayload(
 }
 
 // ============================================================
+// RETRY HELPERS
+// ============================================================
+
+function getErrorMessage(
+  error:
+    unknown
+): string {
+  if (
+    error instanceof
+    Error
+  ) {
+    return error.message;
+  }
+
+  if (
+    error &&
+    typeof error ===
+      "object"
+  ) {
+    const objectError =
+      error as {
+        message?: unknown;
+        details?: unknown;
+        hint?: unknown;
+        code?: unknown;
+      };
+
+    const parts =
+      [
+        stringValue(
+          objectError.message
+        ),
+
+        stringValue(
+          objectError.details
+        ),
+
+        stringValue(
+          objectError.hint
+        ),
+
+        stringValue(
+          objectError.code
+        ),
+      ].filter(
+        Boolean
+      );
+
+    if (
+      parts.length >
+      0
+    ) {
+      return parts.join(
+        " — "
+      );
+    }
+  }
+
+  return stringValue(
+    error
+  ) || "Database operation failed.";
+}
+
+// ============================================================
+
+function isRetryableError(
+  error:
+    unknown
+): boolean {
+  const message =
+    getErrorMessage(
+      error
+    )
+      .toLowerCase();
+
+  return (
+    message.includes(
+      "network"
+    ) ||
+    message.includes(
+      "fetch failed"
+    ) ||
+    message.includes(
+      "failed to fetch"
+    ) ||
+    message.includes(
+      "connection was lost"
+    ) ||
+    message.includes(
+      "timeout"
+    ) ||
+    message.includes(
+      "timed out"
+    ) ||
+    message.includes(
+      "502"
+    ) ||
+    message.includes(
+      "503"
+    ) ||
+    message.includes(
+      "504"
+    )
+  );
+}
+
+// ============================================================
+
+function wait(
+  milliseconds:
+    number
+) {
+  return new Promise<void>(
+    (
+      resolve
+    ) => {
+      window.setTimeout(
+        resolve,
+        milliseconds
+      );
+    }
+  );
+}
+
+// ============================================================
+
+async function withRetry<T>(
+  operation:
+    () => Promise<T>
+): Promise<T> {
+  const maxRetries =
+    Math.max(
+      0,
+      Number(
+        BATCH_CONFIG
+          .MAX_RETRIES ??
+          3
+      )
+    );
+
+  const baseDelay =
+    Math.max(
+      250,
+      Number(
+        BATCH_CONFIG
+          .RETRY_DELAY_MS ??
+          1000
+      )
+    );
+
+  let attempt =
+    0;
+
+  while (
+    true
+  ) {
+    try {
+      return await operation();
+    } catch (
+      error
+    ) {
+      if (
+        attempt >=
+          maxRetries ||
+        !isRetryableError(
+          error
+        )
+      ) {
+        throw error;
+      }
+
+      attempt +=
+        1;
+
+      await wait(
+        baseDelay *
+          attempt
+      );
+    }
+  }
+}
+
+// ============================================================
 // CONTACT NAME
 // ============================================================
 
@@ -229,6 +440,55 @@ function buildContactName(
       " "
     )
     .trim();
+}
+
+// ============================================================
+// ALLOWLIST
+// ============================================================
+
+function applyAllowlist(
+  table:
+    string,
+
+  payload:
+    PreparedPayload
+): PreparedPayload {
+  const allowed =
+    ALLOWED_COLUMNS[
+      table
+    ];
+
+  if (
+    !allowed
+  ) {
+    return payload;
+  }
+
+  const cleaned:
+    PreparedPayload = {};
+
+  allowed.forEach(
+    (
+      column
+    ) => {
+      if (
+        hasValue(
+          payload[
+            column
+          ]
+        )
+      ) {
+        cleaned[
+          column
+        ] =
+          payload[
+            column
+          ];
+      }
+    }
+  );
+
+  return cleaned;
 }
 
 // ============================================================
@@ -286,8 +546,6 @@ function prepareContactPayload(
 
   // ----------------------------------------------------------
   // ROLE
-  //
-  // Your database uses "role", NOT "position".
   // ----------------------------------------------------------
 
   const role =
@@ -307,8 +565,6 @@ function prepareContactPayload(
 
   // ----------------------------------------------------------
   // COMPANY
-  //
-  // Your contacts table DOES have company_name, so preserve it.
   // ----------------------------------------------------------
 
   const companyName =
@@ -365,9 +621,6 @@ function prepareContactPayload(
 
   // ----------------------------------------------------------
   // WORKSPACE
-  //
-  // organisation_id is the TOTS-OS workspace.
-  // Never trust an organisation ID supplied by the import file.
   // ----------------------------------------------------------
 
   if (
@@ -375,10 +628,13 @@ function prepareContactPayload(
   ) {
     payload.organisation_id =
       orgId;
+  } else {
+    delete payload
+      .organisation_id;
   }
 
   // ----------------------------------------------------------
-  // REMOVE IMPORT-ONLY / NON-DATABASE FIELDS
+  // REMOVE IMPORT-ONLY FIELDS
   // ----------------------------------------------------------
 
   delete payload.first_name;
@@ -405,16 +661,16 @@ function prepareContactPayload(
 
   delete payload.domain;
 
-  /**
-   * Do not import arbitrary external IDs into your own primary
-   * key.
-   */
   delete payload.id;
+  delete payload.created_by;
 
   /**
-   * created_by is not a column in public.contacts.
+   * Never trust a customer relationship ID supplied by an
+   * external spreadsheet.
+   *
+   * We resolve customer_id ourselves below.
    */
-  delete payload.created_by;
+  delete payload.customer_id;
 
   return applyAllowlist(
     "contacts",
@@ -506,24 +762,41 @@ function prepareOrganisationPayload(
       payload.date_created;
   }
 
-  /**
-   * organisations is treated as a root table in the current
-   * import architecture.
-   */
-  delete payload.organisation_id;
-  delete payload.created_by;
+  delete payload
+    .organisation_id;
+
+  delete payload
+    .created_by;
+
   delete payload.id;
 
-  delete payload.company_name;
+  delete payload
+    .company_name;
+
   delete payload.company;
-  delete payload.organisation_name;
-  delete payload.organization_name;
-  delete payload.organisation;
-  delete payload.organization;
-  delete payload.business_name;
+
+  delete payload
+    .organisation_name;
+
+  delete payload
+    .organization_name;
+
+  delete payload
+    .organisation;
+
+  delete payload
+    .organization;
+
+  delete payload
+    .business_name;
+
   delete payload.domain;
-  delete payload.description;
-  delete payload.date_created;
+
+  delete payload
+    .description;
+
+  delete payload
+    .date_created;
 
   return applyAllowlist(
     "organisations",
@@ -532,7 +805,7 @@ function prepareOrganisationPayload(
 }
 
 // ============================================================
-// PREPARE GENERIC CHILD TABLE
+// PREPARE GENERIC
 // ============================================================
 
 function prepareGenericPayload(
@@ -550,12 +823,6 @@ function prepareGenericPayload(
       source
     );
 
-  /**
-   * For invoices, expenses and projects we still need the real
-   * table schemas before we can safely create strict allowlists.
-   *
-   * Workspace ownership is still applied here.
-   */
   if (
     orgId
   ) {
@@ -563,58 +830,10 @@ function prepareGenericPayload(
       orgId;
   }
 
-  delete payload.created_by;
+  delete payload
+    .created_by;
 
   return payload;
-}
-
-// ============================================================
-// ALLOWLIST
-// ============================================================
-
-function applyAllowlist(
-  table:
-    string,
-
-  payload:
-    PreparedPayload
-): PreparedPayload {
-  const allowed =
-    ALLOWED_COLUMNS[
-      table
-    ];
-
-  if (
-    !allowed
-  ) {
-    return payload;
-  }
-
-  const cleaned:
-    PreparedPayload = {};
-
-  allowed.forEach(
-    (
-      column
-    ) => {
-      if (
-        hasValue(
-          payload[
-            column
-          ]
-        )
-      ) {
-        cleaned[
-          column
-        ] =
-          payload[
-            column
-          ];
-      }
-    }
-  );
-
-  return cleaned;
 }
 
 // ============================================================
@@ -651,7 +870,7 @@ function preparePayload(
 }
 
 // ============================================================
-// UNIQUE KEY
+// UNIQUE KEYS
 // ============================================================
 
 function getUniqueKeys(
@@ -683,7 +902,7 @@ function getUniqueKeys(
 }
 
 // ============================================================
-// FIND EXISTING
+// FIND EXISTING GENERIC RECORD
 // ============================================================
 
 async function findExistingRecord(
@@ -698,7 +917,7 @@ async function findExistingRecord(
 
   orgId:
     string | null
-): Promise<Record<string, any> | null> {
+): Promise<DatabaseRecord | null> {
   const keys =
     getUniqueKeys(
       table
@@ -730,80 +949,925 @@ async function findExistingRecord(
     return null;
   }
 
-  let query =
-    supabase
-      .from(
-        table
-      )
-      .select(
-        "*"
-      );
+  return withRetry(
+    async () => {
+      let query =
+        supabase
+          .from(
+            table
+          )
+          .select(
+            "*"
+          );
 
-  for (
-    const key of
-    usableKeys
-  ) {
-    let value =
-      payload[
-        key
-      ];
+      for (
+        const key of
+        usableKeys
+      ) {
+        const value =
+          payload[
+            key
+          ];
 
-    if (
-      key ===
-      "email"
-    ) {
-      value =
-        cleanEmail(
-          value
-        );
-    }
+        if (
+          key ===
+          "email"
+        ) {
+          query =
+            query.ilike(
+              key,
+              cleanEmail(
+                value
+              )
+            );
 
-    query =
-      query.eq(
-        key,
-        value
-      );
-  }
+          continue;
+        }
 
-  /**
-   * Child tables must be scoped to the current workspace.
-   */
-  if (
-    table !==
-      "organisations" &&
-    orgId
-  ) {
-    query =
-      query.eq(
-        "organisation_id",
+        query =
+          query.eq(
+            key,
+            value
+          );
+      }
+
+      if (
+        table !==
+          "organisations" &&
         orgId
+      ) {
+        query =
+          query.eq(
+            "organisation_id",
+            orgId
+          );
+      }
+
+      const {
+        data,
+        error,
+      } =
+        await query
+          .limit(
+            1
+          )
+          .maybeSingle();
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      return (
+        data ??
+        null
       );
-  }
-
-  const {
-    data,
-    error,
-  } =
-    await query
-      .limit(
-        1
-      )
-      .maybeSingle();
-
-  if (
-    error
-  ) {
-    throw error;
-  }
-
-  return (
-    data ??
-    null
+    }
   );
 }
 
 // ============================================================
-// INSERT
+// FIND CONTACT
+// ============================================================
+
+async function findExistingContact(
+  payload:
+    PreparedPayload,
+
+  supabase:
+    any,
+
+  orgId:
+    string
+): Promise<DatabaseRecord | null> {
+  const email =
+    cleanEmail(
+      payload.email
+    );
+
+  // ----------------------------------------------------------
+  // EMAIL FIRST
+  // ----------------------------------------------------------
+
+  if (
+    email
+  ) {
+    const record =
+      await withRetry(
+        async () => {
+          const {
+            data,
+            error,
+          } =
+            await supabase
+              .from(
+                "contacts"
+              )
+              .select(
+                "*"
+              )
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .ilike(
+                "email",
+                email
+              )
+              .limit(
+                1
+              )
+              .maybeSingle();
+
+          if (
+            error
+          ) {
+            throw error;
+          }
+
+          return (
+            data ??
+            null
+          );
+        }
+      );
+
+    if (
+      record
+    ) {
+      return record;
+    }
+  }
+
+  // ----------------------------------------------------------
+  // PHONE + NAME FALLBACK
+  // ----------------------------------------------------------
+
+  const phone =
+    normalisePhone(
+      payload.phone
+    );
+
+  const name =
+    stringValue(
+      payload.name
+    );
+
+  if (
+    !phone ||
+    !name
+  ) {
+    return null;
+  }
+
+  return withRetry(
+    async () => {
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            "contacts"
+          )
+          .select(
+            "*"
+          )
+          .eq(
+            "organisation_id",
+            orgId
+          )
+          .ilike(
+            "name",
+            name
+          )
+          .limit(
+            25
+          );
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      const rows =
+        Array.isArray(
+          data
+        )
+          ? data
+          : [];
+
+      return (
+        rows.find(
+          (
+            candidate:
+              DatabaseRecord
+          ) =>
+            normalisePhone(
+              candidate.phone
+            ) ===
+            phone
+        ) ??
+        null
+      );
+    }
+  );
+}
+
+// ============================================================
+// FIND CUSTOMER BY ID
+// ============================================================
+
+async function findCustomerById(
+  customerId:
+    unknown,
+
+  supabase:
+    any,
+
+  orgId:
+    string
+): Promise<DatabaseRecord | null> {
+  const id =
+    stringValue(
+      customerId
+    );
+
+  if (
+    !id
+  ) {
+    return null;
+  }
+
+  return withRetry(
+    async () => {
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            "customers"
+          )
+          .select(
+            "*"
+          )
+          .eq(
+            "id",
+            id
+          )
+          .eq(
+            "organisation_id",
+            orgId
+          )
+          .limit(
+            1
+          )
+          .maybeSingle();
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      return (
+        data ??
+        null
+      );
+    }
+  );
+}
+
+// ============================================================
+// FIND CUSTOMER BY CONTACT DETAILS
+// ============================================================
+
+async function findMatchingCustomer(
+  contactPayload:
+    PreparedPayload,
+
+  supabase:
+    any,
+
+  orgId:
+    string
+): Promise<DatabaseRecord | null> {
+  const email =
+    cleanEmail(
+      contactPayload.email
+    );
+
+  // ----------------------------------------------------------
+  // EMAIL
+  // ----------------------------------------------------------
+
+  if (
+    email
+  ) {
+    const byEmail =
+      await withRetry(
+        async () => {
+          const {
+            data,
+            error,
+          } =
+            await supabase
+              .from(
+                "customers"
+              )
+              .select(
+                "*"
+              )
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .ilike(
+                "email",
+                email
+              )
+              .limit(
+                1
+              )
+              .maybeSingle();
+
+          if (
+            error
+          ) {
+            throw error;
+          }
+
+          return (
+            data ??
+            null
+          );
+        }
+      );
+
+    if (
+      byEmail
+    ) {
+      return byEmail;
+    }
+  }
+
+  // ----------------------------------------------------------
+  // PHONE + NAME
+  // ----------------------------------------------------------
+
+  const name =
+    stringValue(
+      contactPayload.name
+    );
+
+  const phone =
+    normalisePhone(
+      contactPayload.phone
+    );
+
+  if (
+    !name ||
+    !phone
+  ) {
+    return null;
+  }
+
+  return withRetry(
+    async () => {
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            "customers"
+          )
+          .select(
+            "*"
+          )
+          .eq(
+            "organisation_id",
+            orgId
+          )
+          .ilike(
+            "name",
+            name
+          )
+          .limit(
+            25
+          );
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      const candidates =
+        Array.isArray(
+          data
+        )
+          ? data
+          : [];
+
+      return (
+        candidates.find(
+          (
+            customer:
+              DatabaseRecord
+          ) =>
+            normalisePhone(
+              customer.phone
+            ) ===
+            phone
+        ) ??
+        null
+      );
+    }
+  );
+}
+
+// ============================================================
+// CUSTOMER CREATE PAYLOAD
+// ============================================================
+
+function buildNewCustomerPayload(
+  contactPayload:
+    PreparedPayload,
+
+  orgId:
+    string
+): PreparedPayload {
+  const payload:
+    PreparedPayload = {
+    organisation_id:
+      orgId,
+
+    stage:
+      "client",
+
+    client_type:
+      "client",
+
+    status:
+      "live",
+
+    tags: [
+      "CRM",
+      "Imported",
+    ],
+
+    /**
+     * IMPORTANT:
+     *
+     * Importing someone into CRM is NOT the same as gaining
+     * marketing consent.
+     */
+    on_mailing_list:
+      false,
+
+    mailing_list_category:
+      "General",
+
+    updated_at:
+      new Date()
+        .toISOString(),
+  };
+
+  const name =
+    stringValue(
+      contactPayload.name
+    );
+
+  const email =
+    cleanEmail(
+      contactPayload.email
+    );
+
+  const phone =
+    stringValue(
+      contactPayload.phone
+    );
+
+  const company =
+    stringValue(
+      contactPayload.company_name
+    );
+
+  const address =
+    stringValue(
+      contactPayload.address
+    );
+
+  if (
+    name
+  ) {
+    payload.name =
+      name;
+  }
+
+  if (
+    email
+  ) {
+    payload.email =
+      email;
+  }
+
+  if (
+    phone
+  ) {
+    payload.phone =
+      phone;
+  }
+
+  if (
+    company
+  ) {
+    payload.company =
+      company;
+  }
+
+  if (
+    address
+  ) {
+    payload.address =
+      address;
+  }
+
+  return payload;
+}
+
+// ============================================================
+// CUSTOMER UPDATE PAYLOAD
+// ============================================================
+
+function buildCustomerUpdatePayload(
+  contactPayload:
+    PreparedPayload
+): PreparedPayload {
+  const payload:
+    PreparedPayload = {
+    updated_at:
+      new Date()
+        .toISOString(),
+  };
+
+  const name =
+    stringValue(
+      contactPayload.name
+    );
+
+  const email =
+    cleanEmail(
+      contactPayload.email
+    );
+
+  const phone =
+    stringValue(
+      contactPayload.phone
+    );
+
+  const company =
+    stringValue(
+      contactPayload.company_name
+    );
+
+  const address =
+    stringValue(
+      contactPayload.address
+    );
+
+  if (
+    name
+  ) {
+    payload.name =
+      name;
+  }
+
+  if (
+    email
+  ) {
+    payload.email =
+      email;
+  }
+
+  if (
+    phone
+  ) {
+    payload.phone =
+      phone;
+  }
+
+  if (
+    company
+  ) {
+    payload.company =
+      company;
+  }
+
+  if (
+    address
+  ) {
+    payload.address =
+      address;
+  }
+
+  /**
+   * Do NOT update:
+   *
+   * on_mailing_list
+   * stage
+   * client_type
+   * status
+   * tags
+   *
+   * on an existing customer during a generic contact import.
+   *
+   * Those may already contain deliberate CRM decisions.
+   */
+
+  return payload;
+}
+
+// ============================================================
+// CREATE CUSTOMER
+// ============================================================
+
+async function createCustomer(
+  contactPayload:
+    PreparedPayload,
+
+  supabase:
+    any,
+
+  orgId:
+    string
+): Promise<DatabaseRecord> {
+  const payload =
+    buildNewCustomerPayload(
+      contactPayload,
+      orgId
+    );
+
+  return withRetry(
+    async () => {
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            "customers"
+          )
+          .insert(
+            payload
+          )
+          .select(
+            "*"
+          )
+          .single();
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      if (
+        !data
+      ) {
+        throw new Error(
+          "Customer was created but no customer record was returned."
+        );
+      }
+
+      return data;
+    }
+  );
+}
+
+// ============================================================
+// UPDATE CUSTOMER
+// ============================================================
+
+async function updateCustomer(
+  customer:
+    DatabaseRecord,
+
+  contactPayload:
+    PreparedPayload,
+
+  supabase:
+    any
+): Promise<DatabaseRecord> {
+  const payload =
+    buildCustomerUpdatePayload(
+      contactPayload
+    );
+
+  return withRetry(
+    async () => {
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            "customers"
+          )
+          .update(
+            payload
+          )
+          .eq(
+            "id",
+            customer.id
+          )
+          .select(
+            "*"
+          )
+          .single();
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      if (
+        !data
+      ) {
+        throw new Error(
+          "Customer update did not return a record."
+        );
+      }
+
+      return data;
+    }
+  );
+}
+
+// ============================================================
+// RESOLVE CUSTOMER FOR CONTACT
+// ============================================================
+
+async function resolveCustomerForContact(
+  contactPayload:
+    PreparedPayload,
+
+  existingContact:
+    DatabaseRecord | null,
+
+  supabase:
+    any,
+
+  orgId:
+    string,
+
+  duplicateStrategy:
+    DuplicateResolutionStrategy
+): Promise<CustomerResolution> {
+  // ----------------------------------------------------------
+  // EXISTING CONTACT ALREADY LINKED
+  // ----------------------------------------------------------
+
+  if (
+    existingContact
+      ?.customer_id
+  ) {
+    const linkedCustomer =
+      await findCustomerById(
+        existingContact
+          .customer_id,
+        supabase,
+        orgId
+      );
+
+    if (
+      linkedCustomer
+    ) {
+      if (
+        duplicateStrategy ===
+        "update"
+      ) {
+        const updated =
+          await updateCustomer(
+            linkedCustomer,
+            contactPayload,
+            supabase
+          );
+
+        return {
+          customer:
+            updated,
+
+          created:
+            false,
+        };
+      }
+
+      return {
+        customer:
+          linkedCustomer,
+
+        created:
+          false,
+      };
+    }
+  }
+
+  // ----------------------------------------------------------
+  // CREATE STRATEGY
+  //
+  // Explicitly creating duplicates means create a fresh CRM
+  // master record too.
+  // ----------------------------------------------------------
+
+  if (
+    duplicateStrategy ===
+    "create"
+  ) {
+    const customer =
+      await createCustomer(
+        contactPayload,
+        supabase,
+        orgId
+      );
+
+    return {
+      customer,
+
+      created:
+        true,
+    };
+  }
+
+  // ----------------------------------------------------------
+  // FIND MATCHING CUSTOMER
+  // ----------------------------------------------------------
+
+  const matchingCustomer =
+    await findMatchingCustomer(
+      contactPayload,
+      supabase,
+      orgId
+    );
+
+  if (
+    matchingCustomer
+  ) {
+    if (
+      duplicateStrategy ===
+      "update"
+    ) {
+      const updated =
+        await updateCustomer(
+          matchingCustomer,
+          contactPayload,
+          supabase
+        );
+
+      return {
+        customer:
+          updated,
+
+        created:
+          false,
+      };
+    }
+
+    return {
+      customer:
+        matchingCustomer,
+
+      created:
+        false,
+    };
+  }
+
+  // ----------------------------------------------------------
+  // CREATE CUSTOMER
+  // ----------------------------------------------------------
+
+  const customer =
+    await createCustomer(
+      contactPayload,
+      supabase,
+      orgId
+    );
+
+  return {
+    customer,
+
+    created:
+      true,
+  };
+}
+
+// ============================================================
+// GENERIC INSERT
 // ============================================================
 
 async function insertRecord(
@@ -816,33 +1880,37 @@ async function insertRecord(
   supabase:
     any
 ) {
-  const {
-    data,
-    error,
-  } =
-    await supabase
-      .from(
-        table
-      )
-      .insert(
-        payload
-      )
-      .select(
-        "*"
-      )
-      .single();
+  return withRetry(
+    async () => {
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            table
+          )
+          .insert(
+            payload
+          )
+          .select(
+            "*"
+          )
+          .single();
 
-  if (
-    error
-  ) {
-    throw error;
-  }
+      if (
+        error
+      ) {
+        throw error;
+      }
 
-  return data;
+      return data;
+    }
+  );
 }
 
 // ============================================================
-// UPDATE
+// GENERIC UPDATE
 // ============================================================
 
 async function updateRecord(
@@ -850,10 +1918,7 @@ async function updateRecord(
     string,
 
   existing:
-    Record<
-      string,
-      any
-    >,
+    DatabaseRecord,
 
   payload:
     PreparedPayload,
@@ -876,33 +1941,243 @@ async function updateRecord(
 
   delete updatePayload.id;
 
-  const {
-    data,
-    error,
-  } =
-    await supabase
-      .from(
-        table
-      )
-      .update(
-        updatePayload
-      )
-      .eq(
-        "id",
-        existing.id
-      )
-      .select(
-        "*"
-      )
-      .single();
+  return withRetry(
+    async () => {
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            table
+          )
+          .update(
+            updatePayload
+          )
+          .eq(
+            "id",
+            existing.id
+          )
+          .select(
+            "*"
+          )
+          .single();
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      return data;
+    }
+  );
+}
+
+// ============================================================
+// BEST-EFFORT CUSTOMER CLEANUP
+// ============================================================
+
+async function cleanupNewCustomer(
+  customerId:
+    unknown,
+
+  supabase:
+    any
+) {
+  const id =
+    stringValue(
+      customerId
+    );
 
   if (
-    error
+    !id
   ) {
-    throw error;
+    return;
   }
 
-  return data;
+  try {
+    await supabase
+      .from(
+        "customers"
+      )
+      .delete()
+      .eq(
+        "id",
+        id
+      );
+  } catch (
+    cleanupError
+  ) {
+    console.warn(
+      "[TOTS IMPORT] Could not clean up customer after failed contact import:",
+      cleanupError
+    );
+  }
+}
+
+// ============================================================
+// PROCESS CONTACT
+// ============================================================
+
+async function processContact(
+  row:
+    ProcessedRow,
+
+  supabase:
+    any,
+
+  orgId:
+    string,
+
+  duplicateStrategy:
+    DuplicateResolutionStrategy
+): Promise<
+  | "inserted"
+  | "updated"
+  | "skipped"
+> {
+  const contactPayload =
+    prepareContactPayload(
+      row.payload,
+      orgId
+    );
+
+  if (
+    Object.keys(
+      contactPayload
+    ).length ===
+    0
+  ) {
+    throw new Error(
+      "No supported contact fields remained after preparing the import payload."
+    );
+  }
+
+  // ----------------------------------------------------------
+  // FIND EXISTING CONTACT
+  // ----------------------------------------------------------
+
+  const existingContact =
+    await findExistingContact(
+      contactPayload,
+      supabase,
+      orgId
+    );
+
+  // ----------------------------------------------------------
+  // SKIP
+  // ----------------------------------------------------------
+
+  if (
+    duplicateStrategy ===
+      "skip" &&
+    existingContact
+  ) {
+    return "skipped";
+  }
+
+  // ----------------------------------------------------------
+  // RESOLVE CRM MASTER CUSTOMER
+  // ----------------------------------------------------------
+
+  const customerResolution =
+    await resolveCustomerForContact(
+      contactPayload,
+      existingContact,
+      supabase,
+      orgId,
+      duplicateStrategy
+    );
+
+  const finalContactPayload:
+    PreparedPayload = {
+    ...contactPayload,
+
+    customer_id:
+      customerResolution
+        .customer
+        .id,
+
+    organisation_id:
+      orgId,
+
+    updated_at:
+      new Date()
+        .toISOString(),
+  };
+
+  try {
+    // --------------------------------------------------------
+    // CREATE DUPLICATE
+    // --------------------------------------------------------
+
+    if (
+      duplicateStrategy ===
+      "create"
+    ) {
+      await insertRecord(
+        "contacts",
+        finalContactPayload,
+        supabase
+      );
+
+      return "inserted";
+    }
+
+    // --------------------------------------------------------
+    // UPDATE EXISTING
+    // --------------------------------------------------------
+
+    if (
+      existingContact
+    ) {
+      await updateRecord(
+        "contacts",
+        existingContact,
+        finalContactPayload,
+        supabase
+      );
+
+      return "updated";
+    }
+
+    // --------------------------------------------------------
+    // INSERT NEW CONTACT
+    // --------------------------------------------------------
+
+    await insertRecord(
+      "contacts",
+      finalContactPayload,
+      supabase
+    );
+
+    return "inserted";
+  } catch (
+    error
+  ) {
+    /**
+     * Browser-side Supabase operations cannot share a database
+     * transaction across customers + contacts.
+     *
+     * If we created a brand new customer and the contact then
+     * fails, make a best-effort attempt to remove that orphaned
+     * customer.
+     */
+    if (
+      customerResolution
+        .created
+    ) {
+      await cleanupNewCustomer(
+        customerResolution
+          .customer
+          .id,
+        supabase
+      );
+    }
+
+    throw error;
+  }
 }
 
 // ============================================================
@@ -919,69 +2194,10 @@ function appendFailure(
   error:
     unknown
 ) {
-  let message =
-    "Database import failed.";
-
-  if (
-    error instanceof
-    Error
-  ) {
-    message =
-      error.message;
-  } else if (
-    error &&
-    typeof error ===
-      "object"
-  ) {
-    const objectError =
-      error as {
-        message?: unknown;
-        details?: unknown;
-        hint?: unknown;
-        code?: unknown;
-      };
-
-    const parts =
-      [
-        stringValue(
-          objectError.message
-        ),
-
-        stringValue(
-          objectError.details
-        ),
-
-        stringValue(
-          objectError.hint
-        ),
-
-        stringValue(
-          objectError.code
-        ),
-      ].filter(
-        Boolean
-      );
-
-    if (
-      parts.length >
-      0
-    ) {
-      message =
-        parts.join(
-          " — "
-        );
-    }
-  } else if (
-    error !==
-      undefined &&
-    error !==
-      null
-  ) {
-    message =
-      String(
-        error
-      );
-  }
+  const message =
+    getErrorMessage(
+      error
+    );
 
   const failedRow:
     ProcessedRow = {
@@ -1132,6 +2348,54 @@ export async function processBatches(
       batch
     ) {
       try {
+        // ====================================================
+        // CONTACT / CRM
+        // ====================================================
+
+        if (
+          row.targetTable ===
+          "contacts"
+        ) {
+          if (
+            !orgId
+          ) {
+            throw new Error(
+              "No active organisation is available for this contact import."
+            );
+          }
+
+          const action =
+            await processContact(
+              row,
+              supabase,
+              orgId,
+              duplicateStrategy
+            );
+
+          if (
+            action ===
+            "inserted"
+          ) {
+            result.inserted +=
+              1;
+          } else if (
+            action ===
+            "updated"
+          ) {
+            result.updated +=
+              1;
+          } else {
+            result.skipped +=
+              1;
+          }
+
+          continue;
+        }
+
+        // ====================================================
+        // OTHER TABLES
+        // ====================================================
+
         const table =
           row.targetTable;
 
@@ -1245,8 +2509,6 @@ export async function processBatches(
 
           result.inserted +=
             1;
-
-          continue;
         }
       } catch (
         error

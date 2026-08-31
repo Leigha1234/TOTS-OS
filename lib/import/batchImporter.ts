@@ -1,7 +1,11 @@
 // ==========================================
 // lib/import/batchImporter.ts
-// Production batch importer
 // ==========================================
+
+import {
+  BATCH_CONFIG,
+  UNIQUE_KEYS,
+} from "./constants";
 
 import {
   BatchImportResult,
@@ -9,46 +13,41 @@ import {
   ProcessedRow,
 } from "./types";
 
-import {
-  BATCH_CONFIG,
-  UNIQUE_KEYS,
-} from "./constants";
-
 // ============================================================
 // TYPES
 // ============================================================
 
-type Payload =
+type PreparedPayload =
   Record<
     string,
-    any
-  >;
-
-type ExistingRecord =
-  Record<
-    string,
-    any
+    unknown
   >;
 
 // ============================================================
-// TABLE CONFIGURATION
+// ALLOWED DATABASE COLUMNS
 // ============================================================
 
-/**
- * These are the tables whose exact safe import columns we
- * currently know.
- *
- * Do NOT add fields here unless they genuinely exist in the
- * corresponding Supabase table.
- *
- * Other supported tables can still be processed, but their
- * payload is left intact until we add their exact schema.
- */
 const ALLOWED_COLUMNS:
   Record<
     string,
     string[]
   > = {
+  contacts: [
+    "organisation_id",
+    "name",
+    "email",
+    "phone",
+    "address",
+    "company_name",
+    "company_details",
+    "role",
+    "created_at",
+    "updated_at",
+    "website",
+    "attachments",
+    "customer_id",
+  ],
+
   organisations: [
     "name",
     "email",
@@ -60,31 +59,48 @@ const ALLOWED_COLUMNS:
     "date_closed",
     "created_at",
   ],
-
-  contacts: [
-    "first_name",
-    "last_name",
-    "email",
-    "phone",
-    "position",
-    "organisation_id",
-    "created_at",
-  ],
 };
 
 // ============================================================
 // HELPERS
 // ============================================================
 
+function hasValue(
+  value:
+    unknown
+): boolean {
+  if (
+    value ===
+      undefined ||
+    value ===
+      null
+  ) {
+    return false;
+  }
+
+  if (
+    typeof value ===
+    "string"
+  ) {
+    return (
+      value.trim() !==
+      ""
+    );
+  }
+
+  return true;
+}
+
+// ============================================================
+
 function stringValue(
   value:
     unknown
-) {
+): string {
   if (
-    value ===
-      null ||
-    value ===
-      undefined
+    !hasValue(
+      value
+    )
   ) {
     return "";
   }
@@ -99,21 +115,23 @@ function stringValue(
 function cleanEmail(
   value:
     unknown
-) {
+): string {
   return stringValue(
     value
-  )
-    .toLowerCase();
+  ).toLowerCase();
 }
 
 // ============================================================
 
 function cleanPayload(
   payload:
-    Payload
-) {
-  const cleaned:
-    Payload = {};
+    Record<
+      string,
+      unknown
+    >
+): PreparedPayload {
+  const output:
+    PreparedPayload = {};
 
   Object.entries(
     payload
@@ -133,20 +151,466 @@ function cleanPayload(
 
       if (
         typeof value ===
-          "string" &&
-        value.trim() ===
-          ""
+        "string"
       ) {
+        const trimmed =
+          value.trim();
+
+        if (
+          trimmed ===
+          ""
+        ) {
+          return;
+        }
+
+        output[
+          key
+        ] =
+          trimmed;
+
         return;
       }
 
-      cleaned[
+      output[
         key
       ] =
-        typeof value ===
-        "string"
-          ? value.trim()
-          : value;
+        value;
+    }
+  );
+
+  return output;
+}
+
+// ============================================================
+// CONTACT NAME
+// ============================================================
+
+function buildContactName(
+  payload:
+    Record<
+      string,
+      unknown
+    >
+): string {
+  const existingName =
+    stringValue(
+      payload.name
+    );
+
+  if (
+    existingName
+  ) {
+    return existingName;
+  }
+
+  const firstName =
+    stringValue(
+      payload.first_name ??
+        payload.firstname ??
+        payload.firstName
+    );
+
+  const lastName =
+    stringValue(
+      payload.last_name ??
+        payload.lastname ??
+        payload.surname ??
+        payload.lastName
+    );
+
+  return [
+    firstName,
+    lastName,
+  ]
+    .filter(
+      Boolean
+    )
+    .join(
+      " "
+    )
+    .trim();
+}
+
+// ============================================================
+// PREPARE CONTACT
+// ============================================================
+
+function prepareContactPayload(
+  source:
+    Record<
+      string,
+      unknown
+    >,
+
+  orgId:
+    string | null
+): PreparedPayload {
+  const payload =
+    cleanPayload(
+      source
+    );
+
+  // ----------------------------------------------------------
+  // NAME
+  // ----------------------------------------------------------
+
+  const name =
+    buildContactName(
+      payload
+    );
+
+  if (
+    name
+  ) {
+    payload.name =
+      name;
+  }
+
+  // ----------------------------------------------------------
+  // EMAIL
+  // ----------------------------------------------------------
+
+  const email =
+    cleanEmail(
+      payload.email
+    );
+
+  if (
+    email
+  ) {
+    payload.email =
+      email;
+  } else {
+    delete payload.email;
+  }
+
+  // ----------------------------------------------------------
+  // ROLE
+  //
+  // Your database uses "role", NOT "position".
+  // ----------------------------------------------------------
+
+  const role =
+    stringValue(
+      payload.role ??
+        payload.position ??
+        payload.job_title ??
+        payload.jobTitle
+    );
+
+  if (
+    role
+  ) {
+    payload.role =
+      role;
+  }
+
+  // ----------------------------------------------------------
+  // COMPANY
+  //
+  // Your contacts table DOES have company_name, so preserve it.
+  // ----------------------------------------------------------
+
+  const companyName =
+    stringValue(
+      payload.company_name ??
+        payload.company ??
+        payload.organisation ??
+        payload.organization ??
+        payload.business_name ??
+        payload.business
+    );
+
+  if (
+    companyName
+  ) {
+    payload.company_name =
+      companyName;
+  }
+
+  // ----------------------------------------------------------
+  // ADDRESS
+  // ----------------------------------------------------------
+
+  const address =
+    stringValue(
+      payload.address ??
+        payload.address_line_1 ??
+        payload.address1
+    );
+
+  if (
+    address
+  ) {
+    payload.address =
+      address;
+  }
+
+  // ----------------------------------------------------------
+  // WEBSITE
+  // ----------------------------------------------------------
+
+  const website =
+    stringValue(
+      payload.website ??
+        payload.domain
+    );
+
+  if (
+    website
+  ) {
+    payload.website =
+      website;
+  }
+
+  // ----------------------------------------------------------
+  // WORKSPACE
+  //
+  // organisation_id is the TOTS-OS workspace.
+  // Never trust an organisation ID supplied by the import file.
+  // ----------------------------------------------------------
+
+  if (
+    orgId
+  ) {
+    payload.organisation_id =
+      orgId;
+  }
+
+  // ----------------------------------------------------------
+  // REMOVE IMPORT-ONLY / NON-DATABASE FIELDS
+  // ----------------------------------------------------------
+
+  delete payload.first_name;
+  delete payload.firstname;
+  delete payload.firstName;
+
+  delete payload.last_name;
+  delete payload.lastname;
+  delete payload.surname;
+  delete payload.lastName;
+
+  delete payload.position;
+  delete payload.job_title;
+  delete payload.jobTitle;
+
+  delete payload.company;
+  delete payload.organisation;
+  delete payload.organization;
+  delete payload.business_name;
+  delete payload.business;
+
+  delete payload.full_name;
+  delete payload.contact_name;
+
+  delete payload.domain;
+
+  /**
+   * Do not import arbitrary external IDs into your own primary
+   * key.
+   */
+  delete payload.id;
+
+  /**
+   * created_by is not a column in public.contacts.
+   */
+  delete payload.created_by;
+
+  return applyAllowlist(
+    "contacts",
+    payload
+  );
+}
+
+// ============================================================
+// PREPARE ORGANISATION
+// ============================================================
+
+function prepareOrganisationPayload(
+  source:
+    Record<
+      string,
+      unknown
+    >
+): PreparedPayload {
+  const payload =
+    cleanPayload(
+      source
+    );
+
+  const name =
+    stringValue(
+      payload.name ??
+        payload.company_name ??
+        payload.company ??
+        payload.organisation_name ??
+        payload.organization_name ??
+        payload.organisation ??
+        payload.organization ??
+        payload.business_name
+    );
+
+  if (
+    name
+  ) {
+    payload.name =
+      name;
+  }
+
+  const email =
+    cleanEmail(
+      payload.email
+    );
+
+  if (
+    email
+  ) {
+    payload.email =
+      email;
+  }
+
+  const website =
+    stringValue(
+      payload.website ??
+        payload.domain
+    );
+
+  if (
+    website
+  ) {
+    payload.website =
+      website;
+  }
+
+  if (
+    !hasValue(
+      payload.notes
+    ) &&
+    hasValue(
+      payload.description
+    )
+  ) {
+    payload.notes =
+      payload.description;
+  }
+
+  if (
+    !hasValue(
+      payload.created_at
+    ) &&
+    hasValue(
+      payload.date_created
+    )
+  ) {
+    payload.created_at =
+      payload.date_created;
+  }
+
+  /**
+   * organisations is treated as a root table in the current
+   * import architecture.
+   */
+  delete payload.organisation_id;
+  delete payload.created_by;
+  delete payload.id;
+
+  delete payload.company_name;
+  delete payload.company;
+  delete payload.organisation_name;
+  delete payload.organization_name;
+  delete payload.organisation;
+  delete payload.organization;
+  delete payload.business_name;
+  delete payload.domain;
+  delete payload.description;
+  delete payload.date_created;
+
+  return applyAllowlist(
+    "organisations",
+    payload
+  );
+}
+
+// ============================================================
+// PREPARE GENERIC CHILD TABLE
+// ============================================================
+
+function prepareGenericPayload(
+  source:
+    Record<
+      string,
+      unknown
+    >,
+
+  orgId:
+    string | null
+): PreparedPayload {
+  const payload =
+    cleanPayload(
+      source
+    );
+
+  /**
+   * For invoices, expenses and projects we still need the real
+   * table schemas before we can safely create strict allowlists.
+   *
+   * Workspace ownership is still applied here.
+   */
+  if (
+    orgId
+  ) {
+    payload.organisation_id =
+      orgId;
+  }
+
+  delete payload.created_by;
+
+  return payload;
+}
+
+// ============================================================
+// ALLOWLIST
+// ============================================================
+
+function applyAllowlist(
+  table:
+    string,
+
+  payload:
+    PreparedPayload
+): PreparedPayload {
+  const allowed =
+    ALLOWED_COLUMNS[
+      table
+    ];
+
+  if (
+    !allowed
+  ) {
+    return payload;
+  }
+
+  const cleaned:
+    PreparedPayload = {};
+
+  allowed.forEach(
+    (
+      column
+    ) => {
+      if (
+        hasValue(
+          payload[
+            column
+          ]
+        )
+      ) {
+        cleaned[
+          column
+        ] =
+          payload[
+            column
+          ];
+      }
     }
   );
 
@@ -154,499 +618,114 @@ function cleanPayload(
 }
 
 // ============================================================
-
-function splitContactName(
-  value:
-    unknown
-) {
-  const name =
-    stringValue(
-      value
-    );
-
-  if (
-    !name
-  ) {
-    return {
-      firstName:
-        "",
-
-      lastName:
-        "",
-    };
-  }
-
-  const parts =
-    name
-      .split(
-        /\s+/
-      )
-      .filter(
-        Boolean
-      );
-
-  if (
-    parts.length ===
-    1
-  ) {
-    return {
-      firstName:
-        parts[0],
-
-      lastName:
-        "",
-    };
-  }
-
-  return {
-    firstName:
-      parts[0],
-
-    lastName:
-      parts
-        .slice(
-          1
-        )
-        .join(
-          " "
-        ),
-  };
-}
-
-// ============================================================
-
-function prepareContactPayload(
-  original:
-    Payload,
-
-  orgId:
-    string | null
-) {
-  const payload:
-    Payload = {
-    ...original,
-  };
-
-  /**
-   * Map common imported contact fields.
-   */
-  const importedName =
-    payload.full_name ??
-    payload.contact_name ??
-    payload.name;
-
-  if (
-    importedName &&
-    !payload.first_name &&
-    !payload.last_name
-  ) {
-    const {
-      firstName,
-      lastName,
-    } =
-      splitContactName(
-        importedName
-      );
-
-    if (
-      firstName
-    ) {
-      payload.first_name =
-        firstName;
-    }
-
-    if (
-      lastName
-    ) {
-      payload.last_name =
-        lastName;
-    }
-  }
-
-  /**
-   * Common role mapping.
-   */
-  if (
-    payload.role &&
-    !payload.position
-  ) {
-    payload.position =
-      payload.role;
-  }
-
-  if (
-    payload.job_title &&
-    !payload.position
-  ) {
-    payload.position =
-      payload.job_title;
-  }
-
-  /**
-   * Normalise email.
-   */
-  if (
-    payload.email
-  ) {
-    payload.email =
-      cleanEmail(
-        payload.email
-      );
-  }
-
-  /**
-   * organisation_id here is the user's TOTS-OS workspace.
-   *
-   * IMPORTANT:
-   * We do NOT create a new public.organisations record from
-   * company_name here.
-   *
-   * Customer/company relationships must be handled by the
-   * dedicated CRM/customer relationship layer rather than
-   * overwriting the workspace organisation_id.
-   */
-  if (
-    orgId &&
-    !payload.organisation_id
-  ) {
-    payload.organisation_id =
-      orgId;
-  }
-
-  /**
-   * Temporary/raw mapping fields that do not belong directly
-   * in public.contacts.
-   */
-  delete payload.name;
-  delete payload.full_name;
-  delete payload.contact_name;
-  delete payload.company_name;
-  delete payload.company;
-  delete payload.organisation;
-  delete payload.organization;
-  delete payload.role;
-  delete payload.job_title;
-
-  return payload;
-}
-
-// ============================================================
-
-function prepareOrganisationPayload(
-  original:
-    Payload
-) {
-  const payload:
-    Payload = {
-    ...original,
-  };
-
-  /**
-   * organisations is currently treated as the root entity and
-   * therefore must never receive organisation_id.
-   */
-  delete payload.organisation_id;
-
-  if (
-    payload.company_name &&
-    !payload.name
-  ) {
-    payload.name =
-      payload.company_name;
-  }
-
-  if (
-    payload.organisation_name &&
-    !payload.name
-  ) {
-    payload.name =
-      payload.organisation_name;
-  }
-
-  if (
-    payload.organization_name &&
-    !payload.name
-  ) {
-    payload.name =
-      payload.organization_name;
-  }
-
-  if (
-    payload.domain &&
-    !payload.website
-  ) {
-    payload.website =
-      payload.domain;
-  }
-
-  if (
-    payload.description &&
-    !payload.notes
-  ) {
-    payload.notes =
-      payload.description;
-  }
-
-  if (
-    payload.date_created &&
-    !payload.created_at
-  ) {
-    payload.created_at =
-      payload.date_created;
-  }
-
-  delete payload.company_name;
-  delete payload.organisation_name;
-  delete payload.organization_name;
-  delete payload.domain;
-  delete payload.description;
-  delete payload.date_created;
-
-  return payload;
-}
-
-// ============================================================
-
-function prepareGenericPayload(
-  original:
-    Payload,
-
-  targetTable:
-    string,
-
-  orgId:
-    string | null
-) {
-  const payload:
-    Payload = {
-    ...original,
-  };
-
-  /**
-   * Child records belong to the active TOTS-OS workspace.
-   */
-  if (
-    orgId &&
-    targetTable !==
-      "organisations" &&
-    !payload.organisation_id
-  ) {
-    payload.organisation_id =
-      orgId;
-  }
-
-  return payload;
-}
-
-// ============================================================
-
-function applyAllowlist(
-  targetTable:
-    string,
-
-  payload:
-    Payload
-) {
-  const allowed =
-    ALLOWED_COLUMNS[
-      targetTable
-    ];
-
-  /**
-   * We only strip fields for tables whose exact schema is known.
-   *
-   * This prevents accidentally deleting valid fields from
-   * invoices/projects/expenses before their schemas are added
-   * here.
-   */
-  if (
-    !allowed
-  ) {
-    return payload;
-  }
-
-  return Object.fromEntries(
-    Object.entries(
-      payload
-    ).filter(
-      ([
-        key,
-      ]) =>
-        allowed.includes(
-          key
-        )
-    )
-  );
-}
-
+// PREPARE PAYLOAD
 // ============================================================
 
 function preparePayload(
-  targetTable:
-    string,
-
-  original:
-    Payload,
-
-  orgId:
-    string | null
-) {
-  let payload:
-    Payload;
-
-  if (
-    targetTable ===
-    "contacts"
-  ) {
-    payload =
-      prepareContactPayload(
-        original,
-        orgId
-      );
-  } else if (
-    targetTable ===
-    "organisations"
-  ) {
-    payload =
-      prepareOrganisationPayload(
-        original
-      );
-  } else {
-    payload =
-      prepareGenericPayload(
-        original,
-        targetTable,
-        orgId
-      );
-  }
-
-  payload =
-    applyAllowlist(
-      targetTable,
-      payload
-    );
-
-  return cleanPayload(
-    payload
-  );
-}
-
-// ============================================================
-
-function appendFailure(
-  failedRows:
-    ProcessedRow[],
-
   row:
     ProcessedRow,
 
-  message:
-    string
-) {
-  failedRows.push({
-    ...row,
+  orgId:
+    string | null
+): PreparedPayload {
+  switch (
+    row.targetTable
+  ) {
+    case "contacts":
+      return prepareContactPayload(
+        row.payload,
+        orgId
+      );
 
-    isValid:
-      false,
+    case "organisations":
+      return prepareOrganisationPayload(
+        row.payload
+      );
 
-    validationErrors: [
-      ...(
-        row.validationErrors ??
-        []
-      ),
-
-      message,
-    ],
-  });
+    default:
+      return prepareGenericPayload(
+        row.payload,
+        orgId
+      );
+  }
 }
 
 // ============================================================
+// UNIQUE KEY
+// ============================================================
 
-function getUniqueKey(
-  targetTable:
-    string,
-
-  payload:
-    Payload
-) {
+function getUniqueKeys(
+  table:
+    string
+): string[] {
   const configured =
     UNIQUE_KEYS[
-      targetTable
+      table
     ];
 
   if (
     !configured
   ) {
-    return null;
+    return [];
   }
 
-  const keys =
+  if (
     Array.isArray(
       configured
     )
-      ? configured
-      : [
-          configured,
-        ];
+  ) {
+    return configured;
+  }
 
-  const usable =
-    keys.filter(
-      (
-        key
-      ) => {
-        const value =
-          payload[
-            key
-          ];
+  return [
+    configured,
+  ];
+}
 
-        return (
-          value !==
-            undefined &&
-          value !==
-            null &&
-          String(
-            value
-          ).trim() !==
-            ""
-        );
-      }
+// ============================================================
+// FIND EXISTING
+// ============================================================
+
+async function findExistingRecord(
+  table:
+    string,
+
+  payload:
+    PreparedPayload,
+
+  supabase:
+    any,
+
+  orgId:
+    string | null
+): Promise<Record<string, any> | null> {
+  const keys =
+    getUniqueKeys(
+      table
     );
 
   if (
-    usable.length ===
+    keys.length ===
     0
   ) {
     return null;
   }
 
-  return usable;
-}
-
-// ============================================================
-
-async function findExistingRecord(
-  supabase:
-    any,
-
-  targetTable:
-    string,
-
-  payload:
-    Payload,
-
-  orgId:
-    string | null
-): Promise<ExistingRecord | null> {
-  const uniqueKeys =
-    getUniqueKey(
-      targetTable,
-      payload
+  const usableKeys =
+    keys.filter(
+      (
+        key
+      ) =>
+        hasValue(
+          payload[
+            key
+          ]
+        )
     );
 
   if (
-    !uniqueKeys ||
-    uniqueKeys.length ===
-      0
+    usableKeys.length !==
+    keys.length
   ) {
     return null;
   }
@@ -654,7 +733,7 @@ async function findExistingRecord(
   let query =
     supabase
       .from(
-        targetTable
+        table
       )
       .select(
         "*"
@@ -662,34 +741,42 @@ async function findExistingRecord(
 
   for (
     const key of
-    uniqueKeys
+    usableKeys
   ) {
+    let value =
+      payload[
+        key
+      ];
+
+    if (
+      key ===
+      "email"
+    ) {
+      value =
+        cleanEmail(
+          value
+        );
+    }
+
     query =
       query.eq(
         key,
-        payload[
-          key
-        ]
+        value
       );
   }
 
   /**
-   * Scope child-table duplicate lookups to the current
-   * workspace whenever possible.
-   *
-   * organisations is deliberately excluded because the
-   * existing schema treats it as the root entity.
+   * Child tables must be scoped to the current workspace.
    */
   if (
-    orgId &&
-    targetTable !==
+    table !==
       "organisations" &&
-    payload.organisation_id
+    orgId
   ) {
     query =
       query.eq(
         "organisation_id",
-        payload.organisation_id
+        orgId
       );
   }
 
@@ -706,9 +793,7 @@ async function findExistingRecord(
   if (
     error
   ) {
-    throw new Error(
-      `Duplicate lookup failed for public.${targetTable}: ${error.message}`
-    );
+    throw error;
   }
 
   return (
@@ -718,16 +803,18 @@ async function findExistingRecord(
 }
 
 // ============================================================
+// INSERT
+// ============================================================
 
 async function insertRecord(
-  supabase:
-    any,
-
-  targetTable:
+  table:
     string,
 
   payload:
-    Payload
+    PreparedPayload,
+
+  supabase:
+    any
 ) {
   const {
     data,
@@ -735,7 +822,7 @@ async function insertRecord(
   } =
     await supabase
       .from(
-        targetTable
+        table
       )
       .insert(
         payload
@@ -743,7 +830,7 @@ async function insertRecord(
       .select(
         "*"
       )
-      .maybeSingle();
+      .single();
 
   if (
     error
@@ -755,105 +842,59 @@ async function insertRecord(
 }
 
 // ============================================================
+// UPDATE
+// ============================================================
 
 async function updateRecord(
-  supabase:
-    any,
-
-  targetTable:
+  table:
     string,
 
-  payload:
-    Payload,
-
   existing:
-    ExistingRecord
+    Record<
+      string,
+      any
+    >,
+
+  payload:
+    PreparedPayload,
+
+  supabase:
+    any
 ) {
-  /**
-   * Prefer an actual row ID when the table has one.
-   */
   if (
-    existing.id
-  ) {
-    const {
-      data,
-      error,
-    } =
-      await supabase
-        .from(
-          targetTable
-        )
-        .update(
-          payload
-        )
-        .eq(
-          "id",
-          existing.id
-        )
-        .select(
-          "*"
-        )
-        .maybeSingle();
-
-    if (
-      error
-    ) {
-      throw error;
-    }
-
-    return data;
-  }
-
-  /**
-   * Fallback for schemas without an exposed `id`.
-   */
-  const uniqueKeys =
-    getUniqueKey(
-      targetTable,
-      payload
-    );
-
-  if (
-    !uniqueKeys ||
-    uniqueKeys.length ===
-      0
+    !existing.id
   ) {
     throw new Error(
-      `Cannot update public.${targetTable}: no usable unique key was found.`
+      `Existing ${table} record does not contain an id.`
     );
   }
 
-  let query =
-    supabase
-      .from(
-        targetTable
-      )
-      .update(
-        payload
-      );
+  const updatePayload =
+    {
+      ...payload,
+    };
 
-  for (
-    const key of
-    uniqueKeys
-  ) {
-    query =
-      query.eq(
-        key,
-        payload[
-          key
-        ]
-      );
-  }
+  delete updatePayload.id;
 
   const {
     data,
     error,
   } =
-    await query
+    await supabase
+      .from(
+        table
+      )
+      .update(
+        updatePayload
+      )
+      .eq(
+        "id",
+        existing.id
+      )
       .select(
         "*"
       )
-      .maybeSingle();
+      .single();
 
   if (
     error
@@ -865,11 +906,132 @@ async function updateRecord(
 }
 
 // ============================================================
-// MAIN IMPORTER
+// FAILURE
+// ============================================================
+
+function appendFailure(
+  result:
+    BatchImportResult,
+
+  row:
+    ProcessedRow,
+
+  error:
+    unknown
+) {
+  let message =
+    "Database import failed.";
+
+  if (
+    error instanceof
+    Error
+  ) {
+    message =
+      error.message;
+  } else if (
+    error &&
+    typeof error ===
+      "object"
+  ) {
+    const objectError =
+      error as {
+        message?: unknown;
+        details?: unknown;
+        hint?: unknown;
+        code?: unknown;
+      };
+
+    const parts =
+      [
+        stringValue(
+          objectError.message
+        ),
+
+        stringValue(
+          objectError.details
+        ),
+
+        stringValue(
+          objectError.hint
+        ),
+
+        stringValue(
+          objectError.code
+        ),
+      ].filter(
+        Boolean
+      );
+
+    if (
+      parts.length >
+      0
+    ) {
+      message =
+        parts.join(
+          " — "
+        );
+    }
+  } else if (
+    error !==
+      undefined &&
+    error !==
+      null
+  ) {
+    message =
+      String(
+        error
+      );
+  }
+
+  const failedRow:
+    ProcessedRow = {
+    ...row,
+
+    isValid:
+      false,
+
+    validationErrors: [
+      ...(
+        row.validationErrors ??
+        []
+      ),
+
+      message,
+    ],
+  };
+
+  result.failed +=
+    1;
+
+  result.failedRows.push(
+    failedRow
+  );
+
+  console.error(
+    "[TOTS IMPORT] Record import failed:",
+    {
+      table:
+        row.targetTable,
+
+      rowId:
+        row.id,
+
+      payload:
+        row.payload,
+
+      error,
+
+      message,
+    }
+  );
+}
+
+// ============================================================
+// MAIN BATCH IMPORTER
 // ============================================================
 
 export async function processBatches(
-  records:
+  rows:
     ProcessedRow[],
 
   supabase:
@@ -878,122 +1040,104 @@ export async function processBatches(
   orgId:
     string | null,
 
-  strategy:
+  duplicateStrategy:
     DuplicateResolutionStrategy,
 
   onProgress?:
     (
-      batchNum:
+      batchNumber:
         number,
 
       totalBatches:
         number
-    ) =>
-      void
+    ) => void
 ): Promise<BatchImportResult> {
-  const batchSize =
-    BATCH_CONFIG
-      ?.DEFAULT_BATCH_SIZE ??
-    50;
+  const result:
+    BatchImportResult = {
+    inserted:
+      0,
 
-  const safeBatchSize =
-    Math.max(
-      1,
-      Math.min(
-        batchSize,
-        100
+    updated:
+      0,
+
+    skipped:
+      0,
+
+    failed:
+      0,
+
+    failedRows:
+      [],
+  };
+
+  if (
+    rows.length ===
+    0
+  ) {
+    return result;
+  }
+
+  const configuredBatchSize =
+    Number(
+      BATCH_CONFIG
+        .DEFAULT_BATCH_SIZE
+    );
+
+  const batchSize =
+    Math.min(
+      100,
+      Math.max(
+        1,
+        Number.isFinite(
+          configuredBatchSize
+        )
+          ? configuredBatchSize
+          : 50
       )
     );
 
   const totalBatches =
-    Math.ceil(
-      records.length /
-        safeBatchSize
-    ) ||
-    1;
-
-  let inserted =
-    0;
-
-  let updated =
-    0;
-
-  let skipped =
-    0;
-
-  let failed =
-    0;
-
-  const failedRows:
-    ProcessedRow[] =
-    [];
-
-  // ==========================================================
-  // PROCESS BATCHES
-  // ==========================================================
+    Math.max(
+      1,
+      Math.ceil(
+        rows.length /
+          batchSize
+      )
+    );
 
   for (
-    let batchStart =
+    let batchIndex =
       0;
-
-    batchStart <
-    records.length;
-
-    batchStart +=
-      safeBatchSize
+    batchIndex <
+    totalBatches;
+    batchIndex +=
+      1
   ) {
+    const start =
+      batchIndex *
+      batchSize;
+
+    const end =
+      start +
+      batchSize;
+
     const batch =
-      records.slice(
-        batchStart,
-        batchStart +
-          safeBatchSize
+      rows.slice(
+        start,
+        end
       );
-
-    const batchNum =
-      Math.floor(
-        batchStart /
-          safeBatchSize
-      ) +
-      1;
-
-    // ========================================================
-    // PROCESS EACH ROW INDEPENDENTLY
-    //
-    // A failure on one row must NOT mark an entire batch as
-    // failed.
-    // ========================================================
 
     for (
       const row of
       batch
     ) {
       try {
-        const targetTable =
-          String(
-            row.targetTable ??
-              ""
-          ).trim();
-
-        if (
-          !targetTable ||
-          targetTable ===
-            "auto"
-        ) {
-          throw new Error(
-            "Import destination could not be resolved for this record."
-          );
-        }
-
-        // ----------------------------------------------------
-        // PREPARE SAFE PAYLOAD
-        // ----------------------------------------------------
+        const table =
+          row.targetTable;
 
         const payload =
           preparePayload(
-            targetTable,
-            {
-              ...row.payload,
-            },
+            row,
             orgId
           );
 
@@ -1004,166 +1148,123 @@ export async function processBatches(
           0
         ) {
           throw new Error(
-            `No valid fields remained after preparing the record for public.${targetTable}.`
+            `No supported ${table} fields remained after preparing the import payload.`
           );
         }
 
         // ----------------------------------------------------
-        // CREATE STRATEGY
-        //
-        // "create" means INSERT.
-        // It intentionally does not turn into an upsert.
+        // CREATE
         // ----------------------------------------------------
 
         if (
-          strategy ===
+          duplicateStrategy ===
           "create"
         ) {
           await insertRecord(
-            supabase,
-            targetTable,
-            payload
+            table,
+            payload,
+            supabase
           );
 
-          inserted++;
+          result.inserted +=
+            1;
 
           continue;
         }
 
         // ----------------------------------------------------
-        // DETECT EXISTING RECORD
+        // FIND EXISTING
         // ----------------------------------------------------
 
         const existing =
           await findExistingRecord(
-            supabase,
-            targetTable,
+            table,
             payload,
+            supabase,
             orgId
           );
 
         // ----------------------------------------------------
-        // SKIP STRATEGY
+        // SKIP
         // ----------------------------------------------------
 
         if (
-          strategy ===
+          duplicateStrategy ===
           "skip"
         ) {
           if (
             existing
           ) {
-            skipped++;
+            result.skipped +=
+              1;
 
             continue;
           }
 
           await insertRecord(
-            supabase,
-            targetTable,
-            payload
+            table,
+            payload,
+            supabase
           );
 
-          inserted++;
+          result.inserted +=
+            1;
 
           continue;
         }
 
         // ----------------------------------------------------
-        // UPDATE STRATEGY
-        //
-        // Existing record -> UPDATE
-        // No existing record -> INSERT
+        // UPDATE
         // ----------------------------------------------------
 
         if (
-          strategy ===
+          duplicateStrategy ===
           "update"
         ) {
           if (
             existing
           ) {
             await updateRecord(
-              supabase,
-              targetTable,
+              table,
+              existing,
               payload,
-              existing
+              supabase
             );
 
-            updated++;
-          } else {
-            await insertRecord(
-              supabase,
-              targetTable,
-              payload
-            );
+            result.updated +=
+              1;
 
-            inserted++;
+            continue;
           }
+
+          await insertRecord(
+            table,
+            payload,
+            supabase
+          );
+
+          result.inserted +=
+            1;
 
           continue;
         }
-
-        throw new Error(
-          `Unsupported duplicate strategy: ${strategy}`
-        );
       } catch (
-        error:
-          unknown
+        error
       ) {
-        failed++;
-
-        const message =
-          error instanceof
-            Error
-            ? error.message
-            : String(
-                error
-              );
-
-        console.error(
-          "[TOTS IMPORT] Record import failed:",
-          {
-            rowId:
-              row.id,
-
-            table:
-              row.targetTable,
-
-            message,
-
-            payload:
-              row.payload,
-          }
-        );
-
         appendFailure(
-          failedRows,
+          result,
           row,
-          message
+          error
         );
       }
     }
 
-    // ========================================================
-    // PROGRESS
-    // ========================================================
-
     onProgress?.(
-      batchNum,
+      batchIndex +
+        1,
       totalBatches
     );
   }
 
-  // ==========================================================
-  // RESULT
-  // ==========================================================
-
-  return {
-    inserted,
-    updated,
-    skipped,
-    failed,
-    failedRows,
-  };
+  return result;
 }

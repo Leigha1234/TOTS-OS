@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import {
   Suspense,
+  type ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -22,6 +23,7 @@ import {
 
 import {
   ArrowDown,
+  ArrowRight,
   ArrowUp,
   Bell,
   BellOff,
@@ -31,6 +33,7 @@ import {
   Check,
   CheckCircle2,
   Clock3,
+  FileUp,
   Globe,
   LayoutDashboard,
   Loader2,
@@ -2104,6 +2107,150 @@ function SettingsInner() {
               />
 
               {/* ==================================================
+                  IMPORT HUB
+              ================================================== */}
+
+              <div className="border-t border-stone-100 pt-10">
+                <div className="mb-6">
+                  <div className="flex items-center gap-2">
+                    <FileUp
+                      size={14}
+                      className="text-[#829473]"
+                    />
+
+                    <p className="text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">
+                      Data & migration
+                    </p>
+                  </div>
+
+                  <h2 className="mt-2 font-serif text-2xl italic text-stone-900">
+                    Bring your business into TOTS-OS
+                  </h2>
+
+                  <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-500">
+                    Already have contacts,
+                    customers or business data
+                    somewhere else? Use the Import
+                    Hub to bring your existing
+                    information into TOTS-OS without
+                    starting again from scratch.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      "/settings/import"
+                    )
+                  }
+                  className="group relative w-full overflow-hidden rounded-[2rem] border border-stone-200 bg-[#faf9f6] p-5 text-left transition duration-300 hover:border-[#cdd8c4] hover:bg-[#f6f8f3] hover:shadow-[0_16px_45px_rgba(0,0,0,0.06)] sm:p-6"
+                >
+                  <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-[#dfe8d5]/40 blur-3xl transition duration-500 group-hover:bg-[#d6e2cb]/60" />
+
+                  <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-4">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.2rem] bg-stone-900 text-[#a9b897] shadow-sm transition duration-300 group-hover:scale-[1.03]">
+                        <FileUp
+                          size={21}
+                          strokeWidth={
+                            1.8
+                          }
+                        />
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-sm font-bold text-stone-800">
+                            Import Hub
+                          </h3>
+
+                          <span className="inline-flex items-center rounded-full bg-[#e8efe2] px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.15em] text-[#647356]">
+                            Workspace tool
+                          </span>
+                        </div>
+
+                        <p className="mt-2 max-w-xl text-[10px] leading-5 text-stone-500">
+                          Import existing business
+                          data into TOTS-OS from one
+                          central place. Ideal when
+                          moving from another CRM,
+                          mailing platform, booking
+                          system or spreadsheet.
+                        </p>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <ImportHubBadge>
+                            Contacts
+                          </ImportHubBadge>
+
+                          <ImportHubBadge>
+                            Customers
+                          </ImportHubBadge>
+
+                          <ImportHubBadge>
+                            CSV files
+                          </ImportHubBadge>
+
+                          <ImportHubBadge>
+                            Existing data
+                          </ImportHubBadge>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-3 self-stretch sm:self-auto">
+                      <div className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 text-[8px] font-black uppercase tracking-[0.12em] text-white transition duration-300 group-hover:bg-[#a9b897] group-hover:text-stone-900 sm:w-auto">
+                        Open Import Hub
+
+                        <ArrowRight
+                          size={13}
+                          className="transition-transform duration-300 group-hover:translate-x-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="relative mt-5 border-t border-stone-200/80 pt-4">
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2
+                          size={12}
+                          className="text-[#829473]"
+                        />
+
+                        <span className="text-[8px] font-bold text-stone-500">
+                          Keep existing records
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2
+                          size={12}
+                          className="text-[#829473]"
+                        />
+
+                        <span className="text-[8px] font-bold text-stone-500">
+                          Move data faster
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2
+                          size={12}
+                          className="text-[#829473]"
+                        />
+
+                        <span className="text-[8px] font-bold text-stone-500">
+                          One central import area
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              {/* ==================================================
                   MOBILE EXPERIENCE
               ================================================== */}
 
@@ -2172,10 +2319,6 @@ function SettingsInner() {
                     </button>
                   </div>
                 </div>
-
-                {/* ============================================
-                    CURRENT MOBILE DOCK PREVIEW
-                ============================================ */}
 
                 <div className="rounded-[1.75rem] border border-stone-200 bg-[#faf9f6] p-4 sm:p-5">
                   <div className="mb-4 flex items-center justify-between gap-3">
@@ -2283,10 +2426,6 @@ function SettingsInner() {
                       </span>
                     </div>
                   </div>
-
-                  {/* ============================================
-                      ORDER
-                  ============================================ */}
 
                   {selectedMobileNav.length >
                     0 && (
@@ -2402,10 +2541,6 @@ function SettingsInner() {
                     </div>
                   )}
                 </div>
-
-                {/* ============================================
-                    AVAILABLE SHORTCUTS
-                ============================================ */}
 
                 <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                   {MOBILE_NAV_OPTIONS.map(
@@ -2524,10 +2659,6 @@ function SettingsInner() {
                     closed.
                   </p>
                 </div>
-
-                {/* ============================================
-                    DEVICE PUSH STATUS
-                ============================================ */}
 
                 <div className="overflow-hidden rounded-[1.75rem] border border-stone-200 bg-[#faf9f6]">
                   <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
@@ -2752,10 +2883,6 @@ function SettingsInner() {
                   </div>
                 </div>
 
-                {/* ============================================
-                    WHAT TO NOTIFY ME ABOUT
-                ============================================ */}
-
                 <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-200 bg-white">
                   <div className="flex flex-col gap-4 border-b border-stone-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
                     <div>
@@ -2923,10 +3050,6 @@ function SettingsInner() {
                   </div>
                 </div>
 
-                {/* ============================================
-                    READY CONFIRMATION
-                ============================================ */}
-
                 {notificationFullyEnabled && (
                   <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[#dfe6d7] bg-[#f4f7f0] p-4">
                     <CheckCircle2
@@ -2947,10 +3070,6 @@ function SettingsInner() {
                   </div>
                 )}
 
-                {/* ============================================
-                    IOS / PWA NOTE
-                ============================================ */}
-
                 <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[#dfe6d7] bg-[#f4f7f0] p-4">
                   <ShieldCheck
                     size={16}
@@ -2968,10 +3087,6 @@ function SettingsInner() {
                     then enable notifications from this page.
                   </p>
                 </div>
-
-                {/* ============================================
-                    UNSUPPORTED NOTE
-                ============================================ */}
 
                 {(
                   !notificationSupported ||
@@ -3085,6 +3200,25 @@ function SettingsInner() {
         }}
       />
     </div>
+  );
+}
+
+// ============================================================
+// IMPORT HUB BADGE
+// ============================================================
+
+function ImportHubBadge({
+  children,
+}: {
+  children:
+    ReactNode;
+}) {
+  return (
+    <span className="rounded-full border border-stone-200 bg-white px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.1em] text-stone-400 shadow-sm">
+      {
+        children
+      }
+    </span>
   );
 }
 

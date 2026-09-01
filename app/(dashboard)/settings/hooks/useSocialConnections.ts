@@ -34,12 +34,32 @@ const CLIENT_REFRESH_PLATFORMS = [
 // ============================================================
 
 function getOAuthStorageKey(
-  platform: string
+  platform: string,
+  organisationId?: string | null
 ) {
-  return platform ===
-    "meta"
-    ? "oauth_pending_meta"
-    : `oauth_pending_${platform}`;
+  const baseKey =
+    platform === "meta"
+      ? "oauth_pending_meta"
+      : `oauth_pending_${platform}`;
+
+  /*
+   * Keep pending OAuth state organisation-specific.
+   *
+   * This prevents:
+   *
+   * TOTS Meta pending
+   *
+   * from being mistaken for:
+   *
+   * MTC Meta pending
+   */
+  if (
+    organisationId
+  ) {
+    return `${baseKey}_${organisationId}`;
+  }
+
+  return baseKey;
 }
 
 // ============================================================
@@ -63,10 +83,8 @@ function normalisePlatform(
    */
 
   if (
-    platform ===
-      "facebook" ||
-    platform ===
-      "instagram"
+    platform === "facebook" ||
+    platform === "instagram"
   ) {
     return "meta";
   }
@@ -75,10 +93,40 @@ function normalisePlatform(
 }
 
 // ============================================================
+
+function cleanOrganisationId(
+  value:
+    | string
+    | null
+    | undefined
+) {
+  if (
+    typeof value !==
+      "string"
+  ) {
+    return null;
+  }
+
+  const cleaned =
+    value.trim();
+
+  return cleaned ||
+    null;
+}
+
+// ============================================================
 // HOOK
 // ============================================================
 
-export function useSocialConnections() {
+export function useSocialConnections(
+  organisationId?:
+    string | null
+) {
+  const resolvedOrganisationId =
+    cleanOrganisationId(
+      organisationId
+    );
+
   const isMountedRef =
     useRef(
       true
@@ -144,6 +192,41 @@ export function useSocialConnections() {
     });
 
   // ==========================================================
+  // RESET STATE
+  // ==========================================================
+
+  const resetConnections =
+    useCallback(
+      () => {
+        if (
+          !isMountedRef.current
+        ) {
+          return;
+        }
+
+        setSocialAccounts(
+          []
+        );
+
+        setConnectedPlatforms(
+          []
+        );
+
+        setConnectionHealth({
+          meta:
+            "disconnected",
+
+          linkedin:
+            "disconnected",
+
+          tiktok:
+            "disconnected",
+        });
+      },
+      []
+    );
+
+  // ==========================================================
   // REFRESH TOKEN
   // ==========================================================
 
@@ -161,6 +244,23 @@ export function useSocialConnections() {
           platform ===
           "tiktok"
         ) {
+          return false;
+        }
+
+        /*
+         * Connections are now organisation-specific.
+         *
+         * Never refresh a token unless we know which
+         * organisation owns it.
+         */
+
+        if (
+          !resolvedOrganisationId
+        ) {
+          console.warn(
+            `[TOTS SOCIAL] Cannot refresh ${platform}: no organisationId supplied.`
+          );
+
           return false;
         }
 
@@ -205,6 +305,10 @@ export function useSocialConnections() {
               .eq(
                 "user_id",
                 user.id
+              )
+              .eq(
+                "organisation_id",
+                resolvedOrganisationId
               )
               .eq(
                 "platform",
@@ -265,6 +369,9 @@ export function useSocialConnections() {
 
                     userId:
                       user.id,
+
+                    organisationId:
+                      resolvedOrganisationId,
                   }),
               }
             );
@@ -330,8 +437,16 @@ export function useSocialConnections() {
                   new Date().toISOString(),
               })
               .eq(
+                "id",
+                data.id
+              )
+              .eq(
                 "user_id",
                 user.id
+              )
+              .eq(
+                "organisation_id",
+                resolvedOrganisationId
               )
               .eq(
                 "platform",
@@ -361,7 +476,9 @@ export function useSocialConnections() {
           return false;
         }
       },
-      []
+      [
+        resolvedOrganisationId,
+      ]
     );
 
   // ==========================================================
@@ -371,6 +488,40 @@ export function useSocialConnections() {
   const verifyConnections =
     useCallback(
       async () => {
+        const health:
+          Record<
+            string,
+            ConnectionHealth
+          > = {
+          meta:
+            "disconnected",
+
+          linkedin:
+            "disconnected",
+
+          tiktok:
+            "disconnected",
+        };
+
+        /*
+         * Do not accidentally inspect another organisation when
+         * the active organisation has not loaded yet.
+         */
+
+        if (
+          !resolvedOrganisationId
+        ) {
+          if (
+            isMountedRef.current
+          ) {
+            setConnectionHealth(
+              health
+            );
+          }
+
+          return health;
+        }
+
         try {
           const {
             data: {
@@ -381,21 +532,6 @@ export function useSocialConnections() {
               authError,
           } =
             await supabase.auth.getUser();
-
-          const health:
-            Record<
-              string,
-              ConnectionHealth
-            > = {
-            meta:
-              "disconnected",
-
-            linkedin:
-              "disconnected",
-
-            tiktok:
-              "disconnected",
-          };
 
           if (
             authError ||
@@ -413,7 +549,7 @@ export function useSocialConnections() {
           }
 
           // ==================================================
-          // LOAD CONNECTIONS
+          // LOAD CONNECTIONS FOR ACTIVE ORGANISATION ONLY
           // ==================================================
 
           const {
@@ -430,6 +566,7 @@ export function useSocialConnections() {
               .select(
                 `
                   id,
+                  organisation_id,
                   platform,
                   access_token,
                   refresh_token,
@@ -444,6 +581,10 @@ export function useSocialConnections() {
               .eq(
                 "user_id",
                 user.id
+              )
+              .eq(
+                "organisation_id",
+                resolvedOrganisationId
               );
 
           if (
@@ -546,8 +687,8 @@ export function useSocialConnections() {
 
               if (
                 platform ===
-                "meta" &&
-              !connection.refresh_token
+                  "meta" &&
+                !connection.refresh_token
               ) {
                 health.meta =
                   "expired";
@@ -592,12 +733,11 @@ export function useSocialConnections() {
               "meta"
             ) {
               /*
-               * An access token means Meta OAuth itself worked.
+               * Access token means Meta OAuth itself succeeded.
                *
-               * page_id/page_access_token are useful for Facebook
-               * publishing, but we should not mark the entire Meta
-               * connection disconnected merely because a Page has
-               * not been selected.
+               * Facebook Page credentials are useful for
+               * publishing but are not required merely to
+               * recognise Meta as connected.
                */
 
               health.meta =
@@ -626,7 +766,12 @@ export function useSocialConnections() {
 
           console.log(
             "[TOTS SOCIAL] Connection health:",
-            health
+            {
+              organisationId:
+                resolvedOrganisationId,
+
+              health,
+            }
           );
 
           return health;
@@ -638,11 +783,20 @@ export function useSocialConnections() {
             error
           );
 
-          return null;
+          if (
+            isMountedRef.current
+          ) {
+            setConnectionHealth(
+              health
+            );
+          }
+
+          return health;
         }
       },
       [
         refreshSocialToken,
+        resolvedOrganisationId,
       ]
     );
 
@@ -661,6 +815,19 @@ export function useSocialConnections() {
         if (
           refreshInProgressRef.current
         ) {
+          return;
+        }
+
+        /*
+         * No active organisation means there should be no
+         * organisation-specific social accounts on screen.
+         */
+
+        if (
+          !resolvedOrganisationId
+        ) {
+          resetConnections();
+
           return;
         }
 
@@ -699,13 +866,15 @@ export function useSocialConnections() {
           // ==================================================
           // LOAD SOCIAL ACCOUNTS
           //
-          // IMPORTANT:
+          // CRITICAL:
           //
-          // Every field here exists in your actual
-          // social_accounts table.
+          // We now filter by BOTH:
           //
-          // platform_username was intentionally removed because
-          // that column DOES NOT exist.
+          // user_id
+          // organisation_id
+          //
+          // Therefore switching organisations does not show
+          // social accounts belonging to another business.
           // ==================================================
 
           const {
@@ -740,6 +909,10 @@ export function useSocialConnections() {
               .eq(
                 "user_id",
                 user.id
+              )
+              .eq(
+                "organisation_id",
+                resolvedOrganisationId
               )
               .order(
                 "updated_at",
@@ -824,13 +997,23 @@ export function useSocialConnections() {
           );
 
           console.log(
-            "[TOTS SOCIAL] Loaded accounts:",
-            accounts
+            "[TOTS SOCIAL] Loaded organisation accounts:",
+            {
+              organisationId:
+                resolvedOrganisationId,
+
+              accounts,
+            }
           );
 
           console.log(
             "[TOTS SOCIAL] Connected platforms:",
-            platforms
+            {
+              organisationId:
+                resolvedOrganisationId,
+
+              platforms,
+            }
           );
 
           // ==================================================
@@ -851,6 +1034,8 @@ export function useSocialConnections() {
         }
       },
       [
+        resetConnections,
+        resolvedOrganisationId,
         verifyConnections,
       ]
     );
@@ -869,6 +1054,12 @@ export function useSocialConnections() {
           return;
         }
 
+        if (
+          !resolvedOrganisationId
+        ) {
+          return;
+        }
+
         // ====================================================
         // CHECK SESSION STORAGE
         // ====================================================
@@ -880,7 +1071,8 @@ export function useSocialConnections() {
             ) =>
               window.sessionStorage.getItem(
                 getOAuthStorageKey(
-                  platform
+                  platform,
+                  resolvedOrganisationId
                 )
               ) ===
               "true"
@@ -923,6 +1115,7 @@ export function useSocialConnections() {
               .select(
                 `
                   id,
+                  organisation_id,
                   platform,
                   access_token
                 `
@@ -930,6 +1123,10 @@ export function useSocialConnections() {
               .eq(
                 "user_id",
                 user.id
+              )
+              .eq(
+                "organisation_id",
+                resolvedOrganisationId
               )
               .eq(
                 "platform",
@@ -956,6 +1153,18 @@ export function useSocialConnections() {
 
           window.sessionStorage.removeItem(
             getOAuthStorageKey(
+              platform,
+              resolvedOrganisationId
+            )
+          );
+
+          /*
+           * Remove legacy key too so older pending flags do not
+           * keep hanging around after the migration.
+           */
+
+          window.sessionStorage.removeItem(
+            getOAuthStorageKey(
               platform
             )
           );
@@ -966,7 +1175,7 @@ export function useSocialConnections() {
             toast.success(
               `${
                 platform ===
-                "meta"
+                  "meta"
                   ? "Meta"
                   : "LinkedIn"
               } connected successfully`
@@ -975,20 +1184,18 @@ export function useSocialConnections() {
         }
 
         /*
-         * IMPORTANT:
-         *
          * Still refresh even when there wasn't a browser-side
          * OAuth pending flag.
          *
-         * Meta's callback is server-side, so the database can
-         * contain the new account even when sessionStorage does
-         * not.
+         * The callback is server-side, so the database can
+         * contain the account even if sessionStorage does not.
          */
 
         await refreshConnections();
       },
       [
         refreshConnections,
+        resolvedOrganisationId,
       ]
     );
 
@@ -1001,8 +1208,24 @@ export function useSocialConnections() {
       isMountedRef.current =
         true;
 
+      /*
+       * Whenever organisation changes, immediately clear the
+       * previous organisation's accounts.
+       *
+       * This prevents TOTS account information briefly flashing
+       * while MTC is loading.
+       */
+
+      resetConnections();
+
       const subscribe =
         async () => {
+          if (
+            !resolvedOrganisationId
+          ) {
+            return;
+          }
+
           const {
             data: {
               user,
@@ -1042,6 +1265,24 @@ export function useSocialConnections() {
           }
 
           // ==================================================
+          // CLEAN OLD SUBSCRIPTION BEFORE NEW ORGANISATION
+          // ==================================================
+
+          if (
+            channelRef.current
+          ) {
+            await supabase.removeChannel(
+              channelRef.current
+            );
+
+            channelRef.current =
+              null;
+          }
+
+          subscribedRef.current =
+            false;
+
+          // ==================================================
           // PREVENT DUPLICATE SUBSCRIPTIONS
           // ==================================================
 
@@ -1056,12 +1297,15 @@ export function useSocialConnections() {
 
           // ==================================================
           // REALTIME
+          //
+          // Subscribe to the active organisation rather than
+          // every social account belonging to the user.
           // ==================================================
 
           channelRef.current =
             supabase
               .channel(
-                `social_accounts_${user.id}`
+                `social_accounts_${user.id}_${resolvedOrganisationId}`
               )
               .on(
                 "postgres_changes",
@@ -1076,14 +1320,19 @@ export function useSocialConnections() {
                     "social_accounts",
 
                   filter:
-                    `user_id=eq.${user.id}`,
+                    `organisation_id=eq.${resolvedOrganisationId}`,
                 },
                 async (
                   payload
                 ) => {
                   console.log(
-                    "[TOTS SOCIAL] Realtime social_accounts change:",
-                    payload
+                    "[TOTS SOCIAL] Realtime organisation social_accounts change:",
+                    {
+                      organisationId:
+                        resolvedOrganisationId,
+
+                      payload,
+                    }
                   );
 
                   await refreshConnections();
@@ -1095,7 +1344,12 @@ export function useSocialConnections() {
                 ) => {
                   console.log(
                     "[TOTS SOCIAL] Realtime subscription:",
-                    status
+                    {
+                      organisationId:
+                        resolvedOrganisationId,
+
+                      status,
+                    }
                   );
                 }
               );
@@ -1128,6 +1382,8 @@ export function useSocialConnections() {
     },
     [
       refreshConnections,
+      resetConnections,
+      resolvedOrganisationId,
     ]
   );
 

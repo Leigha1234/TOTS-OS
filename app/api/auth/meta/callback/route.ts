@@ -37,14 +37,24 @@ const db =
 // ============================================================
 
 type MetaOAuthState = {
-  userId?: string;
-  platform?: string;
-  createdAt?: number;
-};
+  userId?:
+    string;
 
-type OrganisationMembershipRow = {
-  organisation_id:
-    string | null;
+  organisationId?:
+    string;
+
+  platform?:
+    string;
+
+  createdAt?:
+    number;
+
+  /*
+   * Optional future support for explicitly selecting
+   * a Facebook Page before completing the connection.
+   */
+  pageId?:
+    string;
 };
 
 type ExistingSocialAccountRow = {
@@ -53,6 +63,9 @@ type ExistingSocialAccountRow = {
 
   user_id:
     string;
+
+  organisation_id:
+    string | null;
 
   platform:
     string;
@@ -354,14 +367,18 @@ function getErrorMessage(
 // ============================================================
 // META STATE
 //
-// IMPORTANT:
-// You currently have more than one Meta flow in the project.
+// Current Meta OAuth should send:
 //
-// Some older versions put the raw user UUID in state.
-// Newer versions put encoded JSON in state.
+// {
+//   userId: "...",
+//   organisationId: "...",
+//   platform: "meta",
+//   createdAt: Date.now()
+// }
 //
-// Support both so this callback does not break depending on
-// which start route currently redirects here.
+// We still parse older raw-user-id state so we can return a
+// useful error instead of crashing, but organisationId is now
+// REQUIRED before a connection can be saved.
 // ============================================================
 
 function parseMetaState(
@@ -407,10 +424,13 @@ function parseMetaState(
   }
 
   /*
-   * Backwards compatibility:
+   * Backwards compatibility only.
    *
-   * Previous callback/start flow used the raw Supabase user UUID
-   * directly as state.
+   * Older versions used the raw Supabase user UUID as state.
+   *
+   * This can no longer complete successfully because we now
+   * require organisationId to prevent cross-business accounts
+   * from overwriting each other.
    */
 
   const possibleUserId =
@@ -452,10 +472,6 @@ function getMetaGraphVersion() {
       ? configured
       : `v${configured}`;
   }
-
-  /*
-   * Keep this aligned with the Meta OAuth start/exchange routes.
-   */
 
   return "v25.0";
 }
@@ -615,6 +631,12 @@ export async function GET(
       parsedState?.userId
     );
 
+  const organisationId =
+    cleanString(
+      parsedState
+        ?.organisationId
+    );
+
   if (
     !parsedState ||
     !userId
@@ -627,6 +649,27 @@ export async function GET(
     return redirectFailure(
       appUrl,
       "The Meta connection request could not be verified."
+    );
+  }
+
+  // ==========================================================
+  // ORGANISATION IS NOW REQUIRED
+  // ==========================================================
+
+  if (
+    !organisationId
+  ) {
+    console.error(
+      "[META OAUTH] OAuth state is missing organisationId.",
+      {
+        userId,
+        parsedState,
+      }
+    );
+
+    return redirectFailure(
+      appUrl,
+      "The Meta connection did not include an organisation. Please return to Settings and connect Meta again."
     );
   }
 
@@ -778,16 +821,18 @@ export async function GET(
     }
 
     // ========================================================
-    // 2. RESOLVE ORGANISATION
+    // 2. VERIFY ORGANISATION MEMBERSHIP
+    //
+    // IMPORTANT:
+    // We DO NOT pick the first organisation the user belongs to.
+    //
+    // The organisation that initiated OAuth MUST come through
+    // state, and we verify the user belongs to it.
     // ========================================================
-
-    let organisationId:
-      string | null =
-      null;
 
     const {
       data:
-        rawMembershipRows,
+        membership,
 
       error:
         membershipError,
@@ -803,35 +848,48 @@ export async function GET(
           "user_id",
           userId
         )
-        .limit(
-          1
-        );
+        .eq(
+          "organisation_id",
+          organisationId
+        )
+        .maybeSingle();
 
     if (
       membershipError
     ) {
-      console.warn(
-        "[META OAUTH] Organisation membership lookup failed:",
+      console.error(
+        "[META OAUTH] Organisation membership verification failed:",
         membershipError
       );
-    } else {
-      const membershipRows =
-        (
-          rawMembershipRows ??
-          []
-        ) as
-          OrganisationMembershipRow[];
 
-      const membership =
-        membershipRows[0] ??
-        null;
-
-      organisationId =
-        cleanString(
-          membership
-            ?.organisation_id
-        );
+      throw new Error(
+        `TOTS-OS could not verify your organisation access: ${membershipError.message}`
+      );
     }
+
+    if (
+      !membership
+    ) {
+      console.error(
+        "[META OAUTH] User does not belong to requested organisation:",
+        {
+          userId,
+          organisationId,
+        }
+      );
+
+      throw new Error(
+        "You do not have access to the organisation that requested this Meta connection."
+      );
+    }
+
+    console.log(
+      "[META OAUTH] Organisation verified:",
+      {
+        userId,
+        organisationId,
+      }
+    );
 
     // ========================================================
     // 3. EXCHANGE CODE FOR SHORT-LIVED USER TOKEN
@@ -1182,11 +1240,22 @@ export async function GET(
     }
 
     // ========================================================
-    // 8. FIND BEST PAGE
+    // 8. FIND PAGE
     //
-    // Prefer a Page with a linked Instagram professional
-    // account. If none has Instagram, use first valid Page.
+    // If a pageId is supplied through OAuth state, honour it.
+    //
+    // Otherwise retain the existing behaviour:
+    // prefer a Page with a linked Instagram professional account.
+    //
+    // IMPORTANT:
+    // Later we should add a proper Facebook Page selector when
+    // a user manages multiple businesses.
     // ========================================================
+
+    const requestedPageId =
+      cleanString(
+        parsedState.pageId
+      );
 
     let selectedPage:
       MetaPage | null =
@@ -1204,9 +1273,44 @@ export async function GET(
       string | null =
       null;
 
+    if (
+      requestedPageId
+    ) {
+      selectedPage =
+        pages.find(
+          (
+            candidatePage
+          ) =>
+            cleanString(
+              candidatePage.id
+            ) ===
+            requestedPageId
+        ) ??
+        null;
+
+      if (
+        !selectedPage
+      ) {
+        throw new Error(
+          "The Facebook Page selected for this connection is no longer available."
+        );
+      }
+    }
+
+    // ========================================================
+    // DISCOVER INSTAGRAM + CHOOSE BEST PAGE WHEN NONE REQUESTED
+    // ========================================================
+
+    const candidatePages =
+      selectedPage
+        ? [
+            selectedPage,
+          ]
+        : pages;
+
     for (
       const candidatePage of
-      pages
+      candidatePages
     ) {
       const candidatePageId =
         cleanString(
@@ -1293,8 +1397,16 @@ export async function GET(
         if (
           instagramAccount?.id
         ) {
-          selectedPage =
-            candidatePage;
+          /*
+           * Only automatically select this page when there
+           * wasn't already an explicit requested page.
+           */
+          if (
+            !selectedPage
+          ) {
+            selectedPage =
+              candidatePage;
+          }
 
           instagramBusinessAccountId =
             cleanString(
@@ -1483,6 +1595,8 @@ export async function GET(
     console.log(
       "[META OAUTH] Selected Meta assets:",
       {
+        organisationId,
+
         pageId,
 
         pageName,
@@ -1511,6 +1625,20 @@ export async function GET(
 
     // ========================================================
     // 12. FIND EXISTING META ROW
+    //
+    // CRITICAL:
+    // Existing connections are now scoped to BOTH user and
+    // organisation.
+    //
+    // This means:
+    //
+    // TOTS + Meta
+    //
+    // and
+    //
+    // MTC + Meta
+    //
+    // are separate database records.
     // ========================================================
 
     const {
@@ -1528,12 +1656,17 @@ export async function GET(
           `
             id,
             user_id,
+            organisation_id,
             platform
           `
         )
         .eq(
           "user_id",
           userId
+        )
+        .eq(
+          "organisation_id",
+          organisationId
         )
         .eq(
           "platform",
@@ -1605,8 +1738,8 @@ export async function GET(
         accessToken,
 
       /*
-       * Meta long-lived user tokens are not refreshed with the
-       * standard OAuth refresh_token flow.
+       * Meta long-lived user tokens are not refreshed using the
+       * normal OAuth refresh_token flow.
        */
       refresh_token:
         null,
@@ -1661,6 +1794,14 @@ export async function GET(
           .eq(
             "user_id",
             userId
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .eq(
+            "platform",
+            "meta"
           )
           .select(
             `
@@ -1817,6 +1958,10 @@ export async function GET(
 
     // ========================================================
     // 15. FINAL DATABASE VERIFICATION
+    //
+    // Again, organisation_id is included so we cannot
+    // accidentally validate a connection belonging to another
+    // organisation.
     // ========================================================
 
     const {
@@ -1857,6 +2002,10 @@ export async function GET(
           userId
         )
         .eq(
+          "organisation_id",
+          organisationId
+        )
+        .eq(
           "platform",
           "meta"
         )
@@ -1879,7 +2028,7 @@ export async function GET(
       !rawVerifiedConnection
     ) {
       throw new Error(
-        "Meta authenticated successfully, but no saved connection could be found."
+        "Meta authenticated successfully, but no saved connection could be found for this organisation."
       );
     }
 

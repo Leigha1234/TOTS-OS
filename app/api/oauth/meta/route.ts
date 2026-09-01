@@ -32,8 +32,18 @@ type MetaOAuthState = {
   userId:
     string;
 
+  organisationId:
+    string;
+
   createdAt:
     number;
+
+  /*
+   * Optional future support for explicitly selecting
+   * a Facebook Page before completing OAuth.
+   */
+  pageId?:
+    string;
 };
 
 // ============================================================
@@ -82,6 +92,8 @@ function cleanString(
 }
 
 // ============================================================
+// GRAPH VERSION
+// ============================================================
 
 function getMetaGraphVersion() {
   const configured =
@@ -124,14 +136,12 @@ function encodeState(
     MetaOAuthState
 ) {
   /*
-   * IMPORTANT:
+   * Return normal JSON.
    *
-   * We return normal JSON here.
+   * URLSearchParams will encode the value when generating
+   * the Facebook OAuth URL.
    *
-   * URLSearchParams will URL-encode this for us when the Meta
-   * OAuth URL is created.
-   *
-   * This avoids accidental double-encoding.
+   * Do NOT manually encodeURIComponent() this value.
    */
 
   return JSON.stringify(
@@ -147,13 +157,13 @@ function decodeState(
   value:
     string
 ):
-  | MetaOAuthState
+  | Partial<MetaOAuthState>
   | null {
   /*
-   * Support both:
+   * Support:
    *
-   * 1. Raw JSON returned by URLSearchParams
-   * 2. Older manually encodeURIComponent() state values
+   * 1. Current raw JSON state
+   * 2. Older manually URL-encoded state
    */
 
   const attempts:
@@ -177,7 +187,7 @@ function decodeState(
     }
   } catch {
     /*
-     * Ignore.
+     * Ignore decoding errors.
      */
   }
 
@@ -191,52 +201,15 @@ function decodeState(
           candidate
         ) as Partial<MetaOAuthState>;
 
-      const userId =
-        cleanString(
-          parsed.userId
-        );
-
-      const rawPlatform =
-        cleanString(
-          parsed.platform
-        )
-          ?.toLowerCase();
-
-      const createdAt =
-        Number(
-          parsed.createdAt
-        );
-
       if (
-        !userId
+        !parsed ||
+        typeof parsed !==
+          "object"
       ) {
         continue;
       }
 
-      if (
-        rawPlatform !==
-          "meta" &&
-        rawPlatform !==
-          "facebook" &&
-        rawPlatform !==
-          "instagram"
-      ) {
-        continue;
-      }
-
-      return {
-        platform:
-          "meta",
-
-        userId,
-
-        createdAt:
-          Number.isFinite(
-            createdAt
-          )
-            ? createdAt
-            : Date.now(),
-      };
+      return parsed;
     } catch {
       /*
        * Try next candidate.
@@ -318,12 +291,11 @@ export async function GET(
       );
 
     /*
-     * META_CLIENT_SECRET is intentionally NOT needed here.
+     * META_CLIENT_SECRET is intentionally NOT required here.
      *
-     * This route only redirects the user to Meta.
+     * This route only creates the Meta authorisation URL.
      *
-     * The secret is used later by the server-side exchange
-     * endpoint.
+     * Token exchange happens later inside the callback.
      */
 
     // ========================================================
@@ -344,6 +316,13 @@ export async function GET(
         )
       );
 
+    const incomingOrganisationId =
+      cleanString(
+        url.searchParams.get(
+          "organisationId"
+        )
+      );
+
     const incomingPlatform =
       cleanString(
         url.searchParams.get(
@@ -352,6 +331,13 @@ export async function GET(
       )
         ?.toLowerCase() ||
       null;
+
+    const incomingPageId =
+      cleanString(
+        url.searchParams.get(
+          "pageId"
+        )
+      );
 
     // ========================================================
     // DEBUG INPUT
@@ -370,24 +356,29 @@ export async function GET(
             incomingUserId
           ),
 
+        hasOrganisationId:
+          Boolean(
+            incomingOrganisationId
+          ),
+
+        hasPageId:
+          Boolean(
+            incomingPageId
+          ),
+
         platform:
           incomingPlatform,
       }
     );
 
     // ========================================================
-    // RESOLVE STATE
+    // RESOLVE VALUES
     // ========================================================
 
     let parsedState:
-      MetaOAuthState |
+      Partial<MetaOAuthState> |
       null =
       null;
-
-    // ========================================================
-    // OPTION 1:
-    // EXISTING STRUCTURED STATE
-    // ========================================================
 
     if (
       incomingState
@@ -416,54 +407,88 @@ export async function GET(
     }
 
     // ========================================================
-    // OPTION 2:
-    // CREATE STATE FROM USER ID
+    // USER ID
+    //
+    // Direct query param wins, otherwise use structured state.
     // ========================================================
 
+    const userId =
+      incomingUserId ||
+      cleanString(
+        parsedState
+          ?.userId
+      );
+
+    // ========================================================
+    // ORGANISATION ID
+    //
+    // CRITICAL:
+    // This is what keeps MTC and TOTS separate.
+    //
+    // Direct query param wins, otherwise use structured state.
+    // ========================================================
+
+    const organisationId =
+      incomingOrganisationId ||
+      cleanString(
+        parsedState
+          ?.organisationId
+      );
+
+    // ========================================================
+    // PAGE ID
+    // ========================================================
+
+    const pageId =
+      incomingPageId ||
+      cleanString(
+        parsedState
+          ?.pageId
+      );
+
+    // ========================================================
+    // PLATFORM
+    // ========================================================
+
+    const parsedPlatform =
+      cleanString(
+        parsedState
+          ?.platform
+      )
+        ?.toLowerCase() ||
+      null;
+
+    const platform =
+      incomingPlatform ||
+      parsedPlatform ||
+      "meta";
+
     if (
-      !parsedState &&
-      incomingUserId
+      platform !==
+        "meta" &&
+      platform !==
+        "facebook" &&
+      platform !==
+        "instagram"
     ) {
-      if (
-        incomingPlatform &&
-        incomingPlatform !==
-          "meta" &&
-        incomingPlatform !==
-          "facebook" &&
-        incomingPlatform !==
-          "instagram"
-      ) {
-        return errorResponse(
-          "Invalid platform for Meta OAuth.",
-          400,
-          {
-            platform:
-              incomingPlatform,
-          }
-        );
-      }
-
-      parsedState = {
-        platform:
-          "meta",
-
-        userId:
-          incomingUserId,
-
-        createdAt:
-          Date.now(),
-      };
+      return errorResponse(
+        "Invalid platform for Meta OAuth.",
+        400,
+        {
+          platform,
+        }
+      );
     }
 
     // ========================================================
-    // NO USER
+    // REQUIRE USER
     // ========================================================
 
     if (
-      !parsedState
+      !userId
     ) {
       console.error(
-        "[META OAUTH START] No valid state or userId was supplied."
+        "[META OAUTH START] Missing userId."
       );
 
       return errorResponse(
@@ -477,19 +502,42 @@ export async function GET(
     }
 
     // ========================================================
-    // VALIDATE USER ID
+    // REQUIRE ORGANISATION
+    // ========================================================
+
+    if (
+      !organisationId
+    ) {
+      console.error(
+        "[META OAUTH START] Missing organisationId.",
+        {
+          userId,
+        }
+      );
+
+      return errorResponse(
+        "Missing organisation ID.",
+        400,
+        {
+          expected:
+            "The Settings page must send the currently selected organisationId when starting Meta OAuth.",
+        }
+      );
+    }
+
+    // ========================================================
+    // VALIDATE USER UUID
     // ========================================================
 
     if (
       !isValidUuid(
-        parsedState.userId
+        userId
       )
     ) {
       console.error(
         "[META OAUTH START] Invalid Supabase user UUID:",
         {
-          userId:
-            parsedState.userId,
+          userId,
         }
       );
 
@@ -500,12 +548,51 @@ export async function GET(
     }
 
     // ========================================================
+    // VALIDATE ORGANISATION UUID
+    // ========================================================
+
+    if (
+      !isValidUuid(
+        organisationId
+      )
+    ) {
+      console.error(
+        "[META OAUTH START] Invalid organisation UUID:",
+        {
+          organisationId,
+        }
+      );
+
+      return errorResponse(
+        "Invalid organisation ID.",
+        400
+      );
+    }
+
+    // ========================================================
+    // CREATED AT
+    // ========================================================
+
+    const parsedCreatedAt =
+      Number(
+        parsedState
+          ?.createdAt
+      );
+
+    const createdAt =
+      Number.isFinite(
+        parsedCreatedAt
+      )
+        ? parsedCreatedAt
+        : Date.now();
+
+    // ========================================================
     // STATE AGE
     // ========================================================
 
     const stateAge =
       Date.now() -
-      parsedState.createdAt;
+      createdAt;
 
     if (
       !Number.isFinite(
@@ -525,9 +612,8 @@ export async function GET(
       console.error(
         "[META OAUTH START] OAuth state expired:",
         {
-          userId:
-            parsedState.userId,
-
+          userId,
+          organisationId,
           stateAge,
         }
       );
@@ -549,12 +635,9 @@ export async function GET(
       console.error(
         "[META OAUTH START] OAuth state timestamp is in the future:",
         {
-          userId:
-            parsedState.userId,
-
-          createdAt:
-            parsedState.createdAt,
-
+          userId,
+          organisationId,
+          createdAt,
           stateAge,
         }
       );
@@ -566,10 +649,21 @@ export async function GET(
     }
 
     // ========================================================
-    // CREATE CLEAN STATE
+    // CREATE CANONICAL STATE
     //
-    // Always generate a clean canonical representation rather
-    // than forwarding whatever arrived.
+    // THIS is the important part.
+    //
+    // organisationId now travels:
+    //
+    // Settings
+    //   ↓
+    // Meta start route
+    //   ↓
+    // Facebook
+    //   ↓
+    // Meta callback
+    //   ↓
+    // social_accounts.organisation_id
     // ========================================================
 
     const canonicalState:
@@ -577,11 +671,17 @@ export async function GET(
       platform:
         "meta",
 
-      userId:
-        parsedState.userId,
+      userId,
 
-      createdAt:
-        parsedState.createdAt,
+      organisationId,
+
+      createdAt,
+
+      ...(pageId
+        ? {
+            pageId,
+          }
+        : {}),
     };
 
     const resolvedState =
@@ -601,7 +701,7 @@ export async function GET(
         "pages_show_list",
 
         /*
-         * Read Page information required by the Graph API.
+         * Read Facebook Page information.
          */
         "pages_read_engagement",
 
@@ -611,8 +711,8 @@ export async function GET(
         "pages_manage_posts",
 
         /*
-         * Discover professional Instagram account linked to
-         * the Facebook Page.
+         * Discover professional Instagram accounts attached
+         * to Facebook Pages.
          */
         "instagram_basic",
 
@@ -651,9 +751,9 @@ export async function GET(
     );
 
     /*
-     * URLSearchParams handles encoding automatically.
+     * URLSearchParams handles encoding.
      *
-     * Do not encodeURIComponent() this again.
+     * Do NOT wrap resolvedState in encodeURIComponent().
      */
 
     oauthUrl.searchParams.set(
@@ -672,8 +772,8 @@ export async function GET(
     );
 
     /*
-     * Helpful while testing because declined permissions are
-     * requested again.
+     * During testing, this asks Meta to request permissions
+     * again when they were previously declined.
      */
 
     oauthUrl.searchParams.set(
@@ -695,11 +795,18 @@ export async function GET(
         userId:
           canonicalState.userId,
 
+        organisationId:
+          canonicalState.organisationId,
+
         platform:
           canonicalState.platform,
 
         createdAt:
           canonicalState.createdAt,
+
+        pageId:
+          canonicalState.pageId ??
+          null,
 
         permissions:
           permissions.split(
@@ -707,7 +814,11 @@ export async function GET(
           ),
 
         /*
-         * Never log META_CLIENT_SECRET or OAuth tokens.
+         * Never log:
+         *
+         * - META_CLIENT_SECRET
+         * - access tokens
+         * - Page access tokens
          */
         clientIdConfigured:
           Boolean(

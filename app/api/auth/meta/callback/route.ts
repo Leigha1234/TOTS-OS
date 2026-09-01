@@ -12,23 +12,6 @@ export const dynamic =
 export const runtime =
   "nodejs";
 
-// ============================================================
-// UNTYPED ADMIN DATABASE CLIENT
-//
-// Your generated Supabase Database types are currently stale
-// for tables such as:
-//
-// - social_accounts
-// - user_organisations
-//
-// That causes Supabase's insert/update payload type to become
-// `never` during `next build`.
-//
-// Authentication remains strongly available on supabaseAdmin,
-// but database calls in this route use this alias until your
-// generated Supabase types are regenerated.
-// ============================================================
-
 const db =
   supabaseAdmin as any;
 
@@ -37,71 +20,39 @@ const db =
 // ============================================================
 
 type MetaOAuthState = {
-  userId?:
-    string;
-
-  organisationId?:
-    string;
-
-  platform?:
-    string;
-
-  createdAt?:
-    number;
-
-  /*
-   * Optional future support for explicitly selecting
-   * a Facebook Page before completing the connection.
-   */
-  pageId?:
-    string;
+  userId?: string;
+  organisationId?: string;
+  platform?: string;
+  createdAt?: number;
+  pageId?: string;
 };
 
 type ExistingSocialAccountRow = {
-  id:
-    string;
-
-  user_id:
-    string;
-
+  id: string;
+  user_id: string;
   organisation_id:
     string | null;
-
-  platform:
-    string;
+  platform: string;
 };
 
 type SavedSocialAccountRow = {
-  id:
-    string;
-
-  user_id:
-    string;
-
+  id: string;
+  user_id: string;
   organisation_id:
     string | null;
-
-  platform:
-    string;
-
+  platform: string;
   platform_user_id:
     string | null;
-
   display_name:
     string | null;
-
   avatar_url:
     string | null;
-
   page_id:
     string | null;
-
   page_name:
     string | null;
-
   instagram_business_account_id:
     string | null;
-
   expires_at:
     string | null;
 };
@@ -110,131 +61,81 @@ type VerifiedSocialAccountRow =
   SavedSocialAccountRow & {
     access_token:
       string | null;
-
     page_access_token:
       string | null;
-
     updated_at:
       string | null;
   };
 
 type MetaTokenResponse = {
-  access_token?:
-    string;
-
-  expires_in?:
-    number;
-
-  token_type?:
-    string;
+  access_token?: string;
+  expires_in?: number;
+  token_type?: string;
 
   error?: {
-    message?:
-      string;
-
-    type?:
-      string;
-
-    code?:
-      number;
-
-    error_subcode?:
-      number;
+    message?: string;
+    type?: string;
+    code?: number;
+    error_subcode?: number;
   };
 };
 
 type MetaUserResponse = {
-  id?:
-    string;
-
-  name?:
-    string;
+  id?: string;
+  name?: string;
 
   picture?: {
     data?: {
-      url?:
-        string;
+      url?: string;
     };
   };
 
   error?: {
-    message?:
-      string;
-
-    type?:
-      string;
-
-    code?:
-      number;
+    message?: string;
+    type?: string;
+    code?: number;
   };
 };
 
 type MetaPage = {
-  id?:
-    string;
-
-  name?:
-    string;
-
-  access_token?:
-    string;
+  id?: string;
+  name?: string;
+  access_token?: string;
 
   picture?: {
     data?: {
-      url?:
-        string;
+      url?: string;
     };
   };
 };
 
 type MetaPagesResponse = {
-  data?:
-    MetaPage[];
+  data?: MetaPage[];
 
   error?: {
-    message?:
-      string;
-
-    type?:
-      string;
-
-    code?:
-      number;
+    message?: string;
+    type?: string;
+    code?: number;
   };
 };
 
 type MetaInstagramResponse = {
   instagram_business_account?: {
-    id?:
-      string;
-
-    username?:
-      string;
-
-    profile_picture_url?:
-      string;
+    id?: string;
+    username?: string;
+    profile_picture_url?: string;
   };
 
   connected_instagram_account?: {
-    id?:
-      string;
-
-    username?:
-      string;
-
-    profile_picture_url?:
-      string;
+    id?: string;
+    username?: string;
+    profile_picture_url?: string;
   };
 
   error?: {
-    message?:
-      string;
-
-    type?:
-      string;
-
-    code?:
-      number;
+    message?: string;
+    type?: string;
+    code?: number;
   };
 };
 
@@ -269,8 +170,10 @@ function getAppUrl(
 ) {
   const configured =
     process.env.APP_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL;
+    process.env
+      .NEXT_PUBLIC_APP_URL ||
+    process.env
+      .NEXT_PUBLIC_SITE_URL;
 
   if (
     configured?.trim()
@@ -305,6 +208,39 @@ function cleanString(
 
   return cleaned ||
     null;
+}
+
+// ============================================================
+
+function normaliseName(
+  value: unknown
+) {
+  const cleaned =
+    cleanString(
+      value
+    );
+
+  if (
+    !cleaned
+  ) {
+    return "";
+  }
+
+  return cleaned
+    .toLowerCase()
+    .replace(
+      /&/g,
+      "and"
+    )
+    .replace(
+      /[^a-z0-9]+/g,
+      " "
+    )
+    .trim()
+    .replace(
+      /\s+/g,
+      " "
+    );
 }
 
 // ============================================================
@@ -366,19 +302,6 @@ function getErrorMessage(
 
 // ============================================================
 // META STATE
-//
-// Current Meta OAuth should send:
-//
-// {
-//   userId: "...",
-//   organisationId: "...",
-//   platform: "meta",
-//   createdAt: Date.now()
-// }
-//
-// We still parse older raw-user-id state so we can return a
-// useful error instead of crashing, but organisationId is now
-// REQUIRED before a connection can be saved.
 // ============================================================
 
 function parseMetaState(
@@ -398,7 +321,7 @@ function parseMetaState(
       )
     );
   } catch {
-    // Ignore decode failure.
+    // Ignore.
   }
 
   for (
@@ -419,19 +342,9 @@ function parseMetaState(
         return parsed;
       }
     } catch {
-      // Candidate was not JSON.
+      // Not JSON.
     }
   }
-
-  /*
-   * Backwards compatibility only.
-   *
-   * Older versions used the raw Supabase user UUID as state.
-   *
-   * This can no longer complete successfully because we now
-   * require organisationId to prevent cross-business accounts
-   * from overwriting each other.
-   */
 
   const possibleUserId =
     cleanString(
@@ -508,6 +421,85 @@ function redirectFailure(
 }
 
 // ============================================================
+// INSTAGRAM LOOKUP
+// ============================================================
+
+async function getInstagramAccount({
+  graphVersion,
+  pageId,
+  pageAccessToken,
+}: {
+  graphVersion: string;
+  pageId: string;
+  pageAccessToken: string;
+}) {
+  const instagramUrl =
+    new URL(
+      `https://graph.facebook.com/${graphVersion}/${pageId}`
+    );
+
+  instagramUrl.search =
+    new URLSearchParams({
+      fields:
+        [
+          "instagram_business_account{id,username,profile_picture_url}",
+          "connected_instagram_account{id,username,profile_picture_url}",
+        ].join(
+          ","
+        ),
+
+      access_token:
+        pageAccessToken,
+    }).toString();
+
+  const response =
+    await fetch(
+      instagramUrl,
+      {
+        method:
+          "GET",
+
+        headers: {
+          Accept:
+            "application/json",
+        },
+
+        cache:
+          "no-store",
+      }
+    );
+
+  const data =
+    (
+      await response
+        .json()
+        .catch(
+          () =>
+            ({})
+        )
+    ) as MetaInstagramResponse;
+
+  if (
+    !response.ok
+  ) {
+    console.warn(
+      `[META OAUTH] Instagram discovery failed for Page ${pageId}:`,
+      data
+    );
+
+    return null;
+  }
+
+  return (
+    data
+      .instagram_business_account ||
+    data
+      .connected_instagram_account ||
+    null
+  );
+}
+
+// ============================================================
 // GET
 // ============================================================
 
@@ -526,10 +518,6 @@ export async function GET(
 
   const graphVersion =
     getMetaGraphVersion();
-
-  // ==========================================================
-  // QUERY PARAMS
-  // ==========================================================
 
   const code =
     url.searchParams.get(
@@ -557,30 +545,25 @@ export async function GET(
     );
 
   // ==========================================================
-  // USER CANCELLED / META ERROR
+  // META ERROR
   // ==========================================================
 
   if (
     metaError
   ) {
-    console.error(
-      "[META OAUTH] Meta returned an error:",
-      {
-        error:
-          metaError,
-
-        reason:
-          metaErrorReason,
-
-        description:
-          metaErrorDescription,
-      }
-    );
-
     const reason =
       metaErrorDescription ||
       metaErrorReason ||
       metaError;
+
+    console.error(
+      "[META OAUTH] Meta returned an error:",
+      {
+        metaError,
+        metaErrorReason,
+        metaErrorDescription,
+      }
+    );
 
     return redirectFailure(
       appUrl,
@@ -589,37 +572,18 @@ export async function GET(
   }
 
   // ==========================================================
-  // VALIDATE CALLBACK PARAMS
+  // CALLBACK VALIDATION
   // ==========================================================
 
   if (
     !code ||
     !state
   ) {
-    console.error(
-      "[META OAUTH] Missing code or state.",
-      {
-        hasCode:
-          Boolean(
-            code
-          ),
-
-        hasState:
-          Boolean(
-            state
-          ),
-      }
-    );
-
     return redirectFailure(
       appUrl,
       "Meta OAuth returned missing parameters."
     );
   }
-
-  // ==========================================================
-  // PARSE STATE
-  // ==========================================================
 
   const parsedState =
     parseMetaState(
@@ -641,41 +605,20 @@ export async function GET(
     !parsedState ||
     !userId
   ) {
-    console.error(
-      "[META OAUTH] Could not parse OAuth state:",
-      state
-    );
-
     return redirectFailure(
       appUrl,
       "The Meta connection request could not be verified."
     );
   }
 
-  // ==========================================================
-  // ORGANISATION IS NOW REQUIRED
-  // ==========================================================
-
   if (
     !organisationId
   ) {
-    console.error(
-      "[META OAUTH] OAuth state is missing organisationId.",
-      {
-        userId,
-        parsedState,
-      }
-    );
-
     return redirectFailure(
       appUrl,
       "The Meta connection did not include an organisation. Please return to Settings and connect Meta again."
     );
   }
-
-  // ==========================================================
-  // PLATFORM CHECK
-  // ==========================================================
 
   const statePlatform =
     cleanString(
@@ -693,11 +636,6 @@ export async function GET(
       statePlatform
     )
   ) {
-    console.error(
-      "[META OAUTH] Invalid platform in OAuth state:",
-      statePlatform
-    );
-
     return redirectFailure(
       appUrl,
       "The Meta connection returned an invalid platform."
@@ -705,7 +643,7 @@ export async function GET(
   }
 
   // ==========================================================
-  // OPTIONAL STATE EXPIRY
+  // STATE EXPIRY
   // ==========================================================
 
   if (
@@ -789,7 +727,7 @@ export async function GET(
 
   try {
     // ========================================================
-    // 1. VERIFY SUPABASE USER
+    // 1. VERIFY USER
     // ========================================================
 
     const {
@@ -810,24 +748,13 @@ export async function GET(
       authUserError ||
       !authUserData.user
     ) {
-      console.error(
-        "[META OAUTH] Invalid Supabase user from OAuth state:",
-        authUserError
-      );
-
       throw new Error(
         "The signed-in TOTS-OS user could not be verified."
       );
     }
 
     // ========================================================
-    // 2. VERIFY ORGANISATION MEMBERSHIP
-    //
-    // IMPORTANT:
-    // We DO NOT pick the first organisation the user belongs to.
-    //
-    // The organisation that initiated OAuth MUST come through
-    // state, and we verify the user belongs to it.
+    // 2. VERIFY MEMBERSHIP
     // ========================================================
 
     const {
@@ -857,11 +784,6 @@ export async function GET(
     if (
       membershipError
     ) {
-      console.error(
-        "[META OAUTH] Organisation membership verification failed:",
-        membershipError
-      );
-
       throw new Error(
         `TOTS-OS could not verify your organisation access: ${membershipError.message}`
       );
@@ -870,29 +792,69 @@ export async function GET(
     if (
       !membership
     ) {
-      console.error(
-        "[META OAUTH] User does not belong to requested organisation:",
-        {
-          userId,
-          organisationId,
-        }
-      );
-
       throw new Error(
         "You do not have access to the organisation that requested this Meta connection."
       );
     }
 
+    // ========================================================
+    // 3. LOAD CURRENT ORGANISATION
+    //
+    // This is the important new part.
+    //
+    // We use the CURRENT workspace name to select the matching
+    // Facebook Page rather than choosing the first Page Meta
+    // happens to return.
+    // ========================================================
+
+    const {
+      data:
+        organisation,
+
+      error:
+        organisationError,
+    } =
+      await db
+        .from(
+          "organisations"
+        )
+        .select(
+          "id,name"
+        )
+        .eq(
+          "id",
+          organisationId
+        )
+        .maybeSingle();
+
+    if (
+      organisationError
+    ) {
+      console.error(
+        "[META OAUTH] Organisation lookup failed:",
+        organisationError
+      );
+
+      throw new Error(
+        `TOTS-OS could not load the current organisation: ${organisationError.message}`
+      );
+    }
+
+    const organisationName =
+      cleanString(
+        organisation?.name
+      );
+
     console.log(
-      "[META OAUTH] Organisation verified:",
+      "[META OAUTH] Current organisation:",
       {
-        userId,
         organisationId,
+        organisationName,
       }
     );
 
     // ========================================================
-    // 3. EXCHANGE CODE FOR SHORT-LIVED USER TOKEN
+    // 4. SHORT TOKEN
     // ========================================================
 
     const tokenUrl =
@@ -945,11 +907,6 @@ export async function GET(
       !tokenRes.ok ||
       !tokenData.access_token
     ) {
-      console.error(
-        "[META OAUTH] Short-lived token exchange failed:",
-        tokenData
-      );
-
       throw new Error(
         tokenData.error
           ?.message ||
@@ -961,7 +918,7 @@ export async function GET(
       tokenData.access_token;
 
     // ========================================================
-    // 4. EXCHANGE FOR LONG-LIVED USER TOKEN
+    // 5. LONG TOKEN
     // ========================================================
 
     const longTokenUrl =
@@ -1040,16 +997,7 @@ export async function GET(
         tokenExpiresIn =
           parsedExpiresIn;
       }
-
-      console.log(
-        "[META OAUTH] Long-lived Meta token acquired."
-      );
     } else {
-      console.warn(
-        "[META OAUTH] Long-lived token exchange failed. Falling back to short-lived token:",
-        longTokenData
-      );
-
       const parsedExpiresIn =
         Number(
           tokenData.expires_in
@@ -1067,10 +1015,6 @@ export async function GET(
       }
     }
 
-    // ========================================================
-    // 5. TOKEN EXPIRY
-    // ========================================================
-
     const expiresAt =
       tokenExpiresIn
         ? new Date(
@@ -1081,7 +1025,7 @@ export async function GET(
         : null;
 
     // ========================================================
-    // 6. GET FACEBOOK USER
+    // 6. FACEBOOK USER
     // ========================================================
 
     const meUrl =
@@ -1129,11 +1073,6 @@ export async function GET(
       !meRes.ok ||
       !me.id
     ) {
-      console.error(
-        "[META OAUTH] Facebook user lookup failed:",
-        me
-      );
-
       throw new Error(
         me.error
           ?.message ||
@@ -1206,11 +1145,6 @@ export async function GET(
     if (
       !pagesRes.ok
     ) {
-      console.error(
-        "[META OAUTH] Facebook Pages request failed:",
-        pagesData
-      );
-
       throw new Error(
         pagesData.error
           ?.message ||
@@ -1227,7 +1161,18 @@ export async function GET(
         : [];
 
     console.log(
-      `[META OAUTH] Facebook returned ${pages.length} Page(s).`
+      "[META OAUTH] Facebook Pages:",
+      pages.map(
+        (
+          page
+        ) => ({
+          id:
+            page.id,
+
+          name:
+            page.name,
+        })
+      )
     );
 
     if (
@@ -1235,21 +1180,12 @@ export async function GET(
       0
     ) {
       throw new Error(
-        "Meta connected, but no Facebook Pages were returned. Make sure you manage a Facebook Page and granted TOTS-OS access to it."
+        "Meta connected, but no Facebook Pages were returned."
       );
     }
 
     // ========================================================
-    // 8. FIND PAGE
-    //
-    // If a pageId is supplied through OAuth state, honour it.
-    //
-    // Otherwise retain the existing behaviour:
-    // prefer a Page with a linked Instagram professional account.
-    //
-    // IMPORTANT:
-    // Later we should add a proper Facebook Page selector when
-    // a user manages multiple businesses.
+    // 8. SELECT FACEBOOK PAGE
     // ========================================================
 
     const requestedPageId =
@@ -1260,6 +1196,204 @@ export async function GET(
     let selectedPage:
       MetaPage | null =
       null;
+
+    // --------------------------------------------------------
+    // A. EXPLICIT PAGE ID
+    // --------------------------------------------------------
+
+    if (
+      requestedPageId
+    ) {
+      selectedPage =
+        pages.find(
+          (
+            page
+          ) =>
+            cleanString(
+              page.id
+            ) ===
+            requestedPageId
+        ) ??
+        null;
+
+      if (
+        !selectedPage
+      ) {
+        throw new Error(
+          "The selected Facebook Page is no longer available."
+        );
+      }
+    }
+
+    // --------------------------------------------------------
+    // B. MATCH CURRENT ORGANISATION NAME
+    // --------------------------------------------------------
+
+    if (
+      !selectedPage &&
+      organisationName
+    ) {
+      const targetName =
+        normaliseName(
+          organisationName
+        );
+
+      const exactMatches =
+        pages.filter(
+          (
+            page
+          ) =>
+            normaliseName(
+              page.name
+            ) ===
+            targetName
+        );
+
+      if (
+        exactMatches.length ===
+        1
+      ) {
+        selectedPage =
+          exactMatches[0];
+
+        console.log(
+          "[META OAUTH] Facebook Page matched current organisation:",
+          {
+            organisationName,
+            pageId:
+              selectedPage.id,
+            pageName:
+              selectedPage.name,
+          }
+        );
+      }
+    }
+
+    // --------------------------------------------------------
+    // C. ONLY ONE PAGE
+    // --------------------------------------------------------
+
+    if (
+      !selectedPage &&
+      pages.length ===
+        1
+    ) {
+      selectedPage =
+        pages[0];
+    }
+
+    // --------------------------------------------------------
+    // D. MULTIPLE PAGES + NO SAFE MATCH
+    //
+    // DO NOT silently pick the first page.
+    // --------------------------------------------------------
+
+    if (
+      !selectedPage
+    ) {
+      const availableNames =
+        pages
+          .map(
+            (
+              page
+            ) =>
+              cleanString(
+                page.name
+              )
+          )
+          .filter(
+            (
+              value
+            ): value is string =>
+              Boolean(
+                value
+              )
+          )
+          .join(
+            ", "
+          );
+
+      console.error(
+        "[META OAUTH] Could not safely select Facebook Page.",
+        {
+          organisationId,
+          organisationName,
+          availablePages:
+            pages.map(
+              (
+                page
+              ) => ({
+                id:
+                  page.id,
+
+                name:
+                  page.name,
+              })
+            ),
+        }
+      );
+
+      throw new Error(
+        organisationName
+          ? `TOTS-OS found multiple Facebook Pages but none matched "${organisationName}". Available Pages: ${availableNames}.`
+          : `TOTS-OS found multiple Facebook Pages and could not safely decide which belongs to this workspace. Available Pages: ${availableNames}.`
+      );
+    }
+
+    // ========================================================
+    // 9. VALIDATE SELECTED PAGE
+    // ========================================================
+
+    const pageId =
+      cleanString(
+        selectedPage.id
+      );
+
+    const pageName =
+      cleanString(
+        selectedPage.name
+      );
+
+    const pageAccessToken =
+      cleanString(
+        selectedPage
+          .access_token
+      );
+
+    const pageAvatarUrl =
+      cleanString(
+        selectedPage
+          .picture
+          ?.data
+          ?.url
+      );
+
+    if (
+      !pageId ||
+      !pageAccessToken
+    ) {
+      throw new Error(
+        "The selected Facebook Page did not provide the credentials TOTS-OS needs."
+      );
+    }
+
+    console.log(
+      "[META OAUTH] Selected Facebook Page:",
+      {
+        organisationId,
+        organisationName,
+        pageId,
+        pageName,
+      }
+    );
+
+    // ========================================================
+    // 10. INSTAGRAM FOR SELECTED PAGE ONLY
+    //
+    // CRITICAL:
+    // We no longer loop through every Page looking for the
+    // first Instagram connection.
+    // ========================================================
 
     let instagramBusinessAccountId:
       string | null =
@@ -1273,342 +1407,53 @@ export async function GET(
       string | null =
       null;
 
-    if (
-      requestedPageId
-    ) {
-      selectedPage =
-        pages.find(
-          (
-            candidatePage
-          ) =>
-            cleanString(
-              candidatePage.id
-            ) ===
-            requestedPageId
-        ) ??
-        null;
+    try {
+      const instagramAccount =
+        await getInstagramAccount({
+          graphVersion,
+          pageId,
+          pageAccessToken,
+        });
 
-      if (
-        !selectedPage
-      ) {
-        throw new Error(
-          "The Facebook Page selected for this connection is no longer available."
-        );
-      }
-    }
-
-    // ========================================================
-    // DISCOVER INSTAGRAM + CHOOSE BEST PAGE WHEN NONE REQUESTED
-    // ========================================================
-
-    const candidatePages =
-      selectedPage
-        ? [
-            selectedPage,
-          ]
-        : pages;
-
-    for (
-      const candidatePage of
-      candidatePages
-    ) {
-      const candidatePageId =
+      instagramBusinessAccountId =
         cleanString(
-          candidatePage.id
-        );
-
-      const candidatePageToken =
-        cleanString(
-          candidatePage.access_token
-        );
-
-      if (
-        !candidatePageId ||
-        !candidatePageToken
-      ) {
-        continue;
-      }
-
-      try {
-        const instagramUrl =
-          new URL(
-            `https://graph.facebook.com/${graphVersion}/${candidatePageId}`
-          );
-
-        instagramUrl.search =
-          new URLSearchParams({
-            fields:
-              [
-                "instagram_business_account{id,username,profile_picture_url}",
-                "connected_instagram_account{id,username,profile_picture_url}",
-              ].join(
-                ","
-              ),
-
-            access_token:
-              candidatePageToken,
-          }).toString();
-
-        const igRes =
-          await fetch(
-            instagramUrl,
-            {
-              method:
-                "GET",
-
-              headers: {
-                Accept:
-                  "application/json",
-              },
-
-              cache:
-                "no-store",
-            }
-          );
-
-        const igData =
-          (
-            await igRes
-              .json()
-              .catch(
-                () =>
-                  ({})
-              )
-          ) as MetaInstagramResponse;
-
-        if (
-          !igRes.ok
-        ) {
-          console.warn(
-            `[META OAUTH] Instagram discovery failed for Page ${candidatePageId}:`,
-            igData
-          );
-
-          continue;
-        }
-
-        const instagramAccount =
-          igData
-            .instagram_business_account ||
-          igData
-            .connected_instagram_account ||
-          null;
-
-        if (
           instagramAccount?.id
-        ) {
-          /*
-           * Only automatically select this page when there
-           * wasn't already an explicit requested page.
-           */
-          if (
-            !selectedPage
-          ) {
-            selectedPage =
-              candidatePage;
-          }
-
-          instagramBusinessAccountId =
-            cleanString(
-              instagramAccount.id
-            );
-
-          instagramUsername =
-            cleanString(
-              instagramAccount.username
-            );
-
-          instagramAvatarUrl =
-            cleanString(
-              instagramAccount
-                .profile_picture_url
-            );
-
-          break;
-        }
-      } catch (
-        error
-      ) {
-        console.warn(
-          `[META OAUTH] Instagram discovery error for Page ${candidatePageId}:`,
-          error
         );
-      }
-    }
 
-    // ========================================================
-    // 9. FALL BACK TO FIRST VALID PAGE
-    // ========================================================
-
-    if (
-      !selectedPage
-    ) {
-      selectedPage =
-        pages.find(
-          (
-            candidatePage
-          ) =>
-            Boolean(
-              cleanString(
-                candidatePage.id
-              ) &&
-              cleanString(
-                candidatePage.access_token
-              )
-            )
-        ) ??
-        null;
-    }
-
-    const pageId =
-      cleanString(
-        selectedPage
-          ?.id
-      );
-
-    const pageName =
-      cleanString(
-        selectedPage
-          ?.name
-      );
-
-    const pageAccessToken =
-      cleanString(
-        selectedPage
-          ?.access_token
-      );
-
-    const pageAvatarUrl =
-      cleanString(
-        selectedPage
-          ?.picture
-          ?.data
-          ?.url
-      );
-
-    if (
-      !pageId ||
-      !pageAccessToken
-    ) {
-      throw new Error(
-        "A Facebook Page was returned, but Meta did not provide the Page credentials TOTS-OS needs."
-      );
-    }
-
-    // ========================================================
-    // 10. IF INSTAGRAM WASN'T FOUND ABOVE, CHECK SELECTED PAGE
-    // ========================================================
-
-    if (
-      !instagramBusinessAccountId
-    ) {
-      try {
-        const instagramUrl =
-          new URL(
-            `https://graph.facebook.com/${graphVersion}/${pageId}`
-          );
-
-        instagramUrl.search =
-          new URLSearchParams({
-            fields:
-              [
-                "instagram_business_account{id,username,profile_picture_url}",
-                "connected_instagram_account{id,username,profile_picture_url}",
-              ].join(
-                ","
-              ),
-
-            access_token:
-              pageAccessToken,
-          }).toString();
-
-        const igRes =
-          await fetch(
-            instagramUrl,
-            {
-              method:
-                "GET",
-
-              headers: {
-                Accept:
-                  "application/json",
-              },
-
-              cache:
-                "no-store",
-            }
-          );
-
-        const igData =
-          (
-            await igRes
-              .json()
-              .catch(
-                () =>
-                  ({})
-              )
-          ) as MetaInstagramResponse;
-
-        if (
-          igRes.ok
-        ) {
-          const instagramAccount =
-            igData
-              .instagram_business_account ||
-            igData
-              .connected_instagram_account ||
-            null;
-
-          instagramBusinessAccountId =
-            cleanString(
-              instagramAccount
-                ?.id
-            );
-
-          instagramUsername =
-            cleanString(
-              instagramAccount
-                ?.username
-            );
-
-          instagramAvatarUrl =
-            cleanString(
-              instagramAccount
-                ?.profile_picture_url
-            );
-        } else {
-          console.warn(
-            "[META OAUTH] Instagram business account lookup failed:",
-            igData
-          );
-        }
-      } catch (
-        error
-      ) {
-        console.warn(
-          "[META OAUTH] Instagram account lookup threw:",
-          error
+      instagramUsername =
+        cleanString(
+          instagramAccount
+            ?.username
         );
-      }
+
+      instagramAvatarUrl =
+        cleanString(
+          instagramAccount
+            ?.profile_picture_url
+        );
+    } catch (
+      error
+    ) {
+      console.warn(
+        "[META OAUTH] Instagram lookup failed:",
+        error
+      );
     }
 
     console.log(
       "[META OAUTH] Selected Meta assets:",
       {
         organisationId,
-
+        organisationName,
         pageId,
-
         pageName,
-
         instagramBusinessAccountId,
-
         instagramUsername,
       }
     );
 
     // ========================================================
-    // 11. CHOOSE DISPLAY DATA
+    // 11. DISPLAY DATA
     // ========================================================
 
     const displayName =
@@ -1624,21 +1469,7 @@ export async function GET(
       null;
 
     // ========================================================
-    // 12. FIND EXISTING META ROW
-    //
-    // CRITICAL:
-    // Existing connections are now scoped to BOTH user and
-    // organisation.
-    //
-    // This means:
-    //
-    // TOTS + Meta
-    //
-    // and
-    //
-    // MTC + Meta
-    //
-    // are separate database records.
+    // 12. EXISTING META CONNECTION
     // ========================================================
 
     const {
@@ -1686,11 +1517,6 @@ export async function GET(
     if (
       existingLookupError
     ) {
-      console.error(
-        "[META OAUTH] Existing social account lookup failed:",
-        existingLookupError
-      );
-
       throw new Error(
         `Social account lookup failed: ${existingLookupError.message}`
       );
@@ -1708,7 +1534,7 @@ export async function GET(
       null;
 
     // ========================================================
-    // 13. SOCIAL ACCOUNT PAYLOAD
+    // 13. PAYLOAD
     // ========================================================
 
     const socialAccountPayload:
@@ -1737,10 +1563,6 @@ export async function GET(
       access_token:
         accessToken,
 
-      /*
-       * Meta long-lived user tokens are not refreshed using the
-       * normal OAuth refresh_token flow.
-       */
       refresh_token:
         null,
 
@@ -1764,7 +1586,7 @@ export async function GET(
     };
 
     // ========================================================
-    // 14. UPDATE OR INSERT
+    // 14. SAVE
     // ========================================================
 
     let savedConnectionId:
@@ -1823,11 +1645,6 @@ export async function GET(
       if (
         updateError
       ) {
-        console.error(
-          "[META OAUTH] Meta account UPDATE failed:",
-          updateError
-        );
-
         throw new Error(
           `Meta connection could not be saved: ${updateError.message}`
         );
@@ -1841,36 +1658,11 @@ export async function GET(
         );
       }
 
-      const updatedAccount =
-        rawUpdatedAccount as
-          SavedSocialAccountRow;
-
       savedConnectionId =
-        updatedAccount.id;
-
-      console.log(
-        "[META OAUTH] Existing Meta connection updated:",
-        {
-          socialAccountId:
-            updatedAccount.id,
-
-          userId,
-
-          organisationId,
-
-          facebookUserId,
-
-          displayName,
-
-          pageId,
-
-          pageName,
-
-          instagramBusinessAccountId,
-
-          expiresAt,
-        }
-      );
+        (
+          rawUpdatedAccount as
+            SavedSocialAccountRow
+        ).id;
     } else {
       const {
         data:
@@ -1906,11 +1698,6 @@ export async function GET(
       if (
         insertError
       ) {
-        console.error(
-          "[META OAUTH] Meta account INSERT failed:",
-          insertError
-        );
-
         throw new Error(
           `Meta connection could not be saved: ${insertError.message}`
         );
@@ -1924,44 +1711,15 @@ export async function GET(
         );
       }
 
-      const insertedAccount =
-        rawInsertedAccount as
-          SavedSocialAccountRow;
-
       savedConnectionId =
-        insertedAccount.id;
-
-      console.log(
-        "[META OAUTH] New Meta connection created:",
-        {
-          socialAccountId:
-            insertedAccount.id,
-
-          userId,
-
-          organisationId,
-
-          facebookUserId,
-
-          displayName,
-
-          pageId,
-
-          pageName,
-
-          instagramBusinessAccountId,
-
-          expiresAt,
-        }
-      );
+        (
+          rawInsertedAccount as
+            SavedSocialAccountRow
+        ).id;
     }
 
     // ========================================================
-    // 15. FINAL DATABASE VERIFICATION
-    //
-    // Again, organisation_id is included so we cannot
-    // accidentally validate a connection belonging to another
-    // organisation.
+    // 15. VERIFY
     // ========================================================
 
     const {
@@ -2014,11 +1772,6 @@ export async function GET(
     if (
       verificationError
     ) {
-      console.error(
-        "[META OAUTH] Final Meta connection verification query failed:",
-        verificationError
-      );
-
       throw new Error(
         "Meta authenticated successfully, but TOTS-OS could not verify the saved connection."
       );
@@ -2045,19 +1798,8 @@ export async function GET(
       );
     }
 
-    if (
-      !verifiedConnection
-        .page_id ||
-      !verifiedConnection
-        .page_access_token
-    ) {
-      console.warn(
-        "[META OAUTH] Meta login was saved but Page publishing credentials are incomplete."
-      );
-    }
-
     // ========================================================
-    // 16. SUCCESS LOG
+    // SUCCESS
     // ========================================================
 
     console.log(
@@ -2066,17 +1808,10 @@ export async function GET(
         connectionId:
           verifiedConnection.id,
 
-        userId:
-          verifiedConnection.user_id,
-
         organisationId:
           verifiedConnection.organisation_id,
 
-        facebookUserId:
-          verifiedConnection.platform_user_id,
-
-        displayName:
-          verifiedConnection.display_name,
+        organisationName,
 
         pageId:
           verifiedConnection.page_id,
@@ -2084,24 +1819,12 @@ export async function GET(
         pageName:
           verifiedConnection.page_name,
 
-        hasPageAccessToken:
-          Boolean(
-            verifiedConnection.page_access_token
-          ),
-
         instagramBusinessAccountId:
           verifiedConnection.instagram_business_account_id,
-
-        expiresAt:
-          verifiedConnection.expires_at,
 
         graphVersion,
       }
     );
-
-    // ========================================================
-    // 17. SUCCESS REDIRECT
-    // ========================================================
 
     return redirectSuccess(
       appUrl

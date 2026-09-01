@@ -27,6 +27,11 @@ import {
 // TYPES
 // ============================================================
 
+type SocialConnectionsProps = {
+  organisationId:
+    string | null;
+};
+
 const platforms = [
   {
     id: "meta",
@@ -104,6 +109,9 @@ type SocialAccountRow = {
 
 type OAuthState = {
   userId:
+    string;
+
+  organisationId:
     string;
 
   platform:
@@ -193,23 +201,26 @@ function getConnectPath(
     platform ===
     "meta"
   ) {
-    return "/api/oauth/meta";
+    return "/api/auth/meta";
   }
 
   if (
     platform ===
     "linkedin"
   ) {
-    return "/api/oauth/linkedin";
+    return "/api/auth/linkedin";
   }
 
-  return "/api/oauth/tiktok";
+  return "/api/auth/tiktok";
 }
 
 // ============================================================
 
 function createOAuthState(
   userId:
+    string,
+
+  organisationId:
     string,
 
   platform:
@@ -224,6 +235,8 @@ function createOAuthState(
   const payload:
     OAuthState = {
     userId,
+
+    organisationId,
 
     platform,
 
@@ -286,7 +299,9 @@ function clearOAuthStorage(
 // COMPONENT
 // ============================================================
 
-export default function SocialConnections() {
+export default function SocialConnections({
+  organisationId,
+}: SocialConnectionsProps) {
   // ==========================================================
   // STATE
   // ==========================================================
@@ -493,13 +508,8 @@ export default function SocialConnections() {
         );
 
         try {
-          const {
-            data,
-
-            error:
-              loadError,
-          } =
-            await supabase
+          let query =
+            supabase
               .from(
                 "social_accounts"
               )
@@ -526,14 +536,39 @@ export default function SocialConnections() {
               .eq(
                 "user_id",
                 userId
-              )
-              .order(
-                "updated_at",
-                {
-                  ascending:
-                    false,
-                }
               );
+
+          /*
+           * IMPORTANT:
+           *
+           * Social connections are organisation-specific.
+           * This prevents an account connected to one workspace
+           * from appearing inside another workspace.
+           */
+
+          if (
+            organisationId
+          ) {
+            query =
+              query.eq(
+                "organisation_id",
+                organisationId
+              );
+          }
+
+          const {
+            data,
+
+            error:
+              loadError,
+          } =
+            await query.order(
+              "updated_at",
+              {
+                ascending:
+                  false,
+              }
+            );
 
           if (
             loadError
@@ -564,7 +599,11 @@ export default function SocialConnections() {
 
           console.log(
             "[TOTS SOCIAL CONNECTIONS] Loaded accounts:",
-            cleaned
+            {
+              organisationId,
+              accounts:
+                cleaned,
+            }
           );
         } catch (
           loadError:
@@ -593,6 +632,7 @@ export default function SocialConnections() {
       },
       [
         userId,
+        organisationId,
       ]
     );
 
@@ -612,6 +652,7 @@ export default function SocialConnections() {
     },
     [
       userId,
+      organisationId,
       loadConnections,
     ]
   );
@@ -681,7 +722,9 @@ export default function SocialConnections() {
       const channel =
         supabase
           .channel(
-            `social-connections-${userId}`
+            organisationId
+              ? `social-connections-${userId}-${organisationId}`
+              : `social-connections-${userId}`
           )
           .on(
             "postgres_changes",
@@ -696,7 +739,9 @@ export default function SocialConnections() {
                 "social_accounts",
 
               filter:
-                `user_id=eq.${userId}`,
+                organisationId
+                  ? `organisation_id=eq.${organisationId}`
+                  : `user_id=eq.${userId}`,
             },
             (
               payload
@@ -730,6 +775,7 @@ export default function SocialConnections() {
     },
     [
       userId,
+      organisationId,
       loadConnections,
     ]
   );
@@ -891,6 +937,24 @@ export default function SocialConnections() {
     );
 
     // ========================================================
+    // ORGANISATION IS REQUIRED
+    // ========================================================
+
+    if (
+      !organisationId
+    ) {
+      console.error(
+        "[TOTS SOCIAL CONNECTIONS] OAuth blocked: missing organisationId"
+      );
+
+      setError(
+        "No active organisation is selected. Please refresh TOTS-OS and select your workspace before connecting a social account."
+      );
+
+      return;
+    }
+
+    // ========================================================
     // VERIFY USER AGAIN IMMEDIATELY BEFORE OAUTH
     // ========================================================
 
@@ -958,6 +1022,7 @@ export default function SocialConnections() {
       } =
         createOAuthState(
           authenticatedUserId,
+          organisationId,
           platform
         );
 
@@ -990,6 +1055,11 @@ export default function SocialConnections() {
               Date.now()
             )
           );
+
+          window.sessionStorage.setItem(
+            "oauth_organisation_id",
+            organisationId
+          );
         } catch (
           storageError
         ) {
@@ -1015,28 +1085,18 @@ export default function SocialConnections() {
           window.location.origin
         );
 
-      /*
-       * CRITICAL FIX:
-       *
-       * Your previous component redirected to:
-       *
-       * /api/oauth/meta
-       *
-       * with no authenticated user information.
-       *
-       * The OAuth start route now receives BOTH:
-       *
-       * userId
-       * state
-       * platform
-       *
-       * so either supported start-route implementation can
-       * resolve the authenticated user correctly.
-       */
+      // ======================================================
+      // CRITICAL OAuth PARAMETERS
+      // ======================================================
 
       connectUrl.searchParams.set(
         "userId",
         authenticatedUserId
+      );
+
+      connectUrl.searchParams.set(
+        "organisationId",
+        organisationId
       );
 
       connectUrl.searchParams.set(
@@ -1057,7 +1117,12 @@ export default function SocialConnections() {
           userId:
             authenticatedUserId,
 
+          organisationId,
+
           path,
+
+          url:
+            connectUrl.toString(),
 
           hasState:
             true,
@@ -1147,14 +1212,8 @@ export default function SocialConnections() {
     );
 
     try {
-      const {
-        data:
-          deletedRows,
-
-        error:
-          deleteError,
-      } =
-        await supabase
+      let deleteQuery =
+        supabase
           .from(
             "social_accounts"
           )
@@ -1166,10 +1225,28 @@ export default function SocialConnections() {
           .eq(
             "user_id",
             userId
-          )
-          .select(
-            "id"
           );
+
+      if (
+        organisationId
+      ) {
+        deleteQuery =
+          deleteQuery.eq(
+            "organisation_id",
+            organisationId
+          );
+      }
+
+      const {
+        data:
+          deletedRows,
+
+        error:
+          deleteError,
+      } =
+        await deleteQuery.select(
+          "id"
+        );
 
       if (
         deleteError
@@ -1229,9 +1306,7 @@ export default function SocialConnections() {
       <div className="flex min-h-[180px] items-center justify-center rounded-[1.5rem] bg-stone-50">
         <div className="text-center">
           <Loader2
-            size={
-              22
-            }
+            size={22}
             className="mx-auto animate-spin text-[#829473]"
           />
 
@@ -1249,7 +1324,6 @@ export default function SocialConnections() {
 
   return (
     <section className="space-y-5">
-
       {/* =====================================================
           ERROR
       ===================================================== */}
@@ -1257,9 +1331,7 @@ export default function SocialConnections() {
       {error && (
         <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4">
           <TriangleAlert
-            size={
-              17
-            }
+            size={17}
             className="mt-0.5 shrink-0 text-red-400"
           />
 
@@ -1268,6 +1340,30 @@ export default function SocialConnections() {
               error
             }
           </p>
+        </div>
+      )}
+
+      {/* =====================================================
+          ORGANISATION WARNING
+      ===================================================== */}
+
+      {!organisationId && (
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <TriangleAlert
+            size={17}
+            className="mt-0.5 shrink-0 text-amber-500"
+          />
+
+          <div>
+            <p className="text-xs font-semibold text-amber-800">
+              No active organisation
+            </p>
+
+            <p className="mt-1 text-[10px] leading-5 text-amber-700">
+              Select an organisation before connecting social
+              accounts.
+            </p>
+          </div>
         </div>
       )}
 
@@ -1301,9 +1397,7 @@ export default function SocialConnections() {
           className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-[8px] font-black uppercase tracking-[0.13em] text-stone-500 disabled:opacity-50"
         >
           <RefreshCw
-            size={
-              12
-            }
+            size={12}
             className={
               refreshing
                 ? "animate-spin"
@@ -1352,27 +1446,21 @@ export default function SocialConnections() {
                 className="rounded-[1.5rem] border border-stone-200 bg-white p-5 transition hover:border-stone-300 sm:p-6"
               >
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-
                   {/* =========================================
                       INFO
                   ========================================= */}
 
                   <div className="flex min-w-0 items-start gap-4">
-
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-stone-100 text-stone-600">
                       {platform.id ===
                       "meta" ? (
                         <Facebook
-                          size={
-                            20
-                          }
+                          size={20}
                         />
                       ) : platform.id ===
                         "linkedin" ? (
                         <Linkedin
-                          size={
-                            20
-                          }
+                          size={20}
                         />
                       ) : (
                         <span className="text-xs font-black">
@@ -1382,7 +1470,6 @@ export default function SocialConnections() {
                     </div>
 
                     <div className="min-w-0">
-
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-semibold text-stone-800">
                           {
@@ -1393,9 +1480,7 @@ export default function SocialConnections() {
                         {connected && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-emerald-700">
                             <CheckCircle2
-                              size={
-                                9
-                              }
+                              size={9}
                             />
 
                             Connected
@@ -1421,7 +1506,6 @@ export default function SocialConnections() {
 
                       {account && (
                         <div className="mt-3 space-y-1">
-
                           {account.display_name && (
                             <p className="truncate text-[10px] font-semibold text-stone-600">
                               {
@@ -1446,9 +1530,7 @@ export default function SocialConnections() {
                             account.instagram_business_account_id && (
                               <p className="inline-flex items-center gap-1.5 text-[10px] text-stone-400">
                                 <Instagram
-                                  size={
-                                    11
-                                  }
+                                  size={11}
                                 />
 
                                 Instagram Business connected
@@ -1483,7 +1565,6 @@ export default function SocialConnections() {
                   ========================================= */}
 
                   <div className="flex shrink-0 items-center gap-2 sm:pl-4">
-
                     {connected ? (
                       <button
                         type="button"
@@ -1499,16 +1580,12 @@ export default function SocialConnections() {
                       >
                         {buttonLoading ? (
                           <Loader2
-                            size={
-                              12
-                            }
+                            size={12}
                             className="animate-spin"
                           />
                         ) : (
                           <LogOut
-                            size={
-                              12
-                            }
+                            size={12}
                           />
                         )}
 
@@ -1521,6 +1598,7 @@ export default function SocialConnections() {
                         type="button"
                         disabled={
                           !userId ||
+                          !organisationId ||
                           buttonLoading
                         }
                         onClick={() =>
@@ -1533,9 +1611,7 @@ export default function SocialConnections() {
                         {buttonLoading ? (
                           <>
                             <Loader2
-                              size={
-                                12
-                              }
+                              size={12}
                               className="animate-spin"
                             />
 
@@ -1548,9 +1624,7 @@ export default function SocialConnections() {
                               : `Connect ${platform.name}`}
 
                             <ExternalLink
-                              size={
-                                11
-                              }
+                              size={11}
                             />
                           </>
                         )}
@@ -1574,11 +1648,8 @@ export default function SocialConnections() {
         ) && (
           <div className="rounded-[1.5rem] border border-[#dce4d2] bg-[#f5f7f2] p-5">
             <div className="flex items-start gap-3">
-
               <CheckCircle2
-                size={
-                  16
-                }
+                size={16}
                 className="mt-0.5 shrink-0 text-[#829473]"
               />
 

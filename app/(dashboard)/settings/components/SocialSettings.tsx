@@ -19,6 +19,9 @@ import type {
 // ============================================================
 
 type SocialSettingsProps = {
+  organisationId:
+    string | null;
+
   socialAccounts?: SocialAccount[];
 
   connectionHealth?: Record<
@@ -173,8 +176,10 @@ function getHealthClasses(
 // ============================================================
 
 function getAccountString(
-  account: SocialAccount | undefined,
-  key: string
+  account:
+    SocialAccount | undefined,
+  key:
+    string
 ) {
   if (
     !account
@@ -192,7 +197,7 @@ function getAccountString(
 
   if (
     typeof value !==
-      "string"
+    "string"
   ) {
     return null;
   }
@@ -209,6 +214,7 @@ function getAccountString(
 // ============================================================
 
 export default function SocialSettings({
+  organisationId,
   socialAccounts = [],
   connectionHealth = {},
 }: SocialSettingsProps) {
@@ -217,7 +223,8 @@ export default function SocialSettings({
   // ==========================================================
 
   function getPlatformAccount(
-    platform: SupportedPlatform
+    platform:
+      SupportedPlatform
   ) {
     return socialAccounts.find(
       (
@@ -428,7 +435,8 @@ export default function SocialSettings({
                         "connected" &&
                         !account && (
                           <p className="mt-3 text-[9px] leading-4 text-stone-400">
-                            Connection found. Account details are still loading.
+                            Connection found. Account details are
+                            still loading.
                           </p>
                         )}
                     </div>
@@ -460,7 +468,11 @@ export default function SocialSettings({
           </p>
         </div>
 
-        <SocialConnections />
+        <SocialConnections
+          organisationId={
+            organisationId
+          }
+        />
       </div>
     </div>
   );

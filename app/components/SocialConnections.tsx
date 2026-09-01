@@ -28,7 +28,7 @@ import {
 // ============================================================
 
 type SocialConnectionsProps = {
-  organisationId:
+  organisationId?:
     string | null;
 };
 
@@ -59,7 +59,8 @@ type PlatformId =
   (typeof platforms)[number]["id"];
 
 type SocialAccountRow = {
-  id: string;
+  id:
+    string;
 
   user_id:
     string;
@@ -125,6 +126,26 @@ type OAuthState = {
 // HELPERS
 // ============================================================
 
+function cleanString(
+  value:
+    unknown
+): string | null {
+  if (
+    typeof value !==
+    "string"
+  ) {
+    return null;
+  }
+
+  const cleaned =
+    value.trim();
+
+  return cleaned ||
+    null;
+}
+
+// ============================================================
+
 function normalisePlatform(
   value:
     | string
@@ -154,8 +175,17 @@ function normalisePlatform(
 
 function getConnectionStorageKey(
   platform:
-    PlatformId
+    PlatformId,
+
+  organisationId?:
+    string | null
 ) {
+  if (
+    organisationId
+  ) {
+    return `oauth_pending_${platform}_${organisationId}`;
+  }
+
   return `oauth_pending_${platform}`;
 }
 
@@ -163,8 +193,17 @@ function getConnectionStorageKey(
 
 function getStateStorageKey(
   platform:
-    PlatformId
+    PlatformId,
+
+  organisationId?:
+    string | null
 ) {
+  if (
+    organisationId
+  ) {
+    return `oauth_state_${platform}_${organisationId}`;
+  }
+
   return `oauth_state_${platform}`;
 }
 
@@ -263,7 +302,10 @@ function createOAuthState(
 
 function clearOAuthStorage(
   platform:
-    PlatformId
+    PlatformId,
+
+  organisationId?:
+    string | null
 ) {
   if (
     typeof window ===
@@ -273,6 +315,20 @@ function clearOAuthStorage(
   }
 
   try {
+    window.sessionStorage.removeItem(
+      getConnectionStorageKey(
+        platform,
+        organisationId
+      )
+    );
+
+    window.sessionStorage.removeItem(
+      getStateStorageKey(
+        platform,
+        organisationId
+      )
+    );
+
     window.sessionStorage.removeItem(
       getConnectionStorageKey(
         platform
@@ -288,6 +344,10 @@ function clearOAuthStorage(
     window.sessionStorage.removeItem(
       "oauth_started_at"
     );
+
+    window.sessionStorage.removeItem(
+      "oauth_organisation_id"
+    );
   } catch {
     /*
      * Best effort only.
@@ -300,8 +360,14 @@ function clearOAuthStorage(
 // ============================================================
 
 export default function SocialConnections({
-  organisationId,
+  organisationId:
+    organisationIdProp = null,
 }: SocialConnectionsProps) {
+  const organisationId =
+    cleanString(
+      organisationIdProp
+    );
+
   // ==========================================================
   // STATE
   // ==========================================================
@@ -412,10 +478,6 @@ export default function SocialConnections({
             if (
               !user?.id
             ) {
-              console.warn(
-                "[TOTS SOCIAL CONNECTIONS] No authenticated user."
-              );
-
               setUserId(
                 null
               );
@@ -430,11 +492,6 @@ export default function SocialConnections({
 
               return;
             }
-
-            console.log(
-              "[TOTS SOCIAL CONNECTIONS] Authenticated user:",
-              user.id
-            );
 
             setUserId(
               user.id
@@ -476,6 +533,25 @@ export default function SocialConnections({
   );
 
   // ==========================================================
+  // RESET WHEN ORGANISATION CHANGES
+  // ==========================================================
+
+  useEffect(
+    () => {
+      setAccounts(
+        []
+      );
+
+      setError(
+        null
+      );
+    },
+    [
+      organisationId,
+    ]
+  );
+
+  // ==========================================================
   // LOAD CONNECTIONS
   // ==========================================================
 
@@ -488,6 +564,24 @@ export default function SocialConnections({
         if (
           !userId
         ) {
+          return;
+        }
+
+        if (
+          !organisationId
+        ) {
+          setAccounts(
+            []
+          );
+
+          setLoading(
+            false
+          );
+
+          setRefreshing(
+            false
+          );
+
           return;
         }
 
@@ -508,8 +602,13 @@ export default function SocialConnections({
         );
 
         try {
-          let query =
-            supabase
+          const {
+            data,
+
+            error:
+              loadError,
+          } =
+            await supabase
               .from(
                 "social_accounts"
               )
@@ -536,39 +635,18 @@ export default function SocialConnections({
               .eq(
                 "user_id",
                 userId
-              );
-
-          /*
-           * IMPORTANT:
-           *
-           * Social connections are organisation-specific.
-           * This prevents an account connected to one workspace
-           * from appearing inside another workspace.
-           */
-
-          if (
-            organisationId
-          ) {
-            query =
-              query.eq(
+              )
+              .eq(
                 "organisation_id",
                 organisationId
+              )
+              .order(
+                "updated_at",
+                {
+                  ascending:
+                    false,
+                }
               );
-          }
-
-          const {
-            data,
-
-            error:
-              loadError,
-          } =
-            await query.order(
-              "updated_at",
-              {
-                ascending:
-                  false,
-              }
-            );
 
           if (
             loadError
@@ -598,11 +676,12 @@ export default function SocialConnections({
           );
 
           console.log(
-            "[TOTS SOCIAL CONNECTIONS] Loaded accounts:",
+            "[TOTS SOCIAL CONNECTIONS] Loaded organisation accounts:",
             {
               organisationId,
-              accounts:
-                cleaned,
+
+              count:
+                cleaned.length,
             }
           );
         } catch (
@@ -666,7 +745,8 @@ export default function SocialConnections({
       if (
         typeof window ===
           "undefined" ||
-        !userId
+        !userId ||
+        !organisationId
       ) {
         return;
       }
@@ -703,6 +783,7 @@ export default function SocialConnections({
     },
     [
       userId,
+      organisationId,
       loadConnections,
     ]
   );
@@ -714,7 +795,8 @@ export default function SocialConnections({
   useEffect(
     () => {
       if (
-        !userId
+        !userId ||
+        !organisationId
       ) {
         return;
       }
@@ -722,9 +804,7 @@ export default function SocialConnections({
       const channel =
         supabase
           .channel(
-            organisationId
-              ? `social-connections-${userId}-${organisationId}`
-              : `social-connections-${userId}`
+            `social-connections-${userId}-${organisationId}`
           )
           .on(
             "postgres_changes",
@@ -739,15 +819,13 @@ export default function SocialConnections({
                 "social_accounts",
 
               filter:
-                organisationId
-                  ? `organisation_id=eq.${organisationId}`
-                  : `user_id=eq.${userId}`,
+                `organisation_id=eq.${organisationId}`,
             },
             (
               payload
             ) => {
               console.log(
-                "[TOTS SOCIAL CONNECTIONS] Realtime update:",
+                "[TOTS SOCIAL CONNECTIONS] Realtime organisation update:",
                 payload
               );
 
@@ -756,16 +834,7 @@ export default function SocialConnections({
               );
             }
           )
-          .subscribe(
-            (
-              status
-            ) => {
-              console.log(
-                "[TOTS SOCIAL CONNECTIONS] Realtime status:",
-                status
-              );
-            }
-          );
+          .subscribe();
 
       return () => {
         void supabase.removeChannel(
@@ -789,7 +858,8 @@ export default function SocialConnections({
       if (
         typeof window ===
           "undefined" ||
-        !userId
+        !userId ||
+        !organisationId
       ) {
         return;
       }
@@ -815,6 +885,7 @@ export default function SocialConnections({
     },
     [
       userId,
+      organisationId,
       loadConnections,
     ]
   );
@@ -885,12 +956,7 @@ export default function SocialConnections({
       ];
 
     if (
-      !account
-    ) {
-      return false;
-    }
-
-    if (
+      !account ||
       !account.access_token
     ) {
       return false;
@@ -936,27 +1002,15 @@ export default function SocialConnections({
       null
     );
 
-    // ========================================================
-    // ORGANISATION IS REQUIRED
-    // ========================================================
-
     if (
       !organisationId
     ) {
-      console.error(
-        "[TOTS SOCIAL CONNECTIONS] OAuth blocked: missing organisationId"
-      );
-
       setError(
-        "No active organisation is selected. Please refresh TOTS-OS and select your workspace before connecting a social account."
+        "No active organisation is selected. Select your workspace before connecting a social account."
       );
 
       return;
     }
-
-    // ========================================================
-    // VERIFY USER AGAIN IMMEDIATELY BEFORE OAUTH
-    // ========================================================
 
     let authenticatedUserId =
       userId;
@@ -1009,10 +1063,6 @@ export default function SocialConnections({
     );
 
     try {
-      // ======================================================
-      // BUILD OAUTH STATE
-      // ======================================================
-
       const {
         raw:
           rawState,
@@ -1026,15 +1076,27 @@ export default function SocialConnections({
           platform
         );
 
-      // ======================================================
-      // SAVE PENDING STATE
-      // ======================================================
-
       if (
         typeof window !==
         "undefined"
       ) {
         try {
+          window.sessionStorage.setItem(
+            getConnectionStorageKey(
+              platform,
+              organisationId
+            ),
+            "true"
+          );
+
+          window.sessionStorage.setItem(
+            getStateStorageKey(
+              platform,
+              organisationId
+            ),
+            rawState
+          );
+
           window.sessionStorage.setItem(
             getConnectionStorageKey(
               platform
@@ -1070,10 +1132,6 @@ export default function SocialConnections({
         }
       }
 
-      // ======================================================
-      // BUILD START URL
-      // ======================================================
-
       const path =
         getConnectPath(
           platform
@@ -1084,10 +1142,6 @@ export default function SocialConnections({
           path,
           window.location.origin
         );
-
-      // ======================================================
-      // CRITICAL OAuth PARAMETERS
-      // ======================================================
 
       connectUrl.searchParams.set(
         "userId",
@@ -1121,17 +1175,10 @@ export default function SocialConnections({
 
           path,
 
-          url:
-            connectUrl.toString(),
-
           hasState:
             true,
         }
       );
-
-      // ======================================================
-      // REDIRECT
-      // ======================================================
 
       window.location.assign(
         connectUrl.toString()
@@ -1146,7 +1193,8 @@ export default function SocialConnections({
       );
 
       clearOAuthStorage(
-        platform
+        platform,
+        organisationId
       );
 
       setError(
@@ -1174,6 +1222,7 @@ export default function SocialConnections({
   ) {
     if (
       !userId ||
+      !organisationId ||
       activePlatform
     ) {
       return;
@@ -1212,8 +1261,14 @@ export default function SocialConnections({
     );
 
     try {
-      let deleteQuery =
-        supabase
+      const {
+        data:
+          deletedRows,
+
+        error:
+          deleteError,
+      } =
+        await supabase
           .from(
             "social_accounts"
           )
@@ -1225,28 +1280,14 @@ export default function SocialConnections({
           .eq(
             "user_id",
             userId
-          );
-
-      if (
-        organisationId
-      ) {
-        deleteQuery =
-          deleteQuery.eq(
+          )
+          .eq(
             "organisation_id",
             organisationId
+          )
+          .select(
+            "id"
           );
-      }
-
-      const {
-        data:
-          deletedRows,
-
-        error:
-          deleteError,
-      } =
-        await deleteQuery.select(
-          "id"
-        );
 
       if (
         deleteError
@@ -1265,7 +1306,8 @@ export default function SocialConnections({
       }
 
       clearOAuthStorage(
-        platform
+        platform,
+        organisationId
       );
 
       await loadConnections(
@@ -1324,10 +1366,6 @@ export default function SocialConnections({
 
   return (
     <section className="space-y-5">
-      {/* =====================================================
-          ERROR
-      ===================================================== */}
-
       {error && (
         <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4">
           <TriangleAlert
@@ -1343,10 +1381,6 @@ export default function SocialConnections({
         </div>
       )}
 
-      {/* =====================================================
-          ORGANISATION WARNING
-      ===================================================== */}
-
       {!organisationId && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
           <TriangleAlert
@@ -1360,16 +1394,12 @@ export default function SocialConnections({
             </p>
 
             <p className="mt-1 text-[10px] leading-5 text-amber-700">
-              Select an organisation before connecting social
-              accounts.
+              TOTS-OS needs to know which workspace you are currently
+              using before social accounts can be connected.
             </p>
           </div>
         </div>
       )}
-
-      {/* =====================================================
-          TOOLBAR
-      ===================================================== */}
 
       <div className="flex items-center justify-between gap-4">
         <p className="text-[9px] text-stone-400">
@@ -1387,14 +1417,15 @@ export default function SocialConnections({
         <button
           type="button"
           disabled={
-            refreshing
+            refreshing ||
+            !organisationId
           }
           onClick={() =>
             void loadConnections(
               true
             )
           }
-          className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-[8px] font-black uppercase tracking-[0.13em] text-stone-500 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-[8px] font-black uppercase tracking-[0.13em] text-stone-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <RefreshCw
             size={12}
@@ -1408,10 +1439,6 @@ export default function SocialConnections({
           Refresh
         </button>
       </div>
-
-      {/* =====================================================
-          PLATFORM CARDS
-      ===================================================== */}
 
       <div className="grid gap-4">
         {platforms.map(
@@ -1435,7 +1462,7 @@ export default function SocialConnections({
             const expired =
               Boolean(
                 account &&
-                  !connected
+                !connected
               );
 
             return (
@@ -1446,10 +1473,6 @@ export default function SocialConnections({
                 className="rounded-[1.5rem] border border-stone-200 bg-white p-5 transition hover:border-stone-300 sm:p-6"
               >
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                  {/* =========================================
-                      INFO
-                  ========================================= */}
-
                   <div className="flex min-w-0 items-start gap-4">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-stone-100 text-stone-600">
                       {platform.id ===
@@ -1499,10 +1522,6 @@ export default function SocialConnections({
                           platform.description
                         }
                       </p>
-
-                      {/* =====================================
-                          CONNECTED ACCOUNT DETAILS
-                      ===================================== */}
 
                       {account && (
                         <div className="mt-3 space-y-1">
@@ -1559,10 +1578,6 @@ export default function SocialConnections({
                       )}
                     </div>
                   </div>
-
-                  {/* =========================================
-                      ACTIONS
-                  ========================================= */}
 
                   <div className="flex shrink-0 items-center gap-2 sm:pl-4">
                     {connected ? (
@@ -1638,10 +1653,6 @@ export default function SocialConnections({
         )}
       </div>
 
-      {/* =====================================================
-          META DETAIL
-      ===================================================== */}
-
       {accountMap.meta &&
         isConnected(
           "meta"
@@ -1655,7 +1666,7 @@ export default function SocialConnections({
 
               <div>
                 <p className="text-xs font-semibold text-stone-700">
-                  Meta is connected to TOTS-OS.
+                  Meta is connected to this workspace.
                 </p>
 
                 <p className="mt-1 text-[10px] leading-5 text-stone-500">

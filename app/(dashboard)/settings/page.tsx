@@ -1563,7 +1563,9 @@ function SettingsInner() {
 
     verifyPendingOAuth,
   } =
-    useSocialConnections();
+    useSocialConnections(
+      organisationId
+    );
 
   const [
     showConnectedModal,

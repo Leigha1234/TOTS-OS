@@ -354,6 +354,10 @@ function clearOAuthStorage(
     window.sessionStorage.removeItem(
       "oauth_started_at"
     );
+
+    window.sessionStorage.removeItem(
+      "oauth_organisation_id"
+    );
   } catch {
     // Best effort only.
   }
@@ -521,6 +525,8 @@ function SettingsInner() {
   const {
     mobileNav:
       contextMobileNav,
+
+    organisationId,
 
     refreshSettings,
   } =
@@ -2029,10 +2035,6 @@ function SettingsInner() {
 
   return (
     <div className="min-h-screen w-full min-w-0 overflow-x-hidden bg-gradient-to-b from-[#faf9f6] to-[#f3f1ec] p-4 text-stone-900 sm:p-6 lg:p-8 xl:p-10">
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
-
       <SettingsHeader
         isSaving={
           isSaving
@@ -2049,10 +2051,6 @@ function SettingsInner() {
           )
         }
       />
-
-      {/* ======================================================
-          CONTENT
-      ====================================================== */}
 
       <main className="min-h-[500px]">
         <AnimatePresence
@@ -2075,10 +2073,6 @@ function SettingsInner() {
             className="space-y-12"
           >
             <section className="space-y-10 rounded-[2rem] border border-stone-200 bg-white/90 p-4 shadow-[0_10px_40px_rgba(0,0,0,0.04)] backdrop-blur sm:p-6 lg:space-y-16 lg:rounded-[4rem] lg:p-8">
-              {/* ==================================================
-                  PROFILE
-              ================================================== */}
-
               <ProfileSettings
                 displayName={
                   displayName
@@ -2105,10 +2099,6 @@ function SettingsInner() {
                   handleLogoUpload
                 }
               />
-
-              {/* ==================================================
-                  IMPORT HUB
-              ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
                 <div className="mb-6">
@@ -2249,10 +2239,6 @@ function SettingsInner() {
                   </div>
                 </button>
               </div>
-
-              {/* ==================================================
-                  MOBILE EXPERIENCE
-              ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
                 <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -2638,10 +2624,6 @@ function SettingsInner() {
                   )}
                 </div>
               </div>
-
-              {/* ==================================================
-                  PUSH NOTIFICATIONS
-              ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
                 <div className="mb-6">
@@ -3149,6 +3131,9 @@ function SettingsInner() {
                 </div>
 
                 <SocialSettings
+                  organisationId={
+                    organisationId
+                  }
                   socialAccounts={
                     socialAccounts
                   }
@@ -3158,10 +3143,6 @@ function SettingsInner() {
                 />
               </div>
 
-              {/* ==================================================
-                  PASSWORD
-              ================================================== */}
-
               <div className="border-t border-stone-100 pt-10">
                 <PasswordSection />
               </div>
@@ -3170,17 +3151,9 @@ function SettingsInner() {
         </AnimatePresence>
       </main>
 
-      {/* ======================================================
-          LEGAL
-      ====================================================== */}
-
       <section className="mt-20 border-t border-stone-200 pt-12">
         <LegalHub />
       </section>
-
-      {/* ======================================================
-          CONNECTED SOCIAL ACCOUNT MODAL
-      ====================================================== */}
 
       <ConnectedAccountModal
         open={

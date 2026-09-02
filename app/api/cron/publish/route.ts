@@ -15,6 +15,12 @@ const TIKTOK_MAX_CHUNKS = 1000;
 const TIKTOK_MAX_VIDEO_SIZE = 4 * 1024 * 1024 * 1024;
 const TIKTOK_MAX_PHOTOS = 35;
 
+// TikTok PULL_FROM_URL must use a URL under a verified domain.
+// tots-os.co.uk is verified in TikTok; its subdomains are covered too.
+// Use www directly so TikTok does not encounter the apex -> www redirect.
+const TIKTOK_MEDIA_PROXY_BASE =
+  "https://www.tots-os.co.uk/api/social/media";
+
 // ============================================================
 // TYPES
 // ============================================================
@@ -177,6 +183,37 @@ function getPostMediaUrls(post: any): string[] {
   }
 
   return urls;
+}
+
+function getTikTokPullMediaUrl(sourceUrl: string) {
+  const cleanSourceUrl = cleanString(sourceUrl);
+
+  if (!cleanSourceUrl) {
+    throw new PermanentPublishError(
+      "TikTok media URL is missing."
+    );
+  }
+
+  let source: URL;
+
+  try {
+    source = new URL(cleanSourceUrl);
+  } catch {
+    throw new PermanentPublishError(
+      `TikTok media URL is invalid: ${cleanSourceUrl}`
+    );
+  }
+
+  if (source.protocol !== "https:") {
+    throw new PermanentPublishError(
+      "TikTok media URLs must use HTTPS."
+    );
+  }
+
+  const proxyUrl = new URL(TIKTOK_MEDIA_PROXY_BASE);
+  proxyUrl.searchParams.set("url", source.toString());
+
+  return proxyUrl.toString();
 }
 
 function parseTikTokSettings(value: unknown): TikTokPostSettings {
@@ -717,6 +754,17 @@ async function publishTikTokPhotos({
     if (isVideoMediaUrl(mediaUrl)) throw new PermanentPublishError("TikTok photo posts can only contain images.");
   }
 
+  // TikTok photo posts use PULL_FROM_URL. Do not send the raw
+  // Supabase Storage URLs because TikTok requires the supplied URLs
+  // to belong to a verified domain/URL prefix.
+  //
+  // We keep the original Supabase URLs in TOTS-OS and only transform
+  // them for the TikTok API request.
+  const tiktokPhotoUrls =
+    mediaUrls.map(
+      getTikTokPullMediaUrl
+    );
+
   const message = fullMessage.trim();
   const title = message.replace(/\s+/g, " ").substring(0, 90);
   const description = message.substring(0, 4000);
@@ -739,7 +787,11 @@ async function publishTikTokPhotos({
     },
     body: JSON.stringify({
       post_info: postInfo,
-      source_info: { source: "PULL_FROM_URL", photo_cover_index: 0, photo_images: mediaUrls },
+      source_info: {
+        source: "PULL_FROM_URL",
+        photo_cover_index: 0,
+        photo_images: tiktokPhotoUrls,
+      },
       post_mode: "DIRECT_POST",
       media_type: "PHOTO",
     }),
@@ -758,7 +810,11 @@ async function publishTikTokPhotos({
       ...initData,
       media_type: "PHOTO",
       photo_count: mediaUrls.length,
-      photo_images: mediaUrls,
+
+      // Store both forms for debugging. TikTok receives the proxy URLs;
+      // TOTS-OS still retains the original storage URLs.
+      photo_images: tiktokPhotoUrls,
+      original_photo_images: mediaUrls,
       creator: {
         username: creatorData?.data?.creator_username ?? null,
         nickname: creatorData?.data?.creator_nickname ?? null,

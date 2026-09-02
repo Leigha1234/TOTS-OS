@@ -5545,9 +5545,6 @@ export default function SocialStudioUnified() {
                   user_id:
                     user.id,
 
-                  organisation_id:
-                    organisationId,
-
                   platform,
 
                   ...payload,

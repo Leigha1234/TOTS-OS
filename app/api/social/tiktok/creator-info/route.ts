@@ -527,7 +527,11 @@ export async function POST(
           },
 
           setAll(
-            cookiesToSet
+            cookiesToSet: Array<{
+              name: string;
+              value: string;
+              options?: any;
+            }>
           ) {
             try {
               for (

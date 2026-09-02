@@ -4,14 +4,64 @@ import {
 } from "next/server";
 
 import {
-  randomBytes,
-} from "crypto";
+  createClient,
+} from "@supabase/supabase-js";
+
+// ============================================================
+// CONFIG
+// ============================================================
 
 export const runtime =
   "nodejs";
 
 export const dynamic =
   "force-dynamic";
+
+// ============================================================
+// TYPES
+// ============================================================
+
+type TikTokTokenResponse = {
+  access_token?: string;
+
+  expires_in?: number;
+
+  open_id?: string;
+
+  refresh_expires_in?: number;
+
+  refresh_token?: string;
+
+  scope?: string;
+
+  token_type?: string;
+
+  error?: string;
+
+  error_description?: string;
+
+  log_id?: string;
+};
+
+type TikTokProfileResponse = {
+  data?: {
+    user?: {
+      open_id?: string;
+
+      display_name?: string;
+
+      avatar_url?: string;
+    };
+  };
+
+  error?: {
+    code?: string;
+
+    message?: string;
+
+    log_id?: string;
+  };
+};
 
 // ============================================================
 // HELPERS
@@ -31,44 +81,109 @@ function cleanString(
   const cleaned =
     value.trim();
 
-  if (
-    !cleaned
-  ) {
-    return null;
-  }
+  return cleaned ||
+    null;
+}
 
-  /*
-   * Protect against env values accidentally being saved as:
-   *
-   * "abc123"
-   * or
-   * 'abc123'
-   */
-  if (
-    (
-      cleaned.startsWith(
-        "\""
-      ) &&
-      cleaned.endsWith(
-        "\""
-      )
+function getAppUrl() {
+  return (
+    cleanString(
+      process.env
+        .TIKTOK_POST_AUTH_REDIRECT
     ) ||
-    (
-      cleaned.startsWith(
-        "'"
-      ) &&
-      cleaned.endsWith(
-        "'"
-      )
+    cleanString(
+      process.env
+        .NEXT_PUBLIC_APP_URL
+    ) ||
+    "https://www.tots-os.co.uk"
+  );
+}
+
+function buildSettingsRedirect(
+  params:
+    Record<
+      string,
+      string
+    >
+) {
+  const url =
+    new URL(
+      "/settings",
+      getAppUrl()
+    );
+
+  for (
+    const [
+      key,
+      value,
+    ] of
+    Object.entries(
+      params
     )
   ) {
-    return cleaned.slice(
-      1,
-      -1
+    url.searchParams.set(
+      key,
+      value
     );
   }
 
-  return cleaned;
+  return url;
+}
+
+function clearOAuthCookies(
+  response:
+    NextResponse
+) {
+  const names = [
+    "tiktok_oauth_state",
+    "tiktok_oauth_user_id",
+    "tiktok_oauth_organisation_id",
+  ];
+
+  for (
+    const name of
+    names
+  ) {
+    response.cookies.set(
+      name,
+      "",
+      {
+        httpOnly:
+          true,
+
+        secure:
+          true,
+
+        sameSite:
+          "lax",
+
+        path:
+          "/",
+
+        maxAge:
+          0,
+
+        domain:
+          ".tots-os.co.uk",
+      }
+    );
+  }
+}
+
+function redirectWithError(
+  reason:
+    string
+) {
+  return NextResponse.redirect(
+    buildSettingsRedirect(
+      {
+        oauth:
+          "tiktok_failed",
+
+        reason,
+      }
+    )
+  );
 }
 
 // ============================================================
@@ -81,7 +196,174 @@ export async function GET(
 ) {
   try {
     // ========================================================
-    // ENVIRONMENT
+    // TIKTOK RESPONSE
+    // ========================================================
+
+    const code =
+      cleanString(
+        request.nextUrl
+          .searchParams
+          .get(
+            "code"
+          )
+      );
+
+    const returnedState =
+      cleanString(
+        request.nextUrl
+          .searchParams
+          .get(
+            "state"
+          )
+      );
+
+    const error =
+      cleanString(
+        request.nextUrl
+          .searchParams
+          .get(
+            "error"
+          )
+      );
+
+    const errorDescription =
+      cleanString(
+        request.nextUrl
+          .searchParams
+          .get(
+            "error_description"
+          )
+      );
+
+    if (
+      error
+    ) {
+      console.error(
+        "[TIKTOK CALLBACK] TikTok returned an OAuth error:",
+        {
+          error,
+          errorDescription,
+        }
+      );
+
+      return redirectWithError(
+        error ===
+          "access_denied"
+          ? "access_denied"
+          : error
+      );
+    }
+
+    // ========================================================
+    // READ SECURE OAUTH CONTEXT
+    // ========================================================
+
+    const expectedState =
+      cleanString(
+        request.cookies
+          .get(
+            "tiktok_oauth_state"
+          )
+          ?.value
+      );
+
+    const userId =
+      cleanString(
+        request.cookies
+          .get(
+            "tiktok_oauth_user_id"
+          )
+          ?.value
+      );
+
+    const organisationId =
+      cleanString(
+        request.cookies
+          .get(
+            "tiktok_oauth_organisation_id"
+          )
+          ?.value
+      );
+
+    console.log(
+      "[TIKTOK CALLBACK] OAuth context:",
+      {
+        hasCode:
+          Boolean(
+            code
+          ),
+
+        hasReturnedState:
+          Boolean(
+            returnedState
+          ),
+
+        hasExpectedState:
+          Boolean(
+            expectedState
+          ),
+
+        hasUserId:
+          Boolean(
+            userId
+          ),
+
+        hasOrganisationId:
+          Boolean(
+            organisationId
+          ),
+      }
+    );
+
+    if (
+      !code
+    ) {
+      return redirectWithError(
+        "missing_code"
+      );
+    }
+
+    if (
+      !returnedState ||
+      !expectedState
+    ) {
+      console.error(
+        "[TIKTOK CALLBACK] Missing OAuth state."
+      );
+
+      return redirectWithError(
+        "missing_state"
+      );
+    }
+
+    if (
+      returnedState !==
+      expectedState
+    ) {
+      console.error(
+        "[TIKTOK CALLBACK] State mismatch."
+      );
+
+      return redirectWithError(
+        "state_mismatch"
+      );
+    }
+
+    if (
+      !userId ||
+      !organisationId
+    ) {
+      console.error(
+        "[TIKTOK CALLBACK] OAuth context cookies are missing."
+      );
+
+      return redirectWithError(
+        "missing_parameters"
+      );
+    }
+
+    // ========================================================
+    // ENV
     // ========================================================
 
     const clientKey =
@@ -90,250 +372,571 @@ export async function GET(
           .TIKTOK_CLIENT_KEY
       );
 
-    /*
-     * Hard-code the production redirect while debugging.
-     *
-     * This removes the possibility of a bad env value causing
-     * TikTok's invalid_request response.
-     */
+    const clientSecret =
+      cleanString(
+        process.env
+          .TIKTOK_CLIENT_SECRET
+      );
+
     const redirectUri =
-      "https://www.tots-os.co.uk/api/auth/tiktok/callback";
-
-    if (
-      !clientKey
-    ) {
-      console.error(
-        "[TIKTOK OAUTH] TIKTOK_CLIENT_KEY is missing"
+      cleanString(
+        process.env
+          .TIKTOK_REDIRECT_URI
       );
 
-      return NextResponse.json(
-        {
-          success:
-            false,
+    const supabaseUrl =
+      cleanString(
+        process.env
+          .NEXT_PUBLIC_SUPABASE_URL
+      );
 
-          error:
-            "TikTok client key is not configured.",
-        },
-        {
-          status:
-            500,
-        }
+    const serviceRoleKey =
+      cleanString(
+        process.env
+          .SUPABASE_SERVICE_ROLE_KEY
+      );
+
+    if (
+      !clientKey ||
+      !clientSecret ||
+      !redirectUri
+    ) {
+      console.error(
+        "[TIKTOK CALLBACK] Missing TikTok configuration."
+      );
+
+      return redirectWithError(
+        "config"
+      );
+    }
+
+    if (
+      !supabaseUrl ||
+      !serviceRoleKey
+    ) {
+      console.error(
+        "[TIKTOK CALLBACK] Missing Supabase server configuration."
+      );
+
+      return redirectWithError(
+        "database"
       );
     }
 
     // ========================================================
-    // TOTS-OS CONTEXT
+    // TOKEN EXCHANGE
     // ========================================================
 
-    const userId =
-      cleanString(
-        request.nextUrl
-          .searchParams
-          .get(
-            "userId"
-          )
-      );
+    const tokenBody =
+      new URLSearchParams();
 
-    const organisationId =
-      cleanString(
-        request.nextUrl
-          .searchParams
-          .get(
-            "organisationId"
-          )
-      );
-
-    if (
-      !userId ||
-      !organisationId
-    ) {
-      console.error(
-        "[TIKTOK OAUTH] Missing TOTS-OS context:",
-        {
-          hasUserId:
-            Boolean(
-              userId
-            ),
-
-          hasOrganisationId:
-            Boolean(
-              organisationId
-            ),
-        }
-      );
-
-      return NextResponse.json(
-        {
-          success:
-            false,
-
-          error:
-            "Missing user or organisation.",
-        },
-        {
-          status:
-            400,
-        }
-      );
-    }
-
-    // ========================================================
-    // RANDOM OAUTH STATE
-    // ========================================================
-
-    const state =
-      randomBytes(
-        32
-      ).toString(
-        "hex"
-      );
-
-    // ========================================================
-    // AUTHORIZATION URL
-    // ========================================================
-
-    const authUrl =
-      new URL(
-        "https://www.tiktok.com/v2/auth/authorize/"
-      );
-
-    authUrl.searchParams.set(
+    tokenBody.set(
       "client_key",
       clientKey
     );
 
-    authUrl.searchParams.set(
-      "scope",
-      "user.info.basic"
+    tokenBody.set(
+      "client_secret",
+      clientSecret
     );
 
-    authUrl.searchParams.set(
-      "response_type",
-      "code"
+    tokenBody.set(
+      "code",
+      code
     );
 
-    authUrl.searchParams.set(
+    tokenBody.set(
+      "grant_type",
+      "authorization_code"
+    );
+
+    tokenBody.set(
       "redirect_uri",
       redirectUri
     );
 
-    authUrl.searchParams.set(
-      "state",
-      state
-    );
+    const tokenResponse =
+      await fetch(
+        "https://open.tiktokapis.com/v2/oauth/token/",
+        {
+          method:
+            "POST",
 
-    // ========================================================
-    // DEBUG
-    // ========================================================
+          headers: {
+            "Content-Type":
+              "application/x-www-form-urlencoded",
+          },
+
+          body:
+            tokenBody.toString(),
+
+          cache:
+            "no-store",
+        }
+      );
+
+    const tokenData =
+      (
+        await tokenResponse
+          .json()
+          .catch(
+            () => ({})
+          )
+      ) as
+        TikTokTokenResponse;
+
+    if (
+      !tokenResponse.ok ||
+      !tokenData
+        .access_token
+    ) {
+      console.error(
+        "[TIKTOK CALLBACK] Token exchange failed:",
+        {
+          status:
+            tokenResponse.status,
+
+          error:
+            tokenData.error,
+
+          description:
+            tokenData
+              .error_description,
+
+          logId:
+            tokenData.log_id,
+        }
+      );
+
+      return redirectWithError(
+        "token_exchange"
+      );
+    }
 
     console.log(
-      "[TIKTOK OAUTH] Configuration:",
+      "[TIKTOK CALLBACK] Token exchange successful:",
       {
-        clientKeyLength:
-          clientKey.length,
+        openId:
+          tokenData.open_id ||
+          null,
 
-        clientKeyStart:
-          `${clientKey.slice(
-            0,
-            4
-          )}...`,
+        expiresIn:
+          tokenData.expires_in ||
+          null,
 
-        redirectUri,
+        hasRefreshToken:
+          Boolean(
+            tokenData
+              .refresh_token
+          ),
 
         scope:
-          "user.info.basic",
-
-        stateLength:
-          state.length,
+          tokenData.scope ||
+          null,
       }
     );
 
-    console.log(
-      "[TIKTOK OAUTH] Authorisation destination:",
-      authUrl.toString()
-    );
-
     // ========================================================
-    // CREATE REDIRECT
+    // EXPIRY
     // ========================================================
 
-    const response =
-      NextResponse.redirect(
-        authUrl.toString(),
+    const expiresIn =
+      Number(
+        tokenData
+          .expires_in ||
+        86400
+      );
+
+    const expiresAt =
+      new Date(
+        Date.now() +
+        expiresIn *
+          1000
+      ).toISOString();
+
+    // ========================================================
+    // TIKTOK PROFILE
+    // ========================================================
+
+    let profile:
+      TikTokProfileResponse["data"] extends {
+        user?: infer T;
+      }
+        ? T
+        : never =
+      undefined;
+
+    try {
+      const profileUrl =
+        new URL(
+          "https://open.tiktokapis.com/v2/user/info/"
+        );
+
+      profileUrl
+        .searchParams
+        .set(
+          "fields",
+          "open_id,display_name,avatar_url"
+        );
+
+      const profileResponse =
+        await fetch(
+          profileUrl.toString(),
+          {
+            method:
+              "GET",
+
+            headers: {
+              Authorization:
+                `Bearer ${tokenData.access_token}`,
+            },
+
+            cache:
+              "no-store",
+          }
+        );
+
+      const profileData =
+        (
+          await profileResponse
+            .json()
+            .catch(
+              () => ({})
+            )
+        ) as
+          TikTokProfileResponse;
+
+      if (
+        profileResponse.ok &&
+        profileData
+          .error
+          ?.code ===
+          "ok"
+      ) {
+        profile =
+          profileData
+            .data
+            ?.user;
+      } else {
+        console.warn(
+          "[TIKTOK CALLBACK] Profile request failed:",
+          {
+            status:
+              profileResponse.status,
+
+            error:
+              profileData.error,
+          }
+        );
+      }
+    } catch (
+      profileError:
+        unknown
+    ) {
+      console.warn(
+        "[TIKTOK CALLBACK] Profile request threw:",
+        profileError
+      );
+    }
+
+    // TikTok's /v2/user/info endpoint provides the
+    // open_id/display_name/avatar_url fields used here.
+    // https://developers.tiktok.com/docs/en/display-api-get-started
+
+    const platformUserId =
+      cleanString(
+        profile?.open_id
+      ) ||
+      cleanString(
+        tokenData.open_id
+      );
+
+    if (
+      !platformUserId
+    ) {
+      console.error(
+        "[TIKTOK CALLBACK] No TikTok open_id returned."
+      );
+
+      return redirectWithError(
+        "profile"
+      );
+    }
+
+    // ========================================================
+    // SUPABASE ADMIN
+    // ========================================================
+
+    const supabaseAdmin =
+      createClient(
+        supabaseUrl,
+        serviceRoleKey,
         {
-          status:
-            302,
+          auth: {
+            persistSession:
+              false,
+
+            autoRefreshToken:
+              false,
+          },
         }
       );
 
     // ========================================================
-    // STORE STATE + CONTEXT SECURELY
+    // FIND EXISTING CONNECTION
     // ========================================================
 
-    response.cookies.set(
-      "tiktok_oauth_state",
-      state,
+    const {
+      data:
+        existingConnection,
+
+      error:
+        existingError,
+    } =
+      await supabaseAdmin
+        .from(
+          "social_accounts"
+        )
+        .select(
+          "id"
+        )
+        .eq(
+          "user_id",
+          userId
+        )
+        .eq(
+          "organisation_id",
+          organisationId
+        )
+        .eq(
+          "platform",
+          "tiktok"
+        )
+        .maybeSingle();
+
+    if (
+      existingError
+    ) {
+      console.error(
+        "[TIKTOK CALLBACK] Existing account lookup failed:",
+        existingError
+      );
+
+      return redirectWithError(
+        "database"
+      );
+    }
+
+    // ========================================================
+    // CONNECTION DATA
+    // ========================================================
+
+    const now =
+      new Date()
+        .toISOString();
+
+    const connectionData = {
+      user_id:
+        userId,
+
+      organisation_id:
+        organisationId,
+
+      platform:
+        "tiktok",
+
+      platform_user_id:
+        platformUserId,
+
+      access_token:
+        tokenData.access_token,
+
+      refresh_token:
+        tokenData.refresh_token ||
+        null,
+
+      expires_at:
+        expiresAt,
+
+      display_name:
+        cleanString(
+          profile?.display_name
+        ) ||
+        "TikTok",
+
+      avatar_url:
+        cleanString(
+          profile?.avatar_url
+        ),
+
+      updated_at:
+        now,
+    };
+
+    // ========================================================
+    // UPDATE OR INSERT
+    // ========================================================
+
+    if (
+      existingConnection
+        ?.id
+    ) {
+      console.log(
+        "[TIKTOK CALLBACK] Updating existing TikTok connection:",
+        existingConnection.id
+      );
+
+      const {
+        error:
+          updateError,
+      } =
+        await supabaseAdmin
+          .from(
+            "social_accounts"
+          )
+          .update(
+            connectionData
+          )
+          .eq(
+            "id",
+            existingConnection.id
+          );
+
+      if (
+        updateError
+      ) {
+        console.error(
+          "[TIKTOK CALLBACK] TikTok update failed:",
+          updateError
+        );
+
+        return redirectWithError(
+          "database"
+        );
+      }
+    } else {
+      console.log(
+        "[TIKTOK CALLBACK] Creating new TikTok connection."
+      );
+
+      const {
+        error:
+          insertError,
+      } =
+        await supabaseAdmin
+          .from(
+            "social_accounts"
+          )
+          .insert(
+            connectionData
+          );
+
+      if (
+        insertError
+      ) {
+        console.error(
+          "[TIKTOK CALLBACK] TikTok insert failed:",
+          insertError
+        );
+
+        return redirectWithError(
+          "database"
+        );
+      }
+    }
+
+    // ========================================================
+    // CONFIRM WRITE
+    // ========================================================
+
+    const {
+      data:
+        savedConnection,
+
+      error:
+        savedError,
+    } =
+      await supabaseAdmin
+        .from(
+          "social_accounts"
+        )
+        .select(
+          `
+            id,
+            platform,
+            platform_user_id,
+            display_name,
+            expires_at,
+            updated_at
+          `
+        )
+        .eq(
+          "user_id",
+          userId
+        )
+        .eq(
+          "organisation_id",
+          organisationId
+        )
+        .eq(
+          "platform",
+          "tiktok"
+        )
+        .maybeSingle();
+
+    if (
+      savedError ||
+      !savedConnection
+    ) {
+      console.error(
+        "[TIKTOK CALLBACK] Could not confirm saved connection:",
+        savedError
+      );
+
+      return redirectWithError(
+        "database"
+      );
+    }
+
+    console.log(
+      "[TIKTOK CALLBACK] TikTok saved successfully:",
       {
-        httpOnly:
-          true,
+        id:
+          savedConnection.id,
 
-        secure:
-          true,
+        displayName:
+          savedConnection
+            .display_name,
 
-        sameSite:
-          "lax",
+        expiresAt:
+          savedConnection
+            .expires_at,
 
-        path:
-          "/",
-
-        maxAge:
-          10 *
-          60,
+        updatedAt:
+          savedConnection
+            .updated_at,
       }
     );
 
-    response.cookies.set(
-      "tiktok_oauth_user_id",
-      userId,
-      {
-        httpOnly:
-          true,
+    // ========================================================
+    // SUCCESS REDIRECT
+    // ========================================================
 
-        secure:
-          true,
+    const response =
+      NextResponse.redirect(
+        buildSettingsRedirect(
+          {
+            oauth:
+              "tiktok_success",
 
-        sameSite:
-          "lax",
+            connected:
+              "tiktok",
+          }
+        )
+      );
 
-        path:
-          "/",
-
-        maxAge:
-          10 *
-          60,
-      }
-    );
-
-    response.cookies.set(
-      "tiktok_oauth_organisation_id",
-      organisationId,
-      {
-        httpOnly:
-          true,
-
-        secure:
-          true,
-
-        sameSite:
-          "lax",
-
-        path:
-          "/",
-
-        maxAge:
-          10 *
-          60,
-      }
+    clearOAuthCookies(
+      response
     );
 
     return response;
@@ -342,25 +945,12 @@ export async function GET(
       unknown
   ) {
     console.error(
-      "[TIKTOK OAUTH] Unexpected error:",
+      "[TIKTOK CALLBACK] Unexpected error:",
       error
     );
 
-    return NextResponse.json(
-      {
-        success:
-          false,
-
-        error:
-          error instanceof
-            Error
-            ? error.message
-            : "Unable to start TikTok OAuth.",
-      },
-      {
-        status:
-          500,
-      }
+    return redirectWithError(
+      "unexpected"
     );
   }
 }

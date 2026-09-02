@@ -23,42 +23,31 @@ export const dynamic =
 
 type TikTokTokenResponse = {
   access_token?: string;
-
   expires_in?: number;
-
   open_id?: string;
-
   refresh_expires_in?: number;
-
   refresh_token?: string;
-
   scope?: string;
-
   token_type?: string;
-
   error?: string;
-
   error_description?: string;
-
   log_id?: string;
+};
+
+type TikTokProfileUser = {
+  open_id?: string;
+  display_name?: string;
+  avatar_url?: string;
 };
 
 type TikTokProfileResponse = {
   data?: {
-    user?: {
-      open_id?: string;
-
-      display_name?: string;
-
-      avatar_url?: string;
-    };
+    user?: TikTokProfileUser;
   };
 
   error?: {
     code?: string;
-
     message?: string;
-
     log_id?: string;
   };
 };
@@ -134,18 +123,18 @@ function clearOAuthCookies(
   response:
     NextResponse
 ) {
-  const names = [
+  const cookieNames = [
     "tiktok_oauth_state",
     "tiktok_oauth_user_id",
     "tiktok_oauth_organisation_id",
   ];
 
   for (
-    const name of
-    names
+    const cookieName of
+    cookieNames
   ) {
     response.cookies.set(
-      name,
+      cookieName,
       "",
       {
         httpOnly:
@@ -160,11 +149,11 @@ function clearOAuthCookies(
         path:
           "/",
 
-        maxAge:
-          0,
-
         domain:
           ".tots-os.co.uk",
+
+        maxAge:
+          0,
       }
     );
   }
@@ -363,7 +352,7 @@ export async function GET(
     }
 
     // ========================================================
-    // ENV
+    // ENVIRONMENT
     // ========================================================
 
     const clientKey =
@@ -559,11 +548,7 @@ export async function GET(
     // ========================================================
 
     let profile:
-      TikTokProfileResponse["data"] extends {
-        user?: infer T;
-      }
-        ? T
-        : never =
+      TikTokProfileUser |
       undefined;
 
     try {
@@ -576,7 +561,13 @@ export async function GET(
         .searchParams
         .set(
           "fields",
-          "open_id,display_name,avatar_url"
+          [
+            "open_id",
+            "display_name",
+            "avatar_url",
+          ].join(
+            ","
+          )
         );
 
       const profileResponse =
@@ -606,12 +597,23 @@ export async function GET(
         ) as
           TikTokProfileResponse;
 
-      if (
+      const profileErrorCode =
+        cleanString(
+          profileData
+            .error
+            ?.code
+        );
+
+      const profileWorked =
         profileResponse.ok &&
-        profileData
-          .error
-          ?.code ===
-          "ok"
+        (
+          !profileErrorCode ||
+          profileErrorCode ===
+            "ok"
+        );
+
+      if (
+        profileWorked
       ) {
         profile =
           profileData
@@ -638,10 +640,6 @@ export async function GET(
         profileError
       );
     }
-
-    // TikTok's /v2/user/info endpoint provides the
-    // open_id/display_name/avatar_url fields used here.
-    // https://developers.tiktok.com/docs/en/display-api-get-started
 
     const platformUserId =
       cleanString(
@@ -749,10 +747,12 @@ export async function GET(
         platformUserId,
 
       access_token:
-        tokenData.access_token,
+        tokenData
+          .access_token,
 
       refresh_token:
-        tokenData.refresh_token ||
+        tokenData
+          .refresh_token ||
         null,
 
       expires_at:
@@ -760,13 +760,15 @@ export async function GET(
 
       display_name:
         cleanString(
-          profile?.display_name
+          profile
+            ?.display_name
         ) ||
         "TikTok",
 
       avatar_url:
         cleanString(
-          profile?.avatar_url
+          profile
+            ?.avatar_url
         ),
 
       updated_at:
@@ -774,7 +776,7 @@ export async function GET(
     };
 
     // ========================================================
-    // UPDATE OR INSERT
+    // UPDATE EXISTING
     // ========================================================
 
     if (
@@ -815,6 +817,10 @@ export async function GET(
         );
       }
     } else {
+      // ======================================================
+      // INSERT NEW
+      // ======================================================
+
       console.log(
         "[TIKTOK CALLBACK] Creating new TikTok connection."
       );
@@ -846,7 +852,7 @@ export async function GET(
     }
 
     // ========================================================
-    // CONFIRM WRITE
+    // CONFIRM DATABASE WRITE
     // ========================================================
 
     const {

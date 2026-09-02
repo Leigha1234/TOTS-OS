@@ -3,10 +3,6 @@ import {
   NextResponse,
 } from "next/server";
 
-// ============================================================
-// CONFIG
-// ============================================================
-
 export const runtime =
   "nodejs";
 
@@ -19,7 +15,7 @@ export const dynamic =
 
 function cleanString(
   value:
-    string | null | undefined
+    unknown
 ): string | null {
   if (
     typeof value !==
@@ -44,10 +40,6 @@ export async function GET(
     NextRequest
 ) {
   try {
-    // ========================================================
-    // ENVIRONMENT
-    // ========================================================
-
     const clientKey =
       cleanString(
         process.env
@@ -69,10 +61,11 @@ export async function GET(
 
       return NextResponse.json(
         {
+          success:
+            false,
+
           error:
-            "TikTok OAuth is not configured.",
-          reason:
-            "missing_client_key",
+            "TIKTOK_CLIENT_KEY is missing.",
         },
         {
           status:
@@ -90,10 +83,11 @@ export async function GET(
 
       return NextResponse.json(
         {
+          success:
+            false,
+
           error:
-            "TikTok OAuth callback is not configured.",
-          reason:
-            "missing_redirect_uri",
+            "TIKTOK_REDIRECT_URI is missing.",
         },
         {
           status:
@@ -103,7 +97,7 @@ export async function GET(
     }
 
     // ========================================================
-    // QUERY PARAMETERS FROM TOTS-OS
+    // REQUEST PARAMETERS
     // ========================================================
 
     const userId =
@@ -124,45 +118,17 @@ export async function GET(
           )
       );
 
-    const incomingState =
-      cleanString(
-        request.nextUrl
-          .searchParams
-          .get(
-            "state"
-          )
-      );
-
-    // ========================================================
-    // VALIDATION
-    // ========================================================
-
     if (
-      !userId
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Missing authenticated user.",
-          reason:
-            "missing_user",
-        },
-        {
-          status:
-            400,
-        }
-      );
-    }
-
-    if (
+      !userId ||
       !organisationId
     ) {
       return NextResponse.json(
         {
+          success:
+            false,
+
           error:
-            "Missing organisation.",
-          reason:
-            "missing_organisation",
+            "Missing userId or organisationId.",
         },
         {
           status:
@@ -171,53 +137,51 @@ export async function GET(
       );
     }
 
-    if (
-      !incomingState
-    ) {
-      return NextResponse.json(
+    // ========================================================
+    // BUILD STATE HERE
+    // ========================================================
+
+    /*
+     * Do NOT accept an already encoded state value from the
+     * browser. Build the raw JSON state here and let URLSearchParams
+     * encode it once.
+     */
+
+    const state =
+      JSON.stringify(
         {
-          error:
-            "Missing OAuth state.",
-          reason:
-            "missing_state",
-        },
-        {
-          status:
-            400,
+          userId,
+
+          organisationId,
+
+          platform:
+            "tiktok",
+
+          createdAt:
+            Date.now(),
         }
       );
-    }
 
     // ========================================================
     // TIKTOK AUTHORISATION URL
     // ========================================================
 
-    const tiktokUrl =
+    const authUrl =
       new URL(
         "https://www.tiktok.com/v2/auth/authorize/"
       );
 
-    tiktokUrl.searchParams.set(
+    authUrl.searchParams.set(
       "client_key",
       clientKey
     );
 
-    tiktokUrl.searchParams.set(
+    authUrl.searchParams.set(
       "response_type",
       "code"
     );
 
-    /*
-     * user.info.basic
-     * - allows us to retrieve basic TikTok account information.
-     *
-     * video.publish
-     * - required for Direct Post through the Content Posting API.
-     *
-     * IMPORTANT:
-     * video.publish must be approved for the production TikTok app.
-     */
-    tiktokUrl.searchParams.set(
+    authUrl.searchParams.set(
       "scope",
       [
         "user.info.basic",
@@ -227,35 +191,46 @@ export async function GET(
       )
     );
 
-    tiktokUrl.searchParams.set(
+    authUrl.searchParams.set(
       "redirect_uri",
       redirectUri
     );
 
-    tiktokUrl.searchParams.set(
+    authUrl.searchParams.set(
       "state",
-      incomingState
+      state
     );
 
     // ========================================================
-    // LOG
+    // DEBUG
     // ========================================================
 
     console.log(
-      "[TIKTOK OAUTH] Redirecting to TikTok:",
+      "[TIKTOK OAUTH] Starting OAuth:",
       {
         userId,
+
         organisationId,
-        redirectUri,
-        hasClientKey:
+
+        clientKeyPresent:
           Boolean(
             clientKey
           ),
-        hasState:
-          Boolean(
-            incomingState
-          ),
+
+        redirectUri,
+
+        scope:
+          "user.info.basic,video.publish",
+
+        destination:
+          authUrl.origin +
+          authUrl.pathname,
       }
+    );
+
+    console.log(
+      "[TIKTOK OAUTH] TikTok URL:",
+      authUrl.toString()
     );
 
     // ========================================================
@@ -263,26 +238,31 @@ export async function GET(
     // ========================================================
 
     return NextResponse.redirect(
-      tiktokUrl
+      authUrl.toString(),
+      {
+        status:
+          302,
+      }
     );
   } catch (
     error:
       unknown
   ) {
     console.error(
-      "[TIKTOK OAUTH] Unexpected start error:",
+      "[TIKTOK OAUTH] Unexpected error:",
       error
     );
 
     return NextResponse.json(
       {
+        success:
+          false,
+
         error:
           error instanceof
             Error
             ? error.message
-            : "Unable to start TikTok connection.",
-        reason:
-          "unexpected",
+            : "Unable to start TikTok OAuth.",
       },
       {
         status:

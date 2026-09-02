@@ -32,6 +32,13 @@ type UseTikTokOAuthResultOptions = {
 };
 
 // ============================================================
+// CONSTANTS
+// ============================================================
+
+const TIKTOK_RESULT_STORAGE_KEY =
+  "tots_tiktok_oauth_result_processed";
+
+// ============================================================
 // ERROR MESSAGES
 // ============================================================
 
@@ -59,16 +66,22 @@ const TIKTOK_ERROR_MESSAGES:
     "TikTok is not configured correctly.",
 
   authentication:
-    "Your session expired. Please sign in and try again.",
+    "Your TOTS-OS session could not be verified. Please sign in and try again.",
 
   state_mismatch:
     "TikTok security validation failed. Please reconnect your account.",
+
+  state_expired:
+    "The TikTok connection attempt expired. Please try connecting again.",
 
   token_exchange:
     "TikTok could not complete the token exchange.",
 
   token_expiry:
     "TikTok returned an invalid token expiry.",
+
+  missing_video_publish:
+    "TikTok did not grant publishing permission. Please reconnect and allow publishing access.",
 
   profile:
     "TikTok connected, but the profile could not be loaded.",
@@ -109,19 +122,23 @@ function getTikTokErrorMessage(
 
 // ============================================================
 
-function cleanOAuthUrl() {
+function decodeReason(
+  value:
+    string | null
+) {
   if (
-    typeof window ===
-    "undefined"
+    !value
   ) {
-    return;
+    return null;
   }
 
-  window.history.replaceState(
-    {},
-    document.title,
-    window.location.pathname
-  );
+  try {
+    return decodeURIComponent(
+      value
+    );
+  } catch {
+    return value;
+  }
 }
 
 // ============================================================
@@ -146,6 +163,10 @@ function clearTikTokOAuthStorage(
       "social_oauth_pending_tiktok"
     );
 
+    window.sessionStorage.removeItem(
+      "oauth_state_tiktok"
+    );
+
     if (
       organisationId
     ) {
@@ -155,6 +176,10 @@ function clearTikTokOAuthStorage(
 
       window.sessionStorage.removeItem(
         `social_oauth_pending_tiktok_${organisationId}`
+      );
+
+      window.sessionStorage.removeItem(
+        `oauth_state_tiktok_${organisationId}`
       );
     }
 
@@ -176,24 +201,97 @@ function clearTikTokOAuthStorage(
 }
 
 // ============================================================
+// REMOVE ONLY OAUTH PARAMETERS
+// ============================================================
 
-function decodeReason(
-  value:
-    string | null
-) {
+function cleanTikTokOAuthUrl() {
   if (
-    !value
+    typeof window ===
+    "undefined"
   ) {
-    return null;
+    return;
   }
 
   try {
-    return decodeURIComponent(
-      value
+    const url =
+      new URL(
+        window.location.href
+      );
+
+    url.searchParams.delete(
+      "oauth"
     );
-  } catch {
-    return value;
+
+    url.searchParams.delete(
+      "connected"
+    );
+
+    url.searchParams.delete(
+      "reason"
+    );
+
+    url.searchParams.delete(
+      "social_error"
+    );
+
+    /*
+     * Keep any unrelated Settings query parameters.
+     *
+     * This is deliberately history.replaceState rather than
+     * router.replace or window.location.replace.
+     *
+     * It changes the visible URL WITHOUT causing another
+     * Next.js navigation or page reload.
+     */
+
+    const nextUrl =
+      `${url.pathname}${
+        url.search
+      }${
+        url.hash
+      }`;
+
+    window.history.replaceState(
+      window.history.state,
+      document.title,
+      nextUrl
+    );
+  } catch (
+    error
+  ) {
+    console.warn(
+      "[TOTS TIKTOK] Could not clean OAuth URL:",
+      error
+    );
   }
+}
+
+// ============================================================
+// RESULT ID
+// ============================================================
+
+function buildOAuthResultId(
+  oauthStatus:
+    string | null,
+
+  connected:
+    string | null,
+
+  reason:
+    string | null
+) {
+  return [
+    oauthStatus ||
+      "",
+
+    connected ||
+      "",
+
+    reason ||
+      "",
+  ].join(
+    "|"
+  );
 }
 
 // ============================================================
@@ -209,13 +307,99 @@ export function useTikTokOAuthResult({
 
   organisationId,
 }: UseTikTokOAuthResultOptions) {
+  // ==========================================================
+  // CALLBACK REFS
+  //
+  // Store the latest functions in refs so changing callback
+  // identities do NOT restart the OAuth result effect.
+  // ==========================================================
+
+  const refreshConnectionsRef =
+    useRef(
+      refreshConnections
+    );
+
+  const verifyConnectionsRef =
+    useRef(
+      verifyConnections
+    );
+
+  const onConnectedRef =
+    useRef(
+      onConnected
+    );
+
+  const organisationIdRef =
+    useRef(
+      organisationId
+    );
+
   const processingRef =
     useRef(
       false
     );
 
+  const processedInThisMountRef =
+    useRef<
+      string | null
+    >(
+      null
+    );
+
   // ==========================================================
-  // HANDLE TIKTOK OAUTH CALLBACK RESULT
+  // KEEP REFS CURRENT
+  // ==========================================================
+
+  useEffect(
+    () => {
+      refreshConnectionsRef.current =
+        refreshConnections;
+    },
+    [
+      refreshConnections,
+    ]
+  );
+
+  useEffect(
+    () => {
+      verifyConnectionsRef.current =
+        verifyConnections;
+    },
+    [
+      verifyConnections,
+    ]
+  );
+
+  useEffect(
+    () => {
+      onConnectedRef.current =
+        onConnected;
+    },
+    [
+      onConnected,
+    ]
+  );
+
+  useEffect(
+    () => {
+      organisationIdRef.current =
+        organisationId;
+    },
+    [
+      organisationId,
+    ]
+  );
+
+  // ==========================================================
+  // HANDLE TIKTOK CALLBACK RESULT
+  //
+  // IMPORTANT:
+  //
+  // This effect intentionally runs once on mount.
+  //
+  // We do NOT depend on refreshConnections / verifyConnections /
+  // onConnected because changing function identities can cause
+  // callback processing to restart before the URL is cleaned.
   // ==========================================================
 
   useEffect(
@@ -232,6 +416,10 @@ export function useTikTokOAuthResult({
       ) {
         return;
       }
+
+      // ======================================================
+      // READ CALLBACK RESULT
+      // ======================================================
 
       const params =
         new URLSearchParams(
@@ -262,26 +450,18 @@ export function useTikTokOAuthResult({
           )
         );
 
-      // ======================================================
-      // SUCCESS CONDITIONS
-      // ======================================================
-
       const isTikTokSuccess =
         connected ===
           "tiktok" ||
         oauthStatus ===
           "tiktok_success";
 
-      // ======================================================
-      // FAILURE CONDITIONS
-      // ======================================================
-
       const isTikTokFailure =
         oauthStatus ===
           "tiktok_failed";
 
       // ======================================================
-      // IGNORE NON-TIKTOK CALLBACKS
+      // NOT A TIKTOK CALLBACK
       // ======================================================
 
       if (
@@ -291,17 +471,124 @@ export function useTikTokOAuthResult({
         return;
       }
 
+      // ======================================================
+      // BUILD UNIQUE RESULT ID
+      // ======================================================
+
+      const resultId =
+        buildOAuthResultId(
+          oauthStatus,
+          connected,
+          reason
+        );
+
+      // ======================================================
+      // STOP DUPLICATE PROCESSING IN SAME MOUNT
+      // ======================================================
+
+      if (
+        processedInThisMountRef.current ===
+        resultId
+      ) {
+        console.log(
+          "[TOTS TIKTOK] OAuth result already processed in this page mount:",
+          resultId
+        );
+
+        cleanTikTokOAuthUrl();
+
+        return;
+      }
+
+      // ======================================================
+      // STOP DUPLICATE PROCESSING AFTER FAST REMOUNT
+      //
+      // React Strict Mode can mount development effects twice.
+      // Session storage gives us another guard.
+      // ======================================================
+
+      try {
+        const previouslyProcessed =
+          window.sessionStorage.getItem(
+            TIKTOK_RESULT_STORAGE_KEY
+          );
+
+        if (
+          previouslyProcessed ===
+          resultId
+        ) {
+          console.log(
+            "[TOTS TIKTOK] OAuth result already processed:",
+            resultId
+          );
+
+          cleanTikTokOAuthUrl();
+
+          return;
+        }
+      } catch {
+        /*
+         * Session storage may be blocked in some browser modes.
+         * The in-memory ref still protects this mount.
+         */
+      }
+
+      // ======================================================
+      // LOCK IMMEDIATELY
+      // ======================================================
+
       processingRef.current =
         true;
 
-      let cancelled =
-        false;
+      processedInThisMountRef.current =
+        resultId;
+
+      try {
+        window.sessionStorage.setItem(
+          TIKTOK_RESULT_STORAGE_KEY,
+          resultId
+        );
+      } catch {
+        /*
+         * Best effort only.
+         */
+      }
+
+      /*
+       * CRITICAL:
+       *
+       * Remove the callback parameters BEFORE any async work.
+       *
+       * That means even if refreshConnections causes renders,
+       * subscriptions, session refreshes or component remounts,
+       * the browser no longer looks like it is sitting on an
+       * OAuth callback result.
+       */
+
+      cleanTikTokOAuthUrl();
+
+      console.log(
+        "[TOTS TIKTOK] Processing OAuth result once:",
+        {
+          oauthStatus,
+
+          connected,
+
+          reason,
+
+          success:
+            isTikTokSuccess,
+
+          failure:
+            isTikTokFailure,
+        }
+      );
 
       // ======================================================
-      // PROCESS RESULT
+      // PROCESS ASYNC
       // ======================================================
 
-      const handleTikTokOAuthResult =
+      const processResult =
         async () => {
           try {
             // ==================================================
@@ -312,14 +599,17 @@ export function useTikTokOAuthResult({
               isTikTokFailure
             ) {
               clearTikTokOAuthStorage(
-                organisationId
+                organisationIdRef.current
               );
 
-              if (
-                cancelled
-              ) {
-                return;
-              }
+              console.error(
+                "[TOTS TIKTOK] OAuth failed:",
+                {
+                  reason,
+
+                  socialError,
+                }
+              );
 
               toast.error(
                 socialError ||
@@ -335,49 +625,102 @@ export function useTikTokOAuthResult({
             // SUCCESS
             // ==================================================
 
-            const {
-              error:
-                refreshError,
-            } =
-              await supabase.auth.refreshSession();
+            /*
+             * The callback already verified the server-side
+             * Supabase session before storing the account.
+             *
+             * refreshSession here is therefore optional.
+             * We still attempt it, but it must never control
+             * whether TikTok is considered connected.
+             */
 
-            if (
+            try {
+              const {
+                error:
+                  refreshError,
+              } =
+                await supabase.auth.refreshSession();
+
+              if (
+                refreshError
+              ) {
+                console.warn(
+                  "[TOTS TIKTOK] Supabase session refresh warning:",
+                  refreshError
+                );
+              }
+            } catch (
               refreshError
             ) {
               console.warn(
-                "[TOTS TIKTOK] Supabase session refresh failed:",
+                "[TOTS TIKTOK] Supabase session refresh threw:",
                 refreshError
               );
             }
 
-            /*
-             * Do not fail the TikTok connection just because the
-             * local Supabase session refresh was unnecessary or
-             * failed.
-             *
-             * The TikTok callback itself runs server-side and may
-             * already have successfully written social_accounts.
-             */
+            // ==================================================
+            // REFRESH CONNECTION RECORDS
+            // ==================================================
 
-            await refreshConnections();
+            try {
+              await refreshConnectionsRef
+                .current();
+            } catch (
+              refreshError
+            ) {
+              console.warn(
+                "[TOTS TIKTOK] Could not refresh connections:",
+                refreshError
+              );
+            }
 
-            await verifyConnections();
+            // ==================================================
+            // VERIFY CONNECTION HEALTH
+            // ==================================================
+
+            try {
+              await verifyConnectionsRef
+                .current();
+            } catch (
+              verifyError
+            ) {
+              console.warn(
+                "[TOTS TIKTOK] Could not verify connections:",
+                verifyError
+              );
+            }
+
+            // ==================================================
+            // CLEAR OAUTH FLAGS
+            // ==================================================
 
             clearTikTokOAuthStorage(
-              organisationId
+              organisationIdRef.current
             );
 
-            if (
-              cancelled
-            ) {
-              return;
-            }
+            // ==================================================
+            // SUCCESS MESSAGE
+            // ==================================================
 
             toast.success(
               "TikTok connected successfully"
             );
 
-            onConnected?.();
+            // ==================================================
+            // OPTIONAL CALLBACK
+            // ==================================================
+
+            try {
+              onConnectedRef
+                .current?.();
+            } catch (
+              callbackError
+            ) {
+              console.warn(
+                "[TOTS TIKTOK] onConnected callback failed:",
+                callbackError
+              );
+            }
           } catch (
             error
           ) {
@@ -387,47 +730,34 @@ export function useTikTokOAuthResult({
             );
 
             clearTikTokOAuthStorage(
-              organisationId
+              organisationIdRef.current
             );
 
-            if (
-              !cancelled
-            ) {
-              toast.error(
-                "TikTok connected, but the settings page could not refresh."
-              );
-            }
+            toast.error(
+              "TikTok connected, but the settings page could not refresh."
+            );
           } finally {
-            if (
-              !cancelled
-            ) {
-              cleanOAuthUrl();
+            /*
+             * Do not reset the processed result.
+             *
+             * The URL has already been cleaned and the result
+             * should never be handled a second time.
+             */
 
-              processingRef.current =
-                false;
-            }
+            processingRef.current =
+              false;
           }
         };
 
-      void handleTikTokOAuthResult();
+      void processResult();
 
-      // ======================================================
-      // CLEANUP
-      // ======================================================
-
-      return () => {
-        cancelled =
-          true;
-
-        processingRef.current =
-          false;
-      };
+      /*
+       * No cleanup that resets processingRef.
+       *
+       * Resetting that value during a React effect cleanup was
+       * one of the ways this callback could be re-entered.
+       */
     },
-    [
-      organisationId,
-      onConnected,
-      refreshConnections,
-      verifyConnections,
-    ]
+    []
   );
 }

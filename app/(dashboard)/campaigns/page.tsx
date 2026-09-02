@@ -61,6 +61,9 @@ type Campaign = {
   sent_count?: number | null;
   open_count?: number | null;
   click_count?: number | null;
+  failed_count?: number | null;
+  pending_count?: number | null;
+  delivery_sent_count?: number | null;
   sender_name?: string | null;
   reply_to?: string | null;
   header_image_url?: string | null;
@@ -1082,6 +1085,15 @@ function getStatusLabel(
   campaign: Campaign
 ) {
   if (
+    campaign.status === "sending" ||
+    campaign.status === "queued" ||
+    campaign.status === "scheduled" ||
+    campaign.status === "failed"
+  ) {
+    return campaign.status;
+  }
+
+  if (
     campaign.sent_at ||
     Number(
       campaign.sent_count ||
@@ -1456,6 +1468,14 @@ export default function CampaignsPage() {
   const [
     sendingCampaignId,
     setSendingCampaignId,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    resendingFailedCampaignId,
+    setResendingFailedCampaignId,
   ] =
     useState<
       string | null
@@ -2354,6 +2374,7 @@ export default function CampaignsPage() {
       const [
         openResult,
         clickResult,
+        deliveryResult,
       ] =
         await Promise.all(
           [
@@ -2380,6 +2401,18 @@ export default function CampaignsPage() {
                 "campaign_id",
                 campaignIds
               ),
+
+            supabase
+              .from(
+                "campaign_deliveries"
+              )
+              .select(
+                "campaign_id,status"
+              )
+              .in(
+                "campaign_id",
+                campaignIds
+              ),
           ]
         );
 
@@ -2399,6 +2432,51 @@ export default function CampaignsPage() {
                 []
             );
 
+
+      const deliveryCounts: Record<
+        string,
+        {
+          sent: number;
+          failed: number;
+          pending: number;
+          sending: number;
+          total: number;
+        }
+      > = {};
+
+      if (!deliveryResult.error) {
+        for (const row of deliveryResult.data || []) {
+          const campaignId =
+            String(row.campaign_id || "");
+
+          if (!campaignId) {
+            continue;
+          }
+
+          if (!deliveryCounts[campaignId]) {
+            deliveryCounts[campaignId] = {
+              sent: 0,
+              failed: 0,
+              pending: 0,
+              sending: 0,
+              total: 0,
+            };
+          }
+
+          deliveryCounts[campaignId].total += 1;
+
+          if (row.status === "sent") {
+            deliveryCounts[campaignId].sent += 1;
+          } else if (row.status === "failed") {
+            deliveryCounts[campaignId].failed += 1;
+          } else if (row.status === "sending") {
+            deliveryCounts[campaignId].sending += 1;
+          } else {
+            deliveryCounts[campaignId].pending += 1;
+          }
+        }
+      }
+
       const enriched =
         loaded.map(
           (
@@ -2407,14 +2485,41 @@ export default function CampaignsPage() {
             ...campaign,
 
             status:
-              campaign.sent_at ||
-              Number(
-                campaign.sent_count ||
-                  0
-              ) > 0
-                ? "sent"
-                : campaign.status ||
-                  "draft",
+              campaign.status === "sending" ||
+              campaign.status === "queued" ||
+              campaign.status === "scheduled" ||
+              campaign.status === "failed"
+                ? campaign.status
+                : campaign.sent_at ||
+                    Number(
+                      campaign.sent_count ||
+                        0
+                    ) > 0
+                  ? "sent"
+                  : campaign.status ||
+                    "draft",
+
+            sent_count:
+              deliveryCounts[campaign.id]?.total
+                ? deliveryCounts[campaign.id].sent
+                : Number(
+                    campaign.sent_count ||
+                      0
+                  ),
+
+            delivery_sent_count:
+              deliveryCounts[campaign.id]?.sent ||
+              0,
+
+            failed_count:
+              deliveryCounts[campaign.id]?.failed ||
+              0,
+
+            pending_count:
+              deliveryCounts[campaign.id]
+                ? deliveryCounts[campaign.id].pending +
+                  deliveryCounts[campaign.id].sending
+                : 0,
 
             open_count:
               openCounts[
@@ -2447,6 +2552,21 @@ export default function CampaignsPage() {
       setCampaigns(
         enriched
       );
+
+      if (selectedCampaign) {
+        const refreshedSelected =
+          enriched.find(
+            (campaign) =>
+              campaign.id ===
+              selectedCampaign.id
+          );
+
+        if (refreshedSelected) {
+          setSelectedCampaign(
+            refreshedSelected
+          );
+        }
+      }
     };
 
   const refreshStats =
@@ -4171,6 +4291,90 @@ await callSendApi(campaignId);
         );
       } finally {
         setSendingCampaignId(
+          null
+        );
+      }
+    };
+
+  const resendFailedDeliveries =
+    async (
+      campaignId: string
+    ) => {
+      if (
+        resendingFailedCampaignId
+      ) {
+        return;
+      }
+
+      setResendingFailedCampaignId(
+        campaignId
+      );
+
+      try {
+        const {
+          data: sessionData,
+        } =
+          await supabase.auth.getSession();
+
+        const accessToken =
+          sessionData.session
+            ?.access_token;
+
+        if (!accessToken) {
+          throw new Error(
+            "You need to be signed in to resend failed emails."
+          );
+        }
+
+        const response =
+          await fetch(
+            "/api/campaigns/resend-failed",
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${accessToken}`,
+              },
+
+              body: JSON.stringify({
+                campaignId,
+              }),
+            }
+          );
+
+        const result =
+          await response
+            .json()
+            .catch(
+              () => ({})
+            );
+
+        if (!response.ok) {
+          throw new Error(
+            result.error ||
+              result.message ||
+              "Could not resend failed emails."
+          );
+        }
+
+        await loadCampaigns();
+
+        alert(
+          result.message ||
+            `${result.queued || 0} failed email(s) queued to resend.`
+        );
+      } catch (error) {
+        alert(
+          error instanceof Error
+            ? error.message
+            : "Could not resend failed emails."
+        );
+      } finally {
+        setResendingFailedCampaignId(
           null
         );
       }
@@ -7036,6 +7240,41 @@ await callSendApi(campaignId);
             </div>
 
             <div className="flex flex-wrap gap-2">
+              {Number(
+                selectedCampaign.failed_count ||
+                  0
+              ) > 0 && (
+                <button
+                  disabled={
+                    resendingFailedCampaignId ===
+                    selectedCampaign.id
+                  }
+                  onClick={() =>
+                    void resendFailedDeliveries(
+                      selectedCampaign.id
+                    )
+                  }
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-50 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {resendingFailedCampaignId ===
+                  selectedCampaign.id ? (
+                    <Loader2
+                      size={13}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <RefreshCw
+                      size={13}
+                    />
+                  )}
+
+                  Resend failed (
+                  {selectedCampaign.failed_count ||
+                    0}
+                  )
+                </button>
+              )}
+
               {status !==
                 "sent" && (
                 <button
@@ -7071,7 +7310,7 @@ await callSendApi(campaignId);
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
             {[
               {
                 label:
@@ -7081,6 +7320,15 @@ await callSendApi(campaignId);
                   0,
                 icon:
                   Send,
+              },
+              {
+                label:
+                  "Failed",
+                value:
+                  selectedCampaign.failed_count ||
+                  0,
+                icon:
+                  RefreshCw,
               },
               {
                 label:
@@ -7205,8 +7453,9 @@ await callSendApi(campaignId);
                 </p>
               </div>
 
-              {status !==
-                "sent" && (
+              {status !== "sent" &&
+                status !== "sending" &&
+                status !== "queued" && (
                 <button
                   disabled={
                     sendingCampaignId ===

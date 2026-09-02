@@ -11,11 +11,42 @@ import {
   Resend,
 } from "resend";
 
+import {
+  randomUUID,
+} from "crypto";
+
 export const runtime =
   "nodejs";
 
 export const dynamic =
   "force-dynamic";
+
+/*
+ * Give the worker enough time to process larger lists where the
+ * deployment platform supports maxDuration.
+ */
+export const maxDuration =
+  300;
+
+// ============================================================
+// CONFIG
+// ============================================================
+
+const SEND_DELAY_MS =
+  130;
+
+/*
+ * 130ms between completed sends means a theoretical maximum
+ * of about 7.7 sends/sec, safely below Resend's 10/sec limit.
+ */
+const MAX_429_RETRIES =
+  5;
+
+const MAX_TOTAL_RATE_LIMIT_ATTEMPTS =
+  20;
+
+const CAMPAIGN_LOCK_SECONDS =
+  120;
 
 // ============================================================
 // CLIENTS
@@ -51,6 +82,14 @@ if (
 ) {
   console.error(
     "[CAMPAIGN CRON] Missing RESEND_API_KEY."
+  );
+}
+
+if (
+  !resendFromEmail
+) {
+  console.error(
+    "[CAMPAIGN CRON] Missing RESEND_FROM_EMAIL."
   );
 }
 
@@ -109,6 +148,12 @@ type Campaign = {
   total_sent?:
     number | null;
 
+  worker_locked_until?:
+    string | null;
+
+  worker_lock_token?:
+    string | null;
+
   [key: string]:
     unknown;
 };
@@ -119,6 +164,128 @@ type CampaignRecipient = {
   email:
     string;
 };
+
+// ============================================================
+
+type CampaignDelivery = {
+  id:
+    string;
+
+  campaign_id:
+    string;
+
+  organisation_id:
+    string;
+
+  email:
+    string;
+
+  status:
+    "pending" |
+    "sending" |
+    "sent" |
+    "failed";
+
+  attempts:
+    number;
+
+  resend_id?:
+    string | null;
+
+  last_error?:
+    string | null;
+
+  sent_at?:
+    string | null;
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function sleep(
+  ms:
+    number
+) {
+  return new Promise<void>(
+    (
+      resolve
+    ) => {
+      setTimeout(
+        resolve,
+        ms
+      );
+    }
+  );
+}
+
+// ============================================================
+
+function normaliseEmail(
+  value:
+    unknown
+) {
+  return String(
+    value ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+}
+
+// ============================================================
+
+function getErrorMessage(
+  error:
+    unknown
+) {
+  if (
+    error instanceof
+    Error
+  ) {
+    return error.message;
+  }
+
+  if (
+    typeof error ===
+    "string"
+  ) {
+    return error;
+  }
+
+  try {
+    return JSON.stringify(
+      error
+    );
+  } catch {
+    return "Unknown error";
+  }
+}
+
+// ============================================================
+
+function isRateLimitError(
+  error:
+    unknown
+) {
+  const message =
+    getErrorMessage(
+      error
+    )
+      .toLowerCase();
+
+  return (
+    message.includes(
+      "429"
+    ) ||
+    message.includes(
+      "rate limit"
+    ) ||
+    message.includes(
+      "too many requests"
+    )
+  );
+}
 
 // ============================================================
 // AUTH
@@ -133,13 +300,6 @@ function isAuthorised(
       .CRON_SECRET
       ?.trim();
 
-  /*
-   * If there is no secret configured, allow the request.
-   *
-   * Once CRON_SECRET exists, the cron/request must provide:
-   *
-   * Authorization: Bearer <CRON_SECRET>
-   */
   if (
     !cronSecret
   ) {
@@ -158,19 +318,145 @@ function isAuthorised(
 }
 
 // ============================================================
-// EMAIL NORMALISER
+// COUNT DELIVERY STATUSES
 // ============================================================
 
-function normaliseEmail(
-  value:
-    unknown
+async function getDeliveryCounts(
+  campaignId:
+    string
 ) {
-  return String(
-    value ||
-      ""
-  )
-    .trim()
-    .toLowerCase();
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "campaign_deliveries"
+      )
+      .select(
+        "status"
+      )
+      .eq(
+        "campaign_id",
+        campaignId
+      );
+
+  if (
+    error
+  ) {
+    throw new Error(
+      `Could not count campaign deliveries: ${error.message}`
+    );
+  }
+
+  let sent =
+    0;
+
+  let failed =
+    0;
+
+  let pending =
+    0;
+
+  let sending =
+    0;
+
+  for (
+    const row of
+    data ||
+    []
+  ) {
+    if (
+      row.status ===
+      "sent"
+    ) {
+      sent +=
+        1;
+    } else if (
+      row.status ===
+      "failed"
+    ) {
+      failed +=
+        1;
+    } else if (
+      row.status ===
+      "sending"
+    ) {
+      sending +=
+        1;
+    } else {
+      pending +=
+        1;
+    }
+  }
+
+  return {
+    total:
+      (
+        data ||
+        []
+      ).length,
+
+    sent,
+
+    failed,
+
+    pending,
+
+    sending,
+  };
+}
+
+// ============================================================
+// RELEASE CAMPAIGN LOCK
+// ============================================================
+
+async function releaseCampaignLock(
+  campaignId:
+    string,
+
+  lockToken:
+    string
+) {
+  const {
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "campaigns"
+      )
+      .update({
+        worker_locked_until:
+          null,
+
+        worker_lock_token:
+          null,
+
+        last_worker_at:
+          new Date()
+            .toISOString(),
+      })
+      .eq(
+        "id",
+        campaignId
+      )
+      .eq(
+        "worker_lock_token",
+        lockToken
+      );
+
+  if (
+    error
+  ) {
+    console.error(
+      "[CAMPAIGN CRON] Could not release campaign lock:",
+      {
+        campaignId,
+
+        error,
+      }
+    );
+  }
 }
 
 // ============================================================
@@ -212,7 +498,7 @@ export async function GET(
     }
 
     // ========================================================
-    // CONFIG CHECK
+    // CONFIG
     // ========================================================
 
     if (
@@ -230,11 +516,6 @@ export async function GET(
         {
           status:
             500,
-
-          headers: {
-            "Cache-Control":
-              "no-store",
-          },
         }
       );
     }
@@ -253,11 +534,6 @@ export async function GET(
         {
           status:
             500,
-
-          headers: {
-            "Cache-Control":
-              "no-store",
-          },
         }
       );
     }
@@ -276,34 +552,28 @@ export async function GET(
         {
           status:
             500,
-
-          headers: {
-            "Cache-Control":
-              "no-store",
-          },
         }
       );
     }
 
     const now =
-      new Date()
-        .toISOString();
+      new Date();
+
+    const nowIso =
+      now.toISOString();
 
     console.log(
-      "[CAMPAIGN CRON] Checking for due campaigns:",
-      now
+      "[CAMPAIGN CRON] Starting worker:",
+      nowIso
     );
 
     // ========================================================
-    // GET DUE CAMPAIGNS
+    // GET CAMPAIGNS
     //
-    // Support both:
+    // IMPORTANT:
     //
-    // queued
-    // scheduled
-    //
-    // because the Campaign UI currently uses queued while
-    // some older code used scheduled.
+    // Include "sending" so a campaign can resume after a
+    // serverless timeout / interrupted cron run.
     // ========================================================
 
     const {
@@ -325,6 +595,7 @@ export async function GET(
           [
             "queued",
             "scheduled",
+            "sending",
           ]
         )
         .not(
@@ -334,7 +605,7 @@ export async function GET(
         )
         .lte(
           "scheduled_for",
-          now
+          nowIso
         )
         .order(
           "scheduled_for",
@@ -344,7 +615,7 @@ export async function GET(
           }
         )
         .limit(
-          20
+          10
         );
 
     if (
@@ -366,26 +637,13 @@ export async function GET(
         {
           status:
             500,
-
-          headers: {
-            "Cache-Control":
-              "no-store",
-          },
         }
       );
     }
 
-    // ========================================================
-    // NOTHING DUE
-    // ========================================================
-
     if (
       !campaigns?.length
     ) {
-      console.log(
-        "[CAMPAIGN CRON] No campaigns due."
-      );
-
       return NextResponse.json(
         {
           success:
@@ -394,25 +652,10 @@ export async function GET(
           processed:
             0,
 
-          campaignsSent:
-            0,
-
-          campaignsFailed:
-            0,
-
-          totalEmailsSent:
-            0,
-
-          totalEmailsFailed:
-            0,
-
           message:
             "No campaigns due",
         },
         {
-          status:
-            200,
-
           headers: {
             "Cache-Control":
               "no-store",
@@ -422,16 +665,10 @@ export async function GET(
     }
 
     // ========================================================
-    // COUNTERS
+    // GLOBAL COUNTERS
     // ========================================================
 
     let processed =
-      0;
-
-    let successfulCampaigns =
-      0;
-
-    let failedCampaigns =
       0;
 
     let totalEmailsSent =
@@ -460,6 +697,9 @@ export async function GET(
         failed:
           number;
 
+        pending:
+          number;
+
         error?:
           string;
       }> =
@@ -479,60 +719,67 @@ export async function GET(
       processed +=
         1;
 
-      let sent =
-        0;
+      const lockToken =
+        randomUUID();
 
-      let failed =
-        0;
-
-      let audienceSize =
-        0;
+      let lockAcquired =
+        false;
 
       try {
-        console.log(
-          "[CAMPAIGN CRON] Processing campaign:",
-          {
-            id:
-              campaign.id,
+        // ====================================================
+        // CHECK EXISTING LOCK
+        // ====================================================
 
-            title:
-              campaign.title,
+        if (
+          campaign.worker_locked_until
+        ) {
+          const lockedUntil =
+            new Date(
+              campaign.worker_locked_until
+            );
 
-            organisationId:
-              campaign.organisation_id,
+          if (
+            lockedUntil >
+            new Date()
+          ) {
+            console.log(
+              "[CAMPAIGN CRON] Campaign is currently locked:",
+              campaign.id
+            );
 
-            listId:
-              campaign.list_id,
-
-            status:
-              campaign.status,
-
-            scheduledFor:
-              campaign.scheduled_for,
+            continue;
           }
-        );
+        }
 
         // ====================================================
         // CLAIM CAMPAIGN
-        //
-        // Only change the row if it is still queued/scheduled.
-        // This helps stop two workers sending it at once.
         // ====================================================
 
-        const {
-          data:
-            claimedCampaigns,
+        const lockUntil =
+          new Date(
+            Date.now() +
+            CAMPAIGN_LOCK_SECONDS *
+            1000
+          )
+            .toISOString();
 
-          error:
-            claimError,
-        } =
-          await supabaseAdmin
+        let claimQuery =
+          supabaseAdmin
             .from(
               "campaigns"
             )
             .update({
               status:
                 "sending",
+
+              worker_locked_until:
+                lockUntil,
+
+              worker_lock_token:
+                lockToken,
+
+              last_worker_at:
+                nowIso,
             })
             .eq(
               "id",
@@ -543,8 +790,41 @@ export async function GET(
               [
                 "queued",
                 "scheduled",
+                "sending",
               ]
-            )
+            );
+
+        /*
+         * If the campaign had a lock when it was selected,
+         * only reclaim it if that lock is still the same
+         * expired value.
+         *
+         * Otherwise require no active lock.
+         */
+        if (
+          campaign.worker_locked_until
+        ) {
+          claimQuery =
+            claimQuery.eq(
+              "worker_locked_until",
+              campaign.worker_locked_until
+            );
+        } else {
+          claimQuery =
+            claimQuery.is(
+              "worker_locked_until",
+              null
+            );
+        }
+
+        const {
+          data:
+            claimedRows,
+
+          error:
+            claimError,
+        } =
+          await claimQuery
             .select(
               "id"
             );
@@ -557,23 +837,34 @@ export async function GET(
           );
         }
 
-        /*
-         * If another worker claimed this campaign first,
-         * there is nothing for this worker to do.
-         */
         if (
-          !claimedCampaigns?.length
+          !claimedRows?.length
         ) {
           console.log(
-            "[CAMPAIGN CRON] Campaign already being processed:",
+            "[CAMPAIGN CRON] Campaign was claimed by another worker:",
             campaign.id
           );
 
           continue;
         }
 
+        lockAcquired =
+          true;
+
+        console.log(
+          "[CAMPAIGN CRON] Campaign claimed:",
+          {
+            campaignId:
+              campaign.id,
+
+            lockToken,
+
+            lockUntil,
+          }
+        );
+
         // ====================================================
-        // VALIDATE CAMPAIGN
+        // VALIDATE
         // ====================================================
 
         if (
@@ -593,15 +884,33 @@ export async function GET(
         }
 
         // ====================================================
-        // GET CAMPAIGN RECIPIENTS
-        //
-        // IMPORTANT:
-        //
-        // The real list membership is stored in:
-        //
-        // public.campaign_list_emails
-        //
-        // NOT subscribers.
+        // CAMPAIGN CONTENT
+        // ====================================================
+
+        const subject =
+          String(
+            campaign.subject ||
+            campaign.title ||
+            "Newsletter"
+          )
+            .trim();
+
+        const html =
+          String(
+            campaign.content ||
+            ""
+          );
+
+        if (
+          !html.trim()
+        ) {
+          throw new Error(
+            "Campaign has no email content."
+          );
+        }
+
+        // ====================================================
+        // GET AUDIENCE
         // ====================================================
 
         const {
@@ -641,7 +950,7 @@ export async function GET(
         }
 
         // ====================================================
-        // CLEAN + DEDUPLICATE RECIPIENTS
+        // CLEAN / DEDUPLICATE
         // ====================================================
 
         const recipientMap =
@@ -666,18 +975,12 @@ export async function GET(
             continue;
           }
 
-          if (
-            !recipientMap.has(
-              email
-            )
-          ) {
-            recipientMap.set(
+          recipientMap.set(
+            email,
+            {
               email,
-              {
-                email,
-              }
-            );
-          }
+            }
+          );
         }
 
         const recipients =
@@ -685,22 +988,16 @@ export async function GET(
             recipientMap.values()
           );
 
-        audienceSize =
+        const audienceSize =
           recipients.length;
 
         console.log(
-          "[CAMPAIGN CRON] Audience loaded:",
+          "[CAMPAIGN CRON] Audience:",
           {
             campaignId:
               campaign.id,
 
-            rawRows:
-              recipientRows
-                ?.length ||
-              0,
-
-            uniqueRecipients:
-              audienceSize,
+            audienceSize,
           }
         );
 
@@ -709,46 +1006,41 @@ export async function GET(
         // ====================================================
 
         if (
-          recipients.length ===
+          audienceSize ===
           0
         ) {
-          const sentAt =
-            new Date()
-              .toISOString();
+          await supabaseAdmin
+            .from(
+              "campaigns"
+            )
+            .update({
+              status:
+                "sent",
 
-          const {
-            error:
-              emptyUpdateError,
-          } =
-            await supabaseAdmin
-              .from(
-                "campaigns"
-              )
-              .update({
-                status:
-                  "sent",
+              total_sent:
+                0,
 
-                sent_at:
-                  sentAt,
+              sent_at:
+                new Date()
+                  .toISOString(),
 
-                total_sent:
-                  0,
-              })
-              .eq(
-                "id",
-                campaign.id
-              );
+              worker_locked_until:
+                null,
 
-          if (
-            emptyUpdateError
-          ) {
-            throw new Error(
-              `Campaign completed but could not be updated: ${emptyUpdateError.message}`
+              worker_lock_token:
+                null,
+            })
+            .eq(
+              "id",
+              campaign.id
+            )
+            .eq(
+              "worker_lock_token",
+              lockToken
             );
-          }
 
-          successfulCampaigns +=
-            1;
+          lockAcquired =
+            false;
 
           campaignResults.push({
             id:
@@ -771,211 +1063,845 @@ export async function GET(
 
             failed:
               0,
-          });
 
-          console.log(
-            "[CAMPAIGN CRON] Campaign had no recipients:",
-            campaign.id
-          );
+            pending:
+              0,
+          });
 
           continue;
         }
 
         // ====================================================
-        // CONTENT
+        // CREATE DELIVERY ROWS
+        //
+        // Existing rows are deliberately NOT overwritten.
+        // This is what lets us safely resume.
         // ====================================================
 
-        const subject =
-          String(
-            campaign.subject ||
-            campaign.title ||
-            "Newsletter"
-          ).trim();
+        const deliveryRows =
+          recipients.map(
+            (
+              recipient
+            ) => ({
+              campaign_id:
+                campaign.id,
 
-        const html =
-          String(
-            campaign.content ||
-            ""
+              organisation_id:
+                campaign.organisation_id!,
+
+              email:
+                recipient.email,
+
+              status:
+                "pending",
+            })
           );
 
+        const {
+          error:
+            deliveryInsertError,
+        } =
+          await supabaseAdmin
+            .from(
+              "campaign_deliveries"
+            )
+            .upsert(
+              deliveryRows,
+              {
+                onConflict:
+                  "campaign_id,email",
+
+                ignoreDuplicates:
+                  true,
+              }
+            );
+
         if (
-          !html.trim()
+          deliveryInsertError
         ) {
           throw new Error(
-            "Campaign has no email content."
+            `Could not prepare campaign deliveries: ${deliveryInsertError.message}`
           );
         }
 
         // ====================================================
-        // SEND EMAILS
+        // RESET STALE "SENDING" ROWS
+        //
+        // If a previous worker died after marking an address
+        // sending, but before Resend replied, this makes the
+        // address resumable.
+        //
+        // IMPORTANT:
+        // There is a very small unavoidable ambiguity if the
+        // worker died after Resend accepted the email but before
+        // we saved resend_id/status=sent.
         // ====================================================
 
-        for (
-          const recipient of
-          recipients
+        const {
+          error:
+            staleResetError,
+        } =
+          await supabaseAdmin
+            .from(
+              "campaign_deliveries"
+            )
+            .update({
+              status:
+                "pending",
+
+              updated_at:
+                new Date()
+                  .toISOString(),
+            })
+            .eq(
+              "campaign_id",
+              campaign.id
+            )
+            .eq(
+              "status",
+              "sending"
+            );
+
+        if (
+          staleResetError
         ) {
-          const email =
-            recipient.email;
+          throw new Error(
+            `Could not reset stale deliveries: ${staleResetError.message}`
+          );
+        }
 
-          try {
-            const {
-              data:
-                resendData,
+        // ====================================================
+        // SYNC EXISTING SENT COUNT
+        // ====================================================
 
-              error:
-                resendError,
-            } =
-              await resend
-                .emails
-                .send({
-                  from:
-                    resendFromEmail,
+        let counts =
+          await getDeliveryCounts(
+            campaign.id
+          );
 
-                  to:
-                    email,
+        await supabaseAdmin
+          .from(
+            "campaigns"
+          )
+          .update({
+            total_sent:
+              counts.sent,
+          })
+          .eq(
+            "id",
+            campaign.id
+          );
 
-                  subject,
+        console.log(
+          "[CAMPAIGN CRON] Existing delivery progress:",
+          counts
+        );
 
-                  /*
-                   * campaign.content already contains the
-                   * complete campaign HTML.
-                   *
-                   * Do NOT wrap it in another generic template.
-                   */
-                  html,
-                });
+        // ====================================================
+        // GET PENDING DELIVERIES
+        // ====================================================
 
-            // ==================================================
-            // RESEND ERROR RESPONSE
-            // ==================================================
+        const {
+          data:
+            pendingRows,
 
-            if (
-              resendError
-            ) {
-              failed +=
-                1;
+          error:
+            pendingError,
+        } =
+          await supabaseAdmin
+            .from(
+              "campaign_deliveries"
+            )
+            .select(
+              `
+                id,
+                campaign_id,
+                organisation_id,
+                email,
+                status,
+                attempts,
+                resend_id,
+                last_error,
+                sent_at
+              `
+            )
+            .eq(
+              "campaign_id",
+              campaign.id
+            )
+            .eq(
+              "status",
+              "pending"
+            )
+            .order(
+              "created_at",
+              {
+                ascending:
+                  true,
+              }
+            );
 
-              totalEmailsFailed +=
-                1;
+        if (
+          pendingError
+        ) {
+          throw new Error(
+            `Could not load pending deliveries: ${pendingError.message}`
+          );
+        }
 
-              console.error(
-                "[CAMPAIGN CRON] Resend rejected email:",
-                {
-                  campaignId:
-                    campaign.id,
+        const pendingDeliveries =
+          (
+            pendingRows ||
+            []
+          ) as CampaignDelivery[];
 
-                  email,
+        console.log(
+          "[CAMPAIGN CRON] Remaining recipients:",
+          pendingDeliveries.length
+        );
 
-                  error:
-                    resendError,
-                }
+        // ====================================================
+        // SEND PENDING RECIPIENTS
+        // ====================================================
+
+        let sendsSinceProgressUpdate =
+          0;
+
+        for (
+          const delivery of
+          pendingDeliveries
+        ) {
+          // ==================================================
+          // REFRESH CAMPAIGN LOCK
+          // ==================================================
+
+          const refreshedLockUntil =
+            new Date(
+              Date.now() +
+              CAMPAIGN_LOCK_SECONDS *
+              1000
+            )
+              .toISOString();
+
+          const {
+            data:
+              lockRefreshRows,
+
+            error:
+              lockRefreshError,
+          } =
+            await supabaseAdmin
+              .from(
+                "campaigns"
+              )
+              .update({
+                worker_locked_until:
+                  refreshedLockUntil,
+
+                last_worker_at:
+                  new Date()
+                    .toISOString(),
+              })
+              .eq(
+                "id",
+                campaign.id
+              )
+              .eq(
+                "worker_lock_token",
+                lockToken
+              )
+              .select(
+                "id"
               );
 
-              continue;
-            }
+          if (
+            lockRefreshError
+          ) {
+            throw new Error(
+              `Could not refresh campaign lock: ${lockRefreshError.message}`
+            );
+          }
 
-            // ==================================================
-            // NO MESSAGE ID
-            // ==================================================
+          if (
+            !lockRefreshRows?.length
+          ) {
+            throw new Error(
+              "Campaign worker lock was lost."
+            );
+          }
 
-            if (
-              !resendData?.id
-            ) {
-              failed +=
-                1;
+          // ==================================================
+          // MARK RECIPIENT SENDING
+          // ==================================================
 
-              totalEmailsFailed +=
-                1;
+          const currentAttempts =
+            Number(
+              delivery.attempts ||
+              0
+            );
 
-              console.error(
-                "[CAMPAIGN CRON] Resend returned no email ID:",
-                {
-                  campaignId:
-                    campaign.id,
+          const {
+            data:
+              claimedDelivery,
 
-                  email,
+            error:
+              deliveryClaimError,
+          } =
+            await supabaseAdmin
+              .from(
+                "campaign_deliveries"
+              )
+              .update({
+                status:
+                  "sending",
 
-                  response:
-                    resendData,
-                }
+                updated_at:
+                  new Date()
+                    .toISOString(),
+              })
+              .eq(
+                "id",
+                delivery.id
+              )
+              .eq(
+                "status",
+                "pending"
+              )
+              .select(
+                "id"
               );
 
-              continue;
-            }
+          if (
+            deliveryClaimError
+          ) {
+            console.error(
+              "[CAMPAIGN CRON] Could not claim recipient:",
+              {
+                email:
+                  delivery.email,
 
-            // ==================================================
-            // SUCCESS
-            // ==================================================
+                error:
+                  deliveryClaimError,
+              }
+            );
 
-            sent +=
+            continue;
+          }
+
+          if (
+            !claimedDelivery?.length
+          ) {
+            continue;
+          }
+
+          // ==================================================
+          // SEND WITH 429 RETRIES
+          // ==================================================
+
+          let accepted =
+            false;
+
+          let rateLimited =
+            false;
+
+          let terminalError =
+            "";
+
+          let resendId =
+            "";
+
+          let localAttempts =
+            0;
+
+          while (
+            !accepted &&
+            localAttempts <
+              MAX_429_RETRIES
+          ) {
+            localAttempts +=
               1;
+
+            const totalAttemptNumber =
+              currentAttempts +
+              localAttempts;
+
+            try {
+              const {
+                data:
+                  resendData,
+
+                error:
+                  resendError,
+              } =
+                await resend
+                  .emails
+                  .send({
+                    from:
+                      resendFromEmail,
+
+                    to:
+                      delivery.email,
+
+                    subject,
+
+                    html,
+                  });
+
+              // ==============================================
+              // RESEND ERROR
+              // ==============================================
+
+              if (
+                resendError
+              ) {
+                if (
+                  isRateLimitError(
+                    resendError
+                  )
+                ) {
+                  rateLimited =
+                    true;
+
+                  terminalError =
+                    getErrorMessage(
+                      resendError
+                    );
+
+                  console.warn(
+                    "[CAMPAIGN CRON] Resend 429:",
+                    {
+                      campaignId:
+                        campaign.id,
+
+                      email:
+                        delivery.email,
+
+                      retry:
+                        localAttempts,
+
+                      totalAttempt:
+                        totalAttemptNumber,
+                    }
+                  );
+
+                  if (
+                    totalAttemptNumber >=
+                    MAX_TOTAL_RATE_LIMIT_ATTEMPTS
+                  ) {
+                    break;
+                  }
+
+                  if (
+                    localAttempts <
+                    MAX_429_RETRIES
+                  ) {
+                    /*
+                     * 1.25s
+                     * 2.5s
+                     * 5s
+                     * 10s
+                     */
+                    const retryDelay =
+                      Math.min(
+                        10000,
+                        1250 *
+                        Math.pow(
+                          2,
+                          localAttempts -
+                          1
+                        )
+                      );
+
+                    await sleep(
+                      retryDelay
+                    );
+
+                    continue;
+                  }
+
+                  break;
+                }
+
+                // ============================================
+                // NON-RATE-LIMIT ERROR
+                // ============================================
+
+                terminalError =
+                  getErrorMessage(
+                    resendError
+                  );
+
+                break;
+              }
+
+              // ==============================================
+              // NO RESEND ID
+              // ==============================================
+
+              if (
+                !resendData?.id
+              ) {
+                terminalError =
+                  "Resend returned no email ID.";
+
+                break;
+              }
+
+              // ==============================================
+              // ACCEPTED
+              // ==============================================
+
+              accepted =
+                true;
+
+              resendId =
+                resendData.id;
+
+              rateLimited =
+                false;
+            } catch (
+              sendError
+            ) {
+              if (
+                isRateLimitError(
+                  sendError
+                )
+              ) {
+                rateLimited =
+                  true;
+
+                terminalError =
+                  getErrorMessage(
+                    sendError
+                  );
+
+                if (
+                  localAttempts <
+                  MAX_429_RETRIES
+                ) {
+                  const retryDelay =
+                    Math.min(
+                      10000,
+                      1250 *
+                      Math.pow(
+                        2,
+                        localAttempts -
+                        1
+                      )
+                    );
+
+                  await sleep(
+                    retryDelay
+                  );
+
+                  continue;
+                }
+
+                break;
+              }
+
+              terminalError =
+                getErrorMessage(
+                  sendError
+                );
+
+              break;
+            }
+          }
+
+          const newAttempts =
+            currentAttempts +
+            localAttempts;
+
+          // ==================================================
+          // SUCCESS
+          // ==================================================
+
+          if (
+            accepted
+          ) {
+            const sentAt =
+              new Date()
+                .toISOString();
+
+            const {
+              error:
+                deliverySentError,
+            } =
+              await supabaseAdmin
+                .from(
+                  "campaign_deliveries"
+                )
+                .update({
+                  status:
+                    "sent",
+
+                  attempts:
+                    newAttempts,
+
+                  resend_id:
+                    resendId,
+
+                  last_error:
+                    null,
+
+                  sent_at:
+                    sentAt,
+
+                  updated_at:
+                    sentAt,
+                })
+                .eq(
+                  "id",
+                  delivery.id
+                );
+
+            if (
+              deliverySentError
+            ) {
+              throw new Error(
+                `Email was accepted by Resend but delivery tracking failed for ${delivery.email}: ${deliverySentError.message}`
+              );
+            }
 
             totalEmailsSent +=
               1;
 
+            sendsSinceProgressUpdate +=
+              1;
+
             console.log(
-              "[CAMPAIGN CRON] Email accepted by Resend:",
+              "[CAMPAIGN CRON] Email sent:",
               {
                 campaignId:
                   campaign.id,
 
-                email,
+                email:
+                  delivery.email,
 
-                resendId:
-                  resendData.id,
+                resendId,
 
-                progress:
-                  `${sent + failed}/${audienceSize}`,
+                attempts:
+                  newAttempts,
               }
             );
-          } catch (
-            sendError
+          }
+
+          // ==================================================
+          // RATE LIMIT EXHAUSTED
+          //
+          // Keep it pending so the NEXT cron run can continue.
+          // ==================================================
+
+          else if (
+            rateLimited &&
+            newAttempts <
+              MAX_TOTAL_RATE_LIMIT_ATTEMPTS
           ) {
-            failed +=
-              1;
+            const {
+              error:
+                pendingAgainError,
+            } =
+              await supabaseAdmin
+                .from(
+                  "campaign_deliveries"
+                )
+                .update({
+                  status:
+                    "pending",
+
+                  attempts:
+                    newAttempts,
+
+                  last_error:
+                    terminalError,
+
+                  updated_at:
+                    new Date()
+                      .toISOString(),
+                })
+                .eq(
+                  "id",
+                  delivery.id
+                );
+
+            if (
+              pendingAgainError
+            ) {
+              throw new Error(
+                `Could not return rate-limited recipient to pending: ${pendingAgainError.message}`
+              );
+            }
+
+            console.warn(
+              "[CAMPAIGN CRON] Recipient will retry next cron run:",
+              delivery.email
+            );
+          }
+
+          // ==================================================
+          // TERMINAL FAILURE
+          // ==================================================
+
+          else {
+            const {
+              error:
+                failedDeliveryError,
+            } =
+              await supabaseAdmin
+                .from(
+                  "campaign_deliveries"
+                )
+                .update({
+                  status:
+                    "failed",
+
+                  attempts:
+                    newAttempts,
+
+                  last_error:
+                    terminalError ||
+                    "Email could not be sent.",
+
+                  updated_at:
+                    new Date()
+                      .toISOString(),
+                })
+                .eq(
+                  "id",
+                  delivery.id
+                );
+
+            if (
+              failedDeliveryError
+            ) {
+              throw new Error(
+                `Could not record failed delivery: ${failedDeliveryError.message}`
+              );
+            }
 
             totalEmailsFailed +=
               1;
 
             console.error(
-              "[CAMPAIGN CRON] Email send exception:",
+              "[CAMPAIGN CRON] Delivery failed permanently:",
               {
-                campaignId:
-                  campaign.id,
-
-                email,
+                email:
+                  delivery.email,
 
                 error:
-                  sendError,
+                  terminalError,
               }
             );
           }
+
+          // ==================================================
+          // UPDATE CAMPAIGN PROGRESS EVERY 10 SUCCESSFUL SENDS
+          // ==================================================
+
+          if (
+            sendsSinceProgressUpdate >=
+            10
+          ) {
+            counts =
+              await getDeliveryCounts(
+                campaign.id
+              );
+
+            await supabaseAdmin
+              .from(
+                "campaigns"
+              )
+              .update({
+                total_sent:
+                  counts.sent,
+
+                last_worker_at:
+                  new Date()
+                    .toISOString(),
+              })
+              .eq(
+                "id",
+                campaign.id
+              );
+
+            sendsSinceProgressUpdate =
+              0;
+          }
+
+          // ==================================================
+          // RATE LIMIT
+          //
+          // ~7.7 deliveries/sec maximum even if Resend responds
+          // immediately.
+          // ==================================================
+
+          await sleep(
+            SEND_DELAY_MS
+          );
         }
 
         // ====================================================
-        // CAMPAIGN FINISHED
+        // FINAL COUNTS
         // ====================================================
 
-        const sentAt =
-          new Date()
-            .toISOString();
+        counts =
+          await getDeliveryCounts(
+            campaign.id
+          );
+
+        // ====================================================
+        // WORK OUT FINAL STATUS
+        // ====================================================
+
+        let finalStatus:
+          "sending" |
+          "sent" |
+          "failed";
 
         /*
-         * If at least one email succeeds, consider the campaign
-         * sent.
-         *
-         * Any individual recipient failures are still logged
-         * separately in the worker response.
+         * Pending means we have rate-limited recipients that
+         * must be continued on the next worker run.
          */
-        const finalStatus =
-          sent >
+        if (
+          counts.pending >
+          0 ||
+          counts.sending >
           0
-            ? "sent"
-            : "failed";
+        ) {
+          finalStatus =
+            "sending";
+        } else if (
+          counts.sent >
+          0
+        ) {
+          /*
+           * All recipients are terminal.
+           *
+           * Some may be failed because of invalid/rejected
+           * addresses, but the campaign itself has completed.
+           */
+          finalStatus =
+            "sent";
+        } else {
+          finalStatus =
+            "failed";
+        }
+
+        const sentAt =
+          finalStatus ===
+          "sent"
+            ? new Date()
+                .toISOString()
+            : null;
+
+        // ====================================================
+        // UPDATE CAMPAIGN
+        // ====================================================
 
         const {
           error:
-            finalUpdateError,
+            finalCampaignError,
         } =
           await supabaseAdmin
             .from(
@@ -985,42 +1911,41 @@ export async function GET(
               status:
                 finalStatus,
 
-              sent_at:
-                sent >
-                0
-                  ? sentAt
-                  : null,
-
               total_sent:
-                sent,
+                counts.sent,
+
+              sent_at:
+                sentAt,
+
+              worker_locked_until:
+                null,
+
+              worker_lock_token:
+                null,
+
+              last_worker_at:
+                new Date()
+                  .toISOString(),
             })
             .eq(
               "id",
               campaign.id
+            )
+            .eq(
+              "worker_lock_token",
+              lockToken
             );
 
         if (
-          finalUpdateError
+          finalCampaignError
         ) {
           throw new Error(
-            `Campaign emails were processed but the campaign could not be updated: ${finalUpdateError.message}`
+            `Could not finalise campaign: ${finalCampaignError.message}`
           );
         }
 
-        // ====================================================
-        // CAMPAIGN COUNTER
-        // ====================================================
-
-        if (
-          finalStatus ===
-          "sent"
-        ) {
-          successfulCampaigns +=
-            1;
-        } else {
-          failedCampaigns +=
-            1;
-        }
+        lockAcquired =
+          false;
 
         campaignResults.push({
           id:
@@ -1036,50 +1961,42 @@ export async function GET(
             finalStatus,
 
           audience:
-            audienceSize,
+            counts.total,
 
-          sent,
+          sent:
+            counts.sent,
 
-          failed,
+          failed:
+            counts.failed,
+
+          pending:
+            counts.pending +
+            counts.sending,
         });
 
         console.log(
-          "[CAMPAIGN CRON] Campaign completed:",
+          "[CAMPAIGN CRON] Campaign progress complete:",
           {
-            id:
+            campaignId:
               campaign.id,
-
-            title:
-              campaign.title,
 
             finalStatus,
 
-            audience:
-              audienceSize,
-
-            sent,
-
-            failed,
+            ...counts,
           }
         );
       } catch (
         campaignProcessingError
       ) {
-        failedCampaigns +=
-          1;
-
         const message =
-          campaignProcessingError instanceof
-            Error
-            ? campaignProcessingError.message
-            : String(
-                campaignProcessingError
-              );
+          getErrorMessage(
+            campaignProcessingError
+          );
 
         console.error(
-          "[CAMPAIGN CRON] Campaign failed:",
+          "[CAMPAIGN CRON] Campaign worker error:",
           {
-            id:
+            campaignId:
               campaign.id,
 
             error:
@@ -1088,40 +2005,107 @@ export async function GET(
         );
 
         // ====================================================
-        // MARK CAMPAIGN FAILED
+        // GET CURRENT COUNTS IF POSSIBLE
         // ====================================================
 
-        const {
-          error:
-            failedUpdateError,
-        } =
-          await supabaseAdmin
-            .from(
-              "campaigns"
-            )
-            .update({
-              status:
-                "failed",
+        let counts = {
+          total:
+            0,
 
-              /*
-               * If some messages were accepted before the
-               * failure, preserve that number.
-               */
-              total_sent:
-                sent,
-            })
-            .eq(
-              "id",
+          sent:
+            0,
+
+          failed:
+            0,
+
+          pending:
+            0,
+
+          sending:
+            0,
+        };
+
+        try {
+          counts =
+            await getDeliveryCounts(
               campaign.id
             );
-
-        if (
-          failedUpdateError
+        } catch (
+          countError
         ) {
           console.error(
-            "[CAMPAIGN CRON] Could not mark campaign failed:",
-            failedUpdateError
+            "[CAMPAIGN CRON] Could not load counts after error:",
+            countError
           );
+        }
+
+        /*
+         * IMPORTANT:
+         *
+         * Do NOT blindly mark the campaign failed if there are
+         * still pending deliveries.
+         *
+         * Keep it as "sending" so a future cron execution can
+         * resume the campaign.
+         */
+        const recoveryStatus =
+          counts.pending >
+            0 ||
+          counts.sending >
+            0 ||
+          counts.sent >
+            0
+            ? "sending"
+            : "failed";
+
+        if (
+          lockAcquired
+        ) {
+          const {
+            error:
+              recoveryError,
+          } =
+            await supabaseAdmin
+              .from(
+                "campaigns"
+              )
+              .update({
+                status:
+                  recoveryStatus,
+
+                total_sent:
+                  counts.sent,
+
+                worker_locked_until:
+                  null,
+
+                worker_lock_token:
+                  null,
+
+                last_worker_at:
+                  new Date()
+                    .toISOString(),
+              })
+              .eq(
+                "id",
+                campaign.id
+              )
+              .eq(
+                "worker_lock_token",
+                lockToken
+              );
+
+          if (
+            recoveryError
+          ) {
+            console.error(
+              "[CAMPAIGN CRON] Could not release campaign after error:",
+              recoveryError
+            );
+          }
+
+          lockAcquired =
+            false;
         }
 
         campaignResults.push({
@@ -1135,33 +2119,44 @@ export async function GET(
             ),
 
           status:
-            "failed",
+            recoveryStatus,
 
           audience:
-            audienceSize,
+            counts.total,
 
-          sent,
+          sent:
+            counts.sent,
 
-          failed,
+          failed:
+            counts.failed,
+
+          pending:
+            counts.pending +
+            counts.sending,
 
           error:
             message,
         });
+      } finally {
+        if (
+          lockAcquired
+        ) {
+          await releaseCampaignLock(
+            campaign.id,
+            lockToken
+          );
+        }
       }
     }
 
     // ========================================================
-    // DONE
+    // FINISHED
     // ========================================================
 
     console.log(
-      "[CAMPAIGN CRON] Worker completed:",
+      "[CAMPAIGN CRON] Worker finished:",
       {
         processed,
-
-        successfulCampaigns,
-
-        failedCampaigns,
 
         totalEmailsSent,
 
@@ -1175,12 +2170,6 @@ export async function GET(
           true,
 
         processed,
-
-        campaignsSent:
-          successfulCampaigns,
-
-        campaignsFailed:
-          failedCampaigns,
 
         totalEmailsSent,
 
@@ -1214,10 +2203,9 @@ export async function GET(
           false,
 
         error:
-          error instanceof
-            Error
-            ? error.message
-            : "Campaign cron failed.",
+          getErrorMessage(
+            error
+          ),
       },
       {
         status:

@@ -72,6 +72,9 @@ interface SocialPost {
   media_url?:
     string | null;
 
+  media_urls?:
+    string[] | null;
+
   scheduled_for:
     string;
 
@@ -184,6 +187,21 @@ interface ContentConcept {
     string;
 }
 
+interface ComposerMediaItem {
+  id:
+    string;
+
+  file:
+    File;
+
+  previewUrl:
+    string;
+
+  type:
+    "image" |
+    "video";
+}
+
 type PlatformId =
   | "facebook"
   | "instagram"
@@ -248,6 +266,18 @@ const POST_STATUS = {
   FAILED:
     "failed",
 } as const;
+
+// ============================================================
+// MEDIA LIMITS
+// ============================================================
+
+const MAX_MEDIA_ITEMS =
+  10;
+
+const MAX_FILE_SIZE =
+  250 *
+  1024 *
+  1024;
 
 // ============================================================
 // PLATFORM OPTIONS
@@ -600,6 +630,44 @@ const compactText =
   };
 
 // ============================================================
+// GET POST MEDIA
+// ============================================================
+
+const getPostMediaUrls =
+  (
+    post:
+      SocialPost
+  ): string[] => {
+    if (
+      Array.isArray(
+        post.media_urls
+      ) &&
+      post.media_urls.length
+    ) {
+      return post.media_urls.filter(
+        (
+          url
+        ): url is string =>
+          typeof url ===
+            "string" &&
+          Boolean(
+            url.trim()
+          )
+      );
+    }
+
+    if (
+      post.media_url
+    ) {
+      return [
+        post.media_url,
+      ];
+    }
+
+    return [];
+  };
+
+// ============================================================
 
 function resultFromPost(
   post:
@@ -889,23 +957,13 @@ export default function SocialStudioUnified() {
   // ==========================================================
 
   const [
-    mediaFile,
-    setMediaFile,
+    mediaItems,
+    setMediaItems,
   ] =
     useState<
-      File | null
+      ComposerMediaItem[]
     >(
-      null
-    );
-
-  const [
-    mediaPreview,
-    setMediaPreview,
-  ] =
-    useState<
-      string | null
-    >(
-      null
+      []
     );
 
   const [
@@ -1013,6 +1071,13 @@ export default function SocialStudioUnified() {
       true
     );
 
+  const mediaItemsRef =
+    useRef<
+      ComposerMediaItem[]
+    >(
+      []
+    );
+
   // ==========================================================
   // SUPABASE
   // ==========================================================
@@ -1060,9 +1125,69 @@ export default function SocialStudioUnified() {
       return () => {
         mountedRef.current =
           false;
+
+        mediaItemsRef
+          .current
+          .forEach(
+            (
+              item
+            ) => {
+              URL.revokeObjectURL(
+                item.previewUrl
+              );
+            }
+          );
       };
     },
     []
+  );
+
+  // ==========================================================
+  // KEEP MEDIA REF CURRENT
+  // ==========================================================
+
+  useEffect(
+    () => {
+      mediaItemsRef.current =
+        mediaItems;
+    },
+    [
+      mediaItems,
+    ]
+  );
+
+  // ==========================================================
+  // AUTO CAROUSEL FORMAT
+  // ==========================================================
+
+  useEffect(
+    () => {
+      if (
+        mediaItems.length >
+          1 &&
+        format ===
+          "Post"
+      ) {
+        setFormat(
+          "Carousel"
+        );
+      }
+
+      if (
+        mediaItems.length <=
+          1 &&
+        format ===
+          "Carousel"
+      ) {
+        setFormat(
+          "Post"
+        );
+      }
+    },
+    [
+      mediaItems.length,
+      format,
+    ]
   );
 
   // ==========================================================
@@ -1477,6 +1602,7 @@ export default function SocialStudioUnified() {
                 platform,
                 hashtags,
                 media_url,
+                media_urls,
                 scheduled_for,
                 status,
                 format,
@@ -1768,28 +1894,28 @@ export default function SocialStudioUnified() {
       event:
         ChangeEvent<HTMLInputElement>
     ) => {
-      const file =
-        event
-          .target
-          .files?.[0];
+      const files =
+        Array.from(
+          event.target.files ||
+            []
+        );
 
       if (
-        !file
+        !files.length
       ) {
         return;
       }
 
-      const maximumSize =
-        250 *
-        1024 *
-        1024;
+      const availableSlots =
+        MAX_MEDIA_ITEMS -
+        mediaItems.length;
 
       if (
-        file.size >
-        maximumSize
+        availableSlots <=
+        0
       ) {
         toast.error(
-          "Please choose a file smaller than 250 MB."
+          `You can add up to ${MAX_MEDIA_ITEMS} media items.`
         );
 
         event.target.value =
@@ -1798,45 +1924,241 @@ export default function SocialStudioUnified() {
         return;
       }
 
-      if (
-        mediaPreview
+      const acceptedFiles =
+        files.slice(
+          0,
+          availableSlots
+        );
+
+      const validItems:
+        ComposerMediaItem[] =
+        [];
+
+      const rejectedNames:
+        string[] =
+        [];
+
+      for (
+        const file of
+        acceptedFiles
       ) {
-        URL.revokeObjectURL(
-          mediaPreview
+        const isImage =
+          file.type.startsWith(
+            "image/"
+          );
+
+        const isVideo =
+          file.type.startsWith(
+            "video/"
+          );
+
+        if (
+          !isImage &&
+          !isVideo
+        ) {
+          rejectedNames.push(
+            file.name
+          );
+
+          continue;
+        }
+
+        if (
+          file.size >
+          MAX_FILE_SIZE
+        ) {
+          rejectedNames.push(
+            file.name
+          );
+
+          continue;
+        }
+
+        validItems.push({
+          id:
+            crypto.randomUUID(),
+
+          file,
+
+          previewUrl:
+            URL.createObjectURL(
+              file
+            ),
+
+          type:
+            isVideo
+              ? "video"
+              : "image",
+        });
+      }
+
+      if (
+        files.length >
+        availableSlots
+      ) {
+        toast.warning(
+          `Only ${availableSlots} more media item${
+            availableSlots ===
+            1
+              ? ""
+              : "s"
+          } could be added.`
         );
       }
 
-      setMediaFile(
-        file
-      );
+      if (
+        rejectedNames.length
+      ) {
+        toast.error(
+          `${rejectedNames.length} file${
+            rejectedNames.length ===
+            1
+              ? " was"
+              : "s were"
+          } skipped. Use images/videos under 250 MB.`
+        );
+      }
 
-      setMediaPreview(
-        URL.createObjectURL(
-          file
-        )
-      );
+      if (
+        validItems.length
+      ) {
+        setMediaItems(
+          (
+            previous
+          ) => [
+            ...previous,
+            ...validItems,
+          ]
+        );
 
-      toast.success(
-        `${file.name} is ready to upload`
+        toast.success(
+          validItems.length ===
+            1
+            ? `${validItems[0].file.name} is ready to upload`
+            : `${validItems.length} media items added`
+        );
+      }
+
+      event.target.value =
+        "";
+    };
+
+  // ==========================================================
+  // REMOVE ONE MEDIA ITEM
+  // ==========================================================
+
+  const removeMediaItem =
+    (
+      mediaId:
+        string
+    ) => {
+      setMediaItems(
+        (
+          previous
+        ) => {
+          const item =
+            previous.find(
+              (
+                media
+              ) =>
+                media.id ===
+                mediaId
+            );
+
+          if (
+            item
+          ) {
+            URL.revokeObjectURL(
+              item.previewUrl
+            );
+          }
+
+          return previous.filter(
+            (
+              media
+            ) =>
+              media.id !==
+              mediaId
+          );
+        }
       );
     };
 
+  // ==========================================================
+  // MOVE MEDIA
+  // ==========================================================
+
+  const moveMediaItem =
+    (
+      index:
+        number,
+
+      direction:
+        "left" |
+        "right"
+    ) => {
+      setMediaItems(
+        (
+          previous
+        ) => {
+          const targetIndex =
+            direction ===
+            "left"
+              ? index -
+                1
+              : index +
+                1;
+
+          if (
+            targetIndex <
+              0 ||
+            targetIndex >=
+              previous.length
+          ) {
+            return previous;
+          }
+
+          const updated =
+            [
+              ...previous,
+            ];
+
+          const current =
+            updated[index];
+
+          updated[index] =
+            updated[
+              targetIndex
+            ];
+
+          updated[
+            targetIndex
+          ] =
+            current;
+
+          return updated;
+        }
+      );
+    };
+
+  // ==========================================================
+  // CLEAR MEDIA
+  // ==========================================================
+
   const clearMedia =
     () => {
-      if (
-        mediaPreview
-      ) {
-        URL.revokeObjectURL(
-          mediaPreview
-        );
-      }
-
-      setMediaFile(
-        null
+      mediaItems.forEach(
+        (
+          item
+        ) => {
+          URL.revokeObjectURL(
+            item.previewUrl
+          );
+        }
       );
 
-      setMediaPreview(
-        null
+      setMediaItems(
+        []
       );
     };
 
@@ -2507,6 +2829,7 @@ export default function SocialStudioUnified() {
               platform,
               hashtags,
               media_url,
+              media_urls,
               scheduled_for,
               status,
               format,
@@ -2637,6 +2960,10 @@ export default function SocialStudioUnified() {
       );
 
       clearMedia();
+
+      setFormat(
+        "Post"
+      );
     };
 
   // ==========================================================
@@ -2701,13 +3028,51 @@ export default function SocialStudioUnified() {
 
       if (
         hasInstagram &&
-        !mediaFile
+        mediaItems.length ===
+          0
       ) {
         toast.error(
           "Instagram requires an image or video."
         );
 
         return false;
+      }
+
+      if (
+        format ===
+          "Carousel" &&
+        mediaItems.length <
+          2
+      ) {
+        toast.error(
+          "A carousel needs at least two images or videos."
+        );
+
+        return false;
+      }
+
+      if (
+        format ===
+        "Reel"
+      ) {
+        const hasVideo =
+          mediaItems.some(
+            (
+              item
+            ) =>
+              item.type ===
+              "video"
+          );
+
+        if (
+          !hasVideo
+        ) {
+          toast.error(
+            "A Reel needs a video."
+          );
+
+          return false;
+        }
       }
 
       if (
@@ -2772,95 +3137,113 @@ export default function SocialStudioUnified() {
         [];
 
       try {
-        let finalMediaUrl:
-          string | null =
-          null;
+        const finalMediaUrls:
+          string[] =
+          [];
 
         // ======================================================
-        // UPLOAD
+        // UPLOAD MEDIA
         // ======================================================
 
         if (
-          mediaFile
+          mediaItems.length
         ) {
           setIsUploadingMedia(
             true
           );
 
-          setStatus(
-            "Uploading media..."
-          );
-
-          const extension =
-            mediaFile
-              .name
-              .split(
-                "."
-              )
-              .pop()
-              ?.toLowerCase() ||
-            "bin";
-
-          const filePath =
-            `${user.id}/${crypto.randomUUID()}.${extension}`;
-
-          const {
-            error:
-              uploadError,
-          } =
-            await supabase
-              .storage
-              .from(
-                "social-assets"
-              )
-              .upload(
-                filePath,
-                mediaFile,
-                {
-                  cacheControl:
-                    "3600",
-
-                  upsert:
-                    false,
-
-                  contentType:
-                    mediaFile
-                      .type ||
-                    undefined,
-                }
-              );
-
-          if (
-            uploadError
+          for (
+            let index = 0;
+            index <
+            mediaItems.length;
+            index += 1
           ) {
-            throw new Error(
-              `Media upload failed: ${uploadError.message}`
+            const mediaItem =
+              mediaItems[
+                index
+              ];
+
+            setStatus(
+              `Uploading media ${index + 1} of ${mediaItems.length}...`
             );
-          }
 
-          const {
-            data:
-              publicData,
-          } =
-            supabase
-              .storage
-              .from(
-                "social-assets"
-              )
-              .getPublicUrl(
-                filePath
+            const extension =
+              mediaItem
+                .file
+                .name
+                .split(
+                  "."
+                )
+                .pop()
+                ?.toLowerCase() ||
+              "bin";
+
+            const filePath =
+              `${user.id}/${crypto.randomUUID()}.${extension}`;
+
+            const {
+              error:
+                uploadError,
+            } =
+              await supabase
+                .storage
+                .from(
+                  "social-assets"
+                )
+                .upload(
+                  filePath,
+                  mediaItem.file,
+                  {
+                    cacheControl:
+                      "3600",
+
+                    upsert:
+                      false,
+
+                    contentType:
+                      mediaItem
+                        .file
+                        .type ||
+                      undefined,
+                  }
+                );
+
+            if (
+              uploadError
+            ) {
+              throw new Error(
+                `Media upload failed for ${mediaItem.file.name}: ${uploadError.message}`
               );
+            }
 
-          finalMediaUrl =
-            publicData
-              ?.publicUrl ||
-            null;
+            const {
+              data:
+                publicData,
+            } =
+              supabase
+                .storage
+                .from(
+                  "social-assets"
+                )
+                .getPublicUrl(
+                  filePath
+                );
 
-          if (
-            !finalMediaUrl
-          ) {
-            throw new Error(
-              "The uploaded media URL could not be created."
+            const mediaUrl =
+              publicData
+                ?.publicUrl ||
+              null;
+
+            if (
+              !mediaUrl
+            ) {
+              throw new Error(
+                `The uploaded media URL could not be created for ${mediaItem.file.name}.`
+              );
+            }
+
+            finalMediaUrls.push(
+              mediaUrl
             );
           }
 
@@ -2918,8 +3301,20 @@ export default function SocialStudioUnified() {
                   .trim() ||
                 null,
 
+              /*
+               * Backwards-compatible first media item.
+               */
               media_url:
-                finalMediaUrl,
+                finalMediaUrls[
+                  0
+                ] ||
+                null,
+
+              /*
+               * New ordered media array.
+               */
+              media_urls:
+                finalMediaUrls,
 
               scheduled_for:
                 publishDate
@@ -2976,6 +3371,7 @@ export default function SocialStudioUnified() {
               platform,
               hashtags,
               media_url,
+              media_urls,
               scheduled_for,
               status,
               format,
@@ -3086,15 +3482,6 @@ export default function SocialStudioUnified() {
           workerError:
             unknown
         ) {
-          /*
-           * IMPORTANT:
-           *
-           * The database rows are already saved.
-           *
-           * Do not pretend the post disappeared simply because
-           * the worker request itself failed.
-           */
-
           console.error(
             "Publishing worker error:",
             workerError
@@ -3243,11 +3630,6 @@ export default function SocialStudioUnified() {
           toast.warning(
             `${publishedCount} published, ${failedCount} failed, ${pendingCount} still pending.`
           );
-
-          /*
-           * Don't clear the composer on partial failure.
-           * The user may want to correct/retry the failed copy.
-           */
         } else if (
           failedCount >
           0 &&
@@ -3262,10 +3644,6 @@ export default function SocialStudioUnified() {
             "Your post has been submitted and is still being processed."
           );
 
-          /*
-           * Pending isn't a failure. It is safe to clear because
-           * the database contains the queued copy.
-           */
           resetComposer();
         }
 
@@ -3365,6 +3743,7 @@ export default function SocialStudioUnified() {
               platform,
               hashtags,
               media_url,
+              media_urls,
               scheduled_for,
               status,
               format,
@@ -3848,6 +4227,17 @@ export default function SocialStudioUnified() {
     };
 
   // ==========================================================
+  // PREVIEW MEDIA
+  // ==========================================================
+
+  const previewMediaUrls =
+    previewPost
+      ? getPostMediaUrls(
+          previewPost
+        )
+      : [];
+
+  // ==========================================================
   // RENDER
   // ==========================================================
 
@@ -4295,45 +4685,34 @@ export default function SocialStudioUnified() {
                     </div>
                   )}
 
-                  {/* MEDIA */}
+                  {/* ==================================================
+                      MEDIA
+                  ================================================== */}
 
                   <div>
-                    <label className="mb-3 flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-stone-400">
-                      <ImageIcon
-                        size={
-                          12
-                        }
-                      />
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                      <label className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-stone-400">
+                        <ImageIcon
+                          size={
+                            12
+                          }
+                        />
 
-                      Photo or Video
-                    </label>
+                        Photos & Videos
+                      </label>
 
-                    <div className="relative flex min-h-[260px] items-center justify-center overflow-hidden rounded-[2rem] border border-dashed border-stone-200 bg-stone-50">
-                      {mediaPreview ? (
-                        <>
-                          {mediaFile
-                            ?.type
-                            .startsWith(
-                              "video/"
-                            ) ? (
-                            <video
-                              src={
-                                mediaPreview
-                              }
-                              controls
-                              playsInline
-                              className="max-h-[440px] w-full object-contain"
-                            />
-                          ) : (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={
-                                mediaPreview
-                              }
-                              alt="Post preview"
-                              className="max-h-[440px] w-full object-contain"
-                            />
-                          )}
+                      {mediaItems.length >
+                        0 && (
+                        <div className="flex items-center gap-3">
+                          <span className="text-[9px] font-black uppercase tracking-wider text-stone-300">
+                            {
+                              mediaItems.length
+                            }
+                            /
+                            {
+                              MAX_MEDIA_ITEMS
+                            }
+                          </span>
 
                           <button
                             type="button"
@@ -4343,17 +4722,18 @@ export default function SocialStudioUnified() {
                             onClick={
                               clearMedia
                             }
-                            className="absolute right-4 top-4 rounded-full bg-stone-900 p-3 text-white shadow-xl disabled:opacity-50"
+                            className="text-[8px] font-black uppercase tracking-wider text-red-400 transition hover:text-red-500 disabled:opacity-50"
                           >
-                            <X
-                              size={
-                                14
-                              }
-                            />
+                            Remove all
                           </button>
-                        </>
-                      ) : (
-                        <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center p-12 text-center">
+                        </div>
+                      )}
+                    </div>
+
+                    {mediaItems.length ===
+                    0 ? (
+                      <div className="relative flex min-h-[260px] items-center justify-center overflow-hidden rounded-[2rem] border border-dashed border-stone-200 bg-stone-50">
+                        <label className="flex h-full min-h-[260px] w-full cursor-pointer flex-col items-center justify-center p-12 text-center">
                           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
                             <Upload
                               size={
@@ -4368,11 +4748,20 @@ export default function SocialStudioUnified() {
                           </p>
 
                           <p className="mt-2 text-xs text-stone-400">
-                            Upload an image or video
+                            Upload images or videos
+                          </p>
+
+                          <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-stone-300">
+                            Up to{" "}
+                            {
+                              MAX_MEDIA_ITEMS
+                            }{" "}
+                            items
                           </p>
 
                           <input
                             type="file"
+                            multiple
                             disabled={
                               isPosting
                             }
@@ -4383,8 +4772,222 @@ export default function SocialStudioUnified() {
                             className="hidden"
                           />
                         </label>
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+
+                        {/* ==========================================
+                            MEDIA GRID
+                        ========================================== */}
+
+                        <div
+                          className={`grid gap-3 ${
+                            mediaItems.length ===
+                            1
+                              ? "grid-cols-1"
+                              : "grid-cols-2 md:grid-cols-3"
+                          }`}
+                        >
+                          {mediaItems.map(
+                            (
+                              item,
+                              index
+                            ) => (
+                              <div
+                                key={
+                                  item.id
+                                }
+                                className={`group relative overflow-hidden rounded-[1.5rem] border bg-stone-100 ${
+                                  index ===
+                                  0
+                                    ? "border-[#a9b897]"
+                                    : "border-stone-200"
+                                } ${
+                                  mediaItems.length ===
+                                  1
+                                    ? "min-h-[300px]"
+                                    : "aspect-square"
+                                }`}
+                              >
+                                {item.type ===
+                                "video" ? (
+                                  <video
+                                    src={
+                                      item.previewUrl
+                                    }
+                                    controls={
+                                      mediaItems.length ===
+                                      1
+                                    }
+                                    muted={
+                                      mediaItems.length >
+                                      1
+                                    }
+                                    playsInline
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={
+                                      item.previewUrl
+                                    }
+                                    alt={`Media ${index + 1}`}
+                                    className="h-full w-full object-cover"
+                                  />
+                                )}
+
+                                {/* COVER BADGE */}
+
+                                {index ===
+                                  0 && (
+                                  <div className="absolute left-3 top-3 rounded-full bg-stone-900/90 px-3 py-1.5 text-[7px] font-black uppercase tracking-wider text-white backdrop-blur">
+                                    Cover
+                                  </div>
+                                )}
+
+                                {/* TYPE */}
+
+                                <div className="absolute bottom-3 left-3 rounded-full bg-white/90 px-2.5 py-1 text-[7px] font-black uppercase tracking-wider text-stone-600 backdrop-blur">
+                                  {item.type ===
+                                  "video"
+                                    ? "Video"
+                                    : `Image ${index + 1}`}
+                                </div>
+
+                                {/* REMOVE */}
+
+                                <button
+                                  type="button"
+                                  disabled={
+                                    isPosting
+                                  }
+                                  onClick={() =>
+                                    removeMediaItem(
+                                      item.id
+                                    )
+                                  }
+                                  className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-stone-900/90 text-white shadow-lg backdrop-blur transition hover:bg-red-500 disabled:opacity-50"
+                                >
+                                  <X
+                                    size={
+                                      13
+                                    }
+                                  />
+                                </button>
+
+                                {/* REORDER */}
+
+                                {mediaItems.length >
+                                  1 && (
+                                  <div className="absolute bottom-3 right-3 flex gap-1 rounded-xl bg-stone-900/85 p-1 backdrop-blur">
+                                    <button
+                                      type="button"
+                                      disabled={
+                                        isPosting ||
+                                        index ===
+                                          0
+                                      }
+                                      onClick={() =>
+                                        moveMediaItem(
+                                          index,
+                                          "left"
+                                        )
+                                      }
+                                      className="flex h-8 w-8 items-center justify-center rounded-lg text-white transition hover:bg-white/10 disabled:opacity-20"
+                                      aria-label="Move media left"
+                                    >
+                                      <ChevronLeft
+                                        size={
+                                          14
+                                        }
+                                      />
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      disabled={
+                                        isPosting ||
+                                        index ===
+                                          mediaItems.length -
+                                            1
+                                      }
+                                      onClick={() =>
+                                        moveMediaItem(
+                                          index,
+                                          "right"
+                                        )
+                                      }
+                                      className="flex h-8 w-8 items-center justify-center rounded-lg text-white transition hover:bg-white/10 disabled:opacity-20"
+                                      aria-label="Move media right"
+                                    >
+                                      <ChevronRight
+                                        size={
+                                          14
+                                        }
+                                      />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          )}
+                        </div>
+
+                        {/* ==========================================
+                            ADD MORE
+                        ========================================== */}
+
+                        {mediaItems.length <
+                          MAX_MEDIA_ITEMS && (
+                          <label className="flex cursor-pointer items-center justify-center gap-3 rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-5 py-4 text-[9px] font-black uppercase tracking-wider text-stone-500 transition hover:border-[#a9b897] hover:bg-[#f7f9f2] hover:text-[#71805f]">
+                            <Plus
+                              size={
+                                14
+                              }
+                            />
+
+                            Add More Media
+
+                            <input
+                              type="file"
+                              multiple
+                              disabled={
+                                isPosting
+                              }
+                              accept="image/*,video/*"
+                              onChange={
+                                handleMediaUpload
+                              }
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+
+                        {mediaItems.length >
+                          1 && (
+                          <div className="flex items-start gap-3 rounded-2xl border border-[#a9b897]/20 bg-[#a9b897]/10 p-4">
+                            <Layers
+                              size={
+                                14
+                              }
+                              className="mt-0.5 shrink-0 text-[#71805f]"
+                            />
+
+                            <div>
+                              <p className="text-[8px] font-black uppercase tracking-wider text-[#71805f]">
+                                Carousel
+                              </p>
+
+                              <p className="mt-1 text-[10px] leading-5 text-stone-500">
+                                Your media will publish in the order shown above.
+                                The first item will be used as the cover.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* CAPTION */}
@@ -4764,6 +5367,20 @@ export default function SocialStudioUnified() {
                         Carousel
                       </option>
                     </select>
+
+                    {format ===
+                      "Carousel" && (
+                      <p className="mt-3 text-[9px] leading-5 text-stone-400">
+                        Carousel posts require at least two media items.
+                      </p>
+                    )}
+
+                    {format ===
+                      "Reel" && (
+                      <p className="mt-3 text-[9px] leading-5 text-stone-400">
+                        Reels require video media.
+                      </p>
+                    )}
                   </div>
 
                   {/* SCHEDULE */}
@@ -5481,6 +6098,11 @@ export default function SocialStudioUnified() {
                         post
                       );
 
+                    const postMedia =
+                      getPostMediaUrls(
+                        post
+                      );
+
                     return (
                       <div
                         key={
@@ -5515,6 +6137,26 @@ export default function SocialStudioUnified() {
                             }
                           </span>
                         </div>
+
+                        {postMedia.length >
+                          0 && (
+                          <div className="mb-4 flex items-center gap-2">
+                            <ImageIcon
+                              size={
+                                12
+                              }
+                              className="text-stone-400"
+                            />
+
+                            <span className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                              {postMedia.length} media item
+                              {postMedia.length ===
+                              1
+                                ? ""
+                                : "s"}
+                            </span>
+                          </div>
+                        )}
 
                         <p className="line-clamp-3 text-sm leading-6 text-stone-600">
                           {
@@ -5716,45 +6358,104 @@ export default function SocialStudioUnified() {
                 </button>
               </div>
 
-              {previewPost.media_url &&
-                (
-                  isVideoUrl(
-                    previewPost
-                      .media_url
-                  ) ||
-                  previewPost
-                    .platform ===
-                    "tiktok"
-                ) && (
-                  <video
-                    src={
-                      previewPost
-                        .media_url
-                    }
-                    controls
-                    playsInline
-                    className="mb-6 max-h-[450px] w-full rounded-[2rem] bg-black object-contain"
-                  />
-                )}
+              {/* ==================================================
+                  PREVIEW MEDIA
+              ================================================== */}
 
-              {previewPost.media_url &&
-                !isVideoUrl(
-                  previewPost
-                    .media_url
-                ) &&
-                previewPost
-                  .platform !==
-                  "tiktok" && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={
-                      previewPost
-                        .media_url
-                    }
-                    alt="Post preview"
-                    className="mb-6 max-h-[450px] w-full rounded-[2rem] object-contain"
-                  />
-                )}
+              {previewMediaUrls.length ===
+                1 && (
+                <>
+                  {isVideoUrl(
+                    previewMediaUrls[
+                      0
+                    ]
+                  ) ? (
+                    <video
+                      src={
+                        previewMediaUrls[
+                          0
+                        ]
+                      }
+                      controls
+                      playsInline
+                      className="mb-6 max-h-[450px] w-full rounded-[2rem] bg-black object-contain"
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={
+                        previewMediaUrls[
+                          0
+                        ]
+                      }
+                      alt="Post preview"
+                      className="mb-6 max-h-[450px] w-full rounded-[2rem] object-contain"
+                    />
+                  )}
+                </>
+              )}
+
+              {previewMediaUrls.length >
+                1 && (
+                <div className="mb-6">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                      Carousel preview
+                    </p>
+
+                    <p className="text-[8px] font-black uppercase tracking-wider text-stone-300">
+                      {
+                        previewMediaUrls.length
+                      }{" "}
+                      items
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {previewMediaUrls.map(
+                      (
+                        mediaUrl,
+                        index
+                      ) => (
+                        <div
+                          key={`${mediaUrl}-${index}`}
+                          className="relative aspect-square overflow-hidden rounded-[1.5rem] bg-stone-100"
+                        >
+                          {isVideoUrl(
+                            mediaUrl
+                          ) ? (
+                            <video
+                              src={
+                                mediaUrl
+                              }
+                              controls
+                              playsInline
+                              className="h-full w-full bg-black object-contain"
+                            />
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={
+                                mediaUrl
+                              }
+                              alt={`Post media ${index + 1}`}
+                              className="h-full w-full object-cover"
+                            />
+                          )}
+
+                          <div className="absolute left-3 top-3 rounded-full bg-stone-900/80 px-2.5 py-1 text-[7px] font-black text-white backdrop-blur">
+                            {index ===
+                            0
+                              ? "Cover"
+                              : index +
+                                1}
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="mb-5 flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-stone-100 px-3 py-1.5 text-[8px] font-black uppercase tracking-wider text-stone-500">
@@ -5762,6 +6463,22 @@ export default function SocialStudioUnified() {
                     previewPost.platform
                   }
                 </span>
+
+                <span className="rounded-full bg-stone-100 px-3 py-1.5 text-[8px] font-black uppercase tracking-wider text-stone-500">
+                  {
+                    previewPost.format
+                  }
+                </span>
+
+                {previewMediaUrls.length >
+                  1 && (
+                  <span className="rounded-full bg-[#edf3e7] px-3 py-1.5 text-[8px] font-black uppercase tracking-wider text-[#71805f]">
+                    {
+                      previewMediaUrls.length
+                    }{" "}
+                    media
+                  </span>
+                )}
 
                 <span
                   className={`rounded-full bg-stone-50 px-3 py-1.5 text-[8px] font-black uppercase ${getStatusTextColor(

@@ -317,16 +317,18 @@ export async function POST(
           "social_accounts"
         )
         .select(
-          `
-            id,
-            user_id,
-            organisation_id,
-            platform,
-            access_token,
-            refresh_token,
-            expires_at
-          `
-        )
+  `
+    id,
+    user_id,
+    organisation_id,
+    platform,
+    platform_user_id,
+    display_name,
+    access_token,
+    refresh_token,
+    expires_at
+  `
+)
         .eq(
           "user_id",
           user.id

@@ -168,6 +168,13 @@ function normalisePlatform(
     return "meta";
   }
 
+  if (
+    platform ===
+    "tik_tok"
+  ) {
+    return "tiktok";
+  }
+
   return platform;
 }
 
@@ -771,10 +778,14 @@ export default function SocialConnections({
           "meta_success" ||
         oauth ===
           "linkedin_success" ||
+        oauth ===
+          "tiktok_success" ||
         connected ===
           "meta" ||
         connected ===
-          "linkedin"
+          "linkedin" ||
+        connected ===
+          "tiktok"
       ) {
         void loadConnections(
           true
@@ -1574,6 +1585,15 @@ export default function SocialConnections({
                                 Facebook Page found, but publishing access is unavailable. Reconnecting Meta may be required.
                               </p>
                             )}
+
+                          {platform.id ===
+                            "tiktok" &&
+                            connected &&
+                            !account.display_name && (
+                              <p className="text-[10px] leading-4 text-emerald-600">
+                                TikTok account connected successfully.
+                              </p>
+                            )}
                         </div>
                       )}
                     </div>
@@ -1680,6 +1700,32 @@ export default function SocialConnections({
                     .instagram_business_account_id
                     ? "An Instagram Business account is also linked."
                     : "No Instagram Business account was returned for this Page."}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+      {accountMap.tiktok &&
+        isConnected(
+          "tiktok"
+        ) && (
+          <div className="rounded-[1.5rem] border border-[#dce4d2] bg-[#f5f7f2] p-5">
+            <div className="flex items-start gap-3">
+              <CheckCircle2
+                size={16}
+                className="mt-0.5 shrink-0 text-[#829473]"
+              />
+
+              <div>
+                <p className="text-xs font-semibold text-stone-700">
+                  TikTok is connected to this workspace.
+                </p>
+
+                <p className="mt-1 text-[10px] leading-5 text-stone-500">
+                  {accountMap.tiktok.display_name
+                    ? `${accountMap.tiktok.display_name} is ready for TikTok publishing through TOTS-OS.`
+                    : "TikTok authentication has completed and this account is ready for publishing through TOTS-OS."}
                 </p>
               </div>
             </div>

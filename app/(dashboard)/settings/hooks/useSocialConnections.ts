@@ -27,7 +27,11 @@ import type {
 const CLIENT_REFRESH_PLATFORMS = [
   "meta",
   "linkedin",
+  "tiktok",
 ] as const;
+
+type SupportedPlatform =
+  (typeof CLIENT_REFRESH_PLATFORMS)[number];
 
 // ============================================================
 // HELPERS
@@ -87,6 +91,47 @@ function normalisePlatform(
     platform === "instagram"
   ) {
     return "meta";
+  }
+
+  /*
+   * Support any older TikTok naming variants.
+   */
+
+  if (
+    platform ===
+    "tik_tok"
+  ) {
+    return "tiktok";
+  }
+
+  return platform;
+}
+
+// ============================================================
+
+function getPlatformLabel(
+  platform:
+    string
+) {
+  if (
+    platform ===
+    "meta"
+  ) {
+    return "Meta";
+  }
+
+  if (
+    platform ===
+    "linkedin"
+  ) {
+    return "LinkedIn";
+  }
+
+  if (
+    platform ===
+    "tiktok"
+  ) {
+    return "TikTok";
   }
 
   return platform;
@@ -237,18 +282,7 @@ export function useSocialConnections(
           string
       ) => {
         /*
-         * TikTok token refresh remains server-side.
-         */
-
-        if (
-          platform ===
-          "tiktok"
-        ) {
-          return false;
-        }
-
-        /*
-         * Connections are now organisation-specific.
+         * Connections are organisation-specific.
          *
          * Never refresh a token unless we know which
          * organisation owns it.
@@ -343,6 +377,11 @@ export function useSocialConnections(
 
           // ==================================================
           // SERVER REFRESH
+          //
+          // All provider secrets remain server-side.
+          //
+          // TikTok refresh is also sent through this route so
+          // client-side code never needs the TikTok secret.
           // ==================================================
 
           const response =
@@ -463,6 +502,10 @@ export function useSocialConnections(
 
             return false;
           }
+
+          console.log(
+            `[TOTS SOCIAL] ${platform} token refreshed successfully.`
+          );
 
           return true;
         } catch (
@@ -629,6 +672,22 @@ export function useSocialConnections(
               continue;
             }
 
+            /*
+             * Ignore unknown platform values rather than creating
+             * random health keys.
+             */
+
+            if (
+              platform !==
+                "meta" &&
+              platform !==
+                "linkedin" &&
+              platform !==
+                "tiktok"
+            ) {
+              continue;
+            }
+
             // =================================================
             // NO ACCESS TOKEN
             // =================================================
@@ -664,22 +723,6 @@ export function useSocialConnections(
                 now
             ) {
               // ===============================================
-              // TIKTOK
-              // ===============================================
-
-              if (
-                platform ===
-                "tiktok"
-              ) {
-                health[
-                  platform
-                ] =
-                  "expired";
-
-                continue;
-              }
-
-              // ===============================================
               // META
               //
               // Meta usually has no normal refresh_token.
@@ -698,6 +741,8 @@ export function useSocialConnections(
 
               // ===============================================
               // REFRESHABLE PROVIDERS
+              //
+              // LinkedIn and TikTok can both have refresh tokens.
               // ===============================================
 
               if (
@@ -747,13 +792,32 @@ export function useSocialConnections(
             }
 
             // =================================================
-            // OTHER PLATFORMS
+            // LINKEDIN
             // =================================================
 
-            health[
-              platform
-            ] =
-              "connected";
+            if (
+              platform ===
+              "linkedin"
+            ) {
+              health.linkedin =
+                "connected";
+
+              continue;
+            }
+
+            // =================================================
+            // TIKTOK
+            // =================================================
+
+            if (
+              platform ===
+              "tiktok"
+            ) {
+              health.tiktok =
+                "connected";
+
+              continue;
+            }
           }
 
           if (
@@ -868,7 +932,7 @@ export function useSocialConnections(
           //
           // CRITICAL:
           //
-          // We now filter by BOTH:
+          // We filter by BOTH:
           //
           // user_id
           // organisation_id
@@ -973,6 +1037,14 @@ export function useSocialConnections(
             Array.from(
               new Set(
                 accounts
+                  .filter(
+                    (
+                      account
+                    ) =>
+                      Boolean(
+                        account.access_token
+                      )
+                  )
                   .map(
                     (
                       account
@@ -1062,6 +1134,8 @@ export function useSocialConnections(
 
         // ====================================================
         // CHECK SESSION STORAGE
+        //
+        // Meta, LinkedIn and TikTok are all live platforms.
         // ====================================================
 
         const pending =
@@ -1075,7 +1149,13 @@ export function useSocialConnections(
                   resolvedOrganisationId
                 )
               ) ===
-              "true"
+                "true" ||
+              window.sessionStorage.getItem(
+                getOAuthStorageKey(
+                  platform
+                )
+              ) ===
+                "true"
           );
 
         const {
@@ -1151,6 +1231,10 @@ export function useSocialConnections(
             continue;
           }
 
+          // ==================================================
+          // CLEAR ORGANISATION-SPECIFIC PENDING FLAG
+          // ==================================================
+
           window.sessionStorage.removeItem(
             getOAuthStorageKey(
               platform,
@@ -1158,10 +1242,9 @@ export function useSocialConnections(
             )
           );
 
-          /*
-           * Remove legacy key too so older pending flags do not
-           * keep hanging around after the migration.
-           */
+          // ==================================================
+          // CLEAR LEGACY PENDING FLAG
+          // ==================================================
 
           window.sessionStorage.removeItem(
             getOAuthStorageKey(
@@ -1169,16 +1252,17 @@ export function useSocialConnections(
             )
           );
 
+          // ==================================================
+          // SUCCESS
+          // ==================================================
+
           if (
             data.access_token
           ) {
             toast.success(
-              `${
-                platform ===
-                  "meta"
-                  ? "Meta"
-                  : "LinkedIn"
-              } connected successfully`
+              `${getPlatformLabel(
+                platform
+              )} connected successfully`
             );
           }
         }
@@ -1187,8 +1271,8 @@ export function useSocialConnections(
          * Still refresh even when there wasn't a browser-side
          * OAuth pending flag.
          *
-         * The callback is server-side, so the database can
-         * contain the account even if sessionStorage does not.
+         * OAuth callbacks are server-side, so the database can
+         * contain an account even when sessionStorage does not.
          */
 
         await refreshConnections();
@@ -1212,8 +1296,8 @@ export function useSocialConnections(
        * Whenever organisation changes, immediately clear the
        * previous organisation's accounts.
        *
-       * This prevents TOTS account information briefly flashing
-       * while MTC is loading.
+       * This prevents one organisation's account information
+       * briefly flashing while another organisation is loading.
        */
 
       resetConnections();

@@ -48,7 +48,8 @@ type SupportedPlatform =
 // ============================================================
 
 function getPlatformLabel(
-  platform: SupportedPlatform
+  platform:
+    SupportedPlatform
 ) {
   if (
     platform ===
@@ -70,7 +71,8 @@ function getPlatformLabel(
 // ============================================================
 
 function getHealthLabel(
-  status: ConnectionHealth
+  status:
+    ConnectionHealth
 ) {
   if (
     status ===
@@ -99,7 +101,8 @@ function getHealthLabel(
 // ============================================================
 
 function getHealthClasses(
-  status: ConnectionHealth
+  status:
+    ConnectionHealth
 ) {
   if (
     status ===
@@ -178,6 +181,7 @@ function getHealthClasses(
 function getAccountString(
   account:
     SocialAccount | undefined,
+
   key:
     string
 ) {
@@ -210,12 +214,28 @@ function getAccountString(
 }
 
 // ============================================================
+
+function normalisePlatform(
+  value:
+    unknown
+) {
+  return String(
+    value ??
+      ""
+  )
+    .trim()
+    .toLowerCase();
+}
+
+// ============================================================
 // COMPONENT
 // ============================================================
 
 export default function SocialSettings({
   organisationId,
+
   socialAccounts = [],
+
   connectionHealth = {},
 }: SocialSettingsProps) {
   // ==========================================================
@@ -231,30 +251,59 @@ export default function SocialSettings({
         account
       ) => {
         const accountPlatform =
-          String(
-            account.platform ||
-              ""
-          )
-            .trim()
-            .toLowerCase();
+          normalisePlatform(
+            account.platform
+          );
+
+        // ------------------------------------------------------
+        // META
+        // ------------------------------------------------------
 
         if (
           platform ===
-            "meta" &&
-          (
+          "meta"
+        ) {
+          return (
+            accountPlatform ===
+              "meta" ||
             accountPlatform ===
               "facebook" ||
             accountPlatform ===
               "instagram"
-          )
-        ) {
-          return true;
+          );
         }
 
-        return (
-          accountPlatform ===
-          platform
-        );
+        // ------------------------------------------------------
+        // LINKEDIN
+        // ------------------------------------------------------
+
+        if (
+          platform ===
+          "linkedin"
+        ) {
+          return (
+            accountPlatform ===
+            "linkedin"
+          );
+        }
+
+        // ------------------------------------------------------
+        // TIKTOK
+        // ------------------------------------------------------
+
+        if (
+          platform ===
+          "tiktok"
+        ) {
+          return (
+            accountPlatform ===
+              "tiktok" ||
+            accountPlatform ===
+              "tik_tok"
+          );
+        }
+
+        return false;
       }
     );
   }
@@ -279,8 +328,8 @@ export default function SocialSettings({
         </h2>
 
         <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-500">
-          Connect the social accounts you want to manage through
-          TOTS-OS.
+          Connect the social accounts you want to manage and
+          publish through TOTS-OS.
         </p>
       </div>
 
@@ -351,6 +400,22 @@ export default function SocialSettings({
                   "instagram_business_account_id"
                 );
 
+              const username =
+                getAccountString(
+                  account,
+                  "username"
+                ) ||
+                getAccountString(
+                  account,
+                  "user_name"
+                );
+
+              const tiktokOpenId =
+                getAccountString(
+                  account,
+                  "open_id"
+                );
+
               return (
                 <div
                   key={
@@ -412,20 +477,64 @@ export default function SocialSettings({
                             </p>
                           )}
 
-                          {pageName && (
-                            <p className="truncate text-[9px] text-stone-400">
-                              Page:{" "}
-                              {
-                                pageName
-                              }
-                            </p>
-                          )}
+                          {platform ===
+                            "meta" &&
+                            pageName && (
+                              <p className="truncate text-[9px] text-stone-400">
+                                Page:{" "}
+                                {
+                                  pageName
+                                }
+                              </p>
+                            )}
 
                           {platform ===
                             "meta" &&
                             instagramBusinessAccountId && (
                               <p className="truncate text-[9px] font-medium text-emerald-600">
                                 Instagram Business linked
+                              </p>
+                            )}
+
+                          {platform ===
+                            "linkedin" &&
+                            !displayName && (
+                              <p className="truncate text-[9px] text-stone-400">
+                                LinkedIn account connected
+                              </p>
+                            )}
+
+                          {platform ===
+                            "tiktok" &&
+                            username && (
+                              <p className="truncate text-[9px] text-stone-500">
+                                @
+                                {
+                                  username.replace(
+                                    /^@/,
+                                    ""
+                                  )
+                                }
+                              </p>
+                            )}
+
+                          {platform ===
+                            "tiktok" &&
+                            !displayName &&
+                            !username &&
+                            tiktokOpenId && (
+                              <p className="truncate text-[9px] font-medium text-emerald-600">
+                                TikTok account linked
+                              </p>
+                            )}
+
+                          {platform ===
+                            "tiktok" &&
+                            !displayName &&
+                            !username &&
+                            !tiktokOpenId && (
+                              <p className="truncate text-[9px] text-stone-400">
+                                TikTok account connected
                               </p>
                             )}
                         </div>
@@ -464,7 +573,7 @@ export default function SocialSettings({
 
           <p className="mt-2 text-xs leading-5 text-stone-500">
             Connect, reconnect or remove the accounts TOTS-OS can
-            use.
+            use for Facebook, Instagram, LinkedIn and TikTok.
           </p>
         </div>
 

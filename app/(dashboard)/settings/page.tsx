@@ -38,7 +38,6 @@ import {
   LayoutDashboard,
   Loader2,
   Megaphone,
-  Music2,
   Radio,
   Save,
   Settings as SettingsIcon,
@@ -435,7 +434,8 @@ function normaliseMobileNav(
       )
     );
 
-  return cleaned.length === 3
+  return cleaned.length ===
+    3
     ? cleaned
     : DEFAULT_MOBILE_NAV;
 }
@@ -656,7 +656,8 @@ function SettingsInner() {
                 : index + 1;
 
             if (
-              targetIndex < 0 ||
+              targetIndex <
+                0 ||
               targetIndex >=
                 current.length
             ) {
@@ -1622,7 +1623,7 @@ function SettingsInner() {
     );
 
   // ==========================================================
-  // META / LINKEDIN OAUTH RESULT
+  // SOCIAL OAUTH RESULT
   // ==========================================================
 
   useEffect(
@@ -1683,6 +1684,10 @@ function SettingsInner() {
       const handleOAuthResult =
         async () => {
           try {
+            // ==================================================
+            // GENERIC SOCIAL ERROR
+            // ==================================================
+
             if (
               socialError
             ) {
@@ -1702,13 +1707,50 @@ function SettingsInner() {
               return;
             }
 
+            // ==================================================
+            // TIKTOK SUCCESS
+            // ==================================================
+
             if (
               oauth ===
                 "tiktok_success" ||
-              oauth ===
-                "tiktok_failed" ||
               connected ===
                 "tiktok"
+            ) {
+              clearOAuthStorage(
+                "tiktok"
+              );
+
+              await refreshSocialState();
+
+              if (
+                cancelled
+              ) {
+                return;
+              }
+
+              toast.success(
+                "TikTok connected successfully"
+              );
+
+              setConnectedPlatformModal(
+                "tiktok"
+              );
+
+              setShowConnectedModal(
+                true
+              );
+
+              return;
+            }
+
+            // ==================================================
+            // TIKTOK FAILED
+            // ==================================================
+
+            if (
+              oauth ===
+              "tiktok_failed"
             ) {
               clearOAuthStorage(
                 "tiktok"
@@ -1720,12 +1762,24 @@ function SettingsInner() {
                 return;
               }
 
-              toast.info(
-                "TikTok connection is coming soon."
+              const reason =
+                decodeOAuthReason(
+                  searchParams.get(
+                    "reason"
+                  )
+                );
+
+              toast.error(
+                reason ||
+                  "TikTok connection failed"
               );
 
               return;
             }
+
+            // ==================================================
+            // META SUCCESS
+            // ==================================================
 
             if (
               oauth ===
@@ -1762,6 +1816,10 @@ function SettingsInner() {
               return;
             }
 
+            // ==================================================
+            // META FAILED
+            // ==================================================
+
             if (
               oauth ===
               "meta_failed"
@@ -1790,6 +1848,10 @@ function SettingsInner() {
 
               return;
             }
+
+            // ==================================================
+            // LINKEDIN SUCCESS
+            // ==================================================
 
             if (
               oauth ===
@@ -1823,6 +1885,10 @@ function SettingsInner() {
 
               return;
             }
+
+            // ==================================================
+            // LINKEDIN FAILED
+            // ==================================================
 
             if (
               oauth ===
@@ -2102,6 +2168,10 @@ function SettingsInner() {
                 }
               />
 
+              {/* ==================================================
+                  IMPORT HUB
+              ================================================== */}
+
               <div className="border-t border-stone-100 pt-10">
                 <div className="mb-6">
                   <div className="flex items-center gap-2">
@@ -2241,6 +2311,10 @@ function SettingsInner() {
                   </div>
                 </button>
               </div>
+
+              {/* ==================================================
+                  MOBILE NAVIGATION
+              ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
                 <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -2626,6 +2700,10 @@ function SettingsInner() {
                   )}
                 </div>
               </div>
+
+              {/* ==================================================
+                  NOTIFICATIONS
+              ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
                 <div className="mb-6">
@@ -3098,40 +3176,6 @@ function SettingsInner() {
               ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
-                <div className="mb-6 overflow-hidden rounded-[1.75rem] border border-[#dfe6d7] bg-gradient-to-r from-[#f4f7f0] to-[#fafbf8] p-5 sm:p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-stone-900 text-[#a9b897]">
-                      <Music2
-                        size={18}
-                      />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-bold text-stone-800">
-                          TikTok integration
-                        </p>
-
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#dfe8d5] px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.16em] text-[#647356]">
-                          <Clock3
-                            size={9}
-                          />
-
-                          Coming soon
-                        </span>
-                      </div>
-
-                      <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-500">
-                        TikTok account connection and direct
-                        publishing are being finalised for
-                        TOTS-OS. Facebook, Instagram and
-                        LinkedIn can continue to be managed
-                        below.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
                 <SocialSettings
                   organisationId={
                     organisationId
@@ -3144,6 +3188,10 @@ function SettingsInner() {
                   }
                 />
               </div>
+
+              {/* ==================================================
+                  PASSWORD
+              ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
                 <PasswordSection />

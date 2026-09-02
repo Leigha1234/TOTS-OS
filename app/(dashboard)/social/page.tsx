@@ -584,23 +584,6 @@ const cleanPlatform =
       .toLowerCase();
   };
 
-// ============================================================
-// COMING SOON
-// ============================================================
-
-const isComingSoonPlatform =
-  (
-    platform:
-      PlatformId
-  ) => {
-    return (
-      platform ===
-      "tiktok"
-    );
-  };
-
-// ============================================================
-
 const compactText =
   (
     values:
@@ -2892,6 +2875,22 @@ export default function SocialStudioUnified() {
       linkedinAccount
     );
 
+  const tiktokAccount =
+    accounts.find(
+      (
+        account
+      ) =>
+        cleanPlatform(
+          account.platform
+        ) ===
+        "tiktok"
+    );
+
+  const tiktokConnected =
+    Boolean(
+      tiktokAccount
+    );
+
   const isConnected =
     (
       platform:
@@ -2910,7 +2909,7 @@ export default function SocialStudioUnified() {
           return linkedinConnected;
 
         case "tiktok":
-          return false;
+          return tiktokConnected;
 
         default:
           return false;
@@ -2956,9 +2955,14 @@ export default function SocialStudioUnified() {
 
       if (
         platform ===
-        "tiktok"
+          "tiktok" &&
+        tiktokConnected
       ) {
-        return "TikTok connection coming soon";
+        return (
+          tiktokAccount
+            ?.display_name ||
+          "TikTok connected"
+        );
       }
 
       return "Not connected";
@@ -2973,18 +2977,6 @@ export default function SocialStudioUnified() {
       platform:
         PlatformId
     ) => {
-      if (
-        isComingSoonPlatform(
-          platform
-        )
-      ) {
-        toast.info(
-          "TikTok publishing is coming soon."
-        );
-
-        return;
-      }
-
       if (
         !isConnected(
           platform
@@ -3030,18 +3022,6 @@ export default function SocialStudioUnified() {
         const platform of
         platforms
       ) {
-        if (
-          isComingSoonPlatform(
-            platform
-          )
-        ) {
-          toast.info(
-            "TikTok publishing is coming soon."
-          );
-
-          return false;
-        }
-
         if (
           !isConnected(
             platform
@@ -3398,9 +3378,6 @@ export default function SocialStudioUnified() {
               ].includes(
                 platform
               ) &&
-              !isComingSoonPlatform(
-                platform as PlatformId
-              ) &&
               isConnected(
                 platform
               )
@@ -3734,15 +3711,9 @@ export default function SocialStudioUnified() {
           ] =
             post.id;
 
-          if (
-            !isComingSoonPlatform(
-              platform
-            )
-          ) {
-            editablePlatforms.push(
-              platform
-            );
-          }
+          editablePlatforms.push(
+            platform
+          );
         }
       }
 
@@ -5109,16 +5080,6 @@ export default function SocialStudioUnified() {
           cleanPlatform(
             currentPost.platform
           ) as PlatformId;
-
-        if (
-          isComingSoonPlatform(
-            platform
-          )
-        ) {
-          throw new Error(
-            "TikTok publishing is coming soon."
-          );
-        }
 
         if (
           !isConnected(
@@ -6589,20 +6550,12 @@ export default function SocialStudioUnified() {
                         (
                           platform
                         ) => {
-                          const comingSoon =
-                            isComingSoonPlatform(
+                          const connected =
+                            isConnected(
                               platform.id
                             );
 
-                          const connected =
-                            comingSoon
-                              ? false
-                              : isConnected(
-                                  platform.id
-                                );
-
                           const selected =
-                            !comingSoon &&
                             platforms.includes(
                               platform.id
                             );
@@ -6614,7 +6567,6 @@ export default function SocialStudioUnified() {
                               }
                               type="button"
                               disabled={
-                                comingSoon ||
                                 isPosting
                               }
                               onClick={() =>
@@ -6625,11 +6577,9 @@ export default function SocialStudioUnified() {
                               className={`relative flex w-full items-center justify-between overflow-hidden rounded-2xl border p-4 text-left transition ${
                                 selected
                                   ? "border-[#a9b897] bg-[#a9b897]/10"
-                                  : comingSoon
-                                    ? "cursor-not-allowed border-stone-100 bg-stone-50/70"
-                                    : connected
-                                      ? "border-stone-100 bg-stone-50 hover:border-stone-200"
-                                      : "border-stone-100 bg-stone-50 opacity-55"
+                                  : connected
+                                    ? "border-stone-100 bg-stone-50 hover:border-stone-200"
+                                    : "border-stone-100 bg-stone-50 opacity-55"
                               }`}
                             >
                               <div className="flex min-w-0 items-center gap-3">
@@ -6637,9 +6587,7 @@ export default function SocialStudioUnified() {
                                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
                                     selected
                                       ? "bg-[#a9b897] text-white"
-                                      : comingSoon
-                                        ? "bg-stone-100 text-stone-300"
-                                        : "bg-white text-stone-500"
+                                      : "bg-white text-stone-500"
                                   }`}
                                 >
                                   {platform.id ===
@@ -6687,14 +6635,7 @@ export default function SocialStudioUnified() {
                                       }
                                     </p>
 
-                                    {comingSoon && (
-                                      <span className="rounded-full bg-[#edf3e7] px-2 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-[#71805f]">
-                                        Coming soon
-                                      </span>
-                                    )}
-
-                                    {!comingSoon &&
-                                      connected && (
+                                    {connected && (
                                       <span className="rounded-full bg-emerald-50 px-2 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-emerald-600">
                                         Connected
                                       </span>
@@ -6708,22 +6649,16 @@ export default function SocialStudioUnified() {
                                         : "text-stone-400"
                                     }`}
                                   >
-                                    {comingSoon
-                                      ? "TikTok publishing coming soon"
-                                      : connected
-                                        ? getPlatformConnectionText(
-                                            platform.id
-                                          )
-                                        : "Not connected — connect in Settings"}
+                                    {connected
+                                      ? getPlatformConnectionText(
+                                          platform.id
+                                        )
+                                      : "Not connected — connect in Settings"}
                                   </p>
                                 </div>
                               </div>
 
-                              {comingSoon ? (
-                                <div className="rounded-full border border-stone-200 bg-white px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.12em] text-stone-400">
-                                  Soon
-                                </div>
-                              ) : selected ? (
+                              {selected ? (
                                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#a9b897] text-white">
                                   <Check
                                     size={
@@ -7212,21 +7147,11 @@ export default function SocialStudioUnified() {
                                   key={
                                     platform
                                   }
-                                  className={`rounded-full px-2.5 py-1 text-[7px] font-black uppercase tracking-wider ${
-                                    platform ===
-                                    "tiktok"
-                                      ? "bg-stone-50 text-stone-300"
-                                      : "bg-stone-100 text-stone-500"
-                                  }`}
+                                  className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-wider text-stone-500"
                                 >
                                   {
                                     platform
                                   }
-
-                                  {platform ===
-                                    "tiktok"
-                                    ? " · soon"
-                                    : ""}
                                 </span>
                               )
                             )}

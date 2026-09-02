@@ -39,6 +39,7 @@ import {
   Linkedin,
   Loader2,
   Music,
+  Pencil,
   Plus,
   RefreshCcw,
   RotateCcw,
@@ -60,11 +61,14 @@ import {
 // ============================================================
 
 interface SocialPost {
-  id: string;
+  id:
+    string;
 
-  caption: string;
+  caption:
+    string;
 
-  platform: string;
+  platform:
+    string;
 
   hashtags?:
     string | null;
@@ -191,15 +195,18 @@ interface ComposerMediaItem {
   id:
     string;
 
-  file:
-    File;
+  file?:
+    File | null;
 
   previewUrl:
     string;
 
   type:
-    "image" |
-    "video";
+    | "image"
+    | "video";
+
+  existingUrl?:
+    string | null;
 }
 
 type PlatformId =
@@ -236,7 +243,7 @@ type PublishResult = {
 
 type PublishSummary = {
   mode:
-    "instant"
+    | "instant"
     | "scheduled";
 
   createdAt:
@@ -506,8 +513,8 @@ const getPlatformLabel =
           platform
       )?.name ||
       platform
-  );
-};
+    );
+  };
 
 // ============================================================
 
@@ -541,6 +548,9 @@ const isVideoUrl =
         .toLowerCase()
         .split(
           "?"
+        )[0]
+        .split(
+          "#"
         )[0];
 
     return [
@@ -668,6 +678,93 @@ const getPostMediaUrls =
   };
 
 // ============================================================
+// DATETIME LOCAL VALUE
+// ============================================================
+
+const toDateTimeLocalValue =
+  (
+    value:
+      string
+  ) => {
+    const date =
+      new Date(
+        value
+      );
+
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return "";
+    }
+
+    const year =
+      date.getFullYear();
+
+    const month =
+      String(
+        date.getMonth() +
+        1
+      ).padStart(
+        2,
+        "0"
+      );
+
+    const day =
+      String(
+        date.getDate()
+      ).padStart(
+        2,
+        "0"
+      );
+
+    const hours =
+      String(
+        date.getHours()
+      ).padStart(
+        2,
+        "0"
+      );
+
+    const minutes =
+      String(
+        date.getMinutes()
+      ).padStart(
+        2,
+        "0"
+      );
+
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+// ============================================================
+// SAME MEDIA
+// ============================================================
+
+const sameMedia =
+  (
+    first:
+      SocialPost,
+
+    second:
+      SocialPost
+  ) => {
+    return (
+      JSON.stringify(
+        getPostMediaUrls(
+          first
+        )
+      ) ===
+      JSON.stringify(
+        getPostMediaUrls(
+          second
+        )
+      )
+    );
+  };
+
+// ============================================================
 
 function resultFromPost(
   post:
@@ -780,9 +877,9 @@ export default function SocialStudioUnified() {
     setViewMode,
   ] =
     useState<
-      "create" |
-      "ideas" |
-      "planner"
+      | "create"
+      | "ideas"
+      | "planner"
     >(
       "create"
     );
@@ -1007,6 +1104,31 @@ export default function SocialStudioUnified() {
     );
 
   // ==========================================================
+  // EDITING SCHEDULED POST
+  // ==========================================================
+
+  const [
+    editingPostIds,
+    setEditingPostIds,
+  ] =
+    useState<
+      Partial<
+        Record<
+          PlatformId,
+          string
+        >
+      >
+    >(
+      {}
+    );
+
+  const isEditingScheduledPost =
+    Object.keys(
+      editingPostIds
+    ).length >
+    0;
+
+  // ==========================================================
   // POSTS
   // ==========================================================
 
@@ -1132,9 +1254,13 @@ export default function SocialStudioUnified() {
             (
               item
             ) => {
-              URL.revokeObjectURL(
-                item.previewUrl
-              );
+              if (
+                !item.existingUrl
+              ) {
+                URL.revokeObjectURL(
+                  item.previewUrl
+                );
+              }
             }
           );
       };
@@ -1980,6 +2106,9 @@ export default function SocialStudioUnified() {
 
           file,
 
+          existingUrl:
+            null,
+
           previewUrl:
             URL.createObjectURL(
               file
@@ -2034,7 +2163,7 @@ export default function SocialStudioUnified() {
         toast.success(
           validItems.length ===
             1
-            ? `${validItems[0].file.name} is ready to upload`
+            ? `${validItems[0].file?.name || "Media"} is ready to upload`
             : `${validItems.length} media items added`
         );
       }
@@ -2066,7 +2195,8 @@ export default function SocialStudioUnified() {
             );
 
           if (
-            item
+            item &&
+            !item.existingUrl
           ) {
             URL.revokeObjectURL(
               item.previewUrl
@@ -2094,8 +2224,8 @@ export default function SocialStudioUnified() {
         number,
 
       direction:
-        "left" |
-        "right"
+        | "left"
+        | "right"
     ) => {
       setMediaItems(
         (
@@ -2151,9 +2281,13 @@ export default function SocialStudioUnified() {
         (
           item
         ) => {
-          URL.revokeObjectURL(
-            item.previewUrl
-          );
+          if (
+            !item.existingUrl
+          ) {
+            URL.revokeObjectURL(
+              item.previewUrl
+            );
+          }
         }
       );
 
@@ -2693,6 +2827,10 @@ export default function SocialStudioUnified() {
         concept
       );
 
+      setEditingPostIds(
+        {}
+      );
+
       setCaption(
         concept.caption
       );
@@ -2879,9 +3017,12 @@ export default function SocialStudioUnified() {
           [];
 
         for (
-          let check = 0;
-          check < maxChecks;
-          check += 1
+          let check =
+            0;
+          check <
+          maxChecks;
+          check +=
+            1
         ) {
           latest =
             await fetchPostsByIds(
@@ -2964,6 +3105,387 @@ export default function SocialStudioUnified() {
       setFormat(
         "Post"
       );
+
+      setEditingPostIds(
+        {}
+      );
+    };
+
+  // ==========================================================
+  // EDIT SCHEDULED POST
+  // ==========================================================
+
+  const editScheduledPost =
+    (
+      selectedPost:
+        SocialPost
+    ) => {
+      if (
+        selectedPost.status !==
+        POST_STATUS.SCHEDULED
+      ) {
+        toast.error(
+          "Only scheduled posts can be edited."
+        );
+
+        return;
+      }
+
+      const matchingPosts =
+        posts.filter(
+          (
+            post
+          ) =>
+            post.status ===
+              POST_STATUS.SCHEDULED &&
+            post.scheduled_for ===
+              selectedPost.scheduled_for &&
+            post.caption ===
+              selectedPost.caption &&
+            (
+              post.hashtags ||
+              ""
+            ) ===
+              (
+                selectedPost.hashtags ||
+                ""
+              ) &&
+            post.format ===
+              selectedPost.format &&
+            sameMedia(
+              post,
+              selectedPost
+            )
+        );
+
+      const group =
+        matchingPosts.length
+          ? matchingPosts
+          : [
+              selectedPost,
+            ];
+
+      const ids:
+        Partial<
+          Record<
+            PlatformId,
+            string
+          >
+        > =
+        {};
+
+      const editablePlatforms:
+        PlatformId[] =
+        [];
+
+      for (
+        const post of
+        group
+      ) {
+        const platform =
+          cleanPlatform(
+            post.platform
+          ) as PlatformId;
+
+        if (
+          [
+            "facebook",
+            "instagram",
+            "linkedin",
+            "tiktok",
+          ].includes(
+            platform
+          )
+        ) {
+          ids[
+            platform
+          ] =
+            post.id;
+
+          if (
+            !isComingSoonPlatform(
+              platform
+            )
+          ) {
+            editablePlatforms.push(
+              platform
+            );
+          }
+        }
+      }
+
+      clearMedia();
+
+      const existingMedia =
+        getPostMediaUrls(
+          selectedPost
+        ).map(
+          (
+            url
+          ): ComposerMediaItem => ({
+            id:
+              crypto.randomUUID(),
+
+            file:
+              null,
+
+            existingUrl:
+              url,
+
+            previewUrl:
+              url,
+
+            type:
+              isVideoUrl(
+                url
+              )
+                ? "video"
+                : "image",
+          })
+        );
+
+      setEditingPostIds(
+        ids
+      );
+
+      setCaption(
+        selectedPost.caption ||
+          ""
+      );
+
+      setHashtags(
+        selectedPost.hashtags ||
+          ""
+      );
+
+      setFormat(
+        selectedPost.format ||
+          "Post"
+      );
+
+      setScheduledTime(
+        toDateTimeLocalValue(
+          selectedPost.scheduled_for
+        )
+      );
+
+      setPlatforms(
+        Array.from(
+          new Set(
+            editablePlatforms
+          )
+        )
+      );
+
+      setMediaItems(
+        existingMedia
+      );
+
+      setMetaScript(
+        ""
+      );
+
+      setMetaAudio(
+        ""
+      );
+
+      setSelectedConcept(
+        null
+      );
+
+      setPreviewPost(
+        null
+      );
+
+      setIsDayViewOpen(
+        false
+      );
+
+      setPublishSummary(
+        null
+      );
+
+      setViewMode(
+        "create"
+      );
+
+      window.setTimeout(
+        () => {
+          window.scrollTo({
+            top:
+              0,
+
+            behavior:
+              "smooth",
+          });
+        },
+        50
+      );
+
+      toast.success(
+        group.length >
+          1
+          ? `${group.length} scheduled platform posts opened for editing`
+          : "Scheduled post opened for editing"
+      );
+    };
+
+  // ==========================================================
+  // RESOLVE COMPOSER MEDIA
+  // ==========================================================
+
+  const resolveComposerMedia =
+    async () => {
+      if (
+        !user?.id
+      ) {
+        throw new Error(
+          "You must be signed in."
+        );
+      }
+
+      const finalMediaUrls:
+        string[] =
+        [];
+
+      if (
+        mediaItems.length
+      ) {
+        setIsUploadingMedia(
+          true
+        );
+
+        for (
+          let index =
+            0;
+          index <
+          mediaItems.length;
+          index +=
+            1
+        ) {
+          const mediaItem =
+            mediaItems[
+              index
+            ];
+
+          // ====================================================
+          // EXISTING MEDIA
+          // ====================================================
+
+          if (
+            mediaItem.existingUrl
+          ) {
+            finalMediaUrls.push(
+              mediaItem.existingUrl
+            );
+
+            continue;
+          }
+
+          // ====================================================
+          // NEW MEDIA
+          // ====================================================
+
+          if (
+            !mediaItem.file
+          ) {
+            continue;
+          }
+
+          setStatus(
+            `Uploading media ${index + 1} of ${mediaItems.length}...`
+          );
+
+          const extension =
+            mediaItem
+              .file
+              .name
+              .split(
+                "."
+              )
+              .pop()
+              ?.toLowerCase() ||
+            (
+              mediaItem.type ===
+              "video"
+                ? "mp4"
+                : "jpg"
+            );
+
+          const filePath =
+            `${user.id}/${crypto.randomUUID()}.${extension}`;
+
+          const {
+            error:
+              uploadError,
+          } =
+            await supabase
+              .storage
+              .from(
+                "social-assets"
+              )
+              .upload(
+                filePath,
+                mediaItem.file,
+                {
+                  cacheControl:
+                    "3600",
+
+                  upsert:
+                    false,
+
+                  contentType:
+                    mediaItem
+                      .file
+                      .type ||
+                    undefined,
+                }
+              );
+
+          if (
+            uploadError
+          ) {
+            throw new Error(
+              `Media upload failed for ${mediaItem.file.name}: ${uploadError.message}`
+            );
+          }
+
+          const {
+            data:
+              publicData,
+          } =
+            supabase
+              .storage
+              .from(
+                "social-assets"
+              )
+              .getPublicUrl(
+                filePath
+              );
+
+          const publicUrl =
+            publicData
+              ?.publicUrl;
+
+          if (
+            !publicUrl
+          ) {
+            throw new Error(
+              `The uploaded media URL could not be created for ${mediaItem.file.name}.`
+            );
+          }
+
+          finalMediaUrls.push(
+            publicUrl
+          );
+        }
+      }
+
+      setIsUploadingMedia(
+        false
+      );
+
+      return finalMediaUrls;
     };
 
   // ==========================================================
@@ -3137,124 +3659,8 @@ export default function SocialStudioUnified() {
         [];
 
       try {
-        const finalMediaUrls:
-          string[] =
-          [];
-
-        // ======================================================
-        // UPLOAD MEDIA
-        // ======================================================
-
-        if (
-          mediaItems.length
-        ) {
-          setIsUploadingMedia(
-            true
-          );
-
-          for (
-            let index = 0;
-            index <
-            mediaItems.length;
-            index += 1
-          ) {
-            const mediaItem =
-              mediaItems[
-                index
-              ];
-
-            setStatus(
-              `Uploading media ${index + 1} of ${mediaItems.length}...`
-            );
-
-            const extension =
-              mediaItem
-                .file
-                .name
-                .split(
-                  "."
-                )
-                .pop()
-                ?.toLowerCase() ||
-              "bin";
-
-            const filePath =
-              `${user.id}/${crypto.randomUUID()}.${extension}`;
-
-            const {
-              error:
-                uploadError,
-            } =
-              await supabase
-                .storage
-                .from(
-                  "social-assets"
-                )
-                .upload(
-                  filePath,
-                  mediaItem.file,
-                  {
-                    cacheControl:
-                      "3600",
-
-                    upsert:
-                      false,
-
-                    contentType:
-                      mediaItem
-                        .file
-                        .type ||
-                      undefined,
-                  }
-                );
-
-            if (
-              uploadError
-            ) {
-              throw new Error(
-                `Media upload failed for ${mediaItem.file.name}: ${uploadError.message}`
-              );
-            }
-
-            const {
-              data:
-                publicData,
-            } =
-              supabase
-                .storage
-                .from(
-                  "social-assets"
-                )
-                .getPublicUrl(
-                  filePath
-                );
-
-            const mediaUrl =
-              publicData
-                ?.publicUrl ||
-              null;
-
-            if (
-              !mediaUrl
-            ) {
-              throw new Error(
-                `The uploaded media URL could not be created for ${mediaItem.file.name}.`
-              );
-            }
-
-            finalMediaUrls.push(
-              mediaUrl
-            );
-          }
-
-          setIsUploadingMedia(
-            false
-          );
-        }
-
-        // ======================================================
-        // DATE
-        // ======================================================
+        const finalMediaUrls =
+          await resolveComposerMedia();
 
         const publishDate =
           instant
@@ -3272,10 +3678,6 @@ export default function SocialStudioUnified() {
             "Invalid publishing date."
           );
         }
-
-        // ======================================================
-        // INSERT
-        // ======================================================
 
         setStatus(
           instant
@@ -3301,18 +3703,12 @@ export default function SocialStudioUnified() {
                   .trim() ||
                 null,
 
-              /*
-               * Backwards-compatible first media item.
-               */
               media_url:
                 finalMediaUrls[
                   0
                 ] ||
                 null,
 
-              /*
-               * New ordered media array.
-               */
               media_urls:
                 finalMediaUrls,
 
@@ -3682,6 +4078,409 @@ export default function SocialStudioUnified() {
         }
 
         return false;
+      } finally {
+        if (
+          mountedRef.current
+        ) {
+          setIsPosting(
+            false
+          );
+
+          setIsUploadingMedia(
+            false
+          );
+
+          setStatus(
+            "Ready"
+          );
+        }
+      }
+    };
+
+  // ==========================================================
+  // SAVE SCHEDULED CHANGES
+  // ==========================================================
+
+  const saveScheduledChanges =
+    async () => {
+      if (
+        !isEditingScheduledPost ||
+        isPosting ||
+        isUploadingMedia
+      ) {
+        return;
+      }
+
+      if (
+        !user?.id
+      ) {
+        toast.error(
+          "You must be signed in."
+        );
+
+        return;
+      }
+
+      if (
+        !caption.trim()
+      ) {
+        toast.error(
+          "Write a caption first."
+        );
+
+        return;
+      }
+
+      if (
+        platforms.length ===
+        0
+      ) {
+        toast.error(
+          "Choose at least one platform."
+        );
+
+        return;
+      }
+
+      if (
+        !validateConnections()
+      ) {
+        return;
+      }
+
+      if (
+        platforms.includes(
+          "instagram"
+        ) &&
+        mediaItems.length ===
+          0
+      ) {
+        toast.error(
+          "Instagram requires an image or video."
+        );
+
+        return;
+      }
+
+      if (
+        format ===
+          "Carousel" &&
+        mediaItems.length <
+          2
+      ) {
+        toast.error(
+          "A carousel needs at least two images or videos."
+        );
+
+        return;
+      }
+
+      if (
+        format ===
+        "Reel"
+      ) {
+        const hasVideo =
+          mediaItems.some(
+            (
+              item
+            ) =>
+              item.type ===
+              "video"
+          );
+
+        if (
+          !hasVideo
+        ) {
+          toast.error(
+            "A Reel needs a video."
+          );
+
+          return;
+        }
+      }
+
+      if (
+        !scheduledTime
+      ) {
+        toast.error(
+          "Choose when you want the post published."
+        );
+
+        return;
+      }
+
+      const publishDate =
+        new Date(
+          scheduledTime
+        );
+
+      if (
+        Number.isNaN(
+          publishDate.getTime()
+        )
+      ) {
+        toast.error(
+          "The scheduled date is invalid."
+        );
+
+        return;
+      }
+
+      if (
+        publishDate.getTime() <=
+        Date.now()
+      ) {
+        toast.error(
+          "Choose a future time for the scheduled post."
+        );
+
+        return;
+      }
+
+      setIsPosting(
+        true
+      );
+
+      setStatus(
+        "Saving changes..."
+      );
+
+      setPublishSummary(
+        null
+      );
+
+      try {
+        const finalMediaUrls =
+          await resolveComposerMedia();
+
+        const firstMediaUrl =
+          finalMediaUrls[
+            0
+          ] ||
+          null;
+
+        const existingPlatforms =
+          Object.keys(
+            editingPostIds
+          ) as PlatformId[];
+
+        // ======================================================
+        // UPDATE / CREATE SELECTED PLATFORMS
+        // ======================================================
+
+        for (
+          const platform of
+          platforms
+        ) {
+          const existingId =
+            editingPostIds[
+              platform
+            ];
+
+          const payload = {
+            caption:
+              caption.trim(),
+
+            hashtags:
+              hashtags.trim() ||
+              null,
+
+            media_url:
+              firstMediaUrl,
+
+            media_urls:
+              finalMediaUrls,
+
+            scheduled_for:
+              publishDate
+                .toISOString(),
+
+            format,
+
+            status:
+              POST_STATUS.SCHEDULED,
+
+            attempts:
+              0,
+
+            retry_count:
+              0,
+
+            posted_at:
+              null,
+
+            platform_post_id:
+              null,
+
+            platform_response:
+              null,
+
+            last_attempt_at:
+              null,
+
+            last_error:
+              null,
+
+            error:
+              null,
+          };
+
+          if (
+            existingId
+          ) {
+            const {
+              error,
+            } =
+              await supabase
+                .from(
+                  "socials"
+                )
+                .update(
+                  payload
+                )
+                .eq(
+                  "id",
+                  existingId
+                )
+                .eq(
+                  "user_id",
+                  user.id
+                )
+                .eq(
+                  "status",
+                  POST_STATUS.SCHEDULED
+                );
+
+            if (
+              error
+            ) {
+              throw new Error(
+                `${getPlatformLabel(
+                  platform
+                )} could not be updated: ${error.message}`
+              );
+            }
+          } else {
+            const {
+              error,
+            } =
+              await supabase
+                .from(
+                  "socials"
+                )
+                .insert({
+                  user_id:
+                    user.id,
+
+                  platform,
+
+                  ...payload,
+                });
+
+            if (
+              error
+            ) {
+              throw new Error(
+                `${getPlatformLabel(
+                  platform
+                )} could not be added: ${error.message}`
+              );
+            }
+          }
+        }
+
+        // ======================================================
+        // DELETE REMOVED PLATFORMS
+        // ======================================================
+
+        const removedPlatforms =
+          existingPlatforms.filter(
+            (
+              platform
+            ) =>
+              !platforms.includes(
+                platform
+              )
+          );
+
+        for (
+          const platform of
+          removedPlatforms
+        ) {
+          const id =
+            editingPostIds[
+              platform
+            ];
+
+          if (
+            !id
+          ) {
+            continue;
+          }
+
+          const {
+            error,
+          } =
+            await supabase
+              .from(
+                "socials"
+              )
+              .delete()
+              .eq(
+                "id",
+                id
+              )
+              .eq(
+                "user_id",
+                user.id
+              )
+              .eq(
+                "status",
+                POST_STATUS.SCHEDULED
+              );
+
+          if (
+            error
+          ) {
+            throw new Error(
+              `${getPlatformLabel(
+                platform
+              )} could not be removed: ${error.message}`
+            );
+          }
+        }
+
+        toast.success(
+          platforms.length >
+            1
+            ? "Scheduled posts updated successfully"
+            : "Scheduled post updated successfully"
+        );
+
+        resetComposer();
+
+        await syncPosts(
+          true
+        );
+
+        setViewMode(
+          "planner"
+        );
+      } catch (
+        error:
+          unknown
+      ) {
+        console.error(
+          "Scheduled post edit error:",
+          error
+        );
+
+        toast.error(
+          error instanceof
+            Error
+            ? error.message
+            : "The scheduled post could not be updated."
+        );
       } finally {
         if (
           mountedRef.current
@@ -4098,9 +4897,12 @@ export default function SocialStudioUnified() {
           [];
 
         for (
-          let i = 0;
-          i < firstDay;
-          i += 1
+          let i =
+            0;
+          i <
+          firstDay;
+          i +=
+            1
         ) {
           days.push(
             0
@@ -4108,10 +4910,12 @@ export default function SocialStudioUnified() {
         }
 
         for (
-          let day = 1;
+          let day =
+            1;
           day <=
           daysInMonth;
-          day += 1
+          day +=
+            1
         ) {
           days.push(
             day
@@ -4212,6 +5016,10 @@ export default function SocialStudioUnified() {
           2,
           "0"
         );
+
+      setEditingPostIds(
+        {}
+      );
 
       setScheduledTime(
         `${year}-${month}-${date}T12:00`
@@ -4604,43 +5412,49 @@ export default function SocialStudioUnified() {
               <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <p className="mb-2 text-[9px] font-black uppercase tracking-[0.35em] text-[#8fa07d]">
-                    Create Content
+                    {isEditingScheduledPost
+                      ? "Edit Scheduled Content"
+                      : "Create Content"}
                   </p>
 
                   <h2 className="font-serif text-5xl italic tracking-tight md:text-7xl">
-                    What are we posting?
+                    {isEditingScheduledPost
+                      ? "Make your changes."
+                      : "What are we posting?"}
                   </h2>
 
                   <p className="mt-4 max-w-xl text-sm leading-relaxed text-stone-500">
-                    Choose exactly where your post should go.
-                    TOTS-OS will track each platform separately
-                    so you can see exactly what succeeded and what failed.
+                    {isEditingScheduledPost
+                      ? "Update your content, media, platforms or scheduled time. Your existing scheduled post will be updated rather than duplicated."
+                      : "Choose exactly where your post should go. TOTS-OS will track each platform separately so you can see exactly what succeeded and what failed."}
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewMode(
-                      "ideas"
-                    );
+                {!isEditingScheduledPost && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewMode(
+                        "ideas"
+                      );
 
-                    if (
-                      !generatedConcepts.length
-                    ) {
-                      void generateBusinessIdeas();
-                    }
-                  }}
-                  className="flex items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-6 py-4 text-[10px] font-black uppercase tracking-wider text-stone-900"
-                >
-                  <Wand2
-                    size={
-                      15
-                    }
-                  />
+                      if (
+                        !generatedConcepts.length
+                      ) {
+                        void generateBusinessIdeas();
+                      }
+                    }}
+                    className="flex items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-6 py-4 text-[10px] font-black uppercase tracking-wider text-stone-900"
+                  >
+                    <Wand2
+                      size={
+                        15
+                      }
+                    />
 
-                  Give Me Ideas
-                </button>
+                    Give Me Ideas
+                  </button>
+                )}
               </div>
 
               <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -4650,6 +5464,53 @@ export default function SocialStudioUnified() {
                 ============================================== */}
 
                 <section className="space-y-5 rounded-[2.5rem] border border-stone-200 bg-white p-6 shadow-sm md:p-8">
+
+                  {/* ==================================================
+                      EDITING BANNER
+                  ================================================== */}
+
+                  {isEditingScheduledPost && (
+                    <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-500 shadow-sm">
+                            <Pencil
+                              size={
+                                15
+                              }
+                            />
+                          </div>
+
+                          <div>
+                            <p className="text-[8px] font-black uppercase tracking-[0.22em] text-blue-500">
+                              Editing scheduled post
+                            </p>
+
+                            <p className="mt-1 text-xs leading-5 text-stone-500">
+                              Update the content, media, platforms or scheduled time below.
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={
+                            isPosting
+                          }
+                          onClick={() => {
+                            resetComposer();
+
+                            setViewMode(
+                              "planner"
+                            );
+                          }}
+                          className="rounded-xl bg-white px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-400 shadow-sm transition hover:text-red-500 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {selectedConcept && (
                     <div className="rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-5">
@@ -4776,10 +5637,6 @@ export default function SocialStudioUnified() {
                     ) : (
                       <div className="space-y-4">
 
-                        {/* ==========================================
-                            MEDIA GRID
-                        ========================================== */}
-
                         <div
                           className={`grid gap-3 ${
                             mediaItems.length ===
@@ -4837,8 +5694,6 @@ export default function SocialStudioUnified() {
                                   />
                                 )}
 
-                                {/* COVER BADGE */}
-
                                 {index ===
                                   0 && (
                                   <div className="absolute left-3 top-3 rounded-full bg-stone-900/90 px-3 py-1.5 text-[7px] font-black uppercase tracking-wider text-white backdrop-blur">
@@ -4846,7 +5701,11 @@ export default function SocialStudioUnified() {
                                   </div>
                                 )}
 
-                                {/* TYPE */}
+                                {item.existingUrl && (
+                                  <div className="absolute left-3 top-11 rounded-full bg-white/90 px-2.5 py-1 text-[7px] font-black uppercase tracking-wider text-[#71805f] backdrop-blur">
+                                    Existing
+                                  </div>
+                                )}
 
                                 <div className="absolute bottom-3 left-3 rounded-full bg-white/90 px-2.5 py-1 text-[7px] font-black uppercase tracking-wider text-stone-600 backdrop-blur">
                                   {item.type ===
@@ -4854,8 +5713,6 @@ export default function SocialStudioUnified() {
                                     ? "Video"
                                     : `Image ${index + 1}`}
                                 </div>
-
-                                {/* REMOVE */}
 
                                 <button
                                   type="button"
@@ -4875,8 +5732,6 @@ export default function SocialStudioUnified() {
                                     }
                                   />
                                 </button>
-
-                                {/* REORDER */}
 
                                 {mediaItems.length >
                                   1 && (
@@ -4933,10 +5788,6 @@ export default function SocialStudioUnified() {
                             )
                           )}
                         </div>
-
-                        {/* ==========================================
-                            ADD MORE
-                        ========================================== */}
 
                         {mediaItems.length <
                           MAX_MEDIA_ITEMS && (
@@ -5305,7 +6156,9 @@ export default function SocialStudioUnified() {
                       0 && (
                       <div className="mt-4 rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-4">
                         <p className="text-[8px] font-black uppercase tracking-[0.18em] text-[#71805f]">
-                          Publishing to
+                          {isEditingScheduledPost
+                            ? "Scheduled for"
+                            : "Publishing to"}
                         </p>
 
                         <div className="mt-2 flex flex-wrap gap-2">
@@ -5401,7 +6254,9 @@ export default function SocialStudioUnified() {
                         </p>
 
                         <p className="text-[9px] text-stone-400">
-                          Required only when scheduling
+                          {isEditingScheduledPost
+                            ? "Change when this should publish"
+                            : "Required only when scheduling"}
                         </p>
                       </div>
                     </div>
@@ -5457,6 +6312,46 @@ export default function SocialStudioUnified() {
 
                   {/* POST NOW */}
 
+                  {!isEditingScheduledPost && (
+                    <button
+                      type="button"
+                      disabled={
+                        isPosting ||
+                        isUploadingMedia ||
+                        platforms.length ===
+                          0
+                      }
+                      onClick={() =>
+                        void createPost({
+                          instant:
+                            true,
+                        })
+                      }
+                      className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-6 py-5 text-[10px] font-black uppercase tracking-widest text-stone-900 shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {isPosting ? (
+                        <Loader2
+                          size={
+                            15
+                          }
+                          className="animate-spin"
+                        />
+                      ) : (
+                        <Send
+                          size={
+                            15
+                          }
+                        />
+                      )}
+
+                      {isPosting
+                        ? "Publishing..."
+                        : "Post Now"}
+                    </button>
+                  )}
+
+                  {/* SCHEDULE / SAVE CHANGES */}
+
                   <button
                     type="button"
                     disabled={
@@ -5465,51 +6360,25 @@ export default function SocialStudioUnified() {
                       platforms.length ===
                         0
                     }
-                    onClick={() =>
-                      void createPost({
-                        instant:
-                          true,
-                      })
-                    }
-                    className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-6 py-5 text-[10px] font-black uppercase tracking-widest text-stone-900 shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {isPosting ? (
-                      <Loader2
-                        size={
-                          15
-                        }
-                        className="animate-spin"
-                      />
-                    ) : (
-                      <Send
-                        size={
-                          15
-                        }
-                      />
-                    )}
+                    onClick={() => {
+                      if (
+                        isEditingScheduledPost
+                      ) {
+                        void saveScheduledChanges();
 
-                    {isPosting
-                      ? "Publishing..."
-                      : "Post Now"}
-                  </button>
+                        return;
+                      }
 
-                  {/* SCHEDULE */}
-
-                  <button
-                    type="button"
-                    disabled={
-                      isPosting ||
-                      isUploadingMedia ||
-                      platforms.length ===
-                        0
-                    }
-                    onClick={() =>
                       void createPost({
                         instant:
                           false,
-                      })
-                    }
-                    className="flex w-full items-center justify-center gap-3 rounded-2xl bg-stone-900 px-6 py-5 text-[10px] font-black uppercase tracking-widest text-[#a9b897] shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                      });
+                    }}
+                    className={`flex w-full items-center justify-center gap-3 rounded-2xl px-6 py-5 text-[10px] font-black uppercase tracking-widest shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 ${
+                      isEditingScheduledPost
+                        ? "bg-[#a9b897] text-stone-900"
+                        : "bg-stone-900 text-[#a9b897]"
+                    }`}
                   >
                     {isPosting ? (
                       <Loader2
@@ -5517,6 +6386,12 @@ export default function SocialStudioUnified() {
                           15
                         }
                         className="animate-spin"
+                      />
+                    ) : isEditingScheduledPost ? (
+                      <Check
+                        size={
+                          15
+                        }
                       />
                     ) : (
                       <CalendarDays
@@ -5526,8 +6401,39 @@ export default function SocialStudioUnified() {
                       />
                     )}
 
-                    Schedule Post
+                    {isPosting
+                      ? isEditingScheduledPost
+                        ? "Saving..."
+                        : "Scheduling..."
+                      : isEditingScheduledPost
+                        ? "Save Changes"
+                        : "Schedule Post"}
                   </button>
+
+                  {isEditingScheduledPost && (
+                    <button
+                      type="button"
+                      disabled={
+                        isPosting
+                      }
+                      onClick={() => {
+                        resetComposer();
+
+                        setViewMode(
+                          "planner"
+                        );
+                      }}
+                      className="flex w-full items-center justify-center gap-3 rounded-2xl border border-stone-200 bg-white px-6 py-4 text-[9px] font-black uppercase tracking-widest text-stone-400 transition hover:border-red-200 hover:text-red-500 disabled:opacity-50"
+                    >
+                      <X
+                        size={
+                          14
+                        }
+                      />
+
+                      Cancel Editing
+                    </button>
+                  )}
                 </aside>
               </div>
             </motion.div>
@@ -6205,6 +7111,31 @@ export default function SocialStudioUnified() {
                           </span>
 
                           <div className="flex items-center gap-2">
+
+                            {/* EDIT */}
+
+                            {post.status ===
+                              POST_STATUS.SCHEDULED && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  editScheduledPost(
+                                    post
+                                  )
+                                }
+                                className="rounded-lg p-2 text-stone-400 transition hover:bg-white hover:text-[#71805f]"
+                                title="Edit scheduled post"
+                              >
+                                <Pencil
+                                  size={
+                                    14
+                                  }
+                                />
+                              </button>
+                            )}
+
+                            {/* RETRY */}
+
                             {post.status ===
                               "failed" && (
                               <button
@@ -6234,6 +7165,8 @@ export default function SocialStudioUnified() {
                               </button>
                             )}
 
+                            {/* PREVIEW */}
+
                             <button
                               type="button"
                               onClick={() =>
@@ -6249,6 +7182,8 @@ export default function SocialStudioUnified() {
                                 }
                               />
                             </button>
+
+                            {/* DELETE */}
 
                             <button
                               type="button"
@@ -6276,6 +7211,8 @@ export default function SocialStudioUnified() {
               <button
                 type="button"
                 onClick={() => {
+                  resetComposer();
+
                   setIsDayViewOpen(
                     false
                   );
@@ -6525,6 +7462,30 @@ export default function SocialStudioUnified() {
                 </p>
               )}
 
+              <div className="mt-5 rounded-2xl border border-stone-100 bg-stone-50 p-4">
+                <div className="flex items-center gap-3">
+                  <Clock
+                    size={
+                      14
+                    }
+                    className="text-stone-400"
+                  />
+
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                      Scheduled
+                    </p>
+
+                    <p className="mt-1 text-xs font-bold text-stone-600">
+                      {new Date(
+                        previewPost
+                          .scheduled_for
+                      ).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {previewPost.status ===
                 "published" && (
                 <div className="mt-5 flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
@@ -6640,6 +7601,27 @@ export default function SocialStudioUnified() {
                     )}
 
                     Retry Post
+                  </button>
+                )}
+
+                {previewPost.status ===
+                  POST_STATUS.SCHEDULED && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      editScheduledPost(
+                        previewPost
+                      )
+                    }
+                    className="flex items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-6 py-3 text-[9px] font-black uppercase tracking-wider text-stone-600 transition hover:border-[#a9b897] hover:text-[#71805f]"
+                  >
+                    <Pencil
+                      size={
+                        13
+                      }
+                    />
+
+                    Edit Post
                   </button>
                 )}
 

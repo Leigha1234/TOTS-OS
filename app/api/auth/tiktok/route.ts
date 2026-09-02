@@ -30,6 +30,13 @@ type TikTokOAuthState = {
 };
 
 // ============================================================
+// CONSTANTS
+// ============================================================
+
+const TIKTOK_SCOPE =
+  "user.info.basic,video.publish";
+
+// ============================================================
 // HELPERS
 // ============================================================
 
@@ -271,7 +278,7 @@ export async function GET(
 
     authUrl.searchParams.set(
       "scope",
-      "user.info.basic"
+      TIKTOK_SCOPE
     );
 
     authUrl.searchParams.set(
@@ -294,7 +301,7 @@ export async function GET(
         redirectUri,
 
         scope:
-          "user.info.basic",
+          TIKTOK_SCOPE,
 
         nonceLength:
           nonce.length,

@@ -105,6 +105,71 @@ interface SocialPost {
 
   platform_response?:
     unknown;
+
+  tiktok_settings?:
+    TikTokPostSettings | null;
+}
+
+type TikTokPrivacyLevel =
+  | "PUBLIC_TO_EVERYONE"
+  | "MUTUAL_FOLLOW_FRIENDS"
+  | "FOLLOWER_OF_CREATOR"
+  | "SELF_ONLY"
+  | string;
+
+interface TikTokCreatorInfo {
+  open_id?:
+    string | null;
+
+  display_name?:
+    string | null;
+
+  avatar_url?:
+    string | null;
+
+  privacy_level_options:
+    TikTokPrivacyLevel[];
+
+  comment_disabled:
+    boolean;
+
+  duet_disabled:
+    boolean;
+
+  stitch_disabled:
+    boolean;
+
+  max_video_post_duration_sec?:
+    number | null;
+}
+
+interface TikTokPostSettings {
+  privacy_level:
+    TikTokPrivacyLevel | "";
+
+  allow_comment:
+    boolean;
+
+  allow_duet:
+    boolean;
+
+  allow_stitch:
+    boolean;
+
+  commercial_content:
+    boolean;
+
+  brand_organic_toggle:
+    boolean;
+
+  brand_content_toggle:
+    boolean;
+
+  is_aigc:
+    boolean;
+
+  consent_given:
+    boolean;
 }
 
 interface SocialAccount {
@@ -330,7 +395,7 @@ const PLATFORM_OPTIONS: Array<{
       "TikTok",
 
     description:
-      "Video",
+      "Photos & video",
   },
 
   {
@@ -1274,6 +1339,79 @@ export default function SocialStudioUnified() {
       ""
     );
 
+  const [
+    organisationId,
+    setOrganisationId,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+  const [
+    tiktokCreatorInfo,
+    setTikTokCreatorInfo,
+  ] =
+    useState<
+      TikTokCreatorInfo | null
+    >(
+      null
+    );
+
+  const [
+    tiktokCreatorLoading,
+    setTikTokCreatorLoading,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    tiktokCreatorError,
+    setTikTokCreatorError,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+  const [
+    tiktokSettings,
+    setTikTokSettings,
+  ] =
+    useState<
+      TikTokPostSettings
+    >({
+      privacy_level:
+        "",
+
+      allow_comment:
+        false,
+
+      allow_duet:
+        false,
+
+      allow_stitch:
+        false,
+
+      commercial_content:
+        false,
+
+      brand_organic_toggle:
+        false,
+
+      brand_content_toggle:
+        false,
+
+      is_aigc:
+        false,
+
+      consent_given:
+        false,
+    });
+
   // ==========================================================
   // MEDIA
   // ==========================================================
@@ -1655,6 +1793,14 @@ export default function SocialStudioUnified() {
               ?.organisation_id ||
             null;
 
+          if (
+            mountedRef.current
+          ) {
+            setOrganisationId(
+              organisationId
+            );
+          }
+
           let team:
             any =
             null;
@@ -1970,7 +2116,8 @@ export default function SocialStudioUnified() {
                 last_error,
                 attempts,
                 analytics,
-                platform_response
+                platform_response,
+                tiktok_settings
               `)
               .eq(
                 "user_id",
@@ -2969,6 +3116,384 @@ export default function SocialStudioUnified() {
     };
 
   // ==========================================================
+  // TIKTOK CREATOR INFO / AUDIT-COMPLIANT SETTINGS
+  // ==========================================================
+
+  const tiktokSelected =
+    platforms.includes(
+      "tiktok"
+    );
+
+  const tiktokHasVideo =
+    mediaItems.some(
+      (
+        item
+      ) =>
+        item.type ===
+        "video"
+    );
+
+  const tiktokHasImage =
+    mediaItems.some(
+      (
+        item
+      ) =>
+        item.type ===
+        "image"
+    );
+
+  const loadTikTokCreatorInfo =
+    useCallback(
+      async () => {
+        if (
+          !user?.id ||
+          !tiktokConnected
+        ) {
+          return;
+        }
+
+        setTikTokCreatorLoading(
+          true
+        );
+
+        setTikTokCreatorError(
+          null
+        );
+
+        try {
+          const response =
+            await fetch(
+              "/api/social/tiktok/creator-info",
+              {
+                method:
+                  "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+
+                body:
+                  JSON.stringify({
+                    organisationId,
+                  }),
+              }
+            );
+
+          const body =
+            await response
+              .json()
+              .catch(
+                () =>
+                  ({})
+              );
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              body?.error ||
+                body?.message ||
+                "Could not load TikTok creator settings."
+            );
+          }
+
+          const raw =
+            body?.creator ||
+            body?.data ||
+            body;
+
+          const creator:
+            TikTokCreatorInfo = {
+            open_id:
+              raw?.open_id ||
+              null,
+
+            display_name:
+              raw?.display_name ||
+              tiktokAccount
+                ?.display_name ||
+              null,
+
+            avatar_url:
+              raw?.avatar_url ||
+              null,
+
+            privacy_level_options:
+              Array.isArray(
+                raw?.privacy_level_options
+              )
+                ? raw.privacy_level_options
+                : [],
+
+            comment_disabled:
+              Boolean(
+                raw?.comment_disabled
+              ),
+
+            duet_disabled:
+              Boolean(
+                raw?.duet_disabled
+              ),
+
+            stitch_disabled:
+              Boolean(
+                raw?.stitch_disabled
+              ),
+
+            max_video_post_duration_sec:
+              typeof raw
+                ?.max_video_post_duration_sec ===
+              "number"
+                ? raw.max_video_post_duration_sec
+                : null,
+          };
+
+          setTikTokCreatorInfo(
+            creator
+          );
+
+          setTikTokSettings(
+            (
+              previous
+            ) => ({
+              ...previous,
+
+              privacy_level:
+                creator
+                  .privacy_level_options
+                  .includes(
+                    previous
+                      .privacy_level
+                  )
+                  ? previous
+                      .privacy_level
+                  : "",
+
+              allow_comment:
+                creator
+                  .comment_disabled
+                  ? false
+                  : previous
+                      .allow_comment,
+
+              allow_duet:
+                creator
+                  .duet_disabled
+                  ? false
+                  : previous
+                      .allow_duet,
+
+              allow_stitch:
+                creator
+                  .stitch_disabled
+                  ? false
+                  : previous
+                      .allow_stitch,
+            })
+          );
+        } catch (
+          error:
+            unknown
+        ) {
+          const message =
+            error instanceof
+              Error
+              ? error.message
+              : "Could not load TikTok creator settings.";
+
+          console.error(
+            "TikTok creator info error:",
+            error
+          );
+
+          setTikTokCreatorInfo(
+            null
+          );
+
+          setTikTokCreatorError(
+            message
+          );
+        } finally {
+          if (
+            mountedRef.current
+          ) {
+            setTikTokCreatorLoading(
+              false
+            );
+          }
+        }
+      },
+      [
+        organisationId,
+        tiktokAccount
+          ?.display_name,
+        tiktokConnected,
+        user?.id,
+      ]
+    );
+
+  useEffect(
+    () => {
+      if (
+        !tiktokSelected ||
+        !tiktokConnected
+      ) {
+        return;
+      }
+
+      void loadTikTokCreatorInfo();
+    },
+    [
+      tiktokSelected,
+      tiktokConnected,
+      loadTikTokCreatorInfo,
+    ]
+  );
+
+  const formatTikTokPrivacyLabel =
+    (
+      value:
+        string
+    ) => {
+      switch (
+        value
+      ) {
+        case "PUBLIC_TO_EVERYONE":
+          return "Everyone";
+
+        case "MUTUAL_FOLLOW_FRIENDS":
+          return "Friends";
+
+        case "FOLLOWER_OF_CREATOR":
+          return "Followers";
+
+        case "SELF_ONLY":
+          return "Only me";
+
+        default:
+          return value
+            .toLowerCase()
+            .replaceAll(
+              "_",
+              " "
+            )
+            .replace(
+              /\b\w/g,
+              (
+                char
+              ) =>
+                char.toUpperCase()
+            );
+      }
+    };
+
+  const validateTikTokSettings =
+    () => {
+      if (
+        !tiktokSelected
+      ) {
+        return true;
+      }
+
+      if (
+        mediaItems.length ===
+        0
+      ) {
+        toast.error(
+          "TikTok requires an image or video."
+        );
+
+        return false;
+      }
+
+      if (
+        tiktokHasVideo &&
+        tiktokHasImage
+      ) {
+        toast.error(
+          "TikTok posts cannot mix photos and videos in the same post."
+        );
+
+        return false;
+      }
+
+      if (
+        tiktokCreatorLoading
+      ) {
+        toast.error(
+          "Wait for TikTok settings to finish loading."
+        );
+
+        return false;
+      }
+
+      if (
+        !tiktokCreatorInfo
+      ) {
+        toast.error(
+          tiktokCreatorError ||
+            "Refresh the TikTok settings before publishing."
+        );
+
+        return false;
+      }
+
+      if (
+        !tiktokSettings
+          .privacy_level
+      ) {
+        toast.error(
+          "Choose who can view your TikTok post."
+        );
+
+        return false;
+      }
+
+      if (
+        tiktokSettings
+          .commercial_content &&
+        !tiktokSettings
+          .brand_organic_toggle &&
+        !tiktokSettings
+          .brand_content_toggle
+      ) {
+        toast.error(
+          "Choose what the TikTok commercial content promotes."
+        );
+
+        return false;
+      }
+
+      if (
+        tiktokSettings
+          .brand_content_toggle &&
+        tiktokSettings
+          .privacy_level ===
+          "SELF_ONLY"
+      ) {
+        toast.error(
+          "Branded TikTok content cannot use Only me visibility."
+        );
+
+        return false;
+      }
+
+      if (
+        !tiktokSettings
+          .consent_given
+      ) {
+        toast.error(
+          "Confirm TikTok's publishing declaration before continuing."
+        );
+
+        return false;
+      }
+
+      return true;
+    };
+
+  // ==========================================================
   // PLATFORM TOGGLE
   // ==========================================================
 
@@ -3485,7 +4010,8 @@ export default function SocialStudioUnified() {
               last_error,
               attempts,
               analytics,
-              platform_response
+              platform_response,
+              tiktok_settings
             `)
             .in(
               "id",
@@ -3614,6 +4140,43 @@ export default function SocialStudioUnified() {
       setFormat(
         "Post"
       );
+
+      setTikTokCreatorInfo(
+        null
+      );
+
+      setTikTokCreatorError(
+        null
+      );
+
+      setTikTokSettings({
+        privacy_level:
+          "",
+
+        allow_comment:
+          false,
+
+        allow_duet:
+          false,
+
+        allow_stitch:
+          false,
+
+        commercial_content:
+          false,
+
+        brand_organic_toggle:
+          false,
+
+        brand_content_toggle:
+          false,
+
+        is_aigc:
+          false,
+
+        consent_given:
+          false,
+      });
 
       setEditingPostIds(
         {}
@@ -3795,6 +4358,82 @@ export default function SocialStudioUnified() {
       setSelectedConcept(
         null
       );
+
+      const selectedTikTokPost =
+        group.find(
+          (
+            post
+          ) =>
+            cleanPlatform(
+              post.platform
+            ) ===
+            "tiktok"
+        );
+
+      if (
+        selectedTikTokPost
+          ?.tiktok_settings
+      ) {
+        setTikTokSettings({
+          privacy_level:
+            selectedTikTokPost
+              .tiktok_settings
+              .privacy_level ||
+            "",
+
+          allow_comment:
+            Boolean(
+              selectedTikTokPost
+                .tiktok_settings
+                .allow_comment
+            ),
+
+          allow_duet:
+            Boolean(
+              selectedTikTokPost
+                .tiktok_settings
+                .allow_duet
+            ),
+
+          allow_stitch:
+            Boolean(
+              selectedTikTokPost
+                .tiktok_settings
+                .allow_stitch
+            ),
+
+          commercial_content:
+            Boolean(
+              selectedTikTokPost
+                .tiktok_settings
+                .commercial_content
+            ),
+
+          brand_organic_toggle:
+            Boolean(
+              selectedTikTokPost
+                .tiktok_settings
+                .brand_organic_toggle
+            ),
+
+          brand_content_toggle:
+            Boolean(
+              selectedTikTokPost
+                .tiktok_settings
+                .brand_content_toggle
+            ),
+
+          is_aigc:
+            Boolean(
+              selectedTikTokPost
+                .tiktok_settings
+                .is_aigc
+            ),
+
+          consent_given:
+            false,
+        });
+      }
 
       setPreviewPost(
         null
@@ -4046,6 +4685,12 @@ export default function SocialStudioUnified() {
         return false;
       }
 
+      if (
+        !validateTikTokSettings()
+      ) {
+        return false;
+      }
+
       const hasInstagram =
         platforms.includes(
           "instagram"
@@ -4196,10 +4841,19 @@ export default function SocialStudioUnified() {
               user_id:
                 user.id,
 
+              organisation_id:
+                organisationId,
+
               caption:
                 caption.trim(),
 
               platform,
+
+              tiktok_settings:
+                platform ===
+                  "tiktok"
+                  ? tiktokSettings
+                  : null,
 
               hashtags:
                 hashtags
@@ -4279,7 +4933,8 @@ export default function SocialStudioUnified() {
               last_error,
               attempts,
               analytics,
-              platform_response
+              platform_response,
+              tiktok_settings
             `);
 
         if (
@@ -4652,6 +5307,12 @@ export default function SocialStudioUnified() {
       }
 
       if (
+        !validateTikTokSettings()
+      ) {
+        return;
+      }
+
+      if (
         platforms.includes(
           "instagram"
         ) &&
@@ -4781,6 +5442,9 @@ export default function SocialStudioUnified() {
             ];
 
           const payload = {
+            organisation_id:
+              organisationId,
+
             caption:
               caption.trim(),
 
@@ -4826,6 +5490,12 @@ export default function SocialStudioUnified() {
 
             error:
               null,
+
+            tiktok_settings:
+              platform ===
+                "tiktok"
+                ? tiktokSettings
+                : null,
           };
 
           if (
@@ -4874,6 +5544,9 @@ export default function SocialStudioUnified() {
                 .insert({
                   user_id:
                     user.id,
+
+                  organisation_id:
+                    organisationId,
 
                   platform,
 
@@ -5054,7 +5727,8 @@ export default function SocialStudioUnified() {
               last_error,
               attempts,
               analytics,
-              platform_response
+              platform_response,
+              tiktok_settings
             `)
             .eq(
               "id",
@@ -6706,6 +7380,608 @@ export default function SocialStudioUnified() {
                     )}
                   </div>
 
+                  {/* TIKTOK SETTINGS */}
+
+                  {tiktokSelected && (
+                    <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 text-white">
+                            <Music
+                              size={
+                                17
+                              }
+                            />
+                          </div>
+
+                          <div>
+                            <p className="text-xs font-black">
+                              TikTok settings
+                            </p>
+
+                            <p className="mt-1 text-[9px] leading-4 text-stone-400">
+                              Required by TikTok before this post can be published.
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={
+                            tiktokCreatorLoading ||
+                            isPosting
+                          }
+                          onClick={() =>
+                            void loadTikTokCreatorInfo()
+                          }
+                          className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-[8px] font-black uppercase tracking-wider text-stone-600 disabled:opacity-50"
+                        >
+                          {tiktokCreatorLoading ? (
+                            <Loader2
+                              size={
+                                12
+                              }
+                              className="animate-spin"
+                            />
+                          ) : (
+                            <RefreshCcw
+                              size={
+                                12
+                              }
+                            />
+                          )}
+
+                          Refresh
+                        </button>
+                      </div>
+
+                      {tiktokCreatorLoading &&
+                        !tiktokCreatorInfo && (
+                        <div className="mt-4 flex items-center gap-3 rounded-2xl bg-stone-50 p-4">
+                          <Loader2
+                            size={
+                              15
+                            }
+                            className="animate-spin text-[#71805f]"
+                          />
+
+                          <p className="text-[10px] text-stone-500">
+                            Loading your current TikTok creator settings…
+                          </p>
+                        </div>
+                      )}
+
+                      {tiktokCreatorError && (
+                        <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4">
+                          <div className="flex items-start gap-3">
+                            <AlertCircle
+                              size={
+                                15
+                              }
+                              className="mt-0.5 shrink-0 text-red-500"
+                            />
+
+                            <div>
+                              <p className="text-[9px] font-black uppercase tracking-wider text-red-700">
+                                TikTok settings unavailable
+                              </p>
+
+                              <p className="mt-1 text-[10px] leading-5 text-red-600">
+                                {
+                                  tiktokCreatorError
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {tiktokCreatorInfo && (
+                        <div className="mt-5 space-y-5">
+                          <div className="rounded-2xl border border-stone-100 bg-stone-50 p-4">
+                            <p className="text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
+                              Posting to
+                            </p>
+
+                            <div className="mt-3 flex items-center gap-3">
+                              {tiktokCreatorInfo
+                                .avatar_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={
+                                    tiktokCreatorInfo
+                                      .avatar_url
+                                  }
+                                  alt="TikTok profile"
+                                  className="h-10 w-10 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-stone-500 shadow-sm">
+                                  <Music
+                                    size={
+                                      16
+                                    }
+                                  />
+                                </div>
+                              )}
+
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-black text-stone-800">
+                                  {tiktokCreatorInfo
+                                    .display_name ||
+                                    tiktokAccount
+                                      ?.display_name ||
+                                    "Connected TikTok account"}
+                                </p>
+
+                                <p className="mt-1 text-[9px] text-stone-400">
+                                  TikTok creator account
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-[9px] font-black uppercase tracking-wider text-stone-500">
+                              Who can view this post? *
+                            </label>
+
+                            <select
+                              value={
+                                tiktokSettings
+                                  .privacy_level
+                              }
+                              disabled={
+                                isPosting ||
+                                tiktokCreatorLoading
+                              }
+                              onChange={(
+                                event
+                              ) => {
+                                const privacy =
+                                  event
+                                    .target
+                                    .value;
+
+                                setTikTokSettings(
+                                  (
+                                    previous
+                                  ) => ({
+                                    ...previous,
+                                    privacy_level:
+                                      privacy,
+                                  })
+                                );
+                              }}
+                              className="w-full rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs font-bold outline-none disabled:opacity-60"
+                            >
+                              <option value="">
+                                Select privacy
+                              </option>
+
+                              {tiktokCreatorInfo
+                                .privacy_level_options
+                                .map(
+                                  (
+                                    option
+                                  ) => {
+                                    const disabled =
+                                      tiktokSettings
+                                        .brand_content_toggle &&
+                                      option ===
+                                        "SELF_ONLY";
+
+                                    return (
+                                      <option
+                                        key={
+                                          option
+                                        }
+                                        value={
+                                          option
+                                        }
+                                        disabled={
+                                          disabled
+                                        }
+                                      >
+                                        {formatTikTokPrivacyLabel(
+                                          option
+                                        )}
+                                      </option>
+                                    );
+                                  }
+                                )}
+                            </select>
+
+                            <p className="mt-2 text-[9px] leading-4 text-stone-400">
+                              TikTok requires you to choose this manually for each post.
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="mb-3 text-[9px] font-black uppercase tracking-wider text-stone-500">
+                              Allow people to
+                            </p>
+
+                            <div className="grid gap-2 sm:grid-cols-3">
+                              <label
+                                className={`flex items-center gap-3 rounded-xl border p-3 ${
+                                  tiktokCreatorInfo
+                                    .comment_disabled
+                                    ? "cursor-not-allowed border-stone-100 bg-stone-50 opacity-50"
+                                    : "cursor-pointer border-stone-100 bg-stone-50"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    tiktokSettings
+                                      .allow_comment
+                                  }
+                                  disabled={
+                                    isPosting ||
+                                    tiktokCreatorInfo
+                                      .comment_disabled
+                                  }
+                                  onChange={(
+                                    event
+                                  ) =>
+                                    setTikTokSettings(
+                                      (
+                                        previous
+                                      ) => ({
+                                        ...previous,
+                                        allow_comment:
+                                          event
+                                            .target
+                                            .checked,
+                                      })
+                                    )
+                                  }
+                                  className="h-4 w-4 accent-[#a9b897]"
+                                />
+
+                                <span className="text-[10px] font-bold text-stone-600">
+                                  Comments
+                                </span>
+                              </label>
+
+                              {tiktokHasVideo && (
+                                <>
+                                  <label
+                                    className={`flex items-center gap-3 rounded-xl border p-3 ${
+                                      tiktokCreatorInfo
+                                        .duet_disabled
+                                        ? "cursor-not-allowed border-stone-100 bg-stone-50 opacity-50"
+                                        : "cursor-pointer border-stone-100 bg-stone-50"
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={
+                                        tiktokSettings
+                                          .allow_duet
+                                      }
+                                      disabled={
+                                        isPosting ||
+                                        tiktokCreatorInfo
+                                          .duet_disabled
+                                      }
+                                      onChange={(
+                                        event
+                                      ) =>
+                                        setTikTokSettings(
+                                          (
+                                            previous
+                                          ) => ({
+                                            ...previous,
+                                            allow_duet:
+                                              event
+                                                .target
+                                                .checked,
+                                          })
+                                        )
+                                      }
+                                      className="h-4 w-4 accent-[#a9b897]"
+                                    />
+
+                                    <span className="text-[10px] font-bold text-stone-600">
+                                      Duet
+                                    </span>
+                                  </label>
+
+                                  <label
+                                    className={`flex items-center gap-3 rounded-xl border p-3 ${
+                                      tiktokCreatorInfo
+                                        .stitch_disabled
+                                        ? "cursor-not-allowed border-stone-100 bg-stone-50 opacity-50"
+                                        : "cursor-pointer border-stone-100 bg-stone-50"
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={
+                                        tiktokSettings
+                                          .allow_stitch
+                                      }
+                                      disabled={
+                                        isPosting ||
+                                        tiktokCreatorInfo
+                                          .stitch_disabled
+                                      }
+                                      onChange={(
+                                        event
+                                      ) =>
+                                        setTikTokSettings(
+                                          (
+                                            previous
+                                          ) => ({
+                                            ...previous,
+                                            allow_stitch:
+                                              event
+                                                .target
+                                                .checked,
+                                          })
+                                        )
+                                      }
+                                      className="h-4 w-4 accent-[#a9b897]"
+                                    />
+
+                                    <span className="text-[10px] font-bold text-stone-600">
+                                      Stitch
+                                    </span>
+                                  </label>
+                                </>
+                              )}
+                            </div>
+
+                            {(tiktokCreatorInfo
+                              .comment_disabled ||
+                              (tiktokHasVideo &&
+                                (tiktokCreatorInfo
+                                  .duet_disabled ||
+                                  tiktokCreatorInfo
+                                    .stitch_disabled))) && (
+                              <p className="mt-2 text-[9px] leading-4 text-stone-400">
+                                Disabled options follow the privacy settings on the connected TikTok account.
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="space-y-3 rounded-2xl border border-stone-100 bg-stone-50 p-4">
+                            <label className="flex cursor-pointer items-start justify-between gap-4">
+                              <div>
+                                <p className="text-[10px] font-black text-stone-700">
+                                  Commercial content
+                                </p>
+
+                                <p className="mt-1 text-[9px] leading-4 text-stone-400">
+                                  Turn this on if the post promotes a brand, product or service.
+                                </p>
+                              </div>
+
+                              <input
+                                type="checkbox"
+                                checked={
+                                  tiktokSettings
+                                    .commercial_content
+                                }
+                                disabled={
+                                  isPosting
+                                }
+                                onChange={(
+                                  event
+                                ) => {
+                                  const checked =
+                                    event
+                                      .target
+                                      .checked;
+
+                                  setTikTokSettings(
+                                    (
+                                      previous
+                                    ) => ({
+                                      ...previous,
+                                      commercial_content:
+                                        checked,
+                                      brand_organic_toggle:
+                                        checked
+                                          ? previous
+                                              .brand_organic_toggle
+                                          : false,
+                                      brand_content_toggle:
+                                        checked
+                                          ? previous
+                                              .brand_content_toggle
+                                          : false,
+                                    })
+                                  );
+                                }}
+                                className="mt-1 h-4 w-4 accent-[#a9b897]"
+                              />
+                            </label>
+
+                            {tiktokSettings
+                              .commercial_content && (
+                              <div className="grid gap-2 border-t border-stone-200 pt-3 sm:grid-cols-2">
+                                <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-white p-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={
+                                      tiktokSettings
+                                        .brand_organic_toggle
+                                    }
+                                    disabled={
+                                      isPosting
+                                    }
+                                    onChange={(
+                                      event
+                                    ) =>
+                                      setTikTokSettings(
+                                        (
+                                          previous
+                                        ) => ({
+                                          ...previous,
+                                          brand_organic_toggle:
+                                            event
+                                              .target
+                                              .checked,
+                                        })
+                                      )
+                                    }
+                                    className="mt-0.5 h-4 w-4 accent-[#a9b897]"
+                                  />
+
+                                  <span>
+                                    <span className="block text-[10px] font-black text-stone-700">
+                                      Your brand
+                                    </span>
+
+                                    <span className="mt-1 block text-[8px] leading-4 text-stone-400">
+                                      Promoting your own business, product or service.
+                                    </span>
+                                  </span>
+                                </label>
+
+                                <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-white p-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={
+                                      tiktokSettings
+                                        .brand_content_toggle
+                                    }
+                                    disabled={
+                                      isPosting
+                                    }
+                                    onChange={(
+                                      event
+                                    ) => {
+                                      const checked =
+                                        event
+                                          .target
+                                          .checked;
+
+                                      setTikTokSettings(
+                                        (
+                                          previous
+                                        ) => ({
+                                          ...previous,
+                                          brand_content_toggle:
+                                            checked,
+                                          privacy_level:
+                                            checked &&
+                                            previous
+                                              .privacy_level ===
+                                              "SELF_ONLY"
+                                              ? ""
+                                              : previous
+                                                  .privacy_level,
+                                        })
+                                      );
+                                    }}
+                                    className="mt-0.5 h-4 w-4 accent-[#a9b897]"
+                                  />
+
+                                  <span>
+                                    <span className="block text-[10px] font-black text-stone-700">
+                                      Branded content
+                                    </span>
+
+                                    <span className="mt-1 block text-[8px] leading-4 text-stone-400">
+                                      Promoting another brand or third party.
+                                    </span>
+                                  </span>
+                                </label>
+                              </div>
+                            )}
+                          </div>
+
+                          <label className="flex cursor-pointer items-start justify-between gap-4 rounded-2xl border border-stone-100 bg-stone-50 p-4">
+                            <div>
+                              <p className="text-[10px] font-black text-stone-700">
+                                AI-generated content
+                              </p>
+
+                              <p className="mt-1 text-[9px] leading-4 text-stone-400">
+                                Turn this on when the media itself was generated or significantly altered using AI.
+                              </p>
+                            </div>
+
+                            <input
+                              type="checkbox"
+                              checked={
+                                tiktokSettings
+                                  .is_aigc
+                              }
+                              disabled={
+                                isPosting
+                              }
+                              onChange={(
+                                event
+                              ) =>
+                                setTikTokSettings(
+                                  (
+                                    previous
+                                  ) => ({
+                                    ...previous,
+                                    is_aigc:
+                                      event
+                                        .target
+                                        .checked,
+                                  })
+                                )
+                              }
+                              className="mt-1 h-4 w-4 accent-[#a9b897]"
+                            />
+                          </label>
+
+                          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-4">
+                            <input
+                              type="checkbox"
+                              checked={
+                                tiktokSettings
+                                  .consent_given
+                              }
+                              disabled={
+                                isPosting
+                              }
+                              onChange={(
+                                event
+                              ) =>
+                                setTikTokSettings(
+                                  (
+                                    previous
+                                  ) => ({
+                                    ...previous,
+                                    consent_given:
+                                      event
+                                        .target
+                                        .checked,
+                                  })
+                                )
+                              }
+                              className="mt-0.5 h-4 w-4 accent-[#a9b897]"
+                            />
+
+                            <span className="text-[9px] leading-5 text-stone-600">
+                              I confirm that I have the rights necessary to publish this content and agree to TikTok&apos;s publishing and music usage requirements.
+                              {tiktokSettings
+                                .brand_content_toggle
+                                ? " This post also needs to comply with TikTok's Branded Content Policy."
+                                : ""}
+                            </span>
+                          </label>
+
+                          {!tiktokHasVideo &&
+                            tiktokHasImage && (
+                            <p className="rounded-xl bg-stone-50 px-3 py-2 text-[9px] leading-4 text-stone-400">
+                              Photo post selected. Duet and Stitch are only shown for TikTok video posts.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* FORMAT */}
 
                   <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
@@ -6842,7 +8118,13 @@ export default function SocialStudioUnified() {
                         isPosting ||
                         isUploadingMedia ||
                         platforms.length ===
-                          0
+                          0 ||
+                        (tiktokSelected &&
+                          (!tiktokCreatorInfo ||
+                            !tiktokSettings
+                              .privacy_level ||
+                            !tiktokSettings
+                              .consent_given))
                       }
                       onClick={() =>
                         void createPost({
@@ -6881,7 +8163,13 @@ export default function SocialStudioUnified() {
                       isPosting ||
                       isUploadingMedia ||
                       platforms.length ===
-                        0
+                        0 ||
+                      (tiktokSelected &&
+                        (!tiktokCreatorInfo ||
+                          !tiktokSettings
+                            .privacy_level ||
+                          !tiktokSettings
+                            .consent_given))
                     }
                     onClick={() => {
                       if (

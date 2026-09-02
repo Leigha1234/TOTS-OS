@@ -3,6 +3,10 @@ import {
   NextResponse,
 } from "next/server";
 
+import {
+  randomBytes,
+} from "crypto";
+
 export const runtime =
   "nodejs";
 
@@ -27,8 +31,44 @@ function cleanString(
   const cleaned =
     value.trim();
 
-  return cleaned ||
-    null;
+  if (
+    !cleaned
+  ) {
+    return null;
+  }
+
+  /*
+   * Protect against env values accidentally being saved as:
+   *
+   * "abc123"
+   * or
+   * 'abc123'
+   */
+  if (
+    (
+      cleaned.startsWith(
+        "\""
+      ) &&
+      cleaned.endsWith(
+        "\""
+      )
+    ) ||
+    (
+      cleaned.startsWith(
+        "'"
+      ) &&
+      cleaned.endsWith(
+        "'"
+      )
+    )
+  ) {
+    return cleaned.slice(
+      1,
+      -1
+    );
+  }
+
+  return cleaned;
 }
 
 // ============================================================
@@ -40,23 +80,30 @@ export async function GET(
     NextRequest
 ) {
   try {
+    // ========================================================
+    // ENVIRONMENT
+    // ========================================================
+
     const clientKey =
       cleanString(
         process.env
           .TIKTOK_CLIENT_KEY
       );
 
+    /*
+     * Hard-code the production redirect while debugging.
+     *
+     * This removes the possibility of a bad env value causing
+     * TikTok's invalid_request response.
+     */
     const redirectUri =
-      cleanString(
-        process.env
-          .TIKTOK_REDIRECT_URI
-      );
+      "https://www.tots-os.co.uk/api/auth/tiktok/callback";
 
     if (
       !clientKey
     ) {
       console.error(
-        "[TIKTOK OAUTH] Missing TIKTOK_CLIENT_KEY"
+        "[TIKTOK OAUTH] TIKTOK_CLIENT_KEY is missing"
       );
 
       return NextResponse.json(
@@ -65,29 +112,7 @@ export async function GET(
             false,
 
           error:
-            "TIKTOK_CLIENT_KEY is missing.",
-        },
-        {
-          status:
-            500,
-        }
-      );
-    }
-
-    if (
-      !redirectUri
-    ) {
-      console.error(
-        "[TIKTOK OAUTH] Missing TIKTOK_REDIRECT_URI"
-      );
-
-      return NextResponse.json(
-        {
-          success:
-            false,
-
-          error:
-            "TIKTOK_REDIRECT_URI is missing.",
+            "TikTok client key is not configured.",
         },
         {
           status:
@@ -97,7 +122,7 @@ export async function GET(
     }
 
     // ========================================================
-    // REQUEST PARAMETERS
+    // TOTS-OS CONTEXT
     // ========================================================
 
     const userId =
@@ -122,13 +147,28 @@ export async function GET(
       !userId ||
       !organisationId
     ) {
+      console.error(
+        "[TIKTOK OAUTH] Missing TOTS-OS context:",
+        {
+          hasUserId:
+            Boolean(
+              userId
+            ),
+
+          hasOrganisationId:
+            Boolean(
+              organisationId
+            ),
+        }
+      );
+
       return NextResponse.json(
         {
           success:
             false,
 
           error:
-            "Missing userId or organisationId.",
+            "Missing user or organisation.",
         },
         {
           status:
@@ -138,32 +178,18 @@ export async function GET(
     }
 
     // ========================================================
-    // BUILD STATE HERE
+    // RANDOM OAUTH STATE
     // ========================================================
 
-    /*
-     * Do NOT accept an already encoded state value from the
-     * browser. Build the raw JSON state here and let URLSearchParams
-     * encode it once.
-     */
-
     const state =
-      JSON.stringify(
-        {
-          userId,
-
-          organisationId,
-
-          platform:
-            "tiktok",
-
-          createdAt:
-            Date.now(),
-        }
+      randomBytes(
+        32
+      ).toString(
+        "hex"
       );
 
     // ========================================================
-    // TIKTOK AUTHORISATION URL
+    // AUTHORIZATION URL
     // ========================================================
 
     const authUrl =
@@ -177,18 +203,13 @@ export async function GET(
     );
 
     authUrl.searchParams.set(
-      "response_type",
-      "code"
+      "scope",
+      "user.info.basic"
     );
 
     authUrl.searchParams.set(
-      "scope",
-      [
-        "user.info.basic",
-        "video.publish",
-      ].join(
-        ","
-      )
+      "response_type",
+      "code"
     );
 
     authUrl.searchParams.set(
@@ -206,44 +227,116 @@ export async function GET(
     // ========================================================
 
     console.log(
-      "[TIKTOK OAUTH] Starting OAuth:",
+      "[TIKTOK OAUTH] Configuration:",
       {
-        userId,
+        clientKeyLength:
+          clientKey.length,
 
-        organisationId,
-
-        clientKeyPresent:
-          Boolean(
-            clientKey
-          ),
+        clientKeyStart:
+          `${clientKey.slice(
+            0,
+            4
+          )}...`,
 
         redirectUri,
 
         scope:
-          "user.info.basic,video.publish",
+          "user.info.basic",
 
-        destination:
-          authUrl.origin +
-          authUrl.pathname,
+        stateLength:
+          state.length,
       }
     );
 
     console.log(
-      "[TIKTOK OAUTH] TikTok URL:",
+      "[TIKTOK OAUTH] Authorisation destination:",
       authUrl.toString()
     );
 
     // ========================================================
-    // REDIRECT
+    // CREATE REDIRECT
     // ========================================================
 
-    return NextResponse.redirect(
-      authUrl.toString(),
+    const response =
+      NextResponse.redirect(
+        authUrl.toString(),
+        {
+          status:
+            302,
+        }
+      );
+
+    // ========================================================
+    // STORE STATE + CONTEXT SECURELY
+    // ========================================================
+
+    response.cookies.set(
+      "tiktok_oauth_state",
+      state,
       {
-        status:
-          302,
+        httpOnly:
+          true,
+
+        secure:
+          true,
+
+        sameSite:
+          "lax",
+
+        path:
+          "/",
+
+        maxAge:
+          10 *
+          60,
       }
     );
+
+    response.cookies.set(
+      "tiktok_oauth_user_id",
+      userId,
+      {
+        httpOnly:
+          true,
+
+        secure:
+          true,
+
+        sameSite:
+          "lax",
+
+        path:
+          "/",
+
+        maxAge:
+          10 *
+          60,
+      }
+    );
+
+    response.cookies.set(
+      "tiktok_oauth_organisation_id",
+      organisationId,
+      {
+        httpOnly:
+          true,
+
+        secure:
+          true,
+
+        sameSite:
+          "lax",
+
+        path:
+          "/",
+
+        maxAge:
+          10 *
+          60,
+      }
+    );
+
+    return response;
   } catch (
     error:
       unknown

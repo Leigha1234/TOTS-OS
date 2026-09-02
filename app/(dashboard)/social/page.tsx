@@ -765,6 +765,248 @@ const sameMedia =
   };
 
 // ============================================================
+// VIDEO FRAME FOR AI ANALYSIS
+// ============================================================
+
+const extractVideoFrameFile =
+  (
+    file:
+      File
+  ): Promise<File | null> => {
+    return new Promise(
+      (
+        resolve
+      ) => {
+        const videoUrl =
+          URL.createObjectURL(
+            file
+          );
+
+        const video =
+          document.createElement(
+            "video"
+          );
+
+        let settled =
+          false;
+
+        const finish =
+          (
+            frame:
+              File | null
+          ) => {
+            if (
+              settled
+            ) {
+              return;
+            }
+
+            settled =
+              true;
+
+            URL.revokeObjectURL(
+              videoUrl
+            );
+
+            video.removeAttribute(
+              "src"
+            );
+
+            video.load();
+
+            resolve(
+              frame
+            );
+          };
+
+        const capture =
+          () => {
+            try {
+              if (
+                !video.videoWidth ||
+                !video.videoHeight
+              ) {
+                finish(
+                  null
+                );
+
+                return;
+              }
+
+              const maximumWidth =
+                1600;
+
+              const scale =
+                Math.min(
+                  1,
+                  maximumWidth /
+                    video.videoWidth
+                );
+
+              const canvas =
+                document.createElement(
+                  "canvas"
+                );
+
+              canvas.width =
+                Math.max(
+                  1,
+                  Math.round(
+                    video.videoWidth *
+                      scale
+                  )
+                );
+
+              canvas.height =
+                Math.max(
+                  1,
+                  Math.round(
+                    video.videoHeight *
+                      scale
+                  )
+                );
+
+              const context =
+                canvas.getContext(
+                  "2d"
+                );
+
+              if (
+                !context
+              ) {
+                finish(
+                  null
+                );
+
+                return;
+              }
+
+              context.drawImage(
+                video,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+              );
+
+              canvas.toBlob(
+                (
+                  blob
+                ) => {
+                  if (
+                    !blob
+                  ) {
+                    finish(
+                      null
+                    );
+
+                    return;
+                  }
+
+                  const safeName =
+                    file.name
+                      .replace(
+                        /\.[^.]+$/,
+                        ""
+                      )
+                      .replace(
+                        /[^a-z0-9-_]+/gi,
+                        "-"
+                      );
+
+                  finish(
+                    new File(
+                      [
+                        blob,
+                      ],
+                      `${safeName || "video"}-frame.jpg`,
+                      {
+                        type:
+                          "image/jpeg",
+                      }
+                    )
+                  );
+                },
+                "image/jpeg",
+                0.86
+              );
+            } catch {
+              finish(
+                null
+              );
+            }
+          };
+
+        video.muted =
+          true;
+
+        video.playsInline =
+          true;
+
+        video.preload =
+          "metadata";
+
+        video.onloadedmetadata =
+          () => {
+            const preferredTime =
+              Number.isFinite(
+                video.duration
+              ) &&
+              video.duration >
+                0
+                ? Math.min(
+                    Math.max(
+                      video.duration *
+                        0.15,
+                      0.1
+                    ),
+                    Math.max(
+                      video.duration -
+                        0.1,
+                      0
+                    )
+                  )
+                : 0;
+
+            if (
+              preferredTime >
+              0
+            ) {
+              try {
+                video.currentTime =
+                  preferredTime;
+              } catch {
+                capture();
+              }
+            } else {
+              capture();
+            }
+          };
+
+        video.onseeked =
+          capture;
+
+        video.onerror =
+          () =>
+            finish(
+              null
+            );
+
+        window.setTimeout(
+          () =>
+            finish(
+              null
+            ),
+          8000
+        );
+
+        video.src =
+          videoUrl;
+      }
+    );
+  };
+
+// ============================================================
 
 function resultFromPost(
   post:
@@ -1066,6 +1308,14 @@ export default function SocialStudioUnified() {
   const [
     isUploadingMedia,
     setIsUploadingMedia,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    generatingCaption,
+    setGeneratingCaption,
   ] =
     useState(
       false
@@ -2294,6 +2544,288 @@ export default function SocialStudioUnified() {
       setMediaItems(
         []
       );
+    };
+
+  // ==========================================================
+  // GENERATE CAPTION + HASHTAGS FROM MEDIA
+  // ==========================================================
+
+  const generateCaptionFromMedia =
+    async () => {
+      if (
+        generatingCaption ||
+        isPosting ||
+        isUploadingMedia
+      ) {
+        return;
+      }
+
+      if (
+        mediaItems.length ===
+        0
+      ) {
+        toast.error(
+          "Add an image or video first."
+        );
+
+        return;
+      }
+
+      setGeneratingCaption(
+        true
+      );
+
+      setStatus(
+        "Analysing media..."
+      );
+
+      try {
+        const formData =
+          new FormData();
+
+        formData.set(
+          "businessName",
+          businessProfile.name ||
+            ""
+        );
+
+        formData.set(
+          "businessDescription",
+          compactText([
+            businessProfile.description,
+            businessProfile.services,
+          ])
+        );
+
+        formData.set(
+          "audience",
+          businessProfile.audience ||
+            ""
+        );
+
+        formData.set(
+          "tone",
+          businessProfile.tone ||
+            ""
+        );
+
+        formData.set(
+          "goals",
+          businessProfile.goals ||
+            ""
+        );
+
+        formData.set(
+          "platforms",
+          JSON.stringify(
+            platforms
+          )
+        );
+
+        formData.set(
+          "format",
+          format
+        );
+
+        formData.set(
+          "currentCaption",
+          caption
+        );
+
+        formData.set(
+          "currentHashtags",
+          hashtags
+        );
+
+        const existingUrls =
+          mediaItems
+            .map(
+              (
+                item
+              ) =>
+                item.existingUrl ||
+                ""
+            )
+            .filter(
+              Boolean
+            );
+
+        formData.set(
+          "mediaUrls",
+          JSON.stringify(
+            existingUrls
+          )
+        );
+
+        let visualItemsAdded =
+          existingUrls.filter(
+            (
+              url
+            ) =>
+              !isVideoUrl(
+                url
+              )
+          ).length;
+
+        // ====================================================
+        // NEW LOCAL MEDIA
+        //
+        // Images are sent directly. For videos we extract one
+        // representative frame so the AI can understand the
+        // actual visual instead of uploading the whole video.
+        // ====================================================
+
+        for (
+          const item of
+          mediaItems
+        ) {
+          if (
+            item.existingUrl ||
+            !item.file
+          ) {
+            continue;
+          }
+
+          if (
+            item.type ===
+            "image"
+          ) {
+            formData.append(
+              "files",
+              item.file
+            );
+
+            visualItemsAdded +=
+              1;
+
+            continue;
+          }
+
+          const frame =
+            await extractVideoFrameFile(
+              item.file
+            );
+
+          if (
+            frame
+          ) {
+            formData.append(
+              "files",
+              frame
+            );
+
+            visualItemsAdded +=
+              1;
+          }
+        }
+
+        if (
+          visualItemsAdded ===
+            0 &&
+          existingUrls.length ===
+            0
+        ) {
+          throw new Error(
+            "TOTS-OS could not read the selected media. Try adding an image or a different video."
+          );
+        }
+
+        setStatus(
+          "Writing caption..."
+        );
+
+        const response =
+          await fetch(
+            "/api/social/generate-caption",
+            {
+              method:
+                "POST",
+
+              body:
+                formData,
+
+              cache:
+                "no-store",
+            }
+          );
+
+        const result =
+          await response
+            .json()
+            .catch(
+              () =>
+                null
+            );
+
+        if (
+          !response.ok ||
+          !result?.success
+        ) {
+          throw new Error(
+            result?.error ||
+            "AI caption generation failed."
+          );
+        }
+
+        const generatedCaption =
+          typeof result.caption ===
+            "string"
+            ? result.caption.trim()
+            : "";
+
+        const generatedHashtags =
+          typeof result.hashtags ===
+            "string"
+            ? result.hashtags.trim()
+            : "";
+
+        if (
+          !generatedCaption
+        ) {
+          throw new Error(
+            "The AI did not return a caption."
+          );
+        }
+
+        setCaption(
+          generatedCaption
+        );
+
+        setHashtags(
+          generatedHashtags
+        );
+
+        toast.success(
+          "Caption and hashtags generated"
+        );
+      } catch (
+        error:
+          unknown
+      ) {
+        console.error(
+          "AI caption generation error:",
+          error
+        );
+
+        toast.error(
+          error instanceof
+            Error
+            ? error.message
+            : "Could not generate a caption from this media."
+        );
+      } finally {
+        if (
+          mountedRef.current
+        ) {
+          setGeneratingCaption(
+            false
+          );
+
+          setStatus(
+            "Ready"
+          );
+        }
+      }
     };
 
   // ==========================================================
@@ -5844,22 +6376,77 @@ export default function SocialStudioUnified() {
                   {/* CAPTION */}
 
                   <div>
-                    <div className="mb-3 flex items-center justify-between">
-                      <label className="text-[9px] font-black uppercase tracking-wider text-stone-400">
-                        Caption
-                      </label>
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <label className="text-[9px] font-black uppercase tracking-wider text-stone-400">
+                          Caption
+                        </label>
 
-                      <span className="text-[9px] text-stone-300">
-                        {
-                          caption.length
-                        }{" "}
-                        characters
-                      </span>
+                        <span className="text-[9px] text-stone-300">
+                          {
+                            caption.length
+                          }{" "}
+                          characters
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={
+                          generatingCaption ||
+                          isPosting ||
+                          isUploadingMedia ||
+                          mediaItems.length ===
+                            0
+                        }
+                        onClick={() =>
+                          void generateCaptionFromMedia()
+                        }
+                        className="flex items-center gap-2 rounded-xl bg-[#edf3e7] px-3.5 py-2.5 text-[8px] font-black uppercase tracking-wider text-[#71805f] transition hover:bg-[#dde8d3] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {generatingCaption ? (
+                          <Loader2
+                            size={
+                              12
+                            }
+                            className="animate-spin"
+                          />
+                        ) : (
+                          <Sparkles
+                            size={
+                              12
+                            }
+                          />
+                        )}
+
+                        {generatingCaption
+                          ? "Writing..."
+                          : caption.trim()
+                            ? "Rewrite with AI"
+                            : "Generate with AI"}
+                      </button>
                     </div>
+
+                    {mediaItems.length ===
+                      0 && (
+                      <div className="mb-3 flex items-start gap-2 rounded-xl bg-stone-50 px-3 py-2.5">
+                        <Sparkles
+                          size={
+                            12
+                          }
+                          className="mt-0.5 shrink-0 text-[#8fa07d]"
+                        />
+
+                        <p className="text-[9px] leading-4 text-stone-400">
+                          Add an image or video and TOTS-OS can write the caption and hashtags from the media.
+                        </p>
+                      </div>
+                    )}
 
                     <textarea
                       disabled={
-                        isPosting
+                        isPosting ||
+                        generatingCaption
                       }
                       value={
                         caption
@@ -5893,7 +6480,8 @@ export default function SocialStudioUnified() {
 
                     <input
                       disabled={
-                        isPosting
+                        isPosting ||
+                        generatingCaption
                       }
                       value={
                         hashtags

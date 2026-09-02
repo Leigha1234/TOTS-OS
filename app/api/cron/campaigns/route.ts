@@ -82,6 +82,9 @@ type Campaign = {
   id:
     string;
 
+  organisation_id?:
+    string | null;
+
   title?:
     string | null;
 
@@ -111,6 +114,13 @@ type Campaign = {
 };
 
 // ============================================================
+
+type CampaignRecipient = {
+  email:
+    string;
+};
+
+// ============================================================
 // AUTH
 // ============================================================
 
@@ -124,9 +134,11 @@ function isAuthorised(
       ?.trim();
 
   /*
-   * If no secret has been configured yet, allow the route.
+   * If there is no secret configured, allow the request.
    *
-   * Once CRON_SECRET exists, require the matching bearer token.
+   * Once CRON_SECRET exists, the cron/request must provide:
+   *
+   * Authorization: Bearer <CRON_SECRET>
    */
   if (
     !cronSecret
@@ -143,6 +155,22 @@ function isAuthorised(
     authorization ===
     `Bearer ${cronSecret}`
   );
+}
+
+// ============================================================
+// EMAIL NORMALISER
+// ============================================================
+
+function normaliseEmail(
+  value:
+    unknown
+) {
+  return String(
+    value ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
 }
 
 // ============================================================
@@ -174,6 +202,11 @@ export async function GET(
         {
           status:
             401,
+
+          headers: {
+            "Cache-Control":
+              "no-store",
+          },
         }
       );
     }
@@ -197,6 +230,11 @@ export async function GET(
         {
           status:
             500,
+
+          headers: {
+            "Cache-Control":
+              "no-store",
+          },
         }
       );
     }
@@ -215,6 +253,11 @@ export async function GET(
         {
           status:
             500,
+
+          headers: {
+            "Cache-Control":
+              "no-store",
+          },
         }
       );
     }
@@ -233,6 +276,11 @@ export async function GET(
         {
           status:
             500,
+
+          headers: {
+            "Cache-Control":
+              "no-store",
+          },
         }
       );
     }
@@ -249,10 +297,13 @@ export async function GET(
     // ========================================================
     // GET DUE CAMPAIGNS
     //
-    // IMPORTANT:
-    // Your UI currently stores campaigns as "queued".
+    // Support both:
     //
-    // Older/newer areas may use "scheduled", so accept both.
+    // queued
+    // scheduled
+    //
+    // because the Campaign UI currently uses queued while
+    // some older code used scheduled.
     // ========================================================
 
     const {
@@ -315,9 +366,18 @@ export async function GET(
         {
           status:
             500,
+
+          headers: {
+            "Cache-Control":
+              "no-store",
+          },
         }
       );
     }
+
+    // ========================================================
+    // NOTHING DUE
+    // ========================================================
 
     if (
       !campaigns?.length
@@ -334,16 +394,25 @@ export async function GET(
           processed:
             0,
 
-          sent:
+          campaignsSent:
             0,
 
-          failed:
+          campaignsFailed:
+            0,
+
+          totalEmailsSent:
+            0,
+
+          totalEmailsFailed:
             0,
 
           message:
             "No campaigns due",
         },
         {
+          status:
+            200,
+
           headers: {
             "Cache-Control":
               "no-store",
@@ -368,13 +437,22 @@ export async function GET(
     let totalEmailsSent =
       0;
 
+    let totalEmailsFailed =
+      0;
+
     const campaignResults:
       Array<{
         id:
           string;
 
+        title:
+          string;
+
         status:
           string;
+
+        audience:
+          number;
 
         sent:
           number;
@@ -407,6 +485,9 @@ export async function GET(
       let failed =
         0;
 
+      let audienceSize =
+        0;
+
       try {
         console.log(
           "[CAMPAIGN CRON] Processing campaign:",
@@ -416,6 +497,12 @@ export async function GET(
 
             title:
               campaign.title,
+
+            organisationId:
+              campaign.organisation_id,
+
+            listId:
+              campaign.list_id,
 
             status:
               campaign.status,
@@ -428,8 +515,8 @@ export async function GET(
         // ====================================================
         // CLAIM CAMPAIGN
         //
-        // We only update it if it is still queued/scheduled.
-        // This reduces the chance of duplicate sends.
+        // Only change the row if it is still queued/scheduled.
+        // This helps stop two workers sending it at once.
         // ====================================================
 
         const {
@@ -471,7 +558,8 @@ export async function GET(
         }
 
         /*
-         * Another worker may have claimed it first.
+         * If another worker claimed this campaign first,
+         * there is nothing for this worker to do.
          */
         if (
           !claimedCampaigns?.length
@@ -485,7 +573,7 @@ export async function GET(
         }
 
         // ====================================================
-        // VALIDATE AUDIENCE
+        // VALIDATE CAMPAIGN
         // ====================================================
 
         if (
@@ -496,20 +584,36 @@ export async function GET(
           );
         }
 
+        if (
+          !campaign.organisation_id
+        ) {
+          throw new Error(
+            "Campaign has no organisation_id."
+          );
+        }
+
         // ====================================================
-        // GET SUBSCRIBERS
+        // GET CAMPAIGN RECIPIENTS
+        //
+        // IMPORTANT:
+        //
+        // The real list membership is stored in:
+        //
+        // public.campaign_list_emails
+        //
+        // NOT subscribers.
         // ====================================================
 
         const {
           data:
-            subscribers,
+            recipientRows,
 
           error:
-            subscriberError,
+            recipientError,
         } =
           await supabaseAdmin
             .from(
-              "subscribers"
+              "campaign_list_emails"
             )
             .select(
               "email"
@@ -519,24 +623,94 @@ export async function GET(
               campaign.list_id
             )
             .eq(
-              "is_subscribed",
-              true
+              "organisation_id",
+              campaign.organisation_id
+            )
+            .not(
+              "email",
+              "is",
+              null
             );
 
         if (
-          subscriberError
+          recipientError
         ) {
           throw new Error(
-            `Could not load subscribers: ${subscriberError.message}`
+            `Could not load campaign recipients: ${recipientError.message}`
           );
         }
 
         // ====================================================
-        // NO SUBSCRIBERS
+        // CLEAN + DEDUPLICATE RECIPIENTS
+        // ====================================================
+
+        const recipientMap =
+          new Map<
+            string,
+            CampaignRecipient
+          >();
+
+        for (
+          const row of
+          recipientRows ||
+          []
+        ) {
+          const email =
+            normaliseEmail(
+              row.email
+            );
+
+          if (
+            !email
+          ) {
+            continue;
+          }
+
+          if (
+            !recipientMap.has(
+              email
+            )
+          ) {
+            recipientMap.set(
+              email,
+              {
+                email,
+              }
+            );
+          }
+        }
+
+        const recipients =
+          Array.from(
+            recipientMap.values()
+          );
+
+        audienceSize =
+          recipients.length;
+
+        console.log(
+          "[CAMPAIGN CRON] Audience loaded:",
+          {
+            campaignId:
+              campaign.id,
+
+            rawRows:
+              recipientRows
+                ?.length ||
+              0,
+
+            uniqueRecipients:
+              audienceSize,
+          }
+        );
+
+        // ====================================================
+        // NO RECIPIENTS
         // ====================================================
 
         if (
-          !subscribers?.length
+          recipients.length ===
+          0
         ) {
           const sentAt =
             new Date()
@@ -580,8 +754,17 @@ export async function GET(
             id:
               campaign.id,
 
+            title:
+              String(
+                campaign.title ||
+                "Campaign"
+              ),
+
             status:
               "sent",
+
+            audience:
+              0,
 
             sent:
               0,
@@ -591,7 +774,7 @@ export async function GET(
           });
 
           console.log(
-            "[CAMPAIGN CRON] Campaign had no subscribers:",
+            "[CAMPAIGN CRON] Campaign had no recipients:",
             campaign.id
           );
 
@@ -599,27 +782,40 @@ export async function GET(
         }
 
         // ====================================================
+        // CONTENT
+        // ====================================================
+
+        const subject =
+          String(
+            campaign.subject ||
+            campaign.title ||
+            "Newsletter"
+          ).trim();
+
+        const html =
+          String(
+            campaign.content ||
+            ""
+          );
+
+        if (
+          !html.trim()
+        ) {
+          throw new Error(
+            "Campaign has no email content."
+          );
+        }
+
+        // ====================================================
         // SEND EMAILS
         // ====================================================
 
         for (
-          const subscriber of
-          subscribers
+          const recipient of
+          recipients
         ) {
           const email =
-            String(
-              subscriber.email ||
-              ""
-            ).trim();
-
-          if (
-            !email
-          ) {
-            failed +=
-              1;
-
-            continue;
-          }
+            recipient.email;
 
           try {
             const {
@@ -638,31 +834,28 @@ export async function GET(
                   to:
                     email,
 
-                  subject:
-                    String(
-                      campaign.subject ||
-                      campaign.title ||
-                      "Newsletter"
-                    ),
+                  subject,
 
                   /*
-                   * Keep your campaign HTML intact.
+                   * campaign.content already contains the
+                   * complete campaign HTML.
                    *
-                   * If campaign.content already contains the
-                   * complete email design, do not wrap it in a
-                   * second generic template.
+                   * Do NOT wrap it in another generic template.
                    */
-                  html:
-                    String(
-                      campaign.content ||
-                      ""
-                    ),
+                  html,
                 });
+
+            // ==================================================
+            // RESEND ERROR RESPONSE
+            // ==================================================
 
             if (
               resendError
             ) {
               failed +=
+                1;
+
+              totalEmailsFailed +=
                 1;
 
               console.error(
@@ -681,10 +874,17 @@ export async function GET(
               continue;
             }
 
+            // ==================================================
+            // NO MESSAGE ID
+            // ==================================================
+
             if (
               !resendData?.id
             ) {
               failed +=
+                1;
+
+              totalEmailsFailed +=
                 1;
 
               console.error(
@@ -703,6 +903,10 @@ export async function GET(
               continue;
             }
 
+            // ==================================================
+            // SUCCESS
+            // ==================================================
+
             sent +=
               1;
 
@@ -710,7 +914,7 @@ export async function GET(
               1;
 
             console.log(
-              "[CAMPAIGN CRON] Email sent:",
+              "[CAMPAIGN CRON] Email accepted by Resend:",
               {
                 campaignId:
                   campaign.id,
@@ -719,6 +923,9 @@ export async function GET(
 
                 resendId:
                   resendData.id,
+
+                progress:
+                  `${sent + failed}/${audienceSize}`,
               }
             );
           } catch (
@@ -727,8 +934,11 @@ export async function GET(
             failed +=
               1;
 
+            totalEmailsFailed +=
+              1;
+
             console.error(
-              "[CAMPAIGN CRON] Email failed:",
+              "[CAMPAIGN CRON] Email send exception:",
               {
                 campaignId:
                   campaign.id,
@@ -743,7 +953,7 @@ export async function GET(
         }
 
         // ====================================================
-        // CAMPAIGN COMPLETED
+        // CAMPAIGN FINISHED
         // ====================================================
 
         const sentAt =
@@ -751,10 +961,11 @@ export async function GET(
             .toISOString();
 
         /*
-         * We still consider the campaign sent if at least one
-         * email succeeded.
+         * If at least one email succeeds, consider the campaign
+         * sent.
          *
-         * If every email failed, mark the campaign failed.
+         * Any individual recipient failures are still logged
+         * separately in the worker response.
          */
         const finalStatus =
           sent >
@@ -796,6 +1007,10 @@ export async function GET(
           );
         }
 
+        // ====================================================
+        // CAMPAIGN COUNTER
+        // ====================================================
+
         if (
           finalStatus ===
           "sent"
@@ -811,8 +1026,17 @@ export async function GET(
           id:
             campaign.id,
 
+          title:
+            String(
+              campaign.title ||
+              "Campaign"
+            ),
+
           status:
             finalStatus,
+
+          audience:
+            audienceSize,
 
           sent,
 
@@ -825,7 +1049,13 @@ export async function GET(
             id:
               campaign.id,
 
+            title:
+              campaign.title,
+
             finalStatus,
+
+            audience:
+              audienceSize,
 
             sent,
 
@@ -858,31 +1088,57 @@ export async function GET(
         );
 
         // ====================================================
-        // MARK FAILED
+        // MARK CAMPAIGN FAILED
         // ====================================================
 
-        await supabaseAdmin
-          .from(
-            "campaigns"
-          )
-          .update({
-            status:
-              "failed",
+        const {
+          error:
+            failedUpdateError,
+        } =
+          await supabaseAdmin
+            .from(
+              "campaigns"
+            )
+            .update({
+              status:
+                "failed",
 
-            total_sent:
-              sent,
-          })
-          .eq(
-            "id",
-            campaign.id
+              /*
+               * If some messages were accepted before the
+               * failure, preserve that number.
+               */
+              total_sent:
+                sent,
+            })
+            .eq(
+              "id",
+              campaign.id
+            );
+
+        if (
+          failedUpdateError
+        ) {
+          console.error(
+            "[CAMPAIGN CRON] Could not mark campaign failed:",
+            failedUpdateError
           );
+        }
 
         campaignResults.push({
           id:
             campaign.id,
 
+          title:
+            String(
+              campaign.title ||
+              "Campaign"
+            ),
+
           status:
             "failed",
+
+          audience:
+            audienceSize,
 
           sent,
 
@@ -908,6 +1164,8 @@ export async function GET(
         failedCampaigns,
 
         totalEmailsSent,
+
+        totalEmailsFailed,
       }
     );
 
@@ -918,13 +1176,15 @@ export async function GET(
 
         processed,
 
-        sent:
+        campaignsSent:
           successfulCampaigns,
 
-        failed:
+        campaignsFailed:
           failedCampaigns,
 
         totalEmailsSent,
+
+        totalEmailsFailed,
 
         campaigns:
           campaignResults,

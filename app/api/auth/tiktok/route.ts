@@ -18,6 +18,18 @@ export const dynamic =
   "force-dynamic";
 
 // ============================================================
+// TYPES
+// ============================================================
+
+type TikTokOAuthState = {
+  nonce: string;
+  userId: string;
+  organisationId: string;
+  platform: "tiktok";
+  createdAt: number;
+};
+
+// ============================================================
 // HELPERS
 // ============================================================
 
@@ -66,6 +78,20 @@ function cleanString(
   }
 
   return cleaned;
+}
+
+function encodeState(
+  payload:
+    TikTokOAuthState
+): string {
+  return Buffer.from(
+    JSON.stringify(
+      payload
+    ),
+    "utf8"
+  ).toString(
+    "base64url"
+  );
 }
 
 // ============================================================
@@ -197,11 +223,31 @@ export async function GET(
     // STATE
     // ========================================================
 
-    const state =
+    const nonce =
       randomBytes(
         32
       ).toString(
         "hex"
+      );
+
+    const statePayload:
+      TikTokOAuthState = {
+        nonce,
+
+        userId,
+
+        organisationId,
+
+        platform:
+          "tiktok",
+
+        createdAt:
+          Date.now(),
+      };
+
+    const state =
+      encodeState(
+        statePayload
       );
 
     // ========================================================
@@ -250,6 +296,9 @@ export async function GET(
         scope:
           "user.info.basic",
 
+        nonceLength:
+          nonce.length,
+
         stateLength:
           state.length,
 
@@ -266,7 +315,7 @@ export async function GET(
     );
 
     // ========================================================
-    // REDIRECT + SECURE OAUTH COOKIES
+    // REDIRECT + NONCE COOKIE
     // ========================================================
 
     const response =
@@ -278,42 +327,28 @@ export async function GET(
         }
       );
 
-    const cookieOptions = {
-      httpOnly:
-        true,
-
-      secure:
-        true,
-
-      sameSite:
-        "lax" as const,
-
-      path:
-        "/",
-
-      domain:
-        ".tots-os.co.uk",
-
-      maxAge:
-        10 * 60,
-    };
-
     response.cookies.set(
-      "tiktok_oauth_state",
-      state,
-      cookieOptions
-    );
+      "tiktok_oauth_nonce",
+      nonce,
+      {
+        httpOnly:
+          true,
 
-    response.cookies.set(
-      "tiktok_oauth_user_id",
-      userId,
-      cookieOptions
-    );
+        secure:
+          true,
 
-    response.cookies.set(
-      "tiktok_oauth_organisation_id",
-      organisationId,
-      cookieOptions
+        sameSite:
+          "lax",
+
+        path:
+          "/",
+
+        domain:
+          ".tots-os.co.uk",
+
+        maxAge:
+          10 * 60,
+      }
     );
 
     return response;

@@ -122,6 +122,9 @@ const SIGNUP_URL =
 const SHOP_BUY_URL =
   "https://tots-os.co.uk/login";
 
+const FIND_YOUR_SETUP_URL =
+  "/find-your-setup";
+
 const NAV_ITEMS: NavItem[] = [
   {
     label: "Product",
@@ -134,6 +137,10 @@ const NAV_ITEMS: NavItem[] = [
   {
     label: "Demo",
     href: "#demo",
+  },
+  {
+    label: "Find your setup",
+    href: FIND_YOUR_SETUP_URL,
   },
   {
     label: "Clarity",
@@ -11928,6 +11935,55 @@ export default function TotsOSLanding() {
           gap: 10px;
         }
 
+        .hero-setup-link {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: fit-content;
+          max-width: 610px;
+          margin-top: 14px;
+          padding: 12px 14px;
+          border: 1px solid rgba(126, 139, 118, 0.28);
+          border-radius: 14px;
+          background: rgba(243, 246, 241, 0.72);
+          color: var(--charcoal);
+          text-decoration: none;
+          transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+        }
+
+        .hero-setup-link:hover {
+          transform: translateY(-1px);
+          border-color: rgba(126, 139, 118, 0.48);
+          background: rgba(239, 244, 236, 0.95);
+        }
+
+        .hero-setup-link > span:nth-child(2) {
+          display: grid;
+          gap: 2px;
+          flex: 1;
+          min-width: 0;
+          color: var(--muted);
+          font-size: 12px;
+          line-height: 1.45;
+        }
+
+        .hero-setup-link strong {
+          color: var(--charcoal);
+          font-size: 13px;
+          font-weight: 800;
+        }
+
+        .hero-setup-link-icon {
+          width: 30px;
+          height: 30px;
+          flex: 0 0 30px;
+          display: grid;
+          place-items: center;
+          border-radius: 9px;
+          background: rgba(126, 139, 118, 0.14);
+          color: var(--sage-dark);
+        }
+
         .hero-proof {
           margin-top: 20px;
           display: flex;
@@ -13550,6 +13606,10 @@ export default function TotsOSLanding() {
               112px;
           }
 
+          .hero-setup-link {
+            width: 100%;
+          }
+
           .hero-actions {
             flex-direction:
               column;
@@ -14110,6 +14170,22 @@ export default function TotsOSLanding() {
                       tour
                     </button>
                   </div>
+
+                  <a
+                    href={FIND_YOUR_SETUP_URL}
+                    className="hero-setup-link"
+                  >
+                    <span className="hero-setup-link-icon">
+                      <Sparkles size={14} />
+                    </span>
+
+                    <span>
+                      <strong>Not sure where to start?</strong>
+                      Take the 60-second business check and find your ideal TOTS-OS setup.
+                    </span>
+
+                    <ArrowRight size={15} />
+                  </a>
 
                   <div className="hero-proof">
                     <div>
@@ -15386,6 +15462,10 @@ export default function TotsOSLanding() {
 
               <a href="#demo">
                 Demo
+              </a>
+
+              <a href={FIND_YOUR_SETUP_URL}>
+                Find your setup
               </a>
 
               <a href="#clarity">

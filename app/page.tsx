@@ -1,3 +1,4 @@
+// UPDATED TOTS-OS LANDING PAGE — conversion refresh — 5 Sep 2026
 "use client";
 
 import {
@@ -175,44 +176,44 @@ const FEATURES: Feature[] = [
   {
     icon: ContactRound,
     id: "01",
-    title: "Clients",
+    title: "Never lose the client trail",
     text:
-      "Keep contacts, client details, notes and project history together so you always know where things stand.",
+      "Keep contacts, notes, history and connected work together instead of piecing conversations back together from messages and inboxes.",
   },
   {
     icon: FolderKanban,
     id: "02",
-    title: "Projects",
+    title: "Know exactly what needs done",
     text:
-      "Plan projects, assign tasks and keep work moving without relying on scattered notes and spreadsheets.",
+      "Projects, tasks, owners and deadlines stay visible so Monday morning starts with priorities — not detective work.",
   },
   {
     icon: CalendarDays,
     id: "03",
-    title: "Calendar",
+    title: "See what is coming before it is urgent",
     text:
-      "Keep deadlines, events, bookings and upcoming work visible in one simple business calendar.",
+      "Bring deadlines, bookings and upcoming work into one business calendar that connects back to the rest of your workspace.",
   },
   {
     icon: CircleDollarSign,
     id: "04",
-    title: "Finances",
+    title: "See the money without opening three apps",
     text:
-      "Create quotes and invoices, record expenses and understand the financial position of your business.",
+      "Keep quotes, invoices, expenses and everyday financial visibility closer to the work that actually creates the numbers.",
   },
   {
     icon: MessageSquareText,
     id: "05",
-    title: "Social",
+    title: "Make marketing part of the business",
     text:
-      "Plan and organise your content without separating marketing from everything else happening in the business.",
+      "Plan content and publishing alongside everything else instead of leaving your marketing scattered across notes, folders and schedulers.",
   },
   {
     icon: NotebookPen,
     id: "06",
-    title: "Notes",
+    title: "Turn the brain dump into action",
     text:
-      "Capture ideas, brain dumps and useful information somewhere they can actually become action.",
+      "Capture ideas and useful information somewhere they can be organised, connected and actually moved forward.",
   },
 ];
 
@@ -221,7 +222,7 @@ const PRICING: PricingPlan[] = [
     name: "Standard",
     price: 29,
     description:
-      "Everything you need to bring the everyday running of your business into one organised workspace.",
+      "Get organised. A strong starting point for solo and small businesses that want the everyday essentials in one calmer workspace.",
     features: [
       "Business dashboard",
       "Projects & tasks",
@@ -238,7 +239,7 @@ const PRICING: PricingPlan[] = [
     featured: true,
     badge: "Most popular",
     description:
-      "For growing businesses that want more visibility, stronger workflows and additional tools.",
+      "Run the business. For growing businesses that want finance, social, team workflows and stronger visibility working together.",
     features: [
       "Everything in Standard",
       "Advanced finance features",
@@ -253,7 +254,7 @@ const PRICING: PricingPlan[] = [
     name: "Elite",
     price: 99,
     description:
-      "More capacity, automation and operational control for businesses that are ready to scale.",
+      "Scale the business. More capacity, automation and operational control for teams with more moving parts to manage.",
     features: [
       "Everything in Professional",
       "Advanced team access",
@@ -13117,6 +13118,184 @@ export default function TotsOSLanding() {
           align-items: start;
         }
 
+        /* ---------------- CONVERSION UPGRADES ---------------- */
+
+        .trusted-proof-card {
+          margin-top: 24px;
+          padding: 17px 18px;
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          max-width: 720px;
+          border: 1px solid rgba(170,189,150,.38);
+          border-radius: 16px;
+          background: rgba(247,250,242,.8);
+        }
+
+        .trusted-proof-card > svg {
+          margin-top: 2px;
+          flex: 0 0 auto;
+          color: var(--sage-dark);
+        }
+
+        .trusted-proof-card strong,
+        .trusted-proof-card span {
+          display: block;
+        }
+
+        .trusted-proof-card strong {
+          color: var(--charcoal);
+          font-size: 12px;
+          line-height: 1.45;
+        }
+
+        .trusted-proof-card span {
+          margin-top: 4px;
+          color: var(--muted);
+          font-size: 10px;
+          line-height: 1.6;
+        }
+
+        .business-fit-section {
+          padding-top: 34px;
+        }
+
+        .business-fit-head {
+          display: grid;
+          grid-template-columns: minmax(0,1.2fr) minmax(280px,.65fr);
+          gap: 48px;
+          align-items: end;
+        }
+
+        .business-fit-head .section-copy {
+          margin: 0 0 6px;
+        }
+
+        .business-fit-grid {
+          margin-top: 48px;
+          display: grid;
+          grid-template-columns: repeat(2,minmax(0,1fr));
+          gap: 12px;
+        }
+
+        .business-fit-card {
+          min-height: 92px;
+          padding: 18px 20px;
+          display: grid;
+          grid-template-columns: auto minmax(0,1fr) auto;
+          align-items: center;
+          gap: 15px;
+          border: 1px solid var(--border);
+          border-radius: 18px;
+          background: rgba(255,255,255,.58);
+        }
+
+        .business-fit-card > span {
+          color: var(--tan-dark);
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: .1em;
+        }
+
+        .business-fit-card p {
+          margin: 0 !important;
+          color: var(--charcoal-soft);
+          font-size: 13px;
+          line-height: 1.55;
+        }
+
+        .business-fit-card > svg {
+          color: var(--sage-dark);
+        }
+
+        .business-fit-cta {
+          margin-top: 18px;
+          padding: 22px 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 24px;
+          border: 1px solid rgba(198,157,105,.25);
+          border-radius: 20px;
+          background: #fffaf3;
+        }
+
+        .business-fit-cta strong,
+        .business-fit-cta span {
+          display: block;
+        }
+
+        .business-fit-cta strong {
+          font-size: 15px;
+        }
+
+        .business-fit-cta span {
+          max-width: 650px;
+          margin-top: 4px;
+          color: var(--muted);
+          font-size: 11px;
+          line-height: 1.55;
+        }
+
+        .pricing-setup-cta {
+          margin-top: 28px;
+          padding: 20px 22px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 24px;
+          border: 1px solid var(--border);
+          border-radius: 20px;
+          background: rgba(255,255,255,.58);
+        }
+
+        .pricing-setup-cta > div {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+        }
+
+        .pricing-setup-cta > div > svg {
+          margin-top: 2px;
+          flex: 0 0 auto;
+          color: var(--tan-dark);
+        }
+
+        .pricing-setup-cta strong,
+        .pricing-setup-cta span {
+          display: block;
+        }
+
+        .pricing-setup-cta strong {
+          font-size: 13px;
+        }
+
+        .pricing-setup-cta span {
+          margin-top: 4px;
+          color: var(--muted);
+          font-size: 10px;
+          line-height: 1.5;
+        }
+
+        .final-setup-link {
+          width: fit-content;
+          margin: 18px auto 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          color: var(--charcoal-soft);
+          font-size: 11px;
+          font-weight: 700;
+          text-decoration: none;
+          border-bottom: 1px solid rgba(55,55,53,.22);
+          padding-bottom: 3px;
+        }
+
+        .final-setup-link:hover {
+          color: var(--tan-dark);
+        }
+
         @media (max-width: 1080px) {
           .hero-grid { gap: 46px; }
           .hero-visual { min-height: 480px; }
@@ -13129,6 +13308,12 @@ export default function TotsOSLanding() {
         }
 
         @media (max-width: 860px) {
+          .business-fit-head { grid-template-columns: 1fr; gap: 18px; }
+          .business-fit-grid { grid-template-columns: 1fr; }
+          .business-fit-cta,
+          .pricing-setup-cta { align-items: stretch; flex-direction: column; }
+          .business-fit-cta .button-primary,
+          .pricing-setup-cta .button-secondary { width: 100%; }
           .hero-grid { gap: 28px; }
           .hero-visual { min-height: 430px; }
           .hero-window { max-width: 560px; }
@@ -13144,6 +13329,12 @@ export default function TotsOSLanding() {
         }
 
         @media (max-width: 640px) {
+          .trusted-proof-card { padding: 15px; }
+          .business-fit-card { grid-template-columns: auto minmax(0,1fr); }
+          .business-fit-card > svg { display: none; }
+          .business-fit-cta,
+          .pricing-setup-cta { padding: 18px; }
+          .final-setup-link { width: 100%; text-align: center; }
           .hero { padding: 118px 0 72px; }
           .hero-title { font-size: clamp(3.1rem,14vw,4.8rem); }
           .hero-description { font-size: 15px; }
@@ -14111,19 +14302,20 @@ export default function TotsOSLanding() {
                   </h1>
 
                   <p className="hero-description">
+                    One place to run
+                    the business —
+                    without the tabs,
+                    spreadsheets and
+                    mental load.
                     TOTS-OS brings
                     your clients,
-                    projects,
-                    finances,
-                    calendar,
-                    content,
-                    notes and
-                    everyday
-                    business
-                    admin into one
-                    calm,
-                    connected
-                    workspace.
+                    projects, money,
+                    content and
+                    everyday admin
+                    together so you
+                    can actually see
+                    what needs your
+                    attention.
                   </p>
 
                   <div className="hero-trial-banner">
@@ -14398,9 +14590,9 @@ export default function TotsOSLanding() {
             >
               <div className="trusted-block">
                 <span className="trusted-label">
-                  Built for
-                  businesses
-                  like
+                  Built with real
+                  small businesses
+                  in mind
                 </span>
 
                 <div className="trusted-row">
@@ -14419,6 +14611,14 @@ export default function TotsOSLanding() {
                       </span>
                     )
                   )}
+                </div>
+
+                <div className="trusted-proof-card">
+                  <Sparkles size={15} />
+                  <div>
+                    <strong>Made for businesses that have outgrown keeping everything in their head.</strong>
+                    <span>Clients, tasks, money, content and plans can finally live together instead of across five different places.</span>
+                  </div>
                 </div>
               </div>
             </Reveal>
@@ -14510,6 +14710,67 @@ export default function TotsOSLanding() {
                     business.
                   </p>
                 </div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ====================================================
+            PAIN / FIT CHECK
+        ==================================================== */}
+
+        <section className="tots-section business-fit-section">
+          <div className="tots-container">
+            <Reveal>
+              <Eyebrow>
+                Does this sound familiar?
+              </Eyebrow>
+
+              <div className="business-fit-head">
+                <h2 className="section-title">
+                  You probably don&apos;t need
+                  another app. You need the
+                  ones you already use to
+                  stop feeling like separate
+                  businesses.
+                </h2>
+
+                <p className="section-copy">
+                  TOTS-OS is built for the point where a business is working — but keeping on top of it is taking far more energy than it should.
+                </p>
+              </div>
+            </Reveal>
+
+            <div className="business-fit-grid">
+              {[
+                "Client details live in WhatsApp, email and your head.",
+                "You have several apps doing jobs that should connect.",
+                "You spend too long working out what needs done next.",
+                "Invoices, expenses and business numbers live somewhere else.",
+                "Your content plan is buried in Notes, Canva or random folders.",
+                "The business is growing faster than your systems are."
+              ].map((item, index) => (
+                <Reveal key={item} delay={index * 0.035}>
+                  <div className="business-fit-card">
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <p>{item}</p>
+                    <Check size={15} />
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+
+            <Reveal delay={0.12}>
+              <div className="business-fit-cta">
+                <div>
+                  <strong>Sounds a bit too familiar?</strong>
+                  <span>Take the 60-second business check and we&apos;ll show you where TOTS-OS could make the biggest difference first.</span>
+                </div>
+
+                <a href={FIND_YOUR_SETUP_URL} className="button-primary button-large">
+                  Find my setup
+                  <ArrowRight size={15} />
+                </a>
               </div>
             </Reveal>
           </div>
@@ -14614,10 +14875,10 @@ export default function TotsOSLanding() {
               </Eyebrow>
 
               <h2 className="section-title">
-                Don&apos;t just
-                read about it.{" "}
+                Don&apos;t imagine how
+                it works. {" "}
                 <span className="gold-text">
-                  Click around.
+                  Try it.
                 </span>
               </h2>
 
@@ -14666,30 +14927,15 @@ export default function TotsOSLanding() {
                   </Eyebrow>
 
                   <h2 className="section-title">
-                    An AI PA
-                    that already
-                    knows{" "}
+                    Your business already
+                    has enough data. {" "}
                     <span className="gold-text">
-                      the
-                      business.
+                      Clarity tells you what it means.
                     </span>
                   </h2>
 
                   <p className="section-copy">
-                    Clarity works
-                    with the
-                    information
-                    already
-                    inside your
-                    TOTS-OS
-                    workspace to
-                    help you see
-                    priorities,
-                    overdue work,
-                    deadlines and
-                    what deserves
-                    attention
-                    next.
+                    Ask what needs your attention and Clarity works with the information already inside your TOTS-OS workspace to surface priorities, overdue work, deadlines and useful next actions.
                   </p>
 
                   <div className="clarity-points">
@@ -14856,7 +15102,7 @@ export default function TotsOSLanding() {
               <div className="shop-showcase">
                 <div className="shop-showcase-grid">
                   <div className="shop-copy">
-                    <Eyebrow>TOTS Commerce</Eyebrow>
+                    <Eyebrow>Optional standalone module · TOTS Commerce</Eyebrow>
 
                     <h2 className="section-title">
                       Your shop. Your brand.{" "}
@@ -14865,7 +15111,7 @@ export default function TotsOSLanding() {
 
                     <p>
                       Sell products or services through your own branded public
-                      storefront, while TOTS Commerce handles the operational side:
+                      storefront, while TOTS Commerce handles the operational side. Use it alongside TOTS-OS, or as a standalone way to run your online store:
                       products, orders, stock, payments, discounts and fulfilment.
                       It is built to sit alongside the rest of TOTS-OS, so commerce
                       does not become another disconnected system to manage.
@@ -15100,6 +15346,23 @@ export default function TotsOSLanding() {
                 )
               )}
             </div>
+
+            <Reveal delay={0.1}>
+              <div className="pricing-setup-cta">
+                <div>
+                  <Sparkles size={18} />
+                  <div>
+                    <strong>Not sure which plan actually fits your business?</strong>
+                    <span>Answer nine quick questions and get a personalised TOTS-OS starting point.</span>
+                  </div>
+                </div>
+
+                <a href={FIND_YOUR_SETUP_URL} className="button-secondary button-large">
+                  Find my setup
+                  <ArrowRight size={14} />
+                </a>
+              </div>
+            </Reveal>
           </div>
         </section>
 
@@ -15431,6 +15694,11 @@ export default function TotsOSLanding() {
                     tour
                   </button>
                 </div>
+
+                <a href={FIND_YOUR_SETUP_URL} className="final-setup-link">
+                  Still deciding? Find your ideal TOTS-OS setup in 60 seconds
+                  <ArrowRight size={14} />
+                </a>
 
                 <div className="final-trial-note">
                   <Check size={13} />

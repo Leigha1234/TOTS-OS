@@ -1,1713 +1,739 @@
-// TOTS-OS — landing page
-// Full redesign: editorial/premium visual system, interactive product explorer,
-// working Clarity demo, and a problem→solution convergence section.
-// NOTE: this file is a client component ("use client"), so Next.js metadata
-// (title/description/OG tags) can't be exported from here — put that in
-// app/layout.tsx or a server-side wrapper around this component instead.
 "use client";
 
-import { Fraunces, Inter } from "next/font/google";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import Script from "next/script";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
-  Building2,
   CalendarDays,
   Check,
   ChevronDown,
   CircleDollarSign,
-  Contact,
+  ContactRound,
   FolderKanban,
-  Kanban,
   LayoutDashboard,
-  Mail,
-  Megaphone,
   Menu,
-  MessageCircle,
   MessageSquareText,
-  NotebookPen,
   Play,
-  Send,
+  ShoppingBag,
   Sparkles,
-  StickyNote,
-  Store,
-  Table2,
-  Wallet,
+  Target,
   X,
-  type LucideIcon,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
 
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
-  variable: "--font-display",
-  display: "swap",
-});
+const APP_URL = "/login";
+const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-body",
-  display: "swap",
-});
-
-/* ============================================================
-   ROUTES — unchanged, wired to existing auth / commerce / pages
-============================================================ */
-
-const LOGO_SRC = "/icon.png";
-const LOGIN_URL = "https://tots-os.co.uk/login";
-const SIGNUP_URL = "https://tots-os.co.uk/login";
-const SHOP_BUY_URL = "https://tots-os.co.uk/login";
-const FIND_YOUR_SETUP_URL = "/find-your-setup";
-
-/* ============================================================
-   CONTENT
-============================================================ */
-
-const NAV_ITEMS = [
-  { label: "Product", href: "#product" },
-  { label: "Clarity", href: "#clarity" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "Our story", href: "#story" },
+const nav = [
+  ["Why TOTS-OS", "#why"],
+  ["Product", "#product"],
+  ["Clarity", "#clarity"],
+  ["Pricing", "#pricing"],
+  ["About", "#about"],
 ];
 
-// The scattered tools a business is currently stitched together from.
-const SCATTERED_TOOLS: { label: string; icon: LucideIcon }[] = [
-  { label: "Calendar", icon: CalendarDays },
-  { label: "Spreadsheet", icon: Table2 },
-  { label: "CRM", icon: Contact },
-  { label: "Notes app", icon: StickyNote },
-  { label: "Finance tool", icon: Wallet },
-  { label: "Content planner", icon: Megaphone },
-  { label: "Email", icon: Mail },
-  { label: "WhatsApp", icon: MessageCircle },
-  { label: "Project board", icon: Kanban },
-];
-
-type ExplorerTab = {
-  id: string;
-  label: string;
-  icon: LucideIcon;
-  headline: string;
-  copy: string;
-};
-
-const EXPLORER_TABS: ExplorerTab[] = [
+const tabs = [
   {
-    id: "dashboard",
-    label: "Dashboard",
+    id: "overview",
+    label: "Overview",
     icon: LayoutDashboard,
-    headline: "Open TOTS-OS and know exactly where things stand.",
-    copy: "Revenue, tasks, projects and today's priorities — the whole shape of the business in one glance, not five tabs.",
+    eyebrow: "Your whole business",
+    title: "Know what needs your attention before the day gets away from you.",
+    copy: "Revenue, tasks, projects, deadlines and priorities come together in one calm dashboard — so you can stop piecing the day together from five different places.",
   },
   {
     id: "clients",
     label: "Clients",
-    icon: Contact,
-    headline: "Open a client and see everything, instantly.",
-    copy: "The relationship, the work, the notes and the money — together, so you never scroll WhatsApp trying to remember what you promised.",
+    icon: ContactRound,
+    eyebrow: "Clients & CRM",
+    title: "Every conversation, project and detail — connected to the right client.",
+    copy: "Keep contacts, notes, activity, projects and history together so you always know what has happened, what is happening and what needs to happen next.",
   },
   {
     id: "projects",
     label: "Projects",
     icon: FolderKanban,
-    headline: "See what's moving and what's stuck.",
-    copy: "Every project, task and owner visible in one board — so Monday starts with priorities, not a status-chasing exercise.",
+    eyebrow: "Projects & tasks",
+    title: "Turn work into a clear plan instead of another list you have to remember.",
+    copy: "Plan delivery, assign work, track deadlines and see what is at risk without building another spreadsheet or chasing updates across messages.",
   },
   {
     id: "money",
     label: "Money",
     icon: CircleDollarSign,
-    headline: "Know who owes you money, without opening three apps.",
-    copy: "Quotes, invoices and expenses sit right next to the work that created them — so nothing outstanding slips through.",
+    eyebrow: "Finance",
+    title: "See the money side of the business without losing the operational context.",
+    copy: "Create quotes and invoices, record expenses and see what is paid, due and overdue alongside the clients and projects the money belongs to.",
   },
   {
     id: "marketing",
     label: "Marketing",
-    icon: Megaphone,
-    headline: "Plan and publish without leaving the workspace.",
-    copy: "Your content calendar lives next to the clients and projects it's actually promoting — not scattered across Notes and Canva.",
+    icon: MessageSquareText,
+    eyebrow: "Social & campaigns",
+    title: "Plan marketing where the rest of your business already lives.",
+    copy: "Organise content, campaigns and publishing without separating marketing from launches, client work, deadlines and everything else happening this week.",
   },
   {
     id: "planning",
     label: "Planning",
-    icon: NotebookPen,
-    headline: "Turn the brain dump into next actions.",
-    copy: "Capture an idea the second you have it, then organise and connect it to real work — instead of losing it in a notes app.",
-  },
-  {
-    id: "store",
-    label: "Store",
-    icon: Store,
-    headline: "Sell, and see the order land in the same place.",
-    copy: "Products, stock and orders connected to the rest of the business — no separate shop backend to keep in sync.",
+    icon: CalendarDays,
+    eyebrow: "Calendar & notes",
+    title: "Give plans, ideas and deadlines somewhere useful to live.",
+    copy: "Keep events, bookings, notes, brain dumps and upcoming work visible — then turn them into action instead of letting them disappear into another app.",
   },
 ];
 
-type ClarityPrompt = {
-  id: string;
-  prompt: string;
-  reply: string;
-  points: string[];
-};
-
-const CLARITY_PROMPTS: ClarityPrompt[] = [
+const customerStories = [
   {
-    id: "focus",
-    prompt: "What should I focus on today?",
-    reply: "Three things are worth your attention first:",
-    points: [
-      "Send the Acorn Studio invoice — £1,850, due this week",
-      "Review the Northstar project — two delivery tasks due tomorrow",
-      "Prep for your 2:00pm client call — notes are already saved",
-    ],
+    name: "Moray Training Club",
+    type: "Fitness & community",
+    text: "A growing local business with marketing, operations, projects and day-to-day admin all moving at once.",
+    tags: ["Operations", "Marketing", "Projects"],
   },
   {
-    id: "owes",
-    prompt: "Who owes me money?",
-    reply: "Two invoices are currently outstanding:",
-    points: [
-      "Acorn Studio — £1,850, due in 4 days",
-      "Bennett Interiors — £640, 2 days overdue",
-    ],
+    name: "Megoosh",
+    type: "Food & wellbeing",
+    text: "A content-led business where planning, client information, digital work and delivery need to stay connected.",
+    tags: ["Content", "Planning", "Clients"],
   },
   {
-    id: "projects",
-    prompt: "Which projects need attention?",
-    reply: "One project is at risk of slipping:",
-    points: [
-      "Website Refresh — delivery date in 3 days, two tasks still open",
-      "Reed Wellness kickoff — on track, next milestone Thursday",
-    ],
-  },
-  {
-    id: "week",
-    prompt: "What have I got coming up this week?",
-    reply: "Here's what's on the calendar:",
-    points: [
-      "Mon 10:00 — Call with Amelia Hart",
-      "Tue 09:30 — Reed Wellness kickoff",
-      "Thu 16:00 — Strategy session",
-    ],
+    name: "Lux Electrical Engineering",
+    type: "Electrical services",
+    text: "A service business using a clearer system for projects, client work and the operational details behind delivery.",
+    tags: ["Projects", "Clients", "Admin"],
   },
 ];
 
-// Real client names. Industry / tools-used / quote are intentionally left
-// blank — fill these in with real, approved detail rather than invented ones.
-type BusinessCard = {
-  name: string;
-  industry?: string;
-  areas?: string[];
-  quote?: string;
-};
-
-const REAL_BUSINESSES: BusinessCard[] = [
-  { name: "Moray Training Club" },
-  { name: "Megoosh" },
-  { name: "Lux Electrical Engineering" },
-  { name: "WhyKnot Wardrobe" },
-  { name: "DP Leadership" },
-  { name: "TestMe Health" },
+const clarityPrompts = [
+  "What should I focus on today?",
+  "Who owes me money?",
+  "Which projects are at risk?",
+  "What is coming up this week?",
+  "Which clients need a follow-up?",
 ];
 
-const TRUST_STRIP = [
-  ...REAL_BUSINESSES.map((b) => b.name),
-  "Brave Heart Property",
-  "Precision Flows",
-];
-
-type PricingPlan = {
-  name: string;
-  price: number;
-  tagline: string;
-  featured?: boolean;
-  badge?: string;
-  features: string[];
-};
-
-const PRICING: PricingPlan[] = [
-  {
-    name: "Standard",
-    price: 29,
-    tagline: "Everything to get organised, solo.",
-    features: [
-      "Business dashboard",
-      "Projects & tasks",
-      "CRM & contacts",
-      "Calendar & planning",
-      "Notes & brain dump",
-      "Core finance tools",
-      "Clarity AI access",
-    ],
-  },
-  {
-    name: "Professional",
-    price: 59,
-    tagline: "The one most businesses need.",
-    featured: true,
-    badge: "THE ONE MOST BUSINESSES NEED",
-    features: [
-      "Everything in Standard",
-      "Advanced finance features",
-      "Social planning & publishing",
-      "Campaign tools",
-      "Team workflows",
-      "Business insights & KPIs",
-      "Expanded Clarity AI usage",
-    ],
-  },
-  {
-    name: "Elite",
-    price: 99,
-    tagline: "For teams with more to manage.",
-    features: [
-      "Everything in Professional",
-      "Advanced team access",
-      "Priority support",
-      "Advanced automation",
-      "Enhanced operational tools",
-    ],
-  },
-];
-
-const FAQS = [
+const faqs = [
   {
     q: "What exactly is TOTS-OS?",
-    a: "One connected workspace for running your business. Clients, projects, tasks, finances, calendar, notes, content and business visibility — in one organised system.",
+    a: "TOTS-OS is a connected workspace for running the everyday parts of a business — including clients, projects, tasks, finances, planning, notes, social content and business visibility.",
   },
   {
-    q: "Who is TOTS-OS for?",
-    a: "Founders, freelancers, small businesses and growing teams who want a simpler way to organise the everyday running of their business.",
+    q: "Who is it for?",
+    a: "It is built for small businesses and growing teams that are tired of running the business across disconnected apps, spreadsheets, notes and mental to-do lists.",
+  },
+  {
+    q: "Do I have to move everything over on day one?",
+    a: "No. Start with the parts creating the most friction and build from there. The 60-second business check can help you work out where TOTS-OS is likely to make the biggest difference first.",
   },
   {
     q: "What is Clarity?",
-    a: "The AI assistant inside TOTS-OS. It uses information already in your workspace to surface priorities, overdue work, deadlines and useful next actions.",
+    a: "Clarity is the AI assistant inside TOTS-OS. It works with information already in your workspace to surface priorities, overdue work, deadlines and useful next actions.",
   },
   {
-    q: "Is TOTS-OS web based?",
-    a: "Yes — it works through your browser, so you can reach your workspace anywhere you can securely log in.",
-  },
-  {
-    q: "Can TOTS-OS help with social media?",
-    a: "Yes. Social planning and publishing sit alongside the rest of your business, not in a separate app.",
-  },
-  {
-    q: "Can I try it first?",
-    a: "Every account starts with a 14-day free trial — no bank or card details required. Explore the full system, then choose a plan only if you want to continue.",
+    q: "Can I try it before paying?",
+    a: "Yes. The trial is 14 days and does not require bank details. You can also explore the product experience from this page before creating an account.",
   },
 ];
 
-/* ============================================================
-   SHARED COMPONENTS
-============================================================ */
+const pricingRows = [
+  ["Business dashboard", "Included", "Included", "Included"],
+  ["CRM & contacts", "Included", "Included", "Included"],
+  ["Projects & tasks", "Included", "Included", "Included"],
+  ["Calendar, notes & planning", "Included", "Included", "Included"],
+  ["Finance", "Core tools", "Advanced", "Advanced"],
+  ["Social planning & publishing", "—", "Included", "Included"],
+  ["Campaign tools", "—", "Included", "Included"],
+  ["Team workflows", "Core", "Expanded", "Advanced"],
+  ["Business insights & KPIs", "Core", "Expanded", "Advanced"],
+  ["Clarity AI", "Included", "Expanded", "Highest access"],
+  ["Automation", "Core", "Expanded", "Advanced"],
+  ["Support", "Standard", "Standard", "Priority"],
+];
 
-function Logo({ size = 36, showWordmark = true }: { size?: number; showWordmark?: boolean }) {
-  return (
-    <span className="tots-logo">
-      <img src={LOGO_SRC} alt="" width={size} height={size} style={{ width: size, height: size }} />
-      {showWordmark && (
-        <span className="tots-logo-copy">
-          <strong>TOTS-OS</strong>
-          <small>by The Organised Types</small>
-        </span>
-      )}
-    </span>
-  );
+function classNames(...items: Array<string | false | null | undefined>) {
+  return items.filter(Boolean).join(" ");
 }
 
-function Eyebrow({ children }: { children: ReactNode }) {
+function Shell({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={classNames("mx-auto w-full max-w-[1240px] px-5 sm:px-7 lg:px-10", className)}>{children}</div>;
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="eyebrow">
-      <span aria-hidden="true" />
+    <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-600 shadow-sm">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#a9b897]" />
       {children}
     </div>
   );
 }
 
-function Reveal({
-  children,
-  delay = 0,
-  className = "",
-}: {
-  children: ReactNode;
-  delay?: number;
-  className?: string;
-}) {
-  const reduceMotion = useReducedMotion();
+function PrimaryButton({ href = APP_URL, children }: { href?: string; children: React.ReactNode }) {
   return (
-    <motion.div
-      initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 22 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.15 }}
-      transition={{ duration: 0.7, delay, ease: [0.19, 1, 0.22, 1] }}
-      className={className}
+    <Link
+      href={href}
+      className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#4f4a46] px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#3f3a37] hover:shadow-lg"
     >
       {children}
+      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+    </Link>
+  );
+}
+
+function SecondaryButton({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-stone-300 bg-white px-6 py-3 text-sm font-semibold text-stone-800 transition hover:-translate-y-0.5 hover:border-stone-400 hover:shadow-md"
+    >
+      {children}
+    </Link>
+  );
+}
+
+function MiniDashboard() {
+  return (
+    <div className="relative overflow-hidden rounded-[28px] border border-white/70 bg-[#f8f6f3] p-3 shadow-[0_30px_80px_rgba(54,48,44,0.18)] sm:p-4">
+      <div className="overflow-hidden rounded-[22px] border border-stone-200 bg-white">
+        <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#4f4a46] text-xs font-bold text-white">T</div>
+            <div>
+              <p className="text-xs font-semibold text-stone-900">TOTS-OS</p>
+              <p className="text-[10px] text-stone-400">North & Pine Studio</p>
+            </div>
+          </div>
+          <div className="rounded-full bg-[#eef2ea] px-3 py-1.5 text-[10px] font-semibold text-[#596451]">Business health 82%</div>
+        </div>
+
+        <div className="grid min-h-[430px] grid-cols-1 lg:grid-cols-[142px_1fr]">
+          <aside className="hidden border-r border-stone-100 bg-[#fbfaf8] p-3 lg:block">
+            {["Home", "Clients", "Projects", "Finance", "Social", "Calendar", "Notes"].map((item, i) => (
+              <div key={item} className={classNames("mb-1 rounded-lg px-3 py-2 text-[11px] font-medium", i === 0 ? "bg-[#efe6e1] text-stone-900" : "text-stone-500")}>{item}</div>
+            ))}
+          </aside>
+
+          <div className="p-4 sm:p-5">
+            <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">Saturday, 5 September</p>
+                <h3 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-stone-900">Good afternoon.</h3>
+                <p className="mt-1 text-xs text-stone-500">Here&apos;s what needs your attention today.</p>
+              </div>
+              <div className="inline-flex items-center gap-1.5 self-start rounded-full border border-[#dfe6d9] bg-[#f4f7f1] px-3 py-1.5 text-[10px] font-medium text-[#596451]">
+                <Sparkles className="h-3 w-3" /> Clarity found 3 priorities
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              {[
+                ["Revenue", "£12,480"],
+                ["Open tasks", "14"],
+                ["Projects", "3"],
+                ["Invoices due", "2"],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-2xl border border-stone-100 bg-[#fbfaf8] p-3.5">
+                  <p className="text-[10px] text-stone-400">{label}</p>
+                  <p className="mt-1 text-lg font-semibold tracking-[-0.03em] text-stone-900">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 grid gap-3 md:grid-cols-[1.08fr_.92fr]">
+              <div className="rounded-2xl border border-stone-100 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-stone-400">Focus</p>
+                    <p className="text-sm font-semibold text-stone-800">Today&apos;s priorities</p>
+                  </div>
+                  <Target className="h-4 w-4 text-stone-400" />
+                </div>
+                {[
+                  "Send James Property invoice",
+                  "Review website refresh delivery",
+                  "Prepare for 2:00 PM client call",
+                ].map((task, i) => (
+                  <div key={task} className="flex items-center gap-3 border-t border-stone-100 py-2.5 first:border-t-0">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#efe6e1] text-[10px] font-semibold text-stone-600">{i + 1}</div>
+                    <p className="text-[11px] font-medium text-stone-700">{task}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-2xl border border-stone-100 bg-[#4f4a46] p-4 text-white">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10"><Sparkles className="h-4 w-4" /></div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-white/50">Clarity</p>
+                    <p className="text-sm font-semibold">Your business brief</p>
+                  </div>
+                </div>
+                <p className="mt-4 text-[11px] leading-5 text-white/70">Cash flow looks healthy, but two invoices are due and one client project has delivery tasks tomorrow.</p>
+                <button className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-semibold">Open brief <ArrowRight className="h-3 w-3" /></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProductPanel({ active }: { active: (typeof tabs)[number] }) {
+  const Icon = active.icon;
+  return (
+    <motion.div
+      key={active.id}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className="grid gap-8 rounded-[32px] border border-stone-200 bg-white p-6 shadow-[0_20px_60px_rgba(70,62,56,0.08)] md:grid-cols-[.85fr_1.15fr] md:p-8 lg:p-10"
+    >
+      <div className="flex flex-col justify-center">
+        <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#efe6e1] text-[#4f4a46]"><Icon className="h-5 w-5" /></div>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7b8474]">{active.eyebrow}</p>
+        <h3 className="mt-3 max-w-md text-2xl font-semibold tracking-[-0.04em] text-stone-900 sm:text-3xl">{active.title}</h3>
+        <p className="mt-4 max-w-md text-sm leading-7 text-stone-600">{active.copy}</p>
+        <Link href="#demo" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-stone-900">Explore the workspace <ArrowRight className="h-4 w-4" /></Link>
+      </div>
+
+      <div className="rounded-[24px] border border-stone-200 bg-[#f8f6f3] p-4 sm:p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.16em] text-stone-400">{active.label}</p>
+            <p className="mt-1 text-sm font-semibold text-stone-800">Live workspace preview</p>
+          </div>
+          <div className="h-2 w-2 rounded-full bg-[#a9b897]" />
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2.5">
+          {active.id === "money" ? (
+            <>
+              <StatCard label="Paid this month" value="£12,480" />
+              <StatCard label="Outstanding" value="£3,240" />
+              <WideRow title="INV-1048 · James Property" meta="£1,250 · Due today" badge="Due" />
+              <WideRow title="INV-1046 · Bennett Interiors" meta="£1,990 · 4 days overdue" badge="Overdue" />
+            </>
+          ) : active.id === "clients" ? (
+            <>
+              <StatCard label="Active clients" value="24" />
+              <StatCard label="Follow-ups" value="5" />
+              <WideRow title="Maya Collins" meta="Brand project · Last contact yesterday" badge="Active" />
+              <WideRow title="James Property Group" meta="Website support · Invoice due" badge="Follow up" />
+            </>
+          ) : active.id === "projects" ? (
+            <>
+              <StatCard label="Active projects" value="6" />
+              <StatCard label="Due this week" value="4" />
+              <WideRow title="Website Refresh" meta="8/12 tasks complete · Due Friday" badge="At risk" />
+              <WideRow title="Autumn Campaign" meta="5/6 tasks complete · Due Tuesday" badge="On track" />
+            </>
+          ) : active.id === "marketing" ? (
+            <>
+              <StatCard label="Posts planned" value="18" />
+              <StatCard label="Campaigns" value="3" />
+              <WideRow title="September launch reel" meta="Instagram · Today 18:30" badge="Scheduled" />
+              <WideRow title="Client story carousel" meta="Instagram + LinkedIn · Tuesday" badge="Draft" />
+            </>
+          ) : active.id === "planning" ? (
+            <>
+              <StatCard label="Events this week" value="12" />
+              <StatCard label="Notes to action" value="7" />
+              <WideRow title="10:00 · Amelia Hart" meta="Discovery call · Client notes attached" badge="Today" />
+              <WideRow title="14:00 · Design review" meta="Maya Collins · Project linked" badge="Today" />
+            </>
+          ) : (
+            <>
+              <StatCard label="Business health" value="82%" />
+              <StatCard label="Open tasks" value="14" />
+              <WideRow title="Send outstanding invoice" meta="James Property · £1,250" badge="Priority" />
+              <WideRow title="Review project delivery" meta="Website Refresh · 2 tasks due" badge="Today" />
+            </>
+          )}
+        </div>
+      </div>
     </motion.div>
   );
 }
 
-function useScrolled(threshold = 12) {
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > threshold);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [threshold]);
-  return scrolled;
-}
-
-/* ============================================================
-   NAVIGATION
-============================================================ */
-
-function SiteNav() {
-  const scrolled = useScrolled();
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
-
+function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <header className={`site-nav ${scrolled ? "is-scrolled" : ""}`}>
-      <div className="tots-container site-nav-inner">
-        <a href="#top" className="site-nav-logo" aria-label="TOTS-OS home">
-          <Logo size={32} />
-        </a>
-
-        <nav className="site-nav-links" aria-label="Primary">
-          {NAV_ITEMS.map((item) => (
-            <a key={item.href} href={item.href}>
-              {item.label}
-            </a>
-          ))}
-        </nav>
-
-        <div className="site-nav-actions">
-          <a href={LOGIN_URL} className="site-nav-login">
-            Log in
-          </a>
-          <a href={SIGNUP_URL} className="button button-primary button-sm">
-            Try TOTS-OS free
-          </a>
-        </div>
-
-        <button
-          type="button"
-          className="site-nav-burger"
-          aria-label={open ? "Close menu" : "Open menu"}
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? <X size={22} /> : <Menu size={22} />}
-        </button>
-      </div>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            className="mobile-menu"
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.22 }}
-          >
-            <nav aria-label="Mobile" className="mobile-menu-links">
-              {NAV_ITEMS.map((item) => (
-                <a key={item.href} href={item.href} onClick={() => setOpen(false)}>
-                  {item.label}
-                </a>
-              ))}
-              <a href={LOGIN_URL} onClick={() => setOpen(false)}>
-                Log in
-              </a>
-            </nav>
-            <a href={SIGNUP_URL} className="button button-primary button-lg mobile-menu-cta">
-              Try TOTS-OS free
-              <ArrowRight size={16} aria-hidden="true" />
-            </a>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </header>
+    <div className="rounded-2xl border border-stone-200 bg-white p-4">
+      <p className="text-[10px] text-stone-400">{label}</p>
+      <p className="mt-1 text-xl font-semibold tracking-[-0.04em] text-stone-900">{value}</p>
+    </div>
   );
 }
 
-/* ============================================================
-   HERO
-============================================================ */
-
-function Hero({ onExploreDemo }: { onExploreDemo: () => void }) {
+function WideRow({ title, meta, badge }: { title: string; meta: string; badge: string }) {
   return (
-    <section className="hero" id="top">
-      <div className="tots-container hero-inner">
-        <Reveal className="hero-copy">
-          <Eyebrow>Your business isn&apos;t the problem.</Eyebrow>
-          <h1 className="hero-title">
-            It&apos;s the <em>7 different places</em> you&apos;re trying to run it from.
-          </h1>
-          <p className="hero-sub">
-            Clients. Projects. Invoices. Content. Calendar. Tasks. Notes.
-            <br />
-            TOTS-OS brings it all together in one calm business workspace.
-          </p>
-
-          <div className="hero-actions">
-            <a href={SIGNUP_URL} className="button button-primary button-lg">
-              Start free for 14 days
-              <ArrowRight size={16} aria-hidden="true" />
-            </a>
-            <button type="button" className="button button-ghost button-lg" onClick={onExploreDemo}>
-              <Play size={14} aria-hidden="true" />
-              Explore the demo
-            </button>
-          </div>
-
-          <p className="hero-micro">
-            <Check size={13} aria-hidden="true" /> No card required &nbsp;·&nbsp; No commitment
-          </p>
-        </Reveal>
-
-        <Reveal delay={0.14} className="hero-visual-wrap">
-          <div className="hero-visual" role="img" aria-label="The TOTS-OS dashboard, showing revenue, tasks, projects and today's priorities">
-            <div className="hero-visual-glow" aria-hidden="true" />
-            <div className="hero-window">
-              <div className="hero-window-bar">
-                <span className="window-dots" aria-hidden="true">
-                  <i /> <i /> <i />
-                </span>
-                <span className="hero-window-title">TOTS-OS</span>
-              </div>
-
-              <div className="hero-window-body">
-                <aside className="hero-mini-nav" aria-hidden="true">
-                  <Logo size={26} showWordmark={false} />
-                  {[LayoutDashboard, Contact, FolderKanban, CircleDollarSign, CalendarDays].map((Icon, i) => (
-                    <div key={i} className={i === 0 ? "active" : ""}>
-                      <Icon size={14} />
-                    </div>
-                  ))}
-                </aside>
-
-                <div className="hero-mini-main">
-                  <div className="hero-mini-head">
-                    <div>
-                      <span>Good morning.</span>
-                      <strong>Here&apos;s your business today.</strong>
-                    </div>
-                    <span className="pill pill-gold">
-                      <Sparkles size={12} aria-hidden="true" /> Clarity
-                    </span>
-                  </div>
-
-                  <div className="hero-mini-metrics">
-                    <div>
-                      <span>Revenue</span>
-                      <strong>£18.4k</strong>
-                    </div>
-                    <div>
-                      <span>Tasks</span>
-                      <strong>12</strong>
-                    </div>
-                    <div>
-                      <span>Projects</span>
-                      <strong>6</strong>
-                    </div>
-                  </div>
-
-                  <div className="hero-mini-panels">
-                    <div className="hero-mini-panel">
-                      <span>Focus</span>
-                      <strong>Today&apos;s priorities</strong>
-                      <div className="hero-mini-lines">
-                        <i /> <i /> <i />
-                      </div>
-                    </div>
-                    <div className="hero-mini-panel">
-                      <span>Coming up</span>
-                      <div className="hero-mini-lines">
-                        <i /> <i /> <i />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="hero-float hero-float-a" aria-hidden="true">
-              <span>
-                <Sparkles size={12} /> Clarity
-              </span>
-              <strong>3 things need your attention</strong>
-            </div>
-            <div className="hero-float hero-float-b" aria-hidden="true">
-              <span>Business health</span>
-              <strong>82%</strong>
-            </div>
-          </div>
-        </Reveal>
+    <div className="col-span-2 flex items-center justify-between gap-4 rounded-2xl border border-stone-200 bg-white p-4">
+      <div className="min-w-0">
+        <p className="truncate text-xs font-semibold text-stone-800">{title}</p>
+        <p className="mt-1 truncate text-[10px] text-stone-400">{meta}</p>
       </div>
-    </section>
+      <span className="shrink-0 rounded-full bg-[#f2eee9] px-2.5 py-1 text-[9px] font-semibold text-stone-600">{badge}</span>
+    </div>
   );
 }
-
-/* ============================================================
-   PROBLEM → CONVERGENCE
-============================================================ */
-
-function ProblemConverge() {
-  const reduceMotion = useReducedMotion();
-  return (
-    <section className="converge">
-      <div className="tots-container">
-        <Reveal className="converge-head">
-          <h2 className="section-title">Your business doesn&apos;t need more tabs.</h2>
-          <p className="section-copy">
-            It needs one place where the important things connect.
-          </p>
-        </Reveal>
-
-        <div className="converge-stage" aria-hidden="true">
-          <div className="converge-scatter">
-            {SCATTERED_TOOLS.map((tool, i) => {
-              const Icon = tool.icon;
-              const angle = (i / SCATTERED_TOOLS.length) * 360;
-              const radius = 42;
-              const x = Math.cos((angle * Math.PI) / 180) * radius;
-              const y = Math.sin((angle * Math.PI) / 180) * radius;
-              return (
-                <motion.div
-                  key={tool.label}
-                  className="converge-chip"
-                  style={{ ["--x" as string]: `${x}%`, ["--y" as string]: `${y}%` }}
-                  initial={reduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.7 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true, amount: 0.4 }}
-                  transition={{ duration: 0.5, delay: i * 0.05 }}
-                >
-                  <Icon size={16} />
-                  <span>{tool.label}</span>
-                </motion.div>
-              );
-            })}
-          </div>
-
-          <motion.div
-            className="converge-core"
-            initial={reduceMotion ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.85 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true, amount: 0.4 }}
-            transition={{ duration: 0.6, delay: 0.35 }}
-          >
-            <Logo size={30} showWordmark={false} />
-            <strong>TOTS-OS</strong>
-          </motion.div>
-        </div>
-
-        <Reveal delay={0.1} className="converge-caption">
-          <p>One connected workspace for the everyday running of your business.</p>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ============================================================
-   PRODUCT EXPLORER
-============================================================ */
-
-function ProductExplorer({ registerRef }: { registerRef: (el: HTMLElement | null) => void }) {
-  const [active, setActive] = useState(EXPLORER_TABS[0].id);
-  const tab = EXPLORER_TABS.find((t) => t.id === active) ?? EXPLORER_TABS[0];
-
-  return (
-    <section className="explorer" id="product" ref={registerRef}>
-      <div className="tots-container">
-        <Reveal className="explorer-head">
-          <Eyebrow>The product</Eyebrow>
-          <h2 className="section-title">Don&apos;t imagine how it works. Look inside.</h2>
-        </Reveal>
-
-        <div className="explorer-layout">
-          <div className="explorer-tabs" role="tablist" aria-label="Explore TOTS-OS by area">
-            {EXPLORER_TABS.map((t) => {
-              const Icon = t.icon;
-              const isActive = t.id === active;
-              return (
-                <button
-                  key={t.id}
-                  role="tab"
-                  aria-selected={isActive}
-                  className={`explorer-tab ${isActive ? "active" : ""}`}
-                  onClick={() => setActive(t.id)}
-                >
-                  <Icon size={16} aria-hidden="true" />
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="explorer-panel">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={tab.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.28 }}
-                className="explorer-panel-inner"
-              >
-                <div className="explorer-copy">
-                  <h3>{tab.headline}</h3>
-                  <p>{tab.copy}</p>
-                </div>
-                <ExplorerPreview tabId={tab.id} />
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ExplorerPreview({ tabId }: { tabId: string }) {
-  switch (tabId) {
-    case "clients":
-      return (
-        <div className="preview-window" role="img" aria-label="A client profile in TOTS-OS">
-          <div className="preview-client-head">
-            <div className="preview-avatar">AH</div>
-            <div>
-              <strong>Amelia Hart</strong>
-              <span>Bennett Interiors · Client since 2024</span>
-            </div>
-          </div>
-          <div className="preview-tabs-row">
-            <span className="active">Overview</span>
-            <span>Notes</span>
-            <span>Financials</span>
-          </div>
-          <div className="preview-rows">
-            <div>
-              <span>Active project</span>
-              <strong>Website Refresh</strong>
-            </div>
-            <div>
-              <span>Outstanding</span>
-              <strong>£640</strong>
-            </div>
-            <div>
-              <span>Last contact</span>
-              <strong>3 days ago</strong>
-            </div>
-          </div>
-        </div>
-      );
-    case "projects":
-      return (
-        <div className="preview-window preview-kanban" role="img" aria-label="A project board in TOTS-OS">
-          {[
-            { label: "To do", items: ["Moodboard v2", "Client sign-off"] },
-            { label: "In progress", items: ["Homepage build", "Copy review"] },
-            { label: "Done", items: ["Brand kit"] },
-          ].map((col) => (
-            <div key={col.label} className="preview-kanban-col">
-              <span>{col.label}</span>
-              {col.items.map((it) => (
-                <div key={it} className="preview-kanban-card">
-                  {it}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      );
-    case "money":
-      return (
-        <div className="preview-window" role="img" aria-label="Invoices and revenue in TOTS-OS">
-          <div className="preview-rows">
-            <div>
-              <span>Acorn Studio</span>
-              <strong className="warn">Due in 4 days · £1,850</strong>
-            </div>
-            <div>
-              <span>Bennett Interiors</span>
-              <strong className="danger">2 days overdue · £640</strong>
-            </div>
-            <div>
-              <span>Northstar Ltd</span>
-              <strong className="ok">Paid · £3,200</strong>
-            </div>
-          </div>
-          <div className="preview-bars" aria-hidden="true">
-            {[40, 65, 30, 80, 55, 90].map((h, i) => (
-              <span key={i} style={{ height: `${h}%` }} />
-            ))}
-          </div>
-        </div>
-      );
-    case "marketing":
-      return (
-        <div className="preview-window preview-calendar" role="img" aria-label="A content calendar in TOTS-OS">
-          {Array.from({ length: 14 }).map((_, i) => (
-            <div key={i} className={`preview-cal-cell ${[2, 5, 9, 11].includes(i) ? "has-post" : ""}`} />
-          ))}
-        </div>
-      );
-    case "planning":
-      return (
-        <div className="preview-window" role="img" aria-label="Notes turning into tasks in TOTS-OS">
-          <div className="preview-rows">
-            <div>
-              <span>New pricing idea</span>
-              <strong className="tag">Note</strong>
-            </div>
-            <div>
-              <span>Follow up with supplier</span>
-              <strong className="tag tag-active">Task</strong>
-            </div>
-            <div>
-              <span>Rebrand moodboard link</span>
-              <strong className="tag">Note</strong>
-            </div>
-          </div>
-        </div>
-      );
-    case "store":
-      return (
-        <div className="preview-window" role="img" aria-label="A storefront and orders in TOTS-OS">
-          <div className="preview-rows">
-            <div>
-              <span>New order · #1042</span>
-              <strong className="ok">Paid</strong>
-            </div>
-            <div>
-              <span>Ceramic mug (x2)</span>
-              <strong>Low stock</strong>
-            </div>
-            <div>
-              <span>Store revenue (7d)</span>
-              <strong>£860</strong>
-            </div>
-          </div>
-        </div>
-      );
-    case "dashboard":
-    default:
-      return (
-        <div className="preview-window" role="img" aria-label="The TOTS-OS dashboard">
-          <div className="preview-rows">
-            <div>
-              <span>Revenue</span>
-              <strong>£18.4k</strong>
-            </div>
-            <div>
-              <span>Open tasks</span>
-              <strong>12</strong>
-            </div>
-            <div>
-              <span>Projects</span>
-              <strong>6</strong>
-            </div>
-          </div>
-          <div className="preview-bars" aria-hidden="true">
-            {[30, 55, 40, 70, 60, 85].map((h, i) => (
-              <span key={i} style={{ height: `${h}%` }} />
-            ))}
-          </div>
-        </div>
-      );
-  }
-}
-
-/* ============================================================
-   OUTCOMES
-============================================================ */
-
-const OUTCOMES = [
-  "Know what needs your attention.",
-  "Know which invoices are outstanding.",
-  "Know what your team is working on.",
-  "Know what's happening this week.",
-  "Know which projects are falling behind.",
-  "Know what's actually happening in your business.",
-];
-
-function Outcomes() {
-  return (
-    <section className="outcomes">
-      <div className="tots-container">
-        <Reveal className="outcomes-head">
-          <Eyebrow>Clarity, not more software</Eyebrow>
-          <h2 className="section-title">
-            TOTS-OS isn&apos;t selling you features.
-            <br />
-            It&apos;s selling you knowing.
-          </h2>
-        </Reveal>
-
-        <div className="outcomes-list">
-          {OUTCOMES.map((line, i) => (
-            <Reveal key={line} delay={i * 0.05} className="outcomes-item">
-              <span className="outcomes-num">{String(i + 1).padStart(2, "0")}</span>
-              <p>{line}</p>
-            </Reveal>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ============================================================
-   CLARITY
-============================================================ */
-
-function ClaritySection() {
-  const [active, setActive] = useState(CLARITY_PROMPTS[0].id);
-  const current = CLARITY_PROMPTS.find((p) => p.id === active) ?? CLARITY_PROMPTS[0];
-
-  return (
-    <section className="clarity" id="clarity">
-      <div className="tots-container clarity-layout">
-        <Reveal className="clarity-copy">
-          <Eyebrow>Meet Clarity</Eyebrow>
-          <h2 className="section-title">The AI that already knows what&apos;s happening in your business.</h2>
-          <p className="section-copy">
-            Clarity doesn&apos;t need you to explain your business to it — it&apos;s already inside your workspace. Ask it a real question and get a real answer, built from your own data.
-          </p>
-
-          <div className="clarity-prompt-list" role="tablist" aria-label="Try a question">
-            {CLARITY_PROMPTS.map((p) => (
-              <button
-                key={p.id}
-                role="tab"
-                aria-selected={p.id === active}
-                className={`clarity-prompt ${p.id === active ? "active" : ""}`}
-                onClick={() => setActive(p.id)}
-              >
-                {p.prompt}
-              </button>
-            ))}
-          </div>
-        </Reveal>
-
-        <Reveal delay={0.1} className="clarity-visual">
-          <div className="clarity-chat">
-            <div className="clarity-chat-head">
-              <Sparkles size={14} aria-hidden="true" />
-              Clarity
-            </div>
-
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={current.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="clarity-chat-body"
-              >
-                <div className="clarity-bubble clarity-bubble-user">{current.prompt}</div>
-                <div className="clarity-bubble clarity-bubble-reply">
-                  <p>{current.reply}</p>
-                  <ol>
-                    {current.points.map((pt) => (
-                      <li key={pt}>{pt}</li>
-                    ))}
-                  </ol>
-                </div>
-              </motion.div>
-            </AnimatePresence>
-
-            <div className="clarity-chat-input" aria-hidden="true">
-              <span>Ask Clarity anything about your business…</span>
-              <Send size={14} />
-            </div>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ============================================================
-   SOCIAL PROOF
-============================================================ */
-
-function SocialProof() {
-  return (
-    <section className="proof">
-      <div className="tots-container">
-        <Reveal className="proof-head">
-          <Eyebrow>Social proof</Eyebrow>
-          <h2 className="section-title">Real businesses. Running on TOTS-OS.</h2>
-        </Reveal>
-
-        <div className="proof-grid">
-          {REAL_BUSINESSES.map((biz, i) => (
-            <Reveal key={biz.name} delay={i * 0.04} className="proof-card">
-              <div className="proof-card-mark" aria-hidden="true">
-                <Building2 size={18} />
-              </div>
-              <strong>{biz.name}</strong>
-              <span className="proof-card-industry">{biz.industry ?? "Industry — add detail"}</span>
-              <div className="proof-card-areas">
-                {(biz.areas ?? ["Add tools used"]).map((a) => (
-                  <span key={a} className="pill pill-quiet">
-                    {a}
-                  </span>
-                ))}
-              </div>
-              {biz.quote && <p className="proof-card-quote">&ldquo;{biz.quote}&rdquo;</p>}
-            </Reveal>
-          ))}
-        </div>
-
-        <Reveal delay={0.15} className="proof-strip">
-          <span>Also trusted by</span>
-          <div className="proof-strip-row">
-            {TRUST_STRIP.map((name) => (
-              <span key={name}>{name}</span>
-            ))}
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ============================================================
-   BUSINESS CHECK
-============================================================ */
-
-function BusinessCheck() {
-  return (
-    <section className="check">
-      <div className="tots-container">
-        <Reveal className="check-card">
-          <div className="check-copy">
-            <Eyebrow>60-second business check</Eyebrow>
-            <h2 className="section-title">How organised is your business, really?</h2>
-            <p className="section-copy">
-              Answer a few quick questions and we&apos;ll show you the TOTS-OS setup we&apos;d recommend.
-            </p>
-            <a href={FIND_YOUR_SETUP_URL} className="button button-primary button-lg">
-              Take the 60-second business check
-              <ArrowRight size={16} aria-hidden="true" />
-            </a>
-          </div>
-
-          <div className="check-visual" aria-hidden="true">
-            {["Where do your client details live?", "How do you track what's outstanding?", "How is content planned?"].map((q, i) => (
-              <div key={q} className="check-quiz-row" style={{ opacity: 1 - i * 0.22 }}>
-                <span>{String(i + 1).padStart(2, "0")}</span>
-                <p>{q}</p>
-              </div>
-            ))}
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ============================================================
-   TOTS COMMERCE
-============================================================ */
-
-function Commerce() {
-  return (
-    <section className="commerce">
-      <div className="tots-container">
-        <Reveal className="commerce-card">
-          <div className="commerce-copy">
-            <Eyebrow>Need to sell too?</Eyebrow>
-            <h2 className="section-title">Meet TOTS Commerce.</h2>
-            <ul className="commerce-list">
-              <li>Your storefront.</li>
-              <li>Your products.</li>
-              <li>Your customers.</li>
-              <li>Your orders.</li>
-              <li>One backend.</li>
-            </ul>
-            <p className="section-copy">
-              A standalone commerce module that sits alongside TOTS-OS, so selling online doesn&apos;t become another disconnected system to manage.
-            </p>
-            <div className="commerce-price">
-              <strong>£39</strong>
-              <span>/ month</span>
-            </div>
-            <a href={SHOP_BUY_URL} className="button button-secondary button-lg">
-              Explore TOTS Commerce
-              <ArrowRight size={16} aria-hidden="true" />
-            </a>
-          </div>
-
-          <div className="commerce-visual" role="img" aria-label="The TOTS Commerce storefront and orders backend">
-            <div className="preview-window">
-              <div className="preview-rows">
-                <div>
-                  <span>New product</span>
-                  <strong>+ Add</strong>
-                </div>
-                <div>
-                  <span>Order #1042</span>
-                  <strong className="ok">Paid</strong>
-                </div>
-                <div>
-                  <span>Stock: Ceramic mug</span>
-                  <strong className="warn">Low</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ============================================================
-   PRICING
-============================================================ */
-
-function Pricing() {
-  return (
-    <section className="pricing" id="pricing">
-      <div className="tots-container">
-        <Reveal className="pricing-head">
-          <Eyebrow>Simple pricing</Eyebrow>
-          <h2 className="section-title">Pick the workspace that fits.</h2>
-          <p className="section-copy">14-day free trial. No bank details. Choose a plan after exploring.</p>
-        </Reveal>
-
-        <div className="pricing-grid">
-          {PRICING.map((plan, i) => (
-            <Reveal key={plan.name} delay={i * 0.06} className={`pricing-card ${plan.featured ? "featured" : ""}`}>
-              {plan.badge && <span className="pricing-badge">{plan.badge}</span>}
-              <span className="pricing-name">{plan.name}</span>
-              <div className="pricing-price">
-                <span>£</span>
-                <strong>{plan.price}</strong>
-                <small>/ month</small>
-              </div>
-              <p className="pricing-tagline">{plan.tagline}</p>
-              <div className="pricing-divider" />
-              <ul className="pricing-features">
-                {plan.features.map((f) => (
-                  <li key={f}>
-                    <Check size={13} aria-hidden="true" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <a
-                href={SIGNUP_URL}
-                className={`button button-lg ${plan.featured ? "button-primary" : "button-secondary"} pricing-cta`}
-              >
-                Start free trial
-                <ArrowRight size={14} aria-hidden="true" />
-              </a>
-            </Reveal>
-          ))}
-        </div>
-
-        <Reveal delay={0.15} className="pricing-note">
-          <p>
-            Not sure which fits? <a href={FIND_YOUR_SETUP_URL}>Take the business check</a> for a personalised starting point.
-          </p>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ============================================================
-   FOUNDERS
-============================================================ */
-
-function Founders() {
-  return (
-    <section className="founders" id="story">
-      <div className="tots-container">
-        <Reveal className="founders-head">
-          <Eyebrow>Our story</Eyebrow>
-          <h2 className="section-title">Built by people who actually run small businesses.</h2>
-          <p className="section-copy founders-lede">
-            One of us organises it. The other asks why it still takes five apps.
-          </p>
-        </Reveal>
-
-        <div className="founders-grid">
-          <Reveal delay={0.05} className="founder-card">
-            {/* Replace with a real photo when available */}
-            <div className="founder-avatar">S</div>
-            <span>Mum · Co-founder</span>
-            <h3>Sam</h3>
-            <p>Brings the business and big-picture thinking — always asking how it should work for a real owner, not just how it looks on screen.</p>
-          </Reveal>
-
-          <Reveal delay={0.1} className="founder-card">
-            <div className="founder-avatar">L</div>
-            <span>Daughter · Co-founder</span>
-            <h3>Leigha</h3>
-            <p>Brings the technology and design — turning the ideas into the product, from how it feels to how it all connects.</p>
-          </Reveal>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ============================================================
-   FAQ
-============================================================ */
-
-function FAQSection() {
-  const [open, setOpen] = useState<number | null>(0);
-  return (
-    <section className="faq">
-      <div className="tots-container">
-        <Reveal>
-          <Eyebrow>Questions</Eyebrow>
-          <h2 className="section-title">The things you&apos;ll probably ask.</h2>
-        </Reveal>
-
-        <div className="faq-list">
-          {FAQS.map((item, i) => {
-            const isOpen = open === i;
-            return (
-              <div key={item.q} className={`faq-item ${isOpen ? "open" : ""}`}>
-                <button
-                  type="button"
-                  className="faq-q"
-                  aria-expanded={isOpen}
-                  onClick={() => setOpen(isOpen ? null : i)}
-                >
-                  <span>{item.q}</span>
-                  <ChevronDown size={17} aria-hidden="true" />
-                </button>
-                <AnimatePresence>
-                  {isOpen && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="faq-a"
-                    >
-                      <p>{item.a}</p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ============================================================
-   FINAL CTA + FOOTER
-============================================================ */
-
-function FinalCTA() {
-  return (
-    <section className="final">
-      <div className="tots-container">
-        <Reveal className="final-card">
-          <h2>
-            Run the business.
-            <br />
-            <em>Not the chaos.</em>
-          </h2>
-          <p>Bring your clients, projects, money, planning, marketing and everyday admin together.</p>
-          <div className="final-actions">
-            <a href={SIGNUP_URL} className="button button-primary button-lg">
-              Start your 14-day free trial
-              <ArrowRight size={16} aria-hidden="true" />
-            </a>
-            <a href="#product" className="button button-ghost button-lg">
-              Explore TOTS-OS first
-            </a>
-          </div>
-          <p className="final-micro">No card. No commitment.</p>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-function SiteFooter() {
-  return (
-    <footer className="site-footer">
-      <div className="tots-container footer-inner">
-        <Logo size={30} />
-        <nav aria-label="Footer">
-          {NAV_ITEMS.map((item) => (
-            <a key={item.href} href={item.href}>
-              {item.label}
-            </a>
-          ))}
-          <a href="/privacy">Privacy Policy</a>
-          <a href="/terms">Terms of Service</a>
-        </nav>
-        <a href={SIGNUP_URL} className="button button-primary button-sm">
-          Start free trial
-        </a>
-      </div>
-      <div className="tots-container footer-bottom">
-        <span>© {new Date().getFullYear()} The Organised Types. All rights reserved.</span>
-        <span>TOTS-OS · Your business, organised.</span>
-      </div>
-    </footer>
-  );
-}
-
-/* ============================================================
-   PAGE
-============================================================ */
 
 export default function Page() {
-  const productRef = useRef<HTMLElement | null>(null);
-
-  const scrollToProduct = () => {
-    productRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  const reduceMotion = useReducedMotion();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [openFaq, setOpenFaq] = useState(0);
+  const active = useMemo(() => tabs.find((tab) => tab.id === activeTab) ?? tabs[0], [activeTab]);
 
   return (
-    <div className={`tots-page ${fraunces.variable} ${inter.variable}`}>
-      <a href="#product" className="skip-link">
-        Skip to main content
-      </a>
+    <main className="min-h-screen overflow-x-hidden bg-[#faf8f5] text-stone-900 selection:bg-[#dfe7d8]">
+      {META_PIXEL_ID ? (
+        <>
+          <Script id="meta-pixel" strategy="afterInteractive">
+            {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${META_PIXEL_ID}');fbq('track','PageView');`}
+          </Script>
+          <noscript>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img height="1" width="1" style={{ display: "none" }} src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`} alt="" />
+          </noscript>
+        </>
+      ) : null}
 
-      <SiteNav />
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-stone-200/70 bg-[#faf8f5]/90 backdrop-blur-xl">
+        <Shell className="flex h-[72px] items-center justify-between gap-5">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#4f4a46] text-sm font-bold text-white">T</div>
+            <div className="leading-tight">
+              <div className="text-sm font-bold tracking-[-0.03em]">TOTS-OS</div>
+              <div className="text-[9px] uppercase tracking-[0.17em] text-stone-400">by The Organised Types</div>
+            </div>
+          </Link>
 
-      <main>
-        <Hero onExploreDemo={scrollToProduct} />
-        <ProblemConverge />
-        <ProductExplorer registerRef={(el) => (productRef.current = el)} />
-        <Outcomes />
-        <ClaritySection />
-        <SocialProof />
-        <BusinessCheck />
-        <Commerce />
-        <Pricing />
-        <Founders />
-        <FAQSection />
-        <FinalCTA />
-      </main>
+          <nav className="hidden items-center gap-6 lg:flex">
+            {nav.map(([label, href]) => (
+              <Link key={href} href={href} className="text-xs font-medium text-stone-600 transition hover:text-stone-950">{label}</Link>
+            ))}
+          </nav>
 
-      <SiteFooter />
+          <div className="hidden items-center gap-2 sm:flex">
+            <Link href="/login" className="px-4 py-2 text-xs font-semibold text-stone-700">Log in</Link>
+            <Link href={APP_URL} className="rounded-full bg-[#4f4a46] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#3f3a37]">Start free trial</Link>
+          </div>
 
-      <style jsx global>{`
-        :root {
-          --font-display: ${fraunces.style.fontFamily};
-          --font-body: ${inter.style.fontFamily};
-          --ink: #1b1f16;
-          --ink-soft: #565f4c;
-          --paper: #faf7ef;
-          --paper-alt: #f1ede1;
-          --white: #ffffff;
-          --sage: #a9b897;
-          --sage-deep: #6f7f5c;
-          --sage-pale: #e4e9da;
-          --gold: #c98f3c;
-          --line: rgba(27, 31, 22, 0.1);
-          --shadow: 0 20px 60px -30px rgba(27, 31, 22, 0.35);
-          --radius: 20px;
-        }
+          <button onClick={() => setMenuOpen((v) => !v)} className="flex h-10 w-10 items-center justify-center rounded-full border border-stone-200 bg-white lg:hidden" aria-label="Toggle navigation">
+            {menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </button>
+        </Shell>
 
-        * { box-sizing: border-box; }
+        {menuOpen ? (
+          <div className="border-t border-stone-200 bg-[#faf8f5] lg:hidden">
+            <Shell className="py-5">
+              <div className="grid gap-1">
+                {nav.map(([label, href]) => (
+                  <Link key={href} href={href} onClick={() => setMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-medium text-stone-700 hover:bg-white">{label}</Link>
+                ))}
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:hidden">
+                <Link href="/login" className="rounded-full border border-stone-300 bg-white px-4 py-3 text-center text-xs font-semibold">Log in</Link>
+                <Link href={APP_URL} className="rounded-full bg-[#4f4a46] px-4 py-3 text-center text-xs font-semibold text-white">Start free</Link>
+              </div>
+            </Shell>
+          </div>
+        ) : null}
+      </header>
 
-        html { scroll-behavior: smooth; }
-        @media (prefers-reduced-motion: reduce) {
-          html { scroll-behavior: auto; }
-          *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-        }
+      <section className="relative overflow-hidden pb-20 pt-32 sm:pt-40 lg:pb-28">
+        <div className="pointer-events-none absolute left-1/2 top-10 h-[680px] w-[680px] -translate-x-1/2 rounded-full bg-[#e8eee3] opacity-60 blur-3xl" />
+        <Shell className="relative">
+          <div className="mx-auto max-w-4xl text-center">
+            <motion.div initial={reduceMotion ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+              <SectionLabel>Your business. Finally organised.</SectionLabel>
+              <h1 className="text-balance text-[48px] font-semibold leading-[0.98] tracking-[-0.065em] text-[#332f2c] sm:text-[66px] lg:text-[82px]">
+                Your business is already complicated.
+                <span className="block text-[#7d8976]">Your software shouldn&apos;t be.</span>
+              </h1>
+              <p className="mx-auto mt-7 max-w-2xl text-base leading-7 text-stone-600 sm:text-lg sm:leading-8">
+                Clients. Projects. Money. Content. Calendar. Tasks. TOTS-OS brings the everyday running of your business into one connected workspace — so you can stop managing the systems and get back to running the business.
+              </p>
+              <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+                <PrimaryButton>Start 14 days free</PrimaryButton>
+                <SecondaryButton href="#demo"><Play className="h-4 w-4" /> Explore the demo</SecondaryButton>
+              </div>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] font-medium text-stone-500">
+                {["No bank details", "No commitment", "Set up in your own time"].map((item) => (
+                  <span key={item} className="inline-flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#7d8976]" />{item}</span>
+                ))}
+              </div>
+            </motion.div>
+          </div>
 
-        body {
-          margin: 0;
-          background: var(--paper);
-          color: var(--ink);
-          font-family: var(--font-body);
-        }
+          <motion.div initial={reduceMotion ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.12 }} className="mx-auto mt-14 max-w-5xl">
+            <MiniDashboard />
+          </motion.div>
+        </Shell>
+      </section>
 
-        .tots-page h1, .tots-page h2, .tots-page h3 {
-          font-family: var(--font-display);
-          font-weight: 500;
-          line-height: 1.08;
-          margin: 0 0 16px;
-          letter-spacing: -0.01em;
-        }
+      <section className="border-y border-stone-200 bg-white py-5">
+        <Shell>
+          <div className="flex flex-col items-center justify-between gap-4 lg:flex-row">
+            <p className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">Built with real businesses in mind</p>
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-xs font-semibold text-stone-500 lg:justify-end">
+              {["WhyKnot Wardrobe", "Moray Training Club", "Megoosh", "Lux Electrical", "TESTme Health", "DP Leadership"].map((name) => <span key={name}>{name}</span>)}
+            </div>
+          </div>
+        </Shell>
+      </section>
 
-        .tots-page em { font-style: italic; color: var(--sage-deep); }
+      <section id="why" className="py-24 sm:py-28 lg:py-36">
+        <Shell>
+          <div className="mx-auto max-w-3xl text-center">
+            <SectionLabel>The actual problem</SectionLabel>
+            <h2 className="text-balance text-4xl font-semibold tracking-[-0.05em] text-[#332f2c] sm:text-5xl lg:text-6xl">You&apos;re not disorganised.<br />Your business is scattered.</h2>
+            <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-stone-600">Most small businesses do not need another app. They need the important parts of the business to stop living in completely separate places.</p>
+          </div>
 
-        .tots-container { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+          <div className="mx-auto mt-14 grid max-w-5xl gap-4 md:grid-cols-[1fr_auto_1fr] md:items-stretch">
+            <div className="rounded-[28px] border border-stone-200 bg-white p-6 sm:p-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Instead of this</p>
+              <div className="mt-6 flex flex-wrap gap-2.5">
+                {["CRM", "Spreadsheet", "Notes app", "Calendar", "Project tool", "Finance tracker", "Content planner", "WhatsApp", "Your brain"].map((item) => (
+                  <span key={item} className="rounded-full border border-stone-200 bg-[#faf8f5] px-3.5 py-2 text-xs font-medium text-stone-600">{item}</span>
+                ))}
+              </div>
+              <p className="mt-7 text-sm leading-6 text-stone-500">Nine places to check. Nine places to update. Nine chances for something important to get missed.</p>
+            </div>
 
-        .skip-link {
-          position: absolute; left: -999px; top: 0; background: var(--ink); color: var(--paper);
-          padding: 12px 18px; z-index: 200; border-radius: 0 0 8px 0;
-        }
-        .skip-link:focus { left: 0; }
+            <div className="flex items-center justify-center py-1 md:px-1 md:py-0"><ArrowRight className="h-5 w-5 rotate-90 text-stone-300 md:rotate-0" /></div>
 
-        a { color: inherit; text-decoration: none; }
-        button { font-family: inherit; cursor: pointer; }
+            <div className="rounded-[28px] bg-[#4f4a46] p-6 text-white shadow-xl sm:p-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Use this</p>
+              <div className="mt-6 flex items-center gap-3"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-sm font-bold text-[#4f4a46]">T</div><div><p className="font-semibold">TOTS-OS</p><p className="text-xs text-white/55">One connected workspace</p></div></div>
+              <p className="mt-7 text-lg font-medium leading-7">One login. One workspace. One clearer view of the business.</p>
+              <p className="mt-3 text-sm leading-6 text-white/60">The work, people, money, plans and information behind your business — connected instead of scattered.</p>
+            </div>
+          </div>
 
-        :focus-visible {
-          outline: 2.5px solid var(--gold);
-          outline-offset: 3px;
-          border-radius: 4px;
-        }
+          <div className="mx-auto mt-10 flex max-w-5xl flex-col items-center justify-between gap-4 rounded-[24px] border border-[#dfe6d9] bg-[#f2f6ef] p-5 sm:flex-row sm:px-7">
+            <div>
+              <p className="text-sm font-semibold text-stone-800">Not sure what is creating the most unnecessary work?</p>
+              <p className="mt-1 text-xs text-stone-500">Take the 60-second business check. No email required.</p>
+            </div>
+            <Link href="/find-your-setup" className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-5 py-3 text-xs font-semibold text-stone-800 shadow-sm">Find my setup <ArrowRight className="h-3.5 w-3.5" /></Link>
+          </div>
+        </Shell>
+      </section>
 
-        .eyebrow {
-          display: inline-flex; align-items: center; gap: 8px;
-          font-size: 13px; font-weight: 600; letter-spacing: 0.04em;
-          text-transform: uppercase; color: var(--sage-deep); margin-bottom: 14px;
-        }
-        .eyebrow span { width: 20px; height: 1.5px; background: var(--gold); display: inline-block; }
+      <section id="product" className="border-y border-stone-200 bg-[#f3f0ec] py-24 sm:py-28 lg:py-36">
+        <Shell>
+          <div className="max-w-3xl">
+            <SectionLabel>Inside TOTS-OS</SectionLabel>
+            <h2 className="text-balance text-4xl font-semibold tracking-[-0.05em] text-[#332f2c] sm:text-5xl lg:text-6xl">Open it and run the business.</h2>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-stone-600">You should not have to build your own operating system out of templates, integrations and workarounds. TOTS-OS is already structured around the way a real small business works.</p>
+          </div>
 
-        .section-title { font-size: clamp(28px, 3.6vw, 44px); max-width: 720px; }
-        .section-copy { font-size: 17px; color: var(--ink-soft); max-width: 560px; line-height: 1.55; }
+          <div className="mt-10 flex gap-2 overflow-x-auto pb-2">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const selected = activeTab === tab.id;
+              return (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={classNames("inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-xs font-semibold transition", selected ? "bg-[#4f4a46] text-white shadow-sm" : "border border-stone-200 bg-white text-stone-600 hover:border-stone-300")}>
+                  <Icon className="h-3.5 w-3.5" /> {tab.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-4"><ProductPanel active={active} /></div>
+        </Shell>
+      </section>
 
-        .pill {
-          display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px;
-          border-radius: 999px; font-size: 12.5px; font-weight: 600;
-        }
-        .pill-gold { background: rgba(201, 143, 60, 0.14); color: #8a5f22; }
-        .pill-quiet { background: var(--sage-pale); color: var(--sage-deep); }
+      <section id="demo" className="py-24 sm:py-28 lg:py-36">
+        <Shell>
+          <div className="grid items-center gap-12 lg:grid-cols-[.8fr_1.2fr] lg:gap-16">
+            <div>
+              <SectionLabel>Try it before you sign up</SectionLabel>
+              <h2 className="text-balance text-4xl font-semibold tracking-[-0.05em] text-[#332f2c] sm:text-5xl">Don&apos;t just read about it. See how it feels.</h2>
+              <p className="mt-5 text-base leading-7 text-stone-600">Explore a realistic TOTS-OS workspace and see how the dashboard, CRM, finance, projects, planning, social and Clarity fit together before creating an account.</p>
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-start xl:flex-row">
+                <SecondaryButton href="#product"><Play className="h-4 w-4" /> Explore product</SecondaryButton>
+                <PrimaryButton>Start free</PrimaryButton>
+              </div>
+            </div>
+            <MiniDashboard />
+          </div>
+        </Shell>
+      </section>
 
-        .button {
-          display: inline-flex; align-items: center; gap: 8px; justify-content: center;
-          border-radius: 999px; font-weight: 600; border: 1.5px solid transparent;
-          transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
-        }
-        .button:hover { transform: translateY(-1px); }
-        .button-primary { background: var(--ink); color: var(--paper); }
-        .button-primary:hover { background: var(--sage-deep); }
-        .button-secondary { background: transparent; color: var(--ink); border-color: var(--line); }
-        .button-secondary:hover { border-color: var(--ink); }
-        .button-ghost { background: transparent; color: var(--ink); }
-        .button-ghost:hover { color: var(--sage-deep); }
-        .button-lg { padding: 15px 26px; font-size: 15.5px; }
-        .button-sm { padding: 10px 18px; font-size: 14px; }
+      <section id="clarity" className="relative overflow-hidden bg-[#332f2c] py-24 text-white sm:py-28 lg:py-36">
+        <div className="pointer-events-none absolute -right-24 top-0 h-[500px] w-[500px] rounded-full bg-[#78836f]/20 blur-3xl" />
+        <Shell className="relative">
+          <div className="grid gap-14 lg:grid-cols-[.85fr_1.15fr] lg:items-center">
+            <div>
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/65"><Sparkles className="h-3.5 w-3.5" /> Meet Clarity</div>
+              <h2 className="text-balance text-4xl font-semibold tracking-[-0.05em] sm:text-5xl lg:text-6xl">An AI PA that already knows what&apos;s happening.</h2>
+              <p className="mt-6 max-w-xl text-base leading-7 text-white/60">Because Clarity sits inside TOTS-OS, it can work with the information already in your workspace — helping you understand priorities instead of making you explain the business from scratch every time.</p>
+              <div className="mt-7 flex flex-wrap gap-2">
+                {clarityPrompts.map((prompt) => <span key={prompt} className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white/65">“{prompt}”</span>)}
+              </div>
+            </div>
 
-        /* ---------- NAV ---------- */
-        .site-nav {
-          position: sticky; top: 0; z-index: 100; padding: 18px 0;
-          transition: background 0.25s ease, box-shadow 0.25s ease, padding 0.25s ease;
-        }
-        .site-nav.is-scrolled {
-          background: rgba(250, 247, 239, 0.86); backdrop-filter: blur(14px);
-          box-shadow: 0 1px 0 var(--line); padding: 12px 0;
-        }
-        .site-nav-inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-        .tots-logo { display: inline-flex; align-items: center; gap: 10px; }
-        .tots-logo img { border-radius: 8px; }
-        .tots-logo-copy { display: flex; flex-direction: column; line-height: 1.1; }
-        .tots-logo-copy strong { font-size: 15px; }
-        .tots-logo-copy small { font-size: 10.5px; color: var(--ink-soft); }
-        .site-nav-links { display: flex; gap: 30px; font-size: 14.5px; font-weight: 600; }
-        .site-nav-links a:hover { color: var(--sage-deep); }
-        .site-nav-actions { display: flex; align-items: center; gap: 18px; }
-        .site-nav-login { font-size: 14.5px; font-weight: 600; }
-        .site-nav-burger { display: none; background: none; border: none; padding: 6px; }
+            <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-2xl backdrop-blur sm:p-6">
+              <div className="rounded-[22px] bg-[#faf8f5] p-5 text-stone-900 sm:p-6">
+                <div className="flex items-center gap-3 border-b border-stone-200 pb-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#4f4a46] text-white"><Sparkles className="h-4 w-4" /></div>
+                  <div><p className="text-sm font-semibold">Clarity</p><p className="text-[10px] text-stone-400">Business assistant</p></div>
+                </div>
+                <div className="ml-auto mt-5 max-w-[82%] rounded-2xl rounded-tr-md bg-[#efe6e1] px-4 py-3 text-xs font-medium text-stone-700">What should I focus on today?</div>
+                <div className="mt-4 rounded-2xl rounded-tl-md border border-stone-200 bg-white p-4">
+                  <p className="text-xs font-semibold text-stone-800">You have three priorities worth focusing on first.</p>
+                  <div className="mt-3 space-y-2.5">
+                    {[
+                      ["Send the Acorn Studio invoice", "£1,850 due this week"],
+                      ["Review the Northstar project", "Two delivery tasks are due tomorrow"],
+                      ["Prepare for your 2:00 PM client call", "Client notes are already saved in TOTS-OS"],
+                    ].map(([title, meta], i) => (
+                      <div key={title} className="flex gap-3 rounded-xl bg-[#faf8f5] p-3">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#dfe7d8] text-[10px] font-bold text-[#596451]">{i + 1}</div>
+                        <div><p className="text-[11px] font-semibold text-stone-700">{title}</p><p className="mt-0.5 text-[10px] text-stone-400">{meta}</p></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Shell>
+      </section>
 
-        .mobile-menu {
-          position: fixed; inset: 68px 0 0 0; background: var(--paper); z-index: 99;
-          padding: 24px 28px; display: flex; flex-direction: column; gap: 24px;
-        }
-        .mobile-menu-links { display: flex; flex-direction: column; gap: 20px; font-size: 20px; font-weight: 600; }
-        .mobile-menu-cta { align-self: flex-start; }
+      <section className="py-24 sm:py-28 lg:py-36">
+        <Shell>
+          <div className="mx-auto max-w-3xl text-center">
+            <SectionLabel>Real businesses</SectionLabel>
+            <h2 className="text-balance text-4xl font-semibold tracking-[-0.05em] text-[#332f2c] sm:text-5xl">Built around work that actually happens.</h2>
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-stone-600">TOTS-OS has been shaped around real businesses with real clients, deadlines, projects, admin and moving parts — not an imaginary perfect workflow.</p>
+          </div>
+          <div className="mt-12 grid gap-4 lg:grid-cols-3">
+            {customerStories.map((story) => (
+              <article key={story.name} className="rounded-[26px] border border-stone-200 bg-white p-6 shadow-[0_14px_40px_rgba(68,60,54,0.05)]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">{story.type}</p>
+                <h3 className="mt-3 text-xl font-semibold tracking-[-0.035em] text-stone-900">{story.name}</h3>
+                <p className="mt-4 text-sm leading-6 text-stone-600">{story.text}</p>
+                <div className="mt-6 flex flex-wrap gap-2">{story.tags.map((tag) => <span key={tag} className="rounded-full bg-[#f3f0ec] px-3 py-1.5 text-[10px] font-semibold text-stone-500">{tag}</span>)}</div>
+              </article>
+            ))}
+          </div>
+          <p className="mx-auto mt-6 max-w-2xl text-center text-xs leading-5 text-stone-400">As you collect approved customer quotes and measurable results, replace these context cards with direct testimonials. That will make this section substantially stronger.</p>
+        </Shell>
+      </section>
 
-        @media (max-width: 880px) {
-          .site-nav-links, .site-nav-actions { display: none; }
-          .site-nav-burger { display: inline-flex; }
-        }
+      <section id="shop" className="border-y border-stone-200 bg-[#f3f0ec] py-24 sm:py-28">
+        <Shell>
+          <div className="grid gap-8 overflow-hidden rounded-[34px] bg-[#4f4a46] p-7 text-white sm:p-10 lg:grid-cols-[1fr_.9fr] lg:p-12">
+            <div>
+              <div className="mb-5 inline-flex rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60">Also from TOTS</div>
+              <h2 className="text-4xl font-semibold tracking-[-0.05em] sm:text-5xl">TOTS Commerce</h2>
+              <p className="mt-4 max-w-xl text-lg font-medium text-white/90">Your shop. Your brand. One backend.</p>
+              <p className="mt-4 max-w-xl text-sm leading-7 text-white/60">If selling is part of your business, TOTS Commerce gives you a branded storefront plus products, orders, stock, payments, discounts and fulfilment — without creating another disconnected backend to manage.</p>
+              <div className="mt-7 flex items-end gap-2"><span className="text-4xl font-semibold tracking-[-0.05em]">£39</span><span className="pb-1 text-sm text-white/50">/ month</span></div>
+              <Link href={APP_URL} className="mt-7 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-xs font-semibold text-[#4f4a46]">Explore Commerce <ArrowRight className="h-3.5 w-3.5" /></Link>
+            </div>
+            <div className="rounded-[26px] border border-white/10 bg-white/[0.06] p-5">
+              <div className="flex items-center justify-between"><div><p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Commerce backend</p><p className="mt-1 text-sm font-semibold">Your store, connected.</p></div><ShoppingBag className="h-5 w-5 text-white/50" /></div>
+              <div className="mt-5 grid grid-cols-2 gap-2.5">
+                <div className="rounded-2xl bg-white p-4 text-stone-900"><p className="text-[10px] text-stone-400">Orders today</p><p className="mt-1 text-xl font-semibold">18</p></div>
+                <div className="rounded-2xl bg-white p-4 text-stone-900"><p className="text-[10px] text-stone-400">Revenue</p><p className="mt-1 text-xl font-semibold">£842</p></div>
+                {[["Linen Daily Planner", "12 in stock"], ["90-Day Organiser", "Low stock · 4 left"], ["Brand Strategy Session", "Service · Available"]].map(([name, meta]) => (
+                  <div key={name} className="col-span-2 flex items-center gap-3 rounded-2xl bg-white p-3 text-stone-900"><div className="h-10 w-10 rounded-xl bg-[#efe6e1]" /><div><p className="text-[11px] font-semibold">{name}</p><p className="text-[10px] text-stone-400">{meta}</p></div></div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Shell>
+      </section>
 
-        /* ---------- HERO ---------- */
-        .hero { padding: 56px 0 90px; }
-        .hero-inner { display: grid; grid-template-columns: 1.05fr 1fr; gap: 60px; align-items: center; }
-        .hero-title { font-size: clamp(34px, 4.6vw, 58px); max-width: 620px; }
-        .hero-sub { font-size: 18px; color: var(--ink-soft); line-height: 1.6; max-width: 460px; margin-bottom: 30px; }
-        .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
-        .hero-micro { display: flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--ink-soft); }
-        .hero-micro svg { color: var(--sage-deep); }
+      <section id="pricing" className="py-24 sm:py-28 lg:py-36">
+        <Shell>
+          <div className="mx-auto max-w-3xl text-center">
+            <SectionLabel>Simple pricing</SectionLabel>
+            <h2 className="text-balance text-4xl font-semibold tracking-[-0.05em] text-[#332f2c] sm:text-5xl">Start with the workspace that fits now.</h2>
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-stone-600">Every plan starts with 14 days free and no bank details. Explore the system first. Pay only if it earns a place in your business.</p>
+          </div>
 
-        .hero-visual-wrap { position: relative; }
-        .hero-visual { position: relative; }
-        .hero-visual-glow {
-          position: absolute; inset: -40px; background: radial-gradient(circle at 60% 30%, rgba(169, 184, 151, 0.45), transparent 65%);
-          filter: blur(10px); z-index: 0;
-        }
-        .hero-window {
-          position: relative; z-index: 1; background: var(--white); border-radius: var(--radius);
-          box-shadow: var(--shadow); border: 1px solid var(--line); overflow: hidden;
-        }
-        .hero-window-bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
-        .window-dots { display: inline-flex; gap: 5px; }
-        .window-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); display: inline-block; }
-        .hero-window-title { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; }
-        .hero-window-body { display: grid; grid-template-columns: 54px 1fr; min-height: 320px; }
-        .hero-mini-nav { background: var(--paper-alt); display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 18px 0; }
-        .hero-mini-nav > div { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 9px; color: var(--ink-soft); }
-        .hero-mini-nav > div.active { background: var(--sage); color: var(--white); }
-        .hero-mini-main { padding: 22px; }
-        .hero-mini-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
-        .hero-mini-head span { display: block; font-size: 12.5px; color: var(--ink-soft); }
-        .hero-mini-head strong { font-size: 17px; font-family: var(--font-display); }
-        .hero-mini-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 22px; }
-        .hero-mini-metrics > div { background: var(--paper-alt); border-radius: 12px; padding: 12px; }
-        .hero-mini-metrics span { display: block; font-size: 11.5px; color: var(--ink-soft); margin-bottom: 4px; }
-        .hero-mini-metrics strong { font-size: 18px; }
-        .hero-mini-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .hero-mini-panel { background: var(--paper-alt); border-radius: 12px; padding: 12px; }
-        .hero-mini-panel span { display: block; font-size: 11.5px; color: var(--ink-soft); margin-bottom: 6px; }
-        .hero-mini-panel strong { display: block; font-size: 13px; margin-bottom: 10px; }
-        .hero-mini-lines { display: flex; flex-direction: column; gap: 6px; }
-        .hero-mini-lines i { height: 7px; border-radius: 4px; background: var(--line); display: block; }
-        .hero-mini-lines i:nth-child(2) { width: 80%; }
-        .hero-mini-lines i:nth-child(3) { width: 55%; }
+          <div className="mt-12 grid gap-4 lg:grid-cols-3">
+            {[
+              { name: "Standard", price: "29", desc: "For getting the everyday running of the business into one organised workspace.", accent: false, bullets: ["Dashboard, CRM & projects", "Calendar, notes & planning", "Core finance tools", "Clarity AI access"] },
+              { name: "Professional", price: "59", desc: "For growing businesses that also want marketing, stronger workflows and deeper visibility.", accent: true, bullets: ["Everything in Standard", "Advanced finance", "Social planning & publishing", "Campaigns, KPIs & expanded Clarity"] },
+              { name: "Elite", price: "99", desc: "For businesses that need more team capacity, automation, usage and operational control.", accent: false, bullets: ["Everything in Professional", "Advanced team access", "Advanced automation", "Highest Clarity access + priority support"] },
+            ].map((plan) => (
+              <div key={plan.name} className={classNames("relative rounded-[28px] border p-6 sm:p-7", plan.accent ? "border-[#4f4a46] bg-[#4f4a46] text-white shadow-2xl" : "border-stone-200 bg-white")}>
+                {plan.accent ? <div className="absolute -top-3 left-6 rounded-full bg-[#dfe7d8] px-3 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-[#596451]">Most popular</div> : null}
+                <p className={classNames("text-xs font-semibold uppercase tracking-[0.16em]", plan.accent ? "text-white/50" : "text-stone-400")}>{plan.name}</p>
+                <div className="mt-4 flex items-end gap-1"><span className="text-5xl font-semibold tracking-[-0.06em]">£{plan.price}</span><span className={classNames("pb-1 text-sm", plan.accent ? "text-white/45" : "text-stone-400")}>/month</span></div>
+                <p className={classNames("mt-5 min-h-[72px] text-sm leading-6", plan.accent ? "text-white/65" : "text-stone-600")}>{plan.desc}</p>
+                <div className="mt-6 space-y-3">{plan.bullets.map((item) => <div key={item} className="flex items-start gap-2.5 text-xs"><Check className={classNames("mt-0.5 h-3.5 w-3.5 shrink-0", plan.accent ? "text-[#dfe7d8]" : "text-[#7d8976]")} /><span className={plan.accent ? "text-white/80" : "text-stone-600"}>{item}</span></div>)}</div>
+                <Link href={APP_URL} className={classNames("mt-7 flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-xs font-semibold transition", plan.accent ? "bg-white text-[#4f4a46]" : "bg-[#4f4a46] text-white")}>Start 14 days free <ArrowRight className="h-3.5 w-3.5" /></Link>
+                <p className={classNames("mt-3 text-center text-[10px]", plan.accent ? "text-white/40" : "text-stone-400")}>No bank details required</p>
+              </div>
+            ))}
+          </div>
 
-        .hero-float {
-          position: absolute; background: var(--white); border-radius: 14px; padding: 12px 16px;
-          box-shadow: var(--shadow); border: 1px solid var(--line); z-index: 2;
-        }
-        .hero-float span { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--sage-deep); font-weight: 700; margin-bottom: 4px; }
-        .hero-float strong { font-size: 14px; }
-        .hero-float-a { left: -22px; bottom: 34px; max-width: 190px; }
-        .hero-float-b { right: -14px; top: 30px; }
+          <div className="mt-8 overflow-x-auto rounded-[28px] border border-stone-200 bg-white">
+            <table className="w-full min-w-[760px] border-collapse text-left">
+              <thead><tr className="border-b border-stone-200 bg-[#fbfaf8]"><th className="px-5 py-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-stone-400">Compare plans</th>{["Standard", "Professional", "Elite"].map((name) => <th key={name} className="px-5 py-4 text-xs font-semibold text-stone-800">{name}</th>)}</tr></thead>
+              <tbody>{pricingRows.map((row) => <tr key={row[0]} className="border-b border-stone-100 last:border-b-0"><td className="px-5 py-3.5 text-xs font-medium text-stone-600">{row[0]}</td>{row.slice(1).map((cell, i) => <td key={`${row[0]}-${i}`} className="px-5 py-3.5 text-xs text-stone-500">{cell === "Included" ? <span className="inline-flex items-center gap-1.5 font-medium text-stone-700"><Check className="h-3.5 w-3.5 text-[#7d8976]" /> Included</span> : cell}</td>)}</tr>)}</tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-center text-[10px] text-stone-400">Adjust any plan limits or feature availability above to match the exact rules in your billing system before publishing.</p>
+        </Shell>
+      </section>
 
-        @media (max-width: 980px) {
-          .hero-inner { grid-template-columns: 1fr; }
-          .hero-float { display: none; }
-        }
+      <section id="about" className="border-y border-stone-200 bg-[#efe6e1] py-24 sm:py-28 lg:py-36">
+        <Shell>
+          <div className="grid gap-12 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
+            <div>
+              <SectionLabel>The people behind it</SectionLabel>
+              <h2 className="text-balance text-4xl font-semibold tracking-[-0.05em] text-[#332f2c] sm:text-5xl">Built by a mum and daughter who were tired of business feeling so messy.</h2>
+              <p className="mt-6 max-w-xl text-base leading-7 text-stone-600">We&apos;re Sam and Leigha — two very different brains behind The Organised Types and TOTS-OS. We did not start with “let&apos;s build another piece of software.” We started with the problem we kept seeing and living: too many tabs, too many systems and too much important information held together by memory.</p>
+              <blockquote className="mt-7 border-l-2 border-[#7d8976] pl-5 text-xl font-medium leading-8 tracking-[-0.03em] text-stone-800">“One of us organises it. The other asks why it still takes five apps.”</blockquote>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-[28px] bg-white p-6 shadow-sm"><div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#dfe7d8] text-lg font-bold text-[#596451]">S</div><p className="mt-6 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">Mum · Co-founder</p><h3 className="mt-1 text-2xl font-semibold tracking-[-0.04em]">Sam</h3><p className="mt-3 text-sm leading-6 text-stone-600">Business, organisation and big-picture thinking. The practical voice asking whether a process actually works for a real business owner.</p></div>
+              <div className="rounded-[28px] bg-[#4f4a46] p-6 text-white shadow-sm"><div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-lg font-bold">L</div><p className="mt-6 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">Daughter · Co-founder</p><h3 className="mt-1 text-2xl font-semibold tracking-[-0.04em]">Leigha</h3><p className="mt-3 text-sm leading-6 text-white/60">Technology, product and design. Turning the “surely this could work better” conversations into the actual system.</p></div>
+            </div>
+          </div>
+        </Shell>
+      </section>
 
-        /* ---------- CONVERGE ---------- */
-        .converge { padding: 90px 0; background: var(--paper-alt); }
-        .converge-head { text-align: center; margin: 0 auto 50px; display: flex; flex-direction: column; align-items: center; }
-        .converge-stage { position: relative; height: 360px; max-width: 640px; margin: 0 auto; }
-        .converge-scatter { position: absolute; inset: 0; }
-        .converge-chip {
-          position: absolute; left: calc(50% + var(--x)); top: calc(50% + var(--y));
-          transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px;
-          background: var(--white); border: 1px solid var(--line); border-radius: 999px;
-          padding: 8px 14px; font-size: 12.5px; font-weight: 600; color: var(--ink-soft);
-          box-shadow: 0 8px 20px -12px rgba(27,31,22,0.25);
-        }
-        .converge-core {
-          position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-          display: flex; flex-direction: column; align-items: center; gap: 8px;
-          background: var(--ink); color: var(--paper); border-radius: 20px; padding: 22px 30px;
-          box-shadow: var(--shadow);
-        }
-        .converge-core strong { font-family: var(--font-display); font-size: 17px; }
-        .converge-caption { text-align: center; margin-top: 24px; }
-        .converge-caption p { font-size: 18px; color: var(--ink-soft); }
+      <section className="py-24 sm:py-28">
+        <Shell>
+          <div className="grid gap-10 lg:grid-cols-[.75fr_1.25fr]">
+            <div><SectionLabel>Questions</SectionLabel><h2 className="text-4xl font-semibold tracking-[-0.05em] text-[#332f2c] sm:text-5xl">The things you&apos;ll probably ask.</h2></div>
+            <div className="divide-y divide-stone-200 border-y border-stone-200">
+              {faqs.map((faq, i) => {
+                const open = openFaq === i;
+                return <button key={faq.q} onClick={() => setOpenFaq(open ? -1 : i)} className="w-full py-5 text-left"><div className="flex items-center justify-between gap-4"><span className="text-sm font-semibold text-stone-800">{faq.q}</span><ChevronDown className={classNames("h-4 w-4 shrink-0 text-stone-400 transition", open && "rotate-180")} /></div>{open ? <p className="max-w-2xl pt-3 text-sm leading-6 text-stone-600">{faq.a}</p> : null}</button>;
+              })}
+            </div>
+          </div>
+        </Shell>
+      </section>
 
-        @media (max-width: 720px) {
-          .converge-stage { height: 460px; }
-          .converge-chip { font-size: 11px; padding: 6px 10px; }
-        }
+      <section className="pb-8">
+        <Shell>
+          <div className="overflow-hidden rounded-[34px] bg-[#332f2c] px-6 py-16 text-center text-white sm:px-10 sm:py-20">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40">Ready when you are</p>
+            <h2 className="mx-auto mt-4 max-w-3xl text-balance text-5xl font-semibold tracking-[-0.06em] sm:text-6xl">Run the business.<br /><span className="text-[#b8c3af]">Not the chaos.</span></h2>
+            <p className="mx-auto mt-6 max-w-xl text-sm leading-7 text-white/60">Put your clients, projects, money, planning, notes and everyday business admin into one organised workspace.</p>
+            <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center"><Link href={APP_URL} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-[#332f2c]">Start 14 days free <ArrowRight className="h-4 w-4" /></Link><Link href="/find-your-setup" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white">Take the 60-second check</Link></div>
+            <p className="mt-5 text-[10px] text-white/35">No bank details required · No commitment</p>
+          </div>
+        </Shell>
+      </section>
 
-        /* ---------- EXPLORER ---------- */
-        .explorer { padding: 100px 0; }
-        .explorer-head { text-align: center; margin: 0 auto 46px; display: flex; flex-direction: column; align-items: center; }
-        .explorer-layout { display: grid; grid-template-columns: 220px 1fr; gap: 40px; align-items: start; }
-        .explorer-tabs { display: flex; flex-direction: column; gap: 6px; position: sticky; top: 100px; }
-        .explorer-tab {
-          display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px;
-          background: transparent; border: none; text-align: left; font-size: 14.5px; font-weight: 600;
-          color: var(--ink-soft); transition: background 0.18s ease, color 0.18s ease;
-        }
-        .explorer-tab:hover { background: var(--paper-alt); }
-        .explorer-tab.active { background: var(--ink); color: var(--paper); }
-        .explorer-panel { background: var(--paper-alt); border-radius: 24px; padding: 40px; min-height: 420px; }
-        .explorer-panel-inner { display: flex; flex-direction: column; gap: 26px; }
-        .explorer-copy h3 { font-size: 24px; max-width: 480px; }
-        .explorer-copy p { color: var(--ink-soft); font-size: 15.5px; max-width: 480px; }
-
-        @media (max-width: 880px) {
-          .explorer-layout { grid-template-columns: 1fr; }
-          .explorer-tabs { flex-direction: row; overflow-x: auto; position: static; gap: 8px; padding-bottom: 4px; }
-          .explorer-tab { flex-shrink: 0; }
-          .explorer-panel { padding: 24px; }
-        }
-
-        /* preview windows, reused across explorer / commerce */
-        .preview-window { background: var(--white); border-radius: 18px; border: 1px solid var(--line); padding: 22px; box-shadow: var(--shadow); }
-        .preview-rows { display: flex; flex-direction: column; gap: 12px; }
-        .preview-rows > div { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
-        .preview-rows > div:last-child { border-bottom: none; }
-        .preview-rows span { color: var(--ink-soft); }
-        .preview-rows strong.ok { color: var(--sage-deep); }
-        .preview-rows strong.warn { color: var(--gold); }
-        .preview-rows strong.danger { color: #b0462f; }
-        .preview-rows strong.tag { font-size: 11.5px; padding: 3px 9px; border-radius: 999px; background: var(--sage-pale); color: var(--sage-deep); }
-        .preview-rows strong.tag-active { background: var(--ink); color: var(--paper); }
-        .preview-bars { display: flex; align-items: flex-end; gap: 10px; height: 90px; margin-top: 18px; }
-        .preview-bars span { flex: 1; background: var(--sage); border-radius: 6px 6px 0 0; opacity: 0.75; }
-        .preview-client-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-        .preview-avatar { width: 42px; height: 42px; border-radius: 50%; background: var(--sage-pale); color: var(--sage-deep); display: flex; align-items: center; justify-content: center; font-weight: 700; }
-        .preview-client-head strong { display: block; }
-        .preview-client-head span { font-size: 12.5px; color: var(--ink-soft); }
-        .preview-tabs-row { display: flex; gap: 18px; font-size: 13px; font-weight: 600; color: var(--ink-soft); border-bottom: 1px solid var(--line); margin-bottom: 16px; padding-bottom: 10px; }
-        .preview-tabs-row .active { color: var(--ink); }
-        .preview-kanban { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-        .preview-kanban-col { display: flex; flex-direction: column; gap: 8px; }
-        .preview-kanban-col > span { font-size: 12px; font-weight: 700; color: var(--ink-soft); margin-bottom: 4px; }
-        .preview-kanban-card { background: var(--paper-alt); border-radius: 10px; padding: 10px; font-size: 12.5px; }
-        .preview-calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-        .preview-cal-cell { aspect-ratio: 1; border-radius: 8px; background: var(--paper-alt); }
-        .preview-cal-cell.has-post { background: var(--sage); }
-
-        /* ---------- OUTCOMES ---------- */
-        .outcomes { padding: 90px 0; background: var(--ink); color: var(--paper); }
-        .outcomes-head { text-align: center; margin: 0 auto 50px; display: flex; flex-direction: column; align-items: center; }
-        .outcomes .eyebrow { color: var(--sage); }
-        .outcomes .section-title { color: var(--paper); }
-        .outcomes-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: rgba(250,247,239,0.14); border-radius: 20px; overflow: hidden; }
-        .outcomes-item { background: var(--ink); padding: 34px 26px; }
-        .outcomes-num { display: block; font-family: var(--font-display); font-size: 13px; color: var(--sage); margin-bottom: 12px; }
-        .outcomes-item p { font-size: 19px; margin: 0; font-family: var(--font-display); }
-        @media (max-width: 880px) { .outcomes-list { grid-template-columns: 1fr 1fr; } }
-        @media (max-width: 560px) { .outcomes-list { grid-template-columns: 1fr; } }
-
-        /* ---------- CLARITY ---------- */
-        .clarity { padding: 100px 0; }
-        .clarity-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
-        .clarity-prompt-list { display: flex; flex-direction: column; gap: 10px; margin-top: 28px; }
-        .clarity-prompt {
-          text-align: left; padding: 13px 16px; border-radius: 12px; border: 1.5px solid var(--line);
-          background: var(--white); font-size: 14.5px; font-weight: 600; color: var(--ink-soft);
-        }
-        .clarity-prompt.active { border-color: var(--sage-deep); color: var(--ink); background: var(--sage-pale); }
-        .clarity-chat { background: var(--white); border-radius: 22px; border: 1px solid var(--line); box-shadow: var(--shadow); padding: 22px; }
-        .clarity-chat-head { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13.5px; color: var(--sage-deep); margin-bottom: 18px; }
-        .clarity-chat-body { min-height: 180px; display: flex; flex-direction: column; gap: 12px; }
-        .clarity-bubble { border-radius: 14px; padding: 13px 16px; font-size: 14.5px; }
-        .clarity-bubble-user { background: var(--paper-alt); align-self: flex-end; max-width: 80%; }
-        .clarity-bubble-reply { background: var(--sage-pale); }
-        .clarity-bubble-reply ol { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
-        .clarity-chat-input { margin-top: 18px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 12px 16px; color: var(--ink-soft); font-size: 13.5px; }
-        @media (max-width: 880px) { .clarity-layout { grid-template-columns: 1fr; } }
-
-        /* ---------- PROOF ---------- */
-        .proof { padding: 100px 0; background: var(--paper-alt); }
-        .proof-head { text-align: center; margin: 0 auto 50px; display: flex; flex-direction: column; align-items: center; }
-        .proof-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-        .proof-card { background: var(--white); border-radius: 18px; padding: 24px; border: 1px solid var(--line); }
-        .proof-card-mark { width: 36px; height: 36px; border-radius: 10px; background: var(--sage-pale); color: var(--sage-deep); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
-        .proof-card strong { display: block; font-size: 16px; margin-bottom: 4px; }
-        .proof-card-industry { display: block; font-size: 12.5px; color: var(--ink-soft); margin-bottom: 12px; font-style: italic; }
-        .proof-card-areas { display: flex; flex-wrap: wrap; gap: 6px; }
-        .proof-card-quote { margin-top: 14px; font-size: 13.5px; color: var(--ink-soft); border-top: 1px solid var(--line); padding-top: 12px; }
-        .proof-strip { margin-top: 50px; text-align: center; }
-        .proof-strip > span { display: block; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); margin-bottom: 16px; }
-        .proof-strip-row { display: flex; flex-wrap: wrap; gap: 12px 26px; justify-content: center; font-size: 13.5px; font-weight: 600; color: var(--ink-soft); }
-        @media (max-width: 880px) { .proof-grid { grid-template-columns: 1fr 1fr; } }
-        @media (max-width: 560px) { .proof-grid { grid-template-columns: 1fr; } }
-
-        /* ---------- BUSINESS CHECK ---------- */
-        .check { padding: 90px 0; }
-        .check-card { background: var(--sage-pale); border-radius: 28px; padding: 56px; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 50px; align-items: center; }
-        .check-copy .button { margin-top: 24px; }
-        .check-visual { display: flex; flex-direction: column; gap: 14px; }
-        .check-quiz-row { background: var(--white); border-radius: 14px; padding: 16px 18px; display: flex; gap: 14px; align-items: center; box-shadow: var(--shadow); }
-        .check-quiz-row span { font-family: var(--font-display); color: var(--sage-deep); font-size: 13px; }
-        .check-quiz-row p { margin: 0; font-size: 14px; font-weight: 600; }
-        @media (max-width: 880px) { .check-card { grid-template-columns: 1fr; padding: 34px; } }
-
-        /* ---------- COMMERCE ---------- */
-        .commerce { padding: 90px 0; }
-        .commerce-card { background: var(--ink); color: var(--paper); border-radius: 28px; padding: 56px; display: grid; grid-template-columns: 1fr 1fr; gap: 50px; align-items: center; }
-        .commerce .eyebrow { color: var(--sage); }
-        .commerce-list { list-style: none; padding: 0; margin: 0 0 20px; font-family: var(--font-display); font-size: 22px; }
-        .commerce-list li { padding: 3px 0; }
-        .commerce .section-copy { color: rgba(250,247,239,0.72); }
-        .commerce-price { display: flex; align-items: baseline; gap: 6px; margin: 22px 0; }
-        .commerce-price strong { font-family: var(--font-display); font-size: 40px; }
-        .commerce .button-secondary { border-color: rgba(250,247,239,0.3); color: var(--paper); }
-        .commerce .button-secondary:hover { border-color: var(--paper); }
-        @media (max-width: 880px) { .commerce-card { grid-template-columns: 1fr; padding: 34px; } }
-
-        /* ---------- PRICING ---------- */
-        .pricing { padding: 100px 0; }
-        .pricing-head { text-align: center; margin: 0 auto 50px; display: flex; flex-direction: column; align-items: center; }
-        .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; align-items: start; }
-        .pricing-card { background: var(--white); border: 1px solid var(--line); border-radius: 22px; padding: 32px; display: flex; flex-direction: column; gap: 14px; }
-        .pricing-card.featured { background: var(--ink); color: var(--paper); border-color: var(--ink); transform: scale(1.04); box-shadow: var(--shadow); }
-        .pricing-badge { align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: 0.03em; background: var(--gold); color: var(--ink); padding: 5px 12px; border-radius: 999px; }
-        .pricing-name { font-size: 14px; font-weight: 700; color: var(--ink-soft); }
-        .pricing-card.featured .pricing-name { color: rgba(250,247,239,0.7); }
-        .pricing-price { display: flex; align-items: baseline; gap: 4px; }
-        .pricing-price strong { font-family: var(--font-display); font-size: 40px; }
-        .pricing-tagline { color: var(--ink-soft); font-size: 14.5px; margin: 0; }
-        .pricing-card.featured .pricing-tagline { color: rgba(250,247,239,0.75); }
-        .pricing-divider { height: 1px; background: var(--line); }
-        .pricing-card.featured .pricing-divider { background: rgba(250,247,239,0.18); }
-        .pricing-features { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 11px; flex: 1; }
-        .pricing-features li { display: flex; gap: 9px; align-items: flex-start; font-size: 14px; }
-        .pricing-features svg { color: var(--sage-deep); flex-shrink: 0; margin-top: 2px; }
-        .pricing-card.featured .pricing-features svg { color: var(--sage); }
-        .pricing-cta { justify-content: center; }
-        .pricing-note { text-align: center; margin-top: 40px; font-size: 14.5px; color: var(--ink-soft); }
-        .pricing-note a { text-decoration: underline; color: var(--ink); }
-        @media (max-width: 940px) {
-          .pricing-grid { grid-template-columns: 1fr; }
-          .pricing-card.featured { transform: none; }
-        }
-
-        /* ---------- FOUNDERS ---------- */
-        .founders { padding: 90px 0; background: var(--paper-alt); }
-        .founders-head { text-align: center; margin: 0 auto 20px; display: flex; flex-direction: column; align-items: center; }
-        .founders-lede { font-family: var(--font-display); font-style: italic; font-size: 20px; color: var(--ink); }
-        .founders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 40px; }
-        .founder-card { background: var(--white); border-radius: 20px; padding: 30px; border: 1px solid var(--line); }
-        .founder-avatar { width: 52px; height: 52px; border-radius: 50%; background: var(--sage); color: var(--white); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 20px; margin-bottom: 16px; }
-        .founder-card span { font-size: 12.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
-        .founder-card h3 { font-size: 22px; margin: 4px 0 10px; }
-        .founder-card p { color: var(--ink-soft); font-size: 14.5px; margin: 0; }
-        @media (max-width: 720px) { .founders-grid { grid-template-columns: 1fr; } }
-
-        /* ---------- FAQ ---------- */
-        .faq { padding: 90px 0; }
-        .faq-list { max-width: 720px; margin: 40px auto 0; display: flex; flex-direction: column; gap: 10px; }
-        .faq-item { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--white); }
-        .faq-q { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 18px 22px; background: none; border: none; font-size: 15.5px; font-weight: 600; text-align: left; }
-        .faq-q svg { transition: transform 0.2s ease; flex-shrink: 0; }
-        .faq-item.open .faq-q svg { transform: rotate(180deg); }
-        .faq-a { overflow: hidden; }
-        .faq-a p { margin: 0 22px 20px; color: var(--ink-soft); font-size: 14.5px; line-height: 1.6; }
-
-        /* ---------- FINAL CTA ---------- */
-        .final { padding: 40px 0 100px; }
-        .final-card { background: var(--ink); color: var(--paper); border-radius: 32px; padding: 80px 40px; text-align: center; }
-        .final-card h2 { font-size: clamp(32px, 5vw, 54px); color: var(--paper); }
-        .final-card p { font-size: 17px; color: rgba(250,247,239,0.75); max-width: 480px; margin: 0 auto 32px; }
-        .final-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px; }
-        .final .button-primary { background: var(--sage); color: var(--ink); }
-        .final .button-primary:hover { background: var(--paper); }
-        .final .button-ghost { color: var(--paper); }
-        .final-micro { font-size: 13px; color: rgba(250,247,239,0.55); }
-
-        /* ---------- FOOTER ---------- */
-        .site-footer { padding: 50px 0 30px; border-top: 1px solid var(--line); }
-        .footer-inner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; margin-bottom: 30px; }
-        .footer-inner nav { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-soft); }
-        .footer-bottom { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 12.5px; color: var(--ink-soft); }
-      `}</style>
-    </div>
+      <footer className="py-10">
+        <Shell className="flex flex-col justify-between gap-6 border-t border-stone-200 pt-8 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3"><div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#4f4a46] text-xs font-bold text-white">T</div><div><p className="text-xs font-bold">TOTS-OS</p><p className="text-[9px] text-stone-400">Your business, organised.</p></div></div>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] font-medium text-stone-500"><Link href="#product">Product</Link><Link href="#clarity">Clarity</Link><Link href="#pricing">Pricing</Link><Link href="/find-your-setup">Business check</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></div>
+          <p className="text-[10px] text-stone-400">© 2026 The Organised Types.</p>
+        </Shell>
+      </footer>
+    </main>
   );
 }

@@ -9,6 +9,10 @@ import {
 
 import Stripe from "stripe";
 
+import {
+  Resend,
+} from "resend";
+
 export const dynamic =
   "force-dynamic";
 
@@ -44,11 +48,21 @@ const rawStoreSubscriptionWebhookSecret =
     .STRIPE_STORE_SUBSCRIPTION_WEBHOOK_SECRET
     ?.trim();
 
+const rawResendApiKey =
+  process.env
+    .RESEND_API_KEY
+    ?.trim();
+
+const rawSiteUrl =
+  process.env
+    .NEXT_PUBLIC_SITE_URL
+    ?.trim() ||
+  process.env
+    .SITE_URL
+    ?.trim();
+
 // ============================================================
 // VALIDATE REQUIRED ENVIRONMENT
-//
-// Explicit string assignments after validation stop TypeScript
-// treating these as string | undefined later in the file.
 // ============================================================
 
 if (
@@ -100,19 +114,27 @@ const storePriceId:
   rawStorePriceId;
 
 // ============================================================
-// WEBHOOK SECRET
-//
-// This deliberately remains nullable here.
-//
-// Unlike the core environment values, we handle a missing
-// webhook secret inside POST() so the route can return a
-// controlled error rather than crashing module initialisation.
+// OPTIONAL / ROUTE-HANDLED ENVIRONMENT
 // ============================================================
 
 const storeSubscriptionWebhookSecret:
   string | null =
   rawStoreSubscriptionWebhookSecret ||
   null;
+
+const resendApiKey:
+  string | null =
+  rawResendApiKey ||
+  null;
+
+const siteUrl =
+  (
+    rawSiteUrl ||
+    "https://www.tots-os.co.uk"
+  ).replace(
+    /\/$/,
+    ""
+  );
 
 // ============================================================
 // CLIENTS
@@ -138,6 +160,13 @@ const stripe =
     stripeSecretKey
   );
 
+const resend =
+  resendApiKey
+    ? new Resend(
+        resendApiKey
+      )
+    : null;
+
 // ============================================================
 // TYPES
 // ============================================================
@@ -153,6 +182,9 @@ type OrganisationLookupRow = {
     string | null;
 
   store_stripe_subscription_id?:
+    string | null;
+
+  store_subscription_status?:
     string | null;
 };
 
@@ -172,6 +204,37 @@ function cleanString(
   }
 
   return value.trim();
+}
+
+// ============================================================
+// ESCAPE HTML
+// ============================================================
+
+function escapeHtml(
+  value:
+    string
+) {
+  return value
+    .replaceAll(
+      "&",
+      "&amp;"
+    )
+    .replaceAll(
+      "<",
+      "&lt;"
+    )
+    .replaceAll(
+      ">",
+      "&gt;"
+    )
+    .replaceAll(
+      '"',
+      "&quot;"
+    )
+    .replaceAll(
+      "'",
+      "&#039;"
+    );
 }
 
 // ============================================================
@@ -322,12 +385,8 @@ function getSubscriptionPriceIds(
 //
 // SECURITY CRITICAL:
 //
-// We NEVER enable Store because an organisation simply has a
-// Stripe subscription.
-//
-// The LIVE Stripe subscription must contain the exact:
-//
-// STRIPE_STORE_ADDON_PRICE_ID
+// The Store is only enabled when Stripe confirms the live
+// subscription contains STRIPE_STORE_ADDON_PRICE_ID.
 // ============================================================
 
 function subscriptionHasStorePrice(
@@ -376,15 +435,15 @@ function getStorePriceId(
 }
 
 // ============================================================
-// ACTIVE ACCESS STATUS
+// STORE ACCESS
 //
 // ONLY:
 //
-// active + correct price
+// active + correct Store price
 //
 // OR:
 //
-// trialing + correct price
+// trialing + correct Store price
 //
 // unlocks Store.
 // ============================================================
@@ -406,6 +465,78 @@ function subscriptionAllowsStoreAccess(
     subscriptionHasStorePrice(
       subscription
     )
+  );
+}
+
+// ============================================================
+// STORE TRIAL
+// ============================================================
+
+function isStoreTrial(
+  subscription:
+    Stripe.Subscription
+) {
+  const subscriptionType =
+    cleanString(
+      subscription
+        .metadata
+        ?.subscription_type
+    );
+
+  const trialType =
+    cleanString(
+      subscription
+        .metadata
+        ?.trial_type
+    );
+
+  return (
+    subscriptionType ===
+      "store_addon" &&
+    (
+      trialType ===
+        "store_7_day_trial" ||
+      Boolean(
+        subscription
+          .trial_end
+      )
+    )
+  );
+}
+
+// ============================================================
+// TRIAL END
+// ============================================================
+
+function getTrialEnd(
+  subscription:
+    Stripe.Subscription
+) {
+  return timestampToIso(
+    subscription
+      .trial_end
+  );
+}
+
+// ============================================================
+// CURRENT PERIOD END
+// ============================================================
+
+function getCurrentPeriodEnd(
+  subscription:
+    Stripe.Subscription
+) {
+  const subscriptionWithPeriod =
+    subscription as
+      Stripe.Subscription & {
+        current_period_end?:
+          number |
+          null;
+      };
+
+  return timestampToIso(
+    subscriptionWithPeriod
+      .current_period_end
   );
 }
 
@@ -449,7 +580,8 @@ async function findOrganisationByCustomerId(
           id,
           name,
           store_stripe_customer_id,
-          store_stripe_subscription_id
+          store_stripe_subscription_id,
+          store_subscription_status
         `
       )
       .eq(
@@ -493,7 +625,8 @@ async function findOrganisationBySubscriptionId(
           id,
           name,
           store_stripe_customer_id,
-          store_stripe_subscription_id
+          store_stripe_subscription_id,
+          store_subscription_status
         `
       )
       .eq(
@@ -543,10 +676,6 @@ async function resolveOrganisationId({
     string |
     null;
 }) {
-  // ==========================================================
-  // 1. METADATA
-  // ==========================================================
-
   if (
     metadataOrganisationId
   ) {
@@ -582,10 +711,6 @@ async function resolveOrganisationId({
     }
   }
 
-  // ==========================================================
-  // 2. SUBSCRIPTION
-  // ==========================================================
-
   if (
     subscriptionId
   ) {
@@ -602,10 +727,6 @@ async function resolveOrganisationId({
       );
     }
   }
-
-  // ==========================================================
-  // 3. CUSTOMER
-  // ==========================================================
 
   if (
     customerId
@@ -625,6 +746,851 @@ async function resolveOrganisationId({
   }
 
   return null;
+}
+
+// ============================================================
+// LOAD ORGANISATION NAME
+// ============================================================
+
+async function getOrganisationName(
+  organisationId:
+    string
+) {
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "organisations"
+      )
+      .select(
+        "name"
+      )
+      .eq(
+        "id",
+        organisationId
+      )
+      .maybeSingle();
+
+  if (
+    error
+  ) {
+    console.warn(
+      "[STORE EMAIL] Could not load organisation name:",
+      error
+    );
+
+    return "your business";
+  }
+
+  return (
+    cleanString(
+      data?.name
+    ) ||
+    "your business"
+  );
+}
+
+// ============================================================
+// CUSTOMER EMAIL
+//
+// Priority:
+//
+// 1. subscription metadata
+// 2. Stripe customer email
+// ============================================================
+
+async function getSubscriptionEmail(
+  subscription:
+    Stripe.Subscription
+) {
+  const metadataEmail =
+    cleanString(
+      subscription
+        .metadata
+        ?.customer_email
+    ).toLowerCase();
+
+  if (
+    metadataEmail
+  ) {
+    return metadataEmail;
+  }
+
+  const customerId =
+    getCustomerId(
+      subscription.customer
+    );
+
+  if (
+    !customerId
+  ) {
+    return null;
+  }
+
+  try {
+    const customer =
+      await stripe
+        .customers
+        .retrieve(
+          customerId
+        );
+
+    if (
+      "deleted" in
+        customer &&
+      customer.deleted
+    ) {
+      return null;
+    }
+
+    const email =
+      cleanString(
+        customer.email
+      ).toLowerCase();
+
+    return (
+      email ||
+      null
+    );
+  } catch (
+    error
+  ) {
+    console.warn(
+      "[STORE EMAIL] Could not retrieve Stripe customer:",
+      error
+    );
+
+    return null;
+  }
+}
+
+// ============================================================
+// TRIAL EMAIL SENT?
+//
+// We store the marker in live Stripe subscription metadata.
+//
+// This means webhook retries will normally see that the email
+// has already been sent and will not intentionally resend it.
+// ============================================================
+
+function hasTrialEndEmailBeenSent(
+  subscription:
+    Stripe.Subscription
+) {
+  return (
+    cleanString(
+      subscription
+        .metadata
+        ?.trial_end_email_sent
+    ) ===
+    "true"
+  );
+}
+
+// ============================================================
+// MARK TRIAL EMAIL SENT
+// ============================================================
+
+async function markTrialEndEmailSent(
+  subscriptionId:
+    string
+) {
+  await stripe
+    .subscriptions
+    .update(
+      subscriptionId,
+      {
+        metadata: {
+          trial_end_email_sent:
+            "true",
+
+          trial_end_email_sent_at:
+            new Date()
+              .toISOString(),
+        },
+      }
+    );
+}
+
+// ============================================================
+// CONTINUE URL
+// ============================================================
+
+function getContinueStoreUrl() {
+  return `${siteUrl}/store`;
+}
+
+// ============================================================
+// EMAIL HTML - ACTIVE AFTER TRIAL
+// ============================================================
+
+function buildTrialConvertedEmail({
+  organisationName,
+}: {
+  organisationName:
+    string;
+}) {
+  const safeOrganisationName =
+    escapeHtml(
+      organisationName
+    );
+
+  const continueUrl =
+    getContinueStoreUrl();
+
+  return `
+<!doctype html>
+<html>
+  <body
+    style="
+      margin:0;
+      padding:0;
+      background:#f7f5f2;
+      font-family:Arial,Helvetica,sans-serif;
+      color:#272522;
+    "
+  >
+    <table
+      role="presentation"
+      width="100%"
+      cellspacing="0"
+      cellpadding="0"
+      border="0"
+      style="
+        background:#f7f5f2;
+        padding:40px 20px;
+      "
+    >
+      <tr>
+        <td align="center">
+          <table
+            role="presentation"
+            width="100%"
+            cellspacing="0"
+            cellpadding="0"
+            border="0"
+            style="
+              max-width:620px;
+              background:#ffffff;
+              border-radius:18px;
+              overflow:hidden;
+            "
+          >
+            <tr>
+              <td
+                style="
+                  background:#242321;
+                  padding:42px 42px 38px;
+                  text-align:center;
+                  color:#ffffff;
+                "
+              >
+                <div
+                  style="
+                    font-size:13px;
+                    letter-spacing:2px;
+                    text-transform:uppercase;
+                    opacity:.75;
+                    margin-bottom:12px;
+                  "
+                >
+                  TOTS-OS STORE
+                </div>
+
+                <h1
+                  style="
+                    margin:0;
+                    font-size:34px;
+                    line-height:1.15;
+                  "
+                >
+                  Your Store trial has ended 🤍
+                </h1>
+              </td>
+            </tr>
+
+            <tr>
+              <td
+                style="
+                  padding:42px;
+                "
+              >
+                <p
+                  style="
+                    margin:0 0 20px;
+                    font-size:17px;
+                    line-height:1.7;
+                  "
+                >
+                  Hi ${safeOrganisationName},
+                </p>
+
+                <p
+                  style="
+                    margin:0 0 20px;
+                    font-size:17px;
+                    line-height:1.7;
+                  "
+                >
+                  Your 7-day TOTS-OS Store trial has now finished.
+                </p>
+
+                <p
+                  style="
+                    margin:0 0 20px;
+                    font-size:17px;
+                    line-height:1.7;
+                  "
+                >
+                  Your Store subscription is now active at
+                  <strong>£39/month</strong>, so you can carry on
+                  managing your products, orders and customers
+                  directly from TOTS-OS.
+                </p>
+
+                <div
+                  style="
+                    margin:30px 0;
+                    padding:22px;
+                    background:#eef1ea;
+                    border-radius:14px;
+                  "
+                >
+                  <strong>
+                    Nothing you need to do.
+                  </strong>
+
+                  <div
+                    style="
+                      margin-top:8px;
+                      line-height:1.6;
+                    "
+                  >
+                    Your Store remains live and connected to
+                    your TOTS-OS account.
+                  </div>
+                </div>
+
+                <table
+                  role="presentation"
+                  cellspacing="0"
+                  cellpadding="0"
+                  border="0"
+                  style="
+                    margin:30px 0;
+                  "
+                >
+                  <tr>
+                    <td
+                      style="
+                        background:#242321;
+                        border-radius:10px;
+                      "
+                    >
+                      <a
+                        href="${continueUrl}"
+                        style="
+                          display:inline-block;
+                          padding:15px 24px;
+                          color:#ffffff;
+                          text-decoration:none;
+                          font-weight:bold;
+                          font-size:15px;
+                        "
+                      >
+                        GO TO YOUR STORE →
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                <p
+                  style="
+                    margin:35px 0 0;
+                    font-size:15px;
+                    line-height:1.7;
+                    color:#68635e;
+                  "
+                >
+                  Sam &amp; Leigha 🤍
+                  <br>
+                  TOTS-OS
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+  `;
+}
+
+// ============================================================
+// EMAIL HTML - TRIAL ENDED / NOT ACTIVE
+// ============================================================
+
+function buildTrialEndedEmail({
+  organisationName,
+}: {
+  organisationName:
+    string;
+}) {
+  const safeOrganisationName =
+    escapeHtml(
+      organisationName
+    );
+
+  const continueUrl =
+    getContinueStoreUrl();
+
+  return `
+<!doctype html>
+<html>
+  <body
+    style="
+      margin:0;
+      padding:0;
+      background:#f7f5f2;
+      font-family:Arial,Helvetica,sans-serif;
+      color:#272522;
+    "
+  >
+    <table
+      role="presentation"
+      width="100%"
+      cellspacing="0"
+      cellpadding="0"
+      border="0"
+      style="
+        background:#f7f5f2;
+        padding:40px 20px;
+      "
+    >
+      <tr>
+        <td align="center">
+          <table
+            role="presentation"
+            width="100%"
+            cellspacing="0"
+            cellpadding="0"
+            border="0"
+            style="
+              max-width:620px;
+              background:#ffffff;
+              border-radius:18px;
+              overflow:hidden;
+            "
+          >
+            <tr>
+              <td
+                style="
+                  background:#242321;
+                  padding:42px 42px 38px;
+                  text-align:center;
+                  color:#ffffff;
+                "
+              >
+                <div
+                  style="
+                    font-size:13px;
+                    letter-spacing:2px;
+                    text-transform:uppercase;
+                    opacity:.75;
+                    margin-bottom:12px;
+                  "
+                >
+                  TOTS-OS STORE
+                </div>
+
+                <h1
+                  style="
+                    margin:0;
+                    font-size:34px;
+                    line-height:1.15;
+                  "
+                >
+                  Your Store trial has ended 🤍
+                </h1>
+              </td>
+            </tr>
+
+            <tr>
+              <td
+                style="
+                  padding:42px;
+                "
+              >
+                <p
+                  style="
+                    margin:0 0 20px;
+                    font-size:17px;
+                    line-height:1.7;
+                  "
+                >
+                  Hi ${safeOrganisationName},
+                </p>
+
+                <p
+                  style="
+                    margin:0 0 20px;
+                    font-size:17px;
+                    line-height:1.7;
+                  "
+                >
+                  Your 7-day TOTS-OS Store trial has now finished.
+                </p>
+
+                <p
+                  style="
+                    margin:0 0 20px;
+                    font-size:17px;
+                    line-height:1.7;
+                  "
+                >
+                  We hope you've had a chance to see what it's
+                  like having your products, orders and customers
+                  connected directly to your business OS.
+                </p>
+
+                <p
+                  style="
+                    margin:0 0 26px;
+                    font-size:17px;
+                    line-height:1.7;
+                  "
+                >
+                  Want to keep using it? Continue with
+                  TOTS-OS Store for
+                  <strong>£39/month</strong>.
+                </p>
+
+                <table
+                  role="presentation"
+                  cellspacing="0"
+                  cellpadding="0"
+                  border="0"
+                  style="
+                    margin:30px 0;
+                  "
+                >
+                  <tr>
+                    <td
+                      style="
+                        background:#242321;
+                        border-radius:10px;
+                      "
+                    >
+                      <a
+                        href="${continueUrl}"
+                        style="
+                          display:inline-block;
+                          padding:15px 24px;
+                          color:#ffffff;
+                          text-decoration:none;
+                          font-weight:bold;
+                          font-size:15px;
+                        "
+                      >
+                        CONTINUE WITH TOTS-OS STORE →
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                <p
+                  style="
+                    margin:25px 0 0;
+                    font-size:15px;
+                    line-height:1.7;
+                    color:#68635e;
+                  "
+                >
+                  If you don't want to continue, there's nothing
+                  else you need to do.
+                </p>
+
+                <p
+                  style="
+                    margin:35px 0 0;
+                    font-size:15px;
+                    line-height:1.7;
+                    color:#68635e;
+                  "
+                >
+                  Sam &amp; Leigha 🤍
+                  <br>
+                  TOTS-OS
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+  `;
+}
+
+// ============================================================
+// SEND TRIAL END EMAIL
+// ============================================================
+
+async function sendTrialEndEmail(
+  subscription:
+    Stripe.Subscription
+) {
+  // ==========================================================
+  // ONLY STORE TRIALS
+  // ==========================================================
+
+  if (
+    !isStoreTrial(
+      subscription
+    )
+  ) {
+    return;
+  }
+
+  // ==========================================================
+  // RESEND CONFIG
+  // ==========================================================
+
+  if (
+    !resend
+  ) {
+    throw new Error(
+      "RESEND_API_KEY is missing. Store trial email could not be sent."
+    );
+  }
+
+  // ==========================================================
+  // GET LIVE SUBSCRIPTION
+  //
+  // This is important because the Stripe event itself is an
+  // immutable snapshot. The live subscription may already have
+  // our email-sent metadata from a previous webhook attempt.
+  // ==========================================================
+
+  const liveSubscription =
+    await stripe
+      .subscriptions
+      .retrieve(
+        subscription.id
+      );
+
+  // ==========================================================
+  // DUPLICATE PROTECTION
+  // ==========================================================
+
+  if (
+    hasTrialEndEmailBeenSent(
+      liveSubscription
+    )
+  ) {
+    console.log(
+      "[STORE EMAIL] Trial-end email already sent:",
+      {
+        subscriptionId:
+          subscription.id,
+      }
+    );
+
+    return;
+  }
+
+  // ==========================================================
+  // EMAIL ADDRESS
+  // ==========================================================
+
+  const email =
+    await getSubscriptionEmail(
+      liveSubscription
+    );
+
+  if (
+    !email
+  ) {
+    console.warn(
+      "[STORE EMAIL] Trial ended but no customer email could be found:",
+      {
+        subscriptionId:
+          liveSubscription.id,
+      }
+    );
+
+    return;
+  }
+
+  // ==========================================================
+  // ORGANISATION
+  // ==========================================================
+
+  const customerId =
+    getCustomerId(
+      liveSubscription.customer
+    );
+
+  const organisationId =
+    await resolveOrganisationId({
+      metadataOrganisationId:
+        getOrganisationIdFromMetadata(
+          liveSubscription.metadata
+        ),
+
+      customerId,
+
+      subscriptionId:
+        liveSubscription.id,
+    });
+
+  if (
+    !organisationId
+  ) {
+    throw new Error(
+      `Could not resolve organisation for Store trial email ${liveSubscription.id}.`
+    );
+  }
+
+  const organisationName =
+    await getOrganisationName(
+      organisationId
+    );
+
+  // ==========================================================
+  // ACTIVE AFTER TRIAL?
+  // ==========================================================
+
+  const continued =
+    liveSubscription.status ===
+      "active" &&
+    subscriptionHasStorePrice(
+      liveSubscription
+    );
+
+  const subject =
+    continued
+      ? "Your TOTS-OS Store trial has ended 🤍"
+      : "Your TOTS-OS Store trial has ended";
+
+  const html =
+    continued
+      ? buildTrialConvertedEmail({
+          organisationName,
+        })
+      : buildTrialEndedEmail({
+          organisationName,
+        });
+
+  const text =
+    continued
+      ? `
+Your TOTS-OS Store trial has ended.
+
+Your 7-day Store trial has now finished and your Store subscription is active at £39/month.
+
+Your Store remains live and connected to your TOTS-OS account.
+
+Go to your Store:
+${getContinueStoreUrl()}
+
+Sam & Leigha
+TOTS-OS
+      `.trim()
+      : `
+Your TOTS-OS Store trial has ended.
+
+Your 7-day Store trial has now finished.
+
+Want to keep using your Store? Continue with TOTS-OS Store for £39/month.
+
+Continue here:
+${getContinueStoreUrl()}
+
+Sam & Leigha
+TOTS-OS
+      `.trim();
+
+  // ==========================================================
+  // SEND
+  // ==========================================================
+
+  const {
+    data,
+    error,
+  } =
+    await resend
+      .emails
+      .send({
+        from:
+          "TOTS-OS <hello@tots-os.co.uk>",
+
+        to: [
+          email,
+        ],
+
+        subject,
+
+        html,
+
+        text,
+      });
+
+  if (
+    error
+  ) {
+    console.error(
+      "[STORE EMAIL] Resend rejected trial-end email:",
+      {
+        email,
+        subscriptionId:
+          liveSubscription.id,
+        error,
+      }
+    );
+
+    throw new Error(
+      error.message ||
+      "Resend rejected Store trial-end email."
+    );
+  }
+
+  if (
+    !data?.id
+  ) {
+    throw new Error(
+      "Resend did not return an email ID for Store trial-end email."
+    );
+  }
+
+  console.log(
+    "[STORE EMAIL] Trial-end email accepted by Resend:",
+    {
+      emailId:
+        data.id,
+
+      email,
+
+      organisationId,
+
+      subscriptionId:
+        liveSubscription.id,
+
+      continued,
+    }
+  );
+
+  // ==========================================================
+  // MARK AS SENT
+  // ==========================================================
+
+  await markTrialEndEmailSent(
+    liveSubscription.id
+  );
 }
 
 // ============================================================
@@ -702,12 +1668,6 @@ async function updateStoreAccess({
         cancelAtPeriodEnd,
     };
 
-  // ==========================================================
-  // ENABLED AT
-  //
-  // Only set when access is actually being enabled.
-  // ==========================================================
-
   if (
     enabled
   ) {
@@ -760,56 +1720,14 @@ async function updateStoreAccess({
 }
 
 // ============================================================
-// CURRENT PERIOD END
-//
-// IMPORTANT:
-//
-// Do NOT access current_period_end on SubscriptionItem.
-//
-// The Stripe package currently used by the project does not
-// type that property on SubscriptionItem.
-//
-// Some Stripe API versions still expose current_period_end on
-// Subscription itself at runtime, so we safely narrow ONLY the
-// subscription object.
-// ============================================================
-
-function getCurrentPeriodEnd(
-  subscription:
-    Stripe.Subscription
-) {
-  const subscriptionWithPeriod =
-    subscription as
-      Stripe.Subscription & {
-        current_period_end?:
-          number |
-          null;
-      };
-
-  return timestampToIso(
-    subscriptionWithPeriod
-      .current_period_end
-  );
-}
-
-// ============================================================
 // SYNC SUBSCRIPTION
-//
-// This is the central source of truth.
-//
-// Every subscription event eventually comes through here.
 // ============================================================
 
 async function syncSubscription(
   subscription:
     Stripe.Subscription
 ) {
-  // ==========================================================
-  // REFERENCES
-  // ==========================================================
-
-  const subscriptionId:
-    string =
+  const subscriptionId =
     subscription.id;
 
   const customerId =
@@ -821,10 +1739,6 @@ async function syncSubscription(
     getOrganisationIdFromMetadata(
       subscription.metadata
     );
-
-  // ==========================================================
-  // FIND TOTS ORGANISATION
-  // ==========================================================
 
   const organisationId =
     await resolveOrganisationId({
@@ -842,10 +1756,6 @@ async function syncSubscription(
       `Could not find TOTS organisation for Store subscription ${subscription.id}.`
     );
   }
-
-  // ==========================================================
-  // VERIFY CORRECT STORE PRODUCT
-  // ==========================================================
 
   const hasCorrectPrice =
     subscriptionHasStorePrice(
@@ -876,29 +1786,15 @@ async function syncSubscription(
     );
   }
 
-  // ==========================================================
-  // ACCESS
-  // ==========================================================
-
   const enabled =
     subscriptionAllowsStoreAccess(
       subscription
     );
 
-  // ==========================================================
-  // EXACT PRICE
-  // ==========================================================
-
   const actualPriceId =
     getStorePriceId(
       subscription
     );
-
-  // ==========================================================
-  // UPDATE ORGANISATION
-  //
-  // Wrong product = enabled false and priceId null.
-  // ==========================================================
 
   await updateStoreAccess({
     organisationId,
@@ -946,10 +1842,6 @@ async function handleCheckoutCompleted(
   session:
     Stripe.Checkout.Session
 ) {
-  // ==========================================================
-  // ONLY HANDLE STORE ADD-ON CHECKOUT
-  // ==========================================================
-
   const subscriptionType =
     cleanString(
       session.metadata
@@ -968,10 +1860,6 @@ async function handleCheckoutCompleted(
     return;
   }
 
-  // ==========================================================
-  // VERIFY PRICE METADATA
-  // ==========================================================
-
   const metadataPriceId =
     cleanString(
       session.metadata
@@ -988,10 +1876,6 @@ async function handleCheckoutCompleted(
     );
   }
 
-  // ==========================================================
-  // SUBSCRIPTION
-  // ==========================================================
-
   const subscriptionId =
     getSubscriptionId(
       session.subscription
@@ -1005,22 +1889,12 @@ async function handleCheckoutCompleted(
     );
   }
 
-  // ==========================================================
-  // LOAD LIVE SUBSCRIPTION
-  // ==========================================================
-
   const subscription =
     await stripe
       .subscriptions
       .retrieve(
         subscriptionId
       );
-
-  // ==========================================================
-  // VERIFY PRODUCT FROM STRIPE
-  //
-  // Metadata alone is NOT enough.
-  // ==========================================================
 
   if (
     !subscriptionHasStorePrice(
@@ -1032,10 +1906,6 @@ async function handleCheckoutCompleted(
     );
   }
 
-  // ==========================================================
-  // ORGANISATION METADATA
-  // ==========================================================
-
   const checkoutOrganisationId =
     getOrganisationIdFromMetadata(
       session.metadata
@@ -1045,10 +1915,6 @@ async function handleCheckoutCompleted(
     getOrganisationIdFromMetadata(
       subscription.metadata
     );
-
-  // ==========================================================
-  // VERIFY METADATA MATCH
-  // ==========================================================
 
   if (
     checkoutOrganisationId &&
@@ -1061,9 +1927,30 @@ async function handleCheckoutCompleted(
     );
   }
 
-  // ==========================================================
-  // SYNC
-  // ==========================================================
+  if (
+    subscription.status ===
+    "trialing"
+  ) {
+    console.log(
+      "[STORE SUBSCRIPTION WEBHOOK] 7-day Store trial started:",
+      {
+        checkoutSessionId:
+          session.id,
+
+        subscriptionId:
+          subscription.id,
+
+        organisationId:
+          checkoutOrganisationId ||
+          subscriptionOrganisationId,
+
+        trialEnd:
+          getTrialEnd(
+            subscription
+          ),
+      }
+    );
+  }
 
   await syncSubscription(
     subscription
@@ -1072,9 +1959,6 @@ async function handleCheckoutCompleted(
 
 // ============================================================
 // INVOICE SUBSCRIPTION ID
-//
-// Stripe Invoice typings differ across SDK/API combinations.
-// Isolate the compatibility cast here.
 // ============================================================
 
 function getInvoiceSubscriptionId(
@@ -1114,10 +1998,6 @@ async function handleInvoicePaymentFailed(
       invoice
     );
 
-  // ==========================================================
-  // IF SUBSCRIPTION EXISTS, LIVE STRIPE STATUS WINS
-  // ==========================================================
-
   if (
     subscriptionId
   ) {
@@ -1128,10 +2008,6 @@ async function handleInvoicePaymentFailed(
           .retrieve(
             subscriptionId
           );
-
-      // ======================================================
-      // ONLY STORE SUBSCRIPTIONS
-      // ======================================================
 
       if (
         subscriptionHasStorePrice(
@@ -1154,10 +2030,6 @@ async function handleInvoicePaymentFailed(
     }
   }
 
-  // ==========================================================
-  // FALLBACK CUSTOMER LOOKUP
-  // ==========================================================
-
   if (
     !customerId
   ) {
@@ -1174,13 +2046,6 @@ async function handleInvoicePaymentFailed(
   ) {
     return;
   }
-
-  // ==========================================================
-  // FAIL CLOSED
-  //
-  // We cannot confirm a healthy subscription, therefore Store
-  // access stays disabled.
-  // ==========================================================
 
   await updateStoreAccess({
     organisationId:
@@ -1203,12 +2068,6 @@ async function handleInvoicePaymentFailed(
       ) ||
       null,
 
-    /*
-     * This is the important TypeScript fix.
-     *
-     * storePriceId is now guaranteed to be `string`, not
-     * `string | undefined`.
-     */
     priceId:
       storePriceId,
 
@@ -1246,10 +2105,6 @@ async function handleInvoicePaid(
         subscriptionId
       );
 
-  // ==========================================================
-  // ONLY STORE PRODUCT
-  // ==========================================================
-
   if (
     !subscriptionHasStorePrice(
       subscription
@@ -1260,6 +2115,88 @@ async function handleInvoicePaid(
 
   await syncSubscription(
     subscription
+  );
+}
+
+// ============================================================
+// TRIAL WILL END
+//
+// This is intentionally NOT the "trial ended" email.
+//
+// Stripe sends this before the trial ends.
+//
+// We only sync access here.
+// ============================================================
+
+async function handleTrialWillEnd(
+  subscription:
+    Stripe.Subscription
+) {
+  if (
+    !subscriptionHasStorePrice(
+      subscription
+    )
+  ) {
+    return;
+  }
+
+  console.log(
+    "[STORE SUBSCRIPTION WEBHOOK] Store trial will end:",
+    {
+      subscriptionId:
+        subscription.id,
+
+      trialEnd:
+        getTrialEnd(
+          subscription
+        ),
+    }
+  );
+
+  await syncSubscription(
+    subscription
+  );
+}
+
+// ============================================================
+// TRIAL TRANSITION
+//
+// Detect:
+//
+// trialing -> anything else
+//
+// We use Stripe event.previous_attributes rather than only
+// looking at the organisation DB.
+//
+// This makes the transition detection much more reliable.
+// ============================================================
+
+function didTrialJustEnd(
+  event:
+    Stripe.Event,
+
+  subscription:
+    Stripe.Subscription
+) {
+  const data =
+    event.data as
+      typeof event.data & {
+        previous_attributes?: {
+          status?:
+            Stripe.Subscription.Status;
+        };
+      };
+
+  const previousStatus =
+    data
+      .previous_attributes
+      ?.status;
+
+  return (
+    previousStatus ===
+      "trialing" &&
+    subscription.status !==
+      "trialing"
   );
 }
 
@@ -1372,11 +2309,13 @@ export async function POST(
 
   try {
     event =
-      stripe.webhooks.constructEvent(
-        rawBody,
-        signature,
-        storeSubscriptionWebhookSecret
-      );
+      stripe
+        .webhooks
+        .constructEvent(
+          rawBody,
+          signature,
+          storeSubscriptionWebhookSecret
+        );
   } catch (
     error:
       unknown
@@ -1443,17 +2382,14 @@ export async function POST(
 
       // ======================================================
       // SUBSCRIPTION CREATED
+      //
+      // A new Store trial normally arrives as "trialing".
       // ======================================================
 
       case "customer.subscription.created": {
         const subscription =
           event.data.object as
             Stripe.Subscription;
-
-        /*
-         * Only a real Store price subscription is allowed to
-         * create Store access.
-         */
 
         if (
           subscriptionHasStorePrice(
@@ -1473,16 +2409,29 @@ export async function POST(
       }
 
       // ======================================================
+      // TRIAL WILL END
+      // ======================================================
+
+      case "customer.subscription.trial_will_end": {
+        const subscription =
+          event.data.object as
+            Stripe.Subscription;
+
+        await handleTrialWillEnd(
+          subscription
+        );
+
+        break;
+      }
+
+      // ======================================================
       // SUBSCRIPTION UPDATED
       //
-      // Handles:
+      // This is where we detect:
       //
-      // active
-      // trialing
-      // past_due
-      // unpaid
-      // paused
-      // cancel_at_period_end
+      // trialing -> active
+      // trialing -> past_due
+      // trialing -> canceled
       // etc.
       // ======================================================
 
@@ -1496,27 +2445,56 @@ export async function POST(
             subscription.id
           );
 
-        /*
-         * Sync if:
-         *
-         * - we already know this as an organisation's Store
-         *   subscription
-         *
-         * OR
-         *
-         * - the live Stripe subscription contains the Store
-         *   product.
-         */
-
         if (
           organisation ||
           subscriptionHasStorePrice(
             subscription
           )
         ) {
+          const trialEnded =
+            didTrialJustEnd(
+              event,
+              subscription
+            );
+
+          // ==================================================
+          // SYNC STORE ACCESS FIRST
+          // ==================================================
+
           await syncSubscription(
             subscription
           );
+
+          // ==================================================
+          // THEN SEND TRIAL-END EMAIL
+          // ==================================================
+
+          if (
+            trialEnded &&
+            isStoreTrial(
+              subscription
+            )
+          ) {
+            console.log(
+              "[STORE SUBSCRIPTION WEBHOOK] Store trial ended:",
+              {
+                subscriptionId:
+                  subscription.id,
+
+                newStatus:
+                  subscription.status,
+
+                trialEnd:
+                  getTrialEnd(
+                    subscription
+                  ),
+              }
+            );
+
+            await sendTrialEndEmail(
+              subscription
+            );
+          }
         }
 
         break;
@@ -1524,9 +2502,6 @@ export async function POST(
 
       // ======================================================
       // SUBSCRIPTION DELETED
-      //
-      // syncSubscription sees status=canceled and therefore
-      // disables Store.
       // ======================================================
 
       case "customer.subscription.deleted": {
@@ -1545,9 +2520,34 @@ export async function POST(
             subscription
           )
         ) {
+          const previousStatus =
+            cleanString(
+              organisation
+                ?.store_subscription_status
+            );
+
           await syncSubscription(
             subscription
           );
+
+          // ==================================================
+          // IF IT WAS DELETED DIRECTLY FROM TRIALING
+          //
+          // Some cancellation paths may result in deleted
+          // without us first seeing a useful updated event.
+          // ==================================================
+
+          if (
+            previousStatus ===
+              "trialing" &&
+            isStoreTrial(
+              subscription
+            )
+          ) {
+            await sendTrialEndEmail(
+              subscription
+            );
+          }
         }
 
         break;
@@ -1572,8 +2572,7 @@ export async function POST(
       // ======================================================
       // INVOICE PAID
       //
-      // Important for recovering Store access after a failed
-      // renewal is later paid.
+      // Keeps Store access synced after successful renewal.
       // ======================================================
 
       case "invoice.paid": {
@@ -1643,12 +2642,9 @@ export async function POST(
       }
     );
 
-    /*
-     * Return a 500 deliberately.
-     *
-     * Stripe will then retry the webhook instead of assuming
-     * the subscription update was successfully processed.
-     */
+    // ========================================================
+    // RETURN 500 SO STRIPE RETRIES
+    // ========================================================
 
     return NextResponse.json(
       {

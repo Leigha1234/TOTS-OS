@@ -78,6 +78,15 @@ type Storefront = {
   instagram_url?: string | null;
 };
 
+type SellingModel =
+  | "physical"
+  | "digital_download"
+  | "digital_delivery"
+  | "collect"
+  | "customisable"
+  | "request_to_order"
+  | "service";
+
 type Product = {
   id: string;
 
@@ -90,6 +99,8 @@ type Product = {
   description?: string | null;
 
   category?: string | null;
+
+  selling_model?: SellingModel | string | null;
 
   price: number | string;
 
@@ -327,38 +338,52 @@ function isLowStock(
 }
 
 // ============================================================
-// PRODUCT TYPES
+// SELLING MODELS
+//
+// The Store management page deliberately reuses the existing
+// category + inventory schema, so the public storefront infers
+// the selling model from those values.
+//
+// Supported models:
+// - Physical product
+// - Digital download
+// - Digitally delivered
+// - Order to collect
+// - Customisable / made to order
+// - Request to order / quote
+// - Service
 // ============================================================
 
-function isServiceProduct(
+function inferSellingModel(
   product: Product
-) {
-  const category =
+): SellingModel {
+  const storedModel =
     String(
-      product.category || ""
+      product.selling_model || ""
     )
       .trim()
       .toLowerCase();
 
-  return [
-    "websites",
-    "website",
-    "website add-ons",
-    "website add ons",
-    "website maintenance",
-    "branding",
-    "business coaching",
-    "coaching",
-    "services",
+  const validModels: SellingModel[] = [
+    "physical",
+    "digital_download",
+    "digital_delivery",
+    "collect",
+    "customisable",
+    "request_to_order",
     "service",
-    "social media",
-    "business support",
-  ].includes(category);
-}
+  ];
 
-function isDigitalProduct(
-  product: Product
-) {
+  if (
+    validModels.includes(
+      storedModel as SellingModel
+    )
+  ) {
+    return storedModel as SellingModel;
+  }
+
+  // Legacy fallback for products created before selling_model
+  // existed. New products should always use selling_model.
   const category =
     String(
       product.category || ""
@@ -366,61 +391,287 @@ function isDigitalProduct(
       .trim()
       .toLowerCase();
 
-  return (
+  if (
     category.includes(
-      "digital"
+      "digital download"
+    ) ||
+    category.includes(
+      "download"
     ) ||
     category.includes(
       "template"
     ) ||
     category.includes(
-      "resource"
+      "ebook"
     )
+  ) {
+    return "digital_download";
+  }
+
+  if (
+    category.includes(
+      "digital delivery"
+    ) ||
+    category.includes(
+      "digitally delivered"
+    )
+  ) {
+    return "digital_delivery";
+  }
+
+  if (
+    category.includes(
+      "collect"
+    ) ||
+    category.includes(
+      "collection"
+    ) ||
+    category.includes(
+      "click and collect"
+    )
+  ) {
+    return "collect";
+  }
+
+  if (
+    category.includes(
+      "custom"
+    ) ||
+    category.includes(
+      "personalised"
+    ) ||
+    category.includes(
+      "personalized"
+    ) ||
+    category.includes(
+      "made to order"
+    )
+  ) {
+    return "customisable";
+  }
+
+  if (
+    category.includes(
+      "request"
+    ) ||
+    category.includes(
+      "quote"
+    ) ||
+    category.includes(
+      "enquiry"
+    )
+  ) {
+    return "request_to_order";
+  }
+
+  if (
+    category.includes(
+      "service"
+    ) ||
+    category.includes(
+      "consult"
+    ) ||
+    category.includes(
+      "session"
+    ) ||
+    category.includes(
+      "booking"
+    ) ||
+    [
+      "websites",
+      "website",
+      "website add-ons",
+      "website add ons",
+      "website maintenance",
+      "branding",
+      "business coaching",
+      "coaching",
+      "social media",
+      "business support",
+    ].includes(
+      category
+    )
+  ) {
+    return "service";
+  }
+
+  return product.track_inventory ===
+    false
+    ? "service"
+    : "physical";
+}
+
+function isServiceProduct(
+  product: Product
+) {
+  return (
+    inferSellingModel(
+      product
+    ) ===
+    "service"
+  );
+}
+
+function isDigitalProduct(
+  product: Product
+) {
+  const model =
+    inferSellingModel(
+      product
+    );
+
+  return (
+    model ===
+      "digital_download" ||
+    model ===
+      "digital_delivery"
+  );
+}
+
+function isCollectionProduct(
+  product: Product
+) {
+  return (
+    inferSellingModel(
+      product
+    ) ===
+    "collect"
+  );
+}
+
+function isCustomisableProduct(
+  product: Product
+) {
+  return (
+    inferSellingModel(
+      product
+    ) ===
+    "customisable"
+  );
+}
+
+function isRequestToOrderProduct(
+  product: Product
+) {
+  return (
+    inferSellingModel(
+      product
+    ) ===
+    "request_to_order"
+  );
+}
+
+function requiresShipping(
+  product: Product
+) {
+  return (
+    inferSellingModel(
+      product
+    ) ===
+    "physical"
   );
 }
 
 function getProductTypeLabel(
   product: Product
 ) {
-  if (
-    isServiceProduct(
+  const model =
+    inferSellingModel(
       product
-    )
-  ) {
-    return "Service";
-  }
+    );
 
-  if (
-    isDigitalProduct(
-      product
-    )
+  switch (
+    model
   ) {
-    return "Digital";
-  }
+    case "digital_download":
+      return "Digital download";
 
-  return "Product";
+    case "digital_delivery":
+      return "Digital delivery";
+
+    case "collect":
+      return "Collection";
+
+    case "customisable":
+      return "Customisable";
+
+    case "request_to_order":
+      return "Request to order";
+
+    case "service":
+      return "Service";
+
+    default:
+      return "Physical product";
+  }
 }
 
 function getProductActionLabel(
   product: Product
 ) {
-  if (
-    isServiceProduct(
+  const model =
+    inferSellingModel(
       product
-    )
-  ) {
-    return "Add service";
-  }
+    );
 
-  if (
-    isDigitalProduct(
+  switch (
+    model
+  ) {
+    case "digital_download":
+      return "Buy download";
+
+    case "digital_delivery":
+      return "Buy now";
+
+    case "collect":
+      return "Order to collect";
+
+    case "customisable":
+      return "Customise & order";
+
+    case "request_to_order":
+      return "Request to order";
+
+    case "service":
+      return "Add service";
+
+    default:
+      return "Add to basket";
+  }
+}
+
+function getProductFulfilmentText(
+  product: Product
+) {
+  const model =
+    inferSellingModel(
       product
-    )
-  ) {
-    return "Add to basket";
-  }
+    );
 
-  return "Add to basket";
+  switch (
+    model
+  ) {
+    case "digital_download":
+      return "Digital product — no shipping required.";
+
+    case "digital_delivery":
+      return "Delivered digitally after purchase.";
+
+    case "collect":
+      return "Order online and collect from the business.";
+
+    case "customisable":
+      return "Made for you — send your custom details before ordering.";
+
+    case "request_to_order":
+      return "Send a request first. The business will confirm the details with you.";
+
+    case "service":
+      return "Service purchase — the business will confirm next steps.";
+
+    default:
+      return "Physical product — delivery or fulfilment details are confirmed at checkout.";
+  }
 }
 
 // ============================================================
@@ -1340,10 +1591,55 @@ export default function ShopFrontPage() {
           (
             line
           ) =>
-            !isServiceProduct(
+            requiresShipping(
               line.product
-            ) &&
-            !isDigitalProduct(
+            )
+        ),
+      [
+        cartLines,
+      ]
+    );
+
+  const cartContainsCollectionProduct =
+    useMemo(
+      () =>
+        cartLines.some(
+          (
+            line
+          ) =>
+            isCollectionProduct(
+              line.product
+            )
+        ),
+      [
+        cartLines,
+      ]
+    );
+
+  const cartContainsDigitalProduct =
+    useMemo(
+      () =>
+        cartLines.some(
+          (
+            line
+          ) =>
+            isDigitalProduct(
+              line.product
+            )
+        ),
+      [
+        cartLines,
+      ]
+    );
+
+  const cartContainsServiceProduct =
+    useMemo(
+      () =>
+        cartLines.some(
+          (
+            line
+          ) =>
+            isServiceProduct(
               line.product
             )
         ),
@@ -1422,6 +1718,35 @@ export default function ShopFrontPage() {
     );
 
     setCartOpen(true);
+  }
+
+  function requestProduct(
+    product: Product
+  ) {
+    setCartOpen(false);
+
+    setMessageSent(false);
+    setMessageError(null);
+
+    const model =
+      inferSellingModel(
+        product
+      );
+
+    const intro =
+      model ===
+      "customisable"
+        ? `Hi, I'd like to customise and order "${product.name}". My customisation details are: `
+        : model ===
+            "request_to_order"
+          ? `Hi, I'd like to request to order "${product.name}". Please can you let me know the next steps?`
+          : `Hi, I'm interested in "${product.name}". Please can you send me more information?`;
+
+    setContactMessage(
+      intro
+    );
+
+    setContactOpen(true);
   }
 
   function setQuantity(
@@ -2411,6 +2736,11 @@ export default function ShopFrontPage() {
                         product
                       )
                     }
+                    onRequest={() =>
+                      requestProduct(
+                        product
+                      )
+                    }
                     featuredLayout
                   />
                 )
@@ -2609,6 +2939,11 @@ export default function ShopFrontPage() {
                     }
                     onAdd={() =>
                       addToCart(
+                        product
+                      )
+                    }
+                    onRequest={() =>
+                      requestProduct(
                         product
                       )
                     }
@@ -3770,8 +4105,14 @@ export default function ShopFrontPage() {
 
                       <p className="text-[10px] leading-5 text-stone-500">
                         {cartContainsPhysicalProduct
-                          ? "Delivery details will be confirmed during checkout."
-                          : "No shipping required for these items."}
+                          ? "Your basket includes a physical product. Delivery details will be confirmed during checkout."
+                          : cartContainsCollectionProduct
+                            ? "This order includes collection items. The business will confirm collection details with you."
+                            : cartContainsDigitalProduct
+                              ? "No shipping required. Digital fulfilment details will be provided after purchase."
+                              : cartContainsServiceProduct
+                                ? "No shipping required. The business will confirm the next steps for your service."
+                                : "No shipping required for these items."}
                       </p>
 
                     </div>
@@ -3899,11 +4240,13 @@ function ProductCard({
   product,
   primary,
   onAdd,
+  onRequest,
   featuredLayout = false,
 }: {
   product: Product;
   primary: string;
   onAdd: () => void;
+  onRequest: () => void;
   featuredLayout?: boolean;
 }) {
   const image =
@@ -3948,6 +4291,17 @@ function ProductCard({
     getProductTypeLabel(
       product
     );
+
+  const sellingModel =
+    inferSellingModel(
+      product
+    );
+
+  const requestAction =
+    sellingModel ===
+      "customisable" ||
+    sellingModel ===
+      "request_to_order";
 
   const saving =
     onSale
@@ -4059,6 +4413,45 @@ function ProductCard({
           <div className="min-h-[50px]" />
         )}
 
+        <div className="mt-3 flex items-start gap-2 rounded-xl bg-stone-50 px-3 py-2.5">
+          {sellingModel ===
+          "physical" ? (
+            <Truck
+              size={12}
+              className="mt-0.5 shrink-0"
+              style={{
+                color:
+                  primary,
+              }}
+            />
+          ) : sellingModel ===
+              "collect" ? (
+            <MapPin
+              size={12}
+              className="mt-0.5 shrink-0"
+              style={{
+                color:
+                  primary,
+              }}
+            />
+          ) : (
+            <Check
+              size={12}
+              className="mt-0.5 shrink-0"
+              style={{
+                color:
+                  primary,
+              }}
+            />
+          )}
+
+          <p className="text-[8px] leading-4 text-stone-500">
+            {getProductFulfilmentText(
+              product
+            )}
+          </p>
+        </div>
+
         <div className="mt-auto pt-5">
 
           <div className="flex items-end justify-between gap-3">
@@ -4101,28 +4494,34 @@ function ProductCard({
           <button
             type="button"
             disabled={
-              outOfStock
+              outOfStock &&
+              !requestAction
             }
             onClick={
-              onAdd
+              requestAction
+                ? onRequest
+                : onAdd
             }
             className="mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-3.5 text-left text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             style={{
               background:
-                outOfStock
+                outOfStock &&
+                !requestAction
                   ? "#d6d3d1"
                   : primary,
             }}
           >
             <span className="text-[8px] font-black uppercase tracking-[0.13em]">
-              {outOfStock
+              {outOfStock &&
+              !requestAction
                 ? "Unavailable"
                 : getProductActionLabel(
                     product
                   )}
             </span>
 
-            {!outOfStock && (
+            {(!outOfStock ||
+              requestAction) && (
               <ArrowRight
                 size={12}
               />

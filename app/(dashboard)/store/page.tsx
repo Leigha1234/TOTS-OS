@@ -69,6 +69,15 @@ type ProductStatus =
   | "draft"
   | "archived";
 
+type SellingModel =
+  | "physical"
+  | "digital_download"
+  | "digital_delivery"
+  | "collect"
+  | "customisable"
+  | "request_to_order"
+  | "service";
+
 type OrderStatus =
   | "new"
   | "processing"
@@ -104,6 +113,8 @@ type Product = {
   sku: string;
 
   category: string;
+
+  selling_model: SellingModel;
 
   description: string;
 
@@ -236,6 +247,8 @@ type StoreSettingsRow = {
 
 type ProductForm = {
   id?: string;
+
+  sellingModel: SellingModel;
 
   name: string;
 
@@ -393,6 +406,7 @@ type RefundFormState = {
 // ============================================================
 
 const EMPTY_PRODUCT_FORM: ProductForm = {
+  sellingModel: "physical",
   name: "",
   slug: "",
   sku: "",
@@ -535,6 +549,42 @@ function safeStringArray(
     )
     .filter(Boolean);
 }
+
+function normaliseSellingModel(
+  value: unknown,
+  fallback: SellingModel = "physical"
+): SellingModel {
+  const model =
+    String(
+      value ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    model ===
+      "physical" ||
+    model ===
+      "digital_download" ||
+    model ===
+      "digital_delivery" ||
+    model ===
+      "collect" ||
+    model ===
+      "customisable" ||
+    model ===
+      "request_to_order" ||
+    model ===
+      "service"
+  ) {
+    return model;
+  }
+
+  return fallback;
+}
+
+// ============================================================
 
 function createSlug(
   value: string
@@ -2064,7 +2114,21 @@ if (orderError) {
                     ) ||
                     "General",
 
+                  selling_model:
+                    normaliseSellingModel(
+                      row.selling_model,
+                      safeBoolean(
+                        row.track_inventory,
+                        true
+                      )
+                        ? "physical"
+                        : "service"
+                    ),
+
                   description:
+                    firstString(
+                      row.description
+                    ) ||
                     "",
 
                   price:
@@ -3469,6 +3533,201 @@ if (orderError) {
   }
 
   // ==========================================================
+  // SELLING MODELS
+  //
+  // These presets let the same Store work for much more than
+  // traditional shipped stock. They intentionally reuse the
+  // existing product schema so this page does not require a
+  // database migration just to become useful for digital,
+  // collection, custom and request-led businesses.
+  // ==========================================================
+
+  const sellingModelOptions: Array<{
+    value: SellingModel;
+    label: string;
+    description: string;
+    defaultCategory: string;
+    tracksInventory: boolean;
+  }> = [
+    {
+      value: "physical",
+      label: "Physical product",
+      description: "Stocked items that can be packed, dispatched or handed over.",
+      defaultCategory: "General",
+      tracksInventory: true,
+    },
+    {
+      value: "digital_download",
+      label: "Digital download",
+      description: "Files, guides, templates, ebooks or other instant-download products.",
+      defaultCategory: "Digital Downloads",
+      tracksInventory: false,
+    },
+    {
+      value: "digital_delivery",
+      label: "Digitally delivered",
+      description: "Products you deliver manually by email, link, portal or another digital method.",
+      defaultCategory: "Digital Delivery",
+      tracksInventory: false,
+    },
+    {
+      value: "collect",
+      label: "Order to collect",
+      description: "Perfect for food, cakes, flowers, local retail and click-and-collect orders.",
+      defaultCategory: "Collection",
+      tracksInventory: true,
+    },
+    {
+      value: "customisable",
+      label: "Customisable product",
+      description: "Made-to-order or personalised products where customers need to provide details.",
+      defaultCategory: "Custom Orders",
+      tracksInventory: false,
+    },
+    {
+      value: "request_to_order",
+      label: "Request to order",
+      description: "Take an enquiry or order request first when pricing, availability or scope needs confirmed.",
+      defaultCategory: "Request to Order",
+      tracksInventory: false,
+    },
+    {
+      value: "service",
+      label: "Service",
+      description: "Sell sessions, packages, consultations, bookings or other non-stock offers.",
+      defaultCategory: "Services",
+      tracksInventory: false,
+    },
+  ];
+
+  function inferSellingModel(
+    product: Product
+  ): SellingModel {
+    if (
+      product.selling_model
+    ) {
+      return normaliseSellingModel(
+        product.selling_model,
+        product.track_inventory
+          ? "physical"
+          : "service"
+      );
+    }
+
+    /*
+     * Legacy fallback for older rows that pre-date the
+     * selling_model database column.
+     */
+    const category =
+      product.category
+        .trim()
+        .toLowerCase();
+
+    if (
+      category.includes("digital download") ||
+      category.includes("download") ||
+      category.includes("template") ||
+      category.includes("ebook")
+    ) {
+      return "digital_download";
+    }
+
+    if (
+      category.includes("digital delivery") ||
+      category.includes("digitally delivered")
+    ) {
+      return "digital_delivery";
+    }
+
+    if (
+      category.includes("collect") ||
+      category.includes("collection") ||
+      category.includes("click and collect")
+    ) {
+      return "collect";
+    }
+
+    if (
+      category.includes("custom") ||
+      category.includes("personalised") ||
+      category.includes("personalized") ||
+      category.includes("made to order")
+    ) {
+      return "customisable";
+    }
+
+    if (
+      category.includes("request") ||
+      category.includes("quote") ||
+      category.includes("enquiry")
+    ) {
+      return "request_to_order";
+    }
+
+    if (
+      category.includes("service") ||
+      category.includes("consult") ||
+      category.includes("session") ||
+      category.includes("booking")
+    ) {
+      return "service";
+    }
+
+    return product.track_inventory
+      ? "physical"
+      : "service";
+  }
+
+  function applySellingModel(
+    model: SellingModel
+  ) {
+    const option =
+      sellingModelOptions.find(
+        (item) =>
+          item.value === model
+      );
+
+    if (!option) {
+      return;
+    }
+
+    setProductForm(
+      (previous) => {
+        const currentCategory =
+          previous.category.trim();
+
+        const previousPresetCategories =
+          sellingModelOptions.map(
+            (item) =>
+              item.defaultCategory
+          );
+
+        const shouldReplaceCategory =
+          !currentCategory ||
+          currentCategory === "General" ||
+          previousPresetCategories.includes(
+            currentCategory
+          );
+
+        return {
+          ...previous,
+          sellingModel: model,
+          trackInventory:
+            option.tracksInventory,
+          category:
+            shouldReplaceCategory
+              ? option.defaultCategory
+              : previous.category,
+          stock:
+            option.tracksInventory
+              ? previous.stock
+              : "",
+        };
+      }
+    );
+  }
+
+  // ==========================================================
   // PRODUCT MODAL
   // ==========================================================
 
@@ -3489,6 +3748,14 @@ if (orderError) {
     setProductForm({
       id:
         product.id,
+
+      sellingModel:
+        normaliseSellingModel(
+          product.selling_model,
+          inferSellingModel(
+            product
+          )
+        ),
 
       name:
         product.name,
@@ -3756,6 +4023,9 @@ if (orderError) {
         category:
           productForm.category.trim() ||
           "General",
+
+        selling_model:
+          productForm.sellingModel,
 
         description:
           productForm.description.trim() ||
@@ -5780,16 +6050,17 @@ if (orderError) {
 
           <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-stone-500">
             Add a fully connected online store to your TOTS-OS workspace.
-            Manage products, orders, customers, payments and your storefront
-            from the same system you already use to run your business.
+            Sell physical products, digital downloads, digitally delivered products,
+            collection orders, custom work, services and request-to-order items —
+            all from the same system you already use to run your business.
           </p>
 
           <div className="mx-auto mt-6 grid max-w-sm grid-cols-1 gap-2 text-left sm:grid-cols-2">
             {[
-              "Products & inventory",
-              "Orders & customers",
-              "Stripe payments",
-              "Your own storefront",
+              "Physical, digital & services",
+              "Collection & custom orders",
+              "Requests, orders & customers",
+              "Stripe payments & storefront",
             ].map(
               (item) => (
                 <div
@@ -5808,13 +6079,24 @@ if (orderError) {
           </div>
 
           <div className="mt-7">
-            <span className="font-serif text-4xl italic text-stone-900">
-              £39
-            </span>
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#a9b897]/15 px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-[#6f8062]">
+              <Sparkles size={12} />
+              1 Week Free Trial
+            </div>
 
-            <span className="ml-1 text-xs font-medium text-stone-400">
-              / month
-            </span>
+            <div>
+              <span className="font-serif text-4xl italic text-stone-900">
+                £39
+              </span>
+
+              <span className="ml-1 text-xs font-medium text-stone-400">
+                / month after trial
+              </span>
+            </div>
+
+            <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-stone-400">
+              Try TOTS-OS Store free for 7 days, then continue for £39/month.
+            </p>
           </div>
 
           {pageError && (
@@ -5845,7 +6127,7 @@ if (orderError) {
                 </>
               ) : (
                 <>
-                  Buy Store Add-On
+                  Start 1-Week Free Trial
 
                   <ArrowRight
                     size={14}
@@ -8951,6 +9233,64 @@ if (orderError) {
 
             <div className="mt-7 grid gap-4 md:grid-cols-2">
               <Field
+                label="What are you selling?"
+                className="md:col-span-2"
+              >
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {sellingModelOptions.map(
+                    (option) => {
+                      const selected =
+                        productForm.sellingModel ===
+                        option.value;
+
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() =>
+                            applySellingModel(
+                              option.value
+                            )
+                          }
+                          className={`rounded-2xl border p-4 text-left transition ${
+                            selected
+                              ? "border-[#a9b897] bg-[#a9b897]/10 ring-1 ring-[#a9b897]/30"
+                              : "border-stone-200 bg-stone-50 hover:border-stone-300 hover:bg-white"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-black text-stone-800">
+                                {option.label}
+                              </p>
+
+                              <p className="mt-1 text-[10px] leading-4 text-stone-500">
+                                {option.description}
+                              </p>
+                            </div>
+
+                            <span
+                              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                                selected
+                                  ? "border-[#829473] bg-[#829473] text-white"
+                                  : "border-stone-300 bg-white text-transparent"
+                              }`}
+                            >
+                              <Check size={11} />
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+
+                <div className="mt-3 rounded-xl bg-stone-50 px-4 py-3 text-[10px] leading-5 text-stone-500">
+                  TOTS-OS adapts the product setup to the way you sell. Use stocked products for traditional retail, turn inventory off for unlimited digital or service offers, or use collection, custom and request-led presets for businesses that do not fit a standard ecommerce model.
+                </div>
+              </Field>
+
+              <Field
                 label="Product Name"
                 className="md:col-span-2"
               >
@@ -9081,7 +9421,15 @@ if (orderError) {
               </Field>
 
               <Field
-                label="Sale Price"
+                label={
+                  productForm.sellingModel ===
+                  "request_to_order"
+                    ? "Guide / Starting Price"
+                    : productForm.sellingModel ===
+                        "service"
+                      ? "Service Price"
+                      : "Sale Price"
+                }
               >
                 <input
                   type="number"
@@ -9168,7 +9516,12 @@ if (orderError) {
               </Field>
 
               <Field
-                label="Stock"
+                label={
+                  productForm.sellingModel ===
+                  "collect"
+                    ? "Available Quantity"
+                    : "Stock"
+                }
               >
                 <input
                   type="number"
@@ -9243,7 +9596,12 @@ if (orderError) {
                   </p>
 
                   <p className="mt-1 text-[10px] text-stone-400">
-                    Turn this off for services or unlimited digital products.
+                    {productForm.sellingModel ===
+                    "physical" ||
+                  productForm.sellingModel ===
+                    "collect"
+                    ? "Keep this on when availability should reduce as orders are placed."
+                    : "Inventory is normally off for digital, service, custom and request-led offers."}
                   </p>
                 </div>
 
@@ -9276,6 +9634,49 @@ if (orderError) {
                   />
                 </button>
               </div>
+
+              {productForm.sellingModel !==
+                "physical" && (
+                <div className="rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-4 md:col-span-2">
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#6f8062]">
+                    {productForm.sellingModel ===
+                    "digital_download"
+                      ? "Digital download"
+                      : productForm.sellingModel ===
+                          "digital_delivery"
+                        ? "Digital fulfilment"
+                        : productForm.sellingModel ===
+                            "collect"
+                          ? "Collection order"
+                          : productForm.sellingModel ===
+                              "customisable"
+                            ? "Custom order"
+                            : productForm.sellingModel ===
+                                "request_to_order"
+                              ? "Request-led sale"
+                              : "Service"}
+                  </p>
+
+                  <p className="mt-1 text-[10px] leading-5 text-stone-600">
+                    {productForm.sellingModel ===
+                    "digital_download"
+                      ? "Use this for templates, guides, files and other digital products. Inventory is unlimited by default."
+                      : productForm.sellingModel ===
+                          "digital_delivery"
+                        ? "Use this when you personally send access, files, links, codes or other digital fulfilment after an order."
+                        : productForm.sellingModel ===
+                            "collect"
+                          ? "Use this for local pickup and made-for-collection orders such as food, cakes, flowers and retail items."
+                          : productForm.sellingModel ===
+                              "customisable"
+                            ? "Use the description to make the customisation process clear and explain what details you need from the customer."
+                            : productForm.sellingModel ===
+                                "request_to_order"
+                              ? "Ideal where you need to confirm availability, scope or final pricing before fulfilling the order."
+                              : "Use this for consultations, sessions, packages and other offers that do not use physical stock."}
+                  </p>
+                </div>
+              )}
 
               <Field
                 label="Image URL"
@@ -9339,7 +9740,27 @@ if (orderError) {
                     )
                   }
                   rows={4}
-                  placeholder="Tell customers about this product..."
+                  placeholder={
+                    productForm.sellingModel ===
+                    "digital_download"
+                      ? "Explain what the customer receives, file format, access and any usage notes..."
+                      : productForm.sellingModel ===
+                          "digital_delivery"
+                        ? "Explain what will be delivered digitally and how/when the customer receives it..."
+                        : productForm.sellingModel ===
+                            "collect"
+                          ? "Describe the item and tell customers anything important about collection..."
+                          : productForm.sellingModel ===
+                              "customisable"
+                            ? "Describe the product and what personalisation or custom details you need from the customer..."
+                            : productForm.sellingModel ===
+                                "request_to_order"
+                              ? "Explain what customers can request, what happens next and whether the shown price is a guide..."
+                              : productForm.sellingModel ===
+                                  "service"
+                                ? "Describe the service, what is included and what happens after purchase..."
+                                : "Tell customers about this product..."
+                  }
                   className="store-input resize-none"
                 />
               </Field>

@@ -65,6 +65,15 @@ const stripe =
 // TYPES
 // ============================================================
 
+type SellingModel =
+  | "physical"
+  | "digital_download"
+  | "digital_delivery"
+  | "collect"
+  | "customisable"
+  | "request_to_order"
+  | "service";
+
 type CheckoutCartItem = {
   productId: string;
   quantity: number;
@@ -144,6 +153,11 @@ type StoreProductRow = {
     | null;
 
   category:
+    | string
+    | null;
+
+  selling_model:
+    | SellingModel
     | string
     | null;
 
@@ -351,6 +365,80 @@ function generateOrderNumber() {
 }
 
 // ============================================================
+// SELLING MODEL
+// ============================================================
+
+const VALID_SELLING_MODELS:
+  SellingModel[] = [
+    "physical",
+    "digital_download",
+    "digital_delivery",
+    "collect",
+    "customisable",
+    "request_to_order",
+    "service",
+  ];
+
+function getSellingModel(
+  product: StoreProductRow
+): SellingModel {
+  const value =
+    cleanString(
+      product.selling_model
+    ).toLowerCase();
+
+  if (
+    VALID_SELLING_MODELS.includes(
+      value as SellingModel
+    )
+  ) {
+    return value as SellingModel;
+  }
+
+  /*
+   * Safe legacy fallback:
+   * products created before selling_model existed are treated
+   * as physical. The database default should already cover
+   * normal rows, but this protects older / malformed data.
+   */
+  return "physical";
+}
+
+function isPhysicalProduct(
+  product: StoreProductRow
+) {
+  return (
+    getSellingModel(
+      product
+    ) ===
+    "physical"
+  );
+}
+
+function blocksDirectCheckout(
+  product: StoreProductRow
+) {
+  const model =
+    getSellingModel(
+      product
+    );
+
+  /*
+   * These two models need customer-entered details / approval
+   * before a payment can safely be created.
+   *
+   * The storefront should route these products through its
+   * customisation / request flow instead of /api/store-checkout.
+   */
+  return (
+    model ===
+      "customisable" ||
+    model ===
+      "request_to_order"
+  );
+}
+
+// ============================================================
 // BASE URL
 // ============================================================
 
@@ -434,55 +522,6 @@ function getAvailableQuantity(
   }
 
   return null;
-}
-
-// ============================================================
-// PHYSICAL PRODUCT CHECK
-// ============================================================
-
-function isPhysicalProduct(
-  product: StoreProductRow
-) {
-  if (
-    product.track_inventory ===
-    false
-  ) {
-    return false;
-  }
-
-  const category =
-    String(
-      product.category ||
-        ""
-    )
-      .trim()
-      .toLowerCase();
-
-  const nonPhysicalCategories =
-    [
-      "websites",
-      "website",
-      "website add-ons",
-      "website add ons",
-      "website maintenance",
-      "branding",
-      "business coaching",
-      "coaching",
-      "services",
-      "service",
-      "social media",
-      "business support",
-      "digital",
-      "digital product",
-      "templates",
-      "template",
-      "resources",
-      "resource",
-    ];
-
-  return !nonPhysicalCategories.includes(
-    category
-  );
 }
 
 // ============================================================
@@ -619,10 +658,6 @@ async function validateDiscount({
   const discount =
     data as StoreDiscountRow;
 
-  // ==========================================================
-  // ACTIVE
-  // ==========================================================
-
   if (
     discount.is_active !==
     true
@@ -634,10 +669,6 @@ async function validateDiscount({
 
   const now =
     new Date();
-
-  // ==========================================================
-  // START DATE
-  // ==========================================================
 
   if (
     discount.starts_at
@@ -660,10 +691,6 @@ async function validateDiscount({
     }
   }
 
-  // ==========================================================
-  // EXPIRY
-  // ==========================================================
-
   if (
     discount.expires_at
   ) {
@@ -685,10 +712,6 @@ async function validateDiscount({
     }
   }
 
-  // ==========================================================
-  // USAGE LIMIT
-  // ==========================================================
-
   const usageLimit =
     discount.usage_limit;
 
@@ -709,10 +732,6 @@ async function validateDiscount({
     );
   }
 
-  // ==========================================================
-  // MINIMUM ORDER
-  // ==========================================================
-
   const minimumOrder =
     safeNumber(
       discount.minimum_order_amount,
@@ -732,10 +751,6 @@ async function validateDiscount({
     );
   }
 
-  // ==========================================================
-  // VALUE
-  // ==========================================================
-
   const value =
     safeNumber(
       discount.value,
@@ -753,10 +768,6 @@ async function validateDiscount({
 
   let discountAmount =
     0;
-
-  // ==========================================================
-  // PERCENTAGE
-  // ==========================================================
 
   if (
     isPercentageDiscount(
@@ -778,26 +789,14 @@ async function validateDiscount({
         value /
         100
       );
-  }
-
-  // ==========================================================
-  // FIXED
-  // ==========================================================
-
-  else if (
+  } else if (
     isFixedDiscount(
       discount.discount_type
     )
   ) {
     discountAmount =
       value;
-  }
-
-  // ==========================================================
-  // UNKNOWN
-  // ==========================================================
-
-  else {
+  } else {
     console.error(
       "[TOTS STORE] Unknown discount type:",
       discount.discount_type
@@ -807,10 +806,6 @@ async function validateDiscount({
       "This discount code has an unsupported discount type."
     );
   }
-
-  // ==========================================================
-  // MAXIMUM CAP
-  // ==========================================================
 
   const maximumDiscount =
     safeNumber(
@@ -828,10 +823,6 @@ async function validateDiscount({
         maximumDiscount
       );
   }
-
-  // ==========================================================
-  // NEVER BELOW ZERO
-  // ==========================================================
 
   discountAmount =
     Math.min(
@@ -1032,10 +1023,6 @@ async function validateConnectedStripeAccount(
     );
   }
 
-  // ==========================================================
-  // LIVE ACCOUNT STATUS
-  // ==========================================================
-
   const detailsSubmitted =
     account
       .details_submitted ===
@@ -1055,10 +1042,6 @@ async function validateConnectedStripeAccount(
     detailsSubmitted &&
     chargesEnabled &&
     payoutsEnabled;
-
-  // ==========================================================
-  // SYNC DATABASE
-  // ==========================================================
 
   const {
     error:
@@ -1112,10 +1095,6 @@ async function validateConnectedStripeAccount(
     );
   }
 
-  // ==========================================================
-  // DETAILS SUBMITTED
-  // ==========================================================
-
   if (
     !detailsSubmitted
   ) {
@@ -1123,10 +1102,6 @@ async function validateConnectedStripeAccount(
       "This store has not finished setting up Stripe yet."
     );
   }
-
-  // ==========================================================
-  // CHARGES ENABLED
-  // ==========================================================
 
   if (
     !chargesEnabled
@@ -1278,21 +1253,10 @@ export async function POST(
     | null =
     null;
 
-  /*
-   * Once Stripe Checkout has actually been created, we must
-   * never blindly delete the order in the outer catch block.
-   *
-   * The Checkout Session could still be paid even if a later
-   * Supabase update failed.
-   */
   let stripeCheckoutCreated =
     false;
 
   try {
-    // ========================================================
-    // REQUEST BODY
-    // ========================================================
-
     const body =
       (
         await req.json()
@@ -1315,10 +1279,6 @@ export async function POST(
         ? body.items
         : [];
 
-    // ========================================================
-    // STORE SLUG
-    // ========================================================
-
     if (
       !storeSlug
     ) {
@@ -1333,10 +1293,6 @@ export async function POST(
         }
       );
     }
-
-    // ========================================================
-    // BASKET
-    // ========================================================
 
     if (
       requestedItems.length ===
@@ -1353,10 +1309,6 @@ export async function POST(
         }
       );
     }
-
-    // ========================================================
-    // LOAD STORE
-    // ========================================================
 
     const {
       data:
@@ -1423,10 +1375,6 @@ export async function POST(
       storeData as
         StoreSettingsRow;
 
-    // ========================================================
-    // STORE MUST BE LIVE
-    // ========================================================
-
     if (
       store.is_live !==
       true
@@ -1445,10 +1393,6 @@ export async function POST(
 
     const organisationId =
       store.organisation_id;
-
-    // ========================================================
-    // LOAD CONNECTED STRIPE ACCOUNT
-    // ========================================================
 
     const stripeConnection =
       await getConnectedStripeAccount(
@@ -1498,10 +1442,6 @@ export async function POST(
       );
     }
 
-    // ========================================================
-    // VERIFY ACCOUNT CAN TAKE PAYMENTS
-    // ========================================================
-
     let connectedAccount:
       Stripe.Account;
 
@@ -1528,10 +1468,6 @@ export async function POST(
       );
     }
 
-    // ========================================================
-    // CURRENCY
-    // ========================================================
-
     const currency =
       cleanString(
         connectedAccount
@@ -1543,19 +1479,8 @@ export async function POST(
       ).toLowerCase() ||
       "gbp";
 
-    /*
-     * Your current storefront and pricing are GBP based.
-     *
-     * Prevent a connected account with a different default
-     * currency from accidentally changing the currency of
-     * existing product prices.
-     */
     const checkoutCurrency =
       "gbp";
-
-    // ========================================================
-    // NORMALISE BASKET
-    // ========================================================
 
     const quantityByProduct =
       new Map<
@@ -1618,10 +1543,6 @@ export async function POST(
       );
     }
 
-    // ========================================================
-    // LOAD PRODUCTS
-    // ========================================================
-
     const {
       data:
         productRows,
@@ -1642,6 +1563,7 @@ export async function POST(
             description,
             sku,
             category,
+            selling_model,
             price,
             compare_at_price,
             stock,
@@ -1686,10 +1608,6 @@ export async function POST(
         productRows ||
         []
       ) as StoreProductRow[];
-
-    // ========================================================
-    // VALIDATE PRODUCTS
-    // ========================================================
 
     const validatedLines:
       ValidatedLine[] =
@@ -1757,6 +1675,40 @@ export async function POST(
         );
       }
 
+      /*
+       * Server-side enforcement.
+       *
+       * Do not allow a customer to bypass the storefront UI
+       * and force a custom/request product directly into Stripe.
+       */
+      if (
+        blocksDirectCheckout(
+          product
+        )
+      ) {
+        const sellingModel =
+          getSellingModel(
+            product
+          );
+
+        return NextResponse.json(
+          {
+            error:
+              sellingModel ===
+              "customisable"
+                ? `${product.name} needs customisation details before it can be ordered.`
+                : `${product.name} must be requested from the business before payment.`,
+            sellingModel,
+            requiresRequest:
+              true,
+          },
+          {
+            status:
+              400,
+          }
+        );
+      }
+
       const quantity =
         quantityByProduct.get(
           product.id
@@ -1769,10 +1721,6 @@ export async function POST(
       ) {
         continue;
       }
-
-      // ======================================================
-      // STOCK
-      // ======================================================
 
       const available =
         getAvailableQuantity(
@@ -1817,10 +1765,6 @@ export async function POST(
           }
         );
       }
-
-      // ======================================================
-      // PRICE
-      // ======================================================
 
       const unitPrice =
         Number(
@@ -1882,10 +1826,6 @@ export async function POST(
       );
     }
 
-    // ========================================================
-    // SUBTOTAL
-    // ========================================================
-
     const subtotal =
       moneyRound(
         validatedLines.reduce(
@@ -1898,10 +1838,6 @@ export async function POST(
           0
         )
       );
-
-    // ========================================================
-    // VALIDATE TOTS DISCOUNT
-    // ========================================================
 
     let appliedDiscount:
       StoreDiscountRow |
@@ -1949,16 +1885,25 @@ export async function POST(
       }
     }
 
-    // ========================================================
-    // SHIPPING
-    // ========================================================
+    /*
+     * Shipping fees are currently £0 in your existing Store.
+     *
+     * The important change here is that the checkout now knows
+     * exactly whether shipping is required from selling_model,
+     * rather than guessing from category / inventory settings.
+     */
+    const requiresShipping =
+      validatedLines.some(
+        (
+          line
+        ) =>
+          isPhysicalProduct(
+            line.product
+          )
+      );
 
     const shippingAmount =
       0;
-
-    // ========================================================
-    // FINAL TOTAL
-    // ========================================================
 
     const total =
       moneyRound(
@@ -1986,10 +1931,6 @@ export async function POST(
       );
     }
 
-    // ========================================================
-    // CUSTOMER
-    // ========================================================
-
     const customerName =
       cleanString(
         body.customer?.name
@@ -2008,16 +1949,22 @@ export async function POST(
       ) ||
       null;
 
-    // ========================================================
-    // ORDER NUMBER
-    // ========================================================
-
     const orderNumber =
       generateOrderNumber();
 
-    // ========================================================
-    // CREATE STORE ORDER
-    // ========================================================
+    const sellingModels =
+      Array.from(
+        new Set(
+          validatedLines.map(
+            (
+              line
+            ) =>
+              getSellingModel(
+                line.product
+              )
+          )
+        )
+      );
 
     const {
       data:
@@ -2130,10 +2077,6 @@ export async function POST(
     createdOrderId =
       orderData.id;
 
-    // ========================================================
-    // CREATE ORDER ITEMS
-    // ========================================================
-
     const orderItems =
       validatedLines.map(
         (
@@ -2201,10 +2144,6 @@ export async function POST(
       );
     }
 
-    // ========================================================
-    // STRIPE LINE ITEMS
-    // ========================================================
-
     const stripeLineItems:
       Stripe.Checkout.SessionCreateParams.LineItem[] =
       validatedLines.map(
@@ -2259,24 +2198,6 @@ export async function POST(
         }
       );
 
-    // ========================================================
-    // SHIPPING REQUIRED
-    // ========================================================
-
-    const requiresShipping =
-      validatedLines.some(
-        (
-          line
-        ) =>
-          isPhysicalProduct(
-            line.product
-          )
-      );
-
-    // ========================================================
-    // URLS
-    // ========================================================
-
     const baseUrl =
       getBaseUrl(
         req
@@ -2292,9 +2213,10 @@ export async function POST(
         storeSlug
       )}?checkout=cancelled`;
 
-    // ========================================================
-    // STRIPE SESSION PARAMS
-    // ========================================================
+    const modelMetadata =
+      sellingModels.join(
+        ","
+      );
 
     const sessionParams:
       Stripe.Checkout.SessionCreateParams =
@@ -2326,6 +2248,14 @@ export async function POST(
 
           store_slug:
             storeSlug,
+
+          selling_models:
+            modelMetadata,
+
+          requires_shipping:
+            requiresShipping
+              ? "true"
+              : "false",
 
           discount_id:
             appliedDiscount?.id ||
@@ -2361,6 +2291,14 @@ export async function POST(
             store_slug:
               storeSlug,
 
+            selling_models:
+              modelMetadata,
+
+            requires_shipping:
+              requiresShipping
+                ? "true"
+                : "false",
+
             discount_id:
               appliedDiscount?.id ||
               "",
@@ -2388,10 +2326,6 @@ export async function POST(
         },
       };
 
-    // ========================================================
-    // CUSTOMER EMAIL
-    // ========================================================
-
     if (
       customerEmail
     ) {
@@ -2399,10 +2333,15 @@ export async function POST(
         customerEmail;
     }
 
-    // ========================================================
-    // SHIPPING
-    // ========================================================
-
+    /*
+     * Only physical products trigger Stripe's shipping-address
+     * collection.
+     *
+     * Digital downloads, digital delivery, collection orders,
+     * and services do not ask the buyer for a shipping address.
+     *
+     * Mixed baskets containing at least one physical item do.
+     */
     if (
       requiresShipping
     ) {
@@ -2414,10 +2353,6 @@ export async function POST(
           ],
         };
     }
-
-    // ========================================================
-    // CREATE DISCOUNT INSIDE CONNECTED STRIPE ACCOUNT
-    // ========================================================
 
     if (
       appliedDiscount &&
@@ -2478,19 +2413,6 @@ export async function POST(
         ];
     }
 
-    // ========================================================
-    // CREATE CHECKOUT SESSION
-    //
-    // IMPORTANT:
-    //
-    // stripeAccount here means the payment is created directly
-    // inside the STORE OWNER'S connected Stripe account.
-    //
-    // TOTS-OS is acting as the Stripe Connect platform.
-    //
-    // The payment does not land in the TOTS-OS platform balance.
-    // ========================================================
-
     let session:
       Stripe.Checkout.Session;
 
@@ -2535,10 +2457,6 @@ export async function POST(
       throw stripeError;
     }
 
-    // ========================================================
-    // CHECKOUT URL
-    // ========================================================
-
     if (
       !session.url
     ) {
@@ -2547,24 +2465,10 @@ export async function POST(
         session.id
       );
 
-      /*
-       * Do NOT delete the TOTS order here.
-       *
-       * Stripe already created the Checkout Session.
-       */
-
       throw new Error(
         "Stripe created the checkout but did not return a checkout URL."
       );
     }
-
-    // ========================================================
-    // INITIAL PAYMENT INTENT
-    //
-    // Stripe Checkout may not assign the PaymentIntent until
-    // later in the lifecycle, so the webhook must also update
-    // this field after checkout.session.completed.
-    // ========================================================
 
     const initialPaymentIntentId =
       typeof session
@@ -2574,10 +2478,6 @@ export async function POST(
             .payment_intent
         : null;
 
-    // ========================================================
-    // STRIPE CUSTOMER
-    // ========================================================
-
     const initialStripeCustomerId =
       typeof session
         .customer ===
@@ -2585,10 +2485,6 @@ export async function POST(
         ? session
             .customer
         : null;
-
-    // ========================================================
-    // SAVE STRIPE REFERENCES
-    // ========================================================
 
     const {
       error:
@@ -2638,18 +2534,6 @@ export async function POST(
     if (
       stripeReferenceError
     ) {
-      /*
-       * This is important:
-       *
-       * Stripe Checkout DOES exist at this point.
-       *
-       * We must not delete the store order, otherwise the buyer
-       * could still pay an orphaned Checkout Session.
-       *
-       * The Stripe session metadata contains order_id and
-       * organisation_id, so the webhook can still recover.
-       */
-
       console.error(
         "[TOTS STORE] Stripe references could not be saved:",
         stripeReferenceError
@@ -2659,10 +2543,6 @@ export async function POST(
         "[TOTS STORE] Continuing checkout because Stripe metadata can recover the order relationship."
       );
     }
-
-    // ========================================================
-    // LOG
-    // ========================================================
 
     console.log(
       "[TOTS STORE] Connected checkout created:",
@@ -2684,6 +2564,10 @@ export async function POST(
         orderNumber:
           orderData.order_number,
 
+        sellingModels,
+
+        requiresShipping,
+
         total,
 
         currency:
@@ -2693,10 +2577,6 @@ export async function POST(
           currency,
       }
     );
-
-    // ========================================================
-    // RESPONSE
-    // ========================================================
 
     return NextResponse.json(
       {
@@ -2720,6 +2600,10 @@ export async function POST(
 
         orderNumber:
           orderData.order_number,
+
+        sellingModels,
+
+        requiresShipping,
 
         subtotal,
 
@@ -2758,15 +2642,6 @@ export async function POST(
       error
     );
 
-    // ========================================================
-    // CLEAN UP ORDER
-    //
-    // ONLY delete it if Stripe Checkout has NOT been created.
-    //
-    // Once Stripe has created a session, the order must remain
-    // because that session may still be payable.
-    // ========================================================
-
     if (
       createdOrderId &&
       !stripeCheckoutCreated
@@ -2775,15 +2650,6 @@ export async function POST(
         createdOrderId
       );
     }
-
-    // ========================================================
-    // CLEAN UP COUPON
-    //
-    // Only remove the coupon when checkout itself wasn't
-    // successfully created.
-    //
-    // A successfully-created Checkout Session may reference it.
-    // ========================================================
 
     if (
       createdCouponId &&
@@ -2795,10 +2661,6 @@ export async function POST(
         connectedStripeAccountId
       );
     }
-
-    // ========================================================
-    // STRIPE ERROR
-    // ========================================================
 
     if (
       error instanceof
@@ -2845,10 +2707,6 @@ export async function POST(
         }
       );
     }
-
-    // ========================================================
-    // ERROR RESPONSE
-    // ========================================================
 
     return NextResponse.json(
       {

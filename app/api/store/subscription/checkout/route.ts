@@ -39,6 +39,13 @@ const storePriceId =
     ?.trim() || "";
 
 // ============================================================
+// STORE TRIAL
+// ============================================================
+
+const STORE_TRIAL_DAYS =
+  7;
+
+// ============================================================
 // VALIDATE ENVIRONMENT
 // ============================================================
 
@@ -355,10 +362,6 @@ async function getContext(
 
   // ----------------------------------------------------------
   // FALLBACK: team_members
-  //
-  // Your existing system already uses team_members heavily.
-  // This is a much more useful fallback than assuming a table
-  // such as organisation_members exists.
   // ----------------------------------------------------------
 
   if (
@@ -430,7 +433,7 @@ async function getContext(
         "organisations"
       )
       .select(
-        "id, name, name"
+        "id, name"
       )
       .eq(
         "id",
@@ -458,9 +461,6 @@ async function getContext(
   }
 
   const organisationName =
-    cleanString(
-      organisation.name
-    ) ||
     cleanString(
       organisation.name
     ) ||
@@ -937,6 +937,17 @@ export async function POST(
 
     // ========================================================
     // CREATE CHECKOUT
+    //
+    // STORE ADD-ON:
+    // - £39/month via STRIPE_STORE_ADDON_PRICE_ID
+    // - 7-day free trial
+    //
+    // IMPORTANT:
+    // The trial-end email should be triggered by the Stripe
+    // webhook AFTER checkout has actually completed.
+    //
+    // The metadata below gives the webhook everything it needs
+    // to identify this as a Store trial.
     // ========================================================
 
     const checkoutParams:
@@ -985,9 +996,27 @@ export async function POST(
 
           store_price_id:
             storePriceId,
+
+          trial_type:
+            "store_7_day_trial",
+
+          trial_days:
+            String(
+              STORE_TRIAL_DAYS
+            ),
+
+          trial_end_email:
+            "true",
+
+          customer_email:
+            context.email ||
+            "",
         },
 
         subscription_data: {
+          trial_period_days:
+            STORE_TRIAL_DAYS,
+
           metadata: {
             organisation_id:
               context.organisationId,
@@ -1000,6 +1029,21 @@ export async function POST(
 
             store_price_id:
               storePriceId,
+
+            trial_type:
+              "store_7_day_trial",
+
+            trial_days:
+              String(
+                STORE_TRIAL_DAYS
+              ),
+
+            trial_end_email:
+              "true",
+
+            customer_email:
+              context.email ||
+              "",
           },
         },
       };
@@ -1034,7 +1078,7 @@ export async function POST(
     // ========================================================
 
     console.log(
-      "[STORE CHECKOUT] Checkout session created:",
+      "[STORE CHECKOUT] 7-day Store trial checkout session created:",
       {
         organisationId:
           context.organisationId,
@@ -1050,6 +1094,12 @@ export async function POST(
 
         priceId:
           storePriceId,
+
+        trialDays:
+          STORE_TRIAL_DAYS,
+
+        trialEndEmail:
+          true,
       }
     );
 
@@ -1076,6 +1126,18 @@ export async function POST(
 
         priceId:
           storePriceId,
+
+        trial:
+          {
+            enabled:
+              true,
+
+            days:
+              STORE_TRIAL_DAYS,
+
+            type:
+              "store_7_day_trial",
+          },
       },
       {
         status:

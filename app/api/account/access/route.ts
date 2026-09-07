@@ -21,6 +21,39 @@ export const dynamic =
   "force-dynamic";
 
 // ============================================================
+// TYPES
+// ============================================================
+
+type PaidTier =
+  | "standard"
+  | "professional"
+  | "elite";
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function isPaidTier(
+  value: unknown
+): value is PaidTier {
+  const tier =
+    String(
+      value ?? ""
+    )
+      .trim()
+      .toLowerCase();
+
+  return (
+    tier ===
+      "standard" ||
+    tier ===
+      "professional" ||
+    tier ===
+      "elite"
+  );
+}
+
+// ============================================================
 // GET
 // ============================================================
 
@@ -76,6 +109,10 @@ export async function GET() {
         }
       );
 
+    // ========================================================
+    // GET LOGGED-IN USER
+    // ========================================================
+
     const {
       data: {
         user,
@@ -126,7 +163,230 @@ export async function GET() {
       );
 
     // ========================================================
-    // FIND ORGANISATION
+    // RESOLVE ORGANISATION ID
+    // ========================================================
+
+    let organisationId:
+      string | null =
+      null;
+
+    // ========================================================
+    // PRIMARY:
+    // profiles.organisation_id
+    // ========================================================
+
+    const {
+      data:
+        profile,
+      error:
+        profileError,
+    } =
+      await admin
+        .from(
+          "profiles"
+        )
+        .select(
+          `
+            organisation_id,
+            subscription_tier,
+            is_subscribed
+          `
+        )
+        .eq(
+          "id",
+          user.id
+        )
+        .maybeSingle();
+
+    if (
+      profileError
+    ) {
+      console.error(
+        "Access profile lookup failed:",
+        profileError
+      );
+    }
+
+    if (
+      profile
+        ?.organisation_id
+    ) {
+      organisationId =
+        profile
+          .organisation_id;
+    }
+
+    // ========================================================
+    // FALLBACK 1:
+    // organisation_members
+    // ========================================================
+
+    if (
+      !organisationId
+    ) {
+      const {
+        data:
+          membership,
+        error:
+          membershipError,
+      } =
+        await admin
+          .from(
+            "organisation_members"
+          )
+          .select(
+            "organisation_id"
+          )
+          .eq(
+            "user_id",
+            user.id
+          )
+          .limit(
+            1
+          )
+          .maybeSingle();
+
+      if (
+        membershipError
+      ) {
+        console.error(
+          "Access organisation_members lookup failed:",
+          membershipError
+        );
+      }
+
+      if (
+        membership
+          ?.organisation_id
+      ) {
+        organisationId =
+          membership
+            .organisation_id;
+      }
+    }
+
+    // ========================================================
+    // FALLBACK 2:
+    // user_organisations
+    // ========================================================
+
+    if (
+      !organisationId
+    ) {
+      const {
+        data:
+          userOrganisation,
+        error:
+          userOrganisationError,
+      } =
+        await admin
+          .from(
+            "user_organisations"
+          )
+          .select(
+            "organisation_id"
+          )
+          .eq(
+            "user_id",
+            user.id
+          )
+          .limit(
+            1
+          )
+          .maybeSingle();
+
+      if (
+        userOrganisationError
+      ) {
+        console.error(
+          "Access user_organisations lookup failed:",
+          userOrganisationError
+        );
+      }
+
+      if (
+        userOrganisation
+          ?.organisation_id
+      ) {
+        organisationId =
+          userOrganisation
+            .organisation_id;
+      }
+    }
+
+    // ========================================================
+    // FALLBACK 3:
+    // LEGACY organisations.created_by
+    // ========================================================
+
+    if (
+      !organisationId
+    ) {
+      const {
+        data:
+          createdOrganisation,
+        error:
+          createdOrganisationError,
+      } =
+        await admin
+          .from(
+            "organisations"
+          )
+          .select(
+            "id"
+          )
+          .eq(
+            "created_by",
+            user.id
+          )
+          .limit(
+            1
+          )
+          .maybeSingle();
+
+      if (
+        createdOrganisationError
+      ) {
+        console.error(
+          "Access legacy organisation lookup failed:",
+          createdOrganisationError
+        );
+      }
+
+      if (
+        createdOrganisation
+          ?.id
+      ) {
+        organisationId =
+          createdOrganisation
+            .id;
+      }
+    }
+
+    // ========================================================
+    // NO ORGANISATION
+    // ========================================================
+
+    if (
+      !organisationId
+    ) {
+      return NextResponse.json(
+        {
+          allowed:
+            false,
+
+          reason:
+            "organisation_not_found",
+        },
+        {
+          status:
+            403,
+        }
+      );
+    }
+
+    // ========================================================
+    // LOAD ORGANISATION
     // ========================================================
 
     const {
@@ -143,6 +403,7 @@ export async function GET() {
           `
             id,
             name,
+            subscription_tier,
             subscription_status,
             access_status,
             beta_grace_ends_at,
@@ -150,8 +411,8 @@ export async function GET() {
           `
         )
         .eq(
-          "created_by",
-          user.id
+          "id",
+          organisationId
         )
         .maybeSingle();
 
@@ -179,7 +440,7 @@ export async function GET() {
     }
 
     // ========================================================
-    // NO ORGANISATION
+    // ORGANISATION RECORD DOESN'T EXIST
     // ========================================================
 
     if (
@@ -207,38 +468,80 @@ export async function GET() {
     const now =
       Date.now();
 
+    // --------------------------------------------------------
+    // PAID SUBSCRIPTION
+    // --------------------------------------------------------
+
     const paidActive =
+      isPaidTier(
+        organisation
+          .subscription_tier
+      ) &&
       organisation
         .subscription_status ===
-      "active";
+        "active";
+
+    // --------------------------------------------------------
+    // BETA GRACE PERIOD
+    // --------------------------------------------------------
 
     const betaGraceActive =
       organisation
         .subscription_status ===
         "beta" &&
-      organisation
-        .beta_grace_ends_at &&
+      Boolean(
+        organisation
+          .beta_grace_ends_at
+      ) &&
       new Date(
         organisation
           .beta_grace_ends_at
       ).getTime() >
         now;
 
+    // --------------------------------------------------------
+    // RETENTION TRIAL
+    // --------------------------------------------------------
+
     const retentionTrialActive =
       organisation
         .subscription_status ===
         "trial" &&
-      organisation
-        .retention_trial_ends_at &&
+      Boolean(
+        organisation
+          .retention_trial_ends_at
+      ) &&
       new Date(
         organisation
           .retention_trial_ends_at
       ).getTime() >
         now;
 
+    // --------------------------------------------------------
+    // PROFILE FALLBACK
+    //
+    // If Stripe verification has already synced the profile,
+    // do not lock a genuinely paid customer out simply because
+    // an organisation field is temporarily out of sync.
+    // --------------------------------------------------------
+
+    const profilePaidActive =
+      profile
+        ?.is_subscribed ===
+        true &&
+      isPaidTier(
+        profile
+          ?.subscription_tier
+      );
+
+    // ========================================================
+    // FINAL ACCESS DECISION
+    // ========================================================
+
     const allowed =
       Boolean(
         paidActive ||
+          profilePaidActive ||
           betaGraceActive ||
           retentionTrialActive
       );
@@ -285,6 +588,47 @@ export async function GET() {
     }
 
     // ========================================================
+    // DEBUG LOG
+    // ========================================================
+
+    console.log(
+      "[ACCOUNT ACCESS]",
+      {
+        userId:
+          user.id,
+
+        organisationId:
+          organisation.id,
+
+        organisationTier:
+          organisation
+            .subscription_tier,
+
+        organisationStatus:
+          organisation
+            .subscription_status,
+
+        profileTier:
+          profile
+            ?.subscription_tier,
+
+        profileSubscribed:
+          profile
+            ?.is_subscribed,
+
+        paidActive,
+
+        profilePaidActive,
+
+        betaGraceActive,
+
+        retentionTrialActive,
+
+        allowed,
+      }
+    );
+
+    // ========================================================
     // RESPONSE
     // ========================================================
 
@@ -292,11 +636,20 @@ export async function GET() {
       {
         allowed,
 
+        reason:
+          allowed
+            ? "access_granted"
+            : "access_expired",
+
         organisationId:
           organisation.id,
 
         organisationName:
           organisation.name,
+
+        subscriptionTier:
+          organisation
+            .subscription_tier,
 
         subscriptionStatus:
           organisation
@@ -304,6 +657,22 @@ export async function GET() {
 
         accessStatus:
           desiredAccessStatus,
+
+        profileSubscriptionTier:
+          profile
+            ?.subscription_tier ??
+          null,
+
+        profileSubscribed:
+          profile
+            ?.is_subscribed ??
+          false,
+
+        paidActive,
+
+        betaGraceActive,
+
+        retentionTrialActive,
 
         betaGraceEndsAt:
           organisation

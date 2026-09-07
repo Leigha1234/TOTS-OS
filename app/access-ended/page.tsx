@@ -1,8 +1,14 @@
 "use client";
 
 import {
+  useEffect,
+  useState,
+} from "react";
+
+import {
   ArrowRight,
   Check,
+  Loader2,
   LockKeyhole,
   ShieldCheck,
   Sparkles,
@@ -12,6 +18,43 @@ import {
   useRouter,
 } from "next/navigation";
 
+import {
+  createBrowserClient,
+} from "@supabase/ssr";
+
+// ============================================================
+// TYPES
+// ============================================================
+
+type PaidTier =
+  | "standard"
+  | "professional"
+  | "elite";
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function isPaidTier(
+  value: unknown
+): value is PaidTier {
+  const tier =
+    String(
+      value ?? ""
+    )
+      .trim()
+      .toLowerCase();
+
+  return (
+    tier ===
+      "standard" ||
+    tier ===
+      "professional" ||
+    tier ===
+      "elite"
+  );
+}
+
 // ============================================================
 // PAGE
 // ============================================================
@@ -20,8 +63,364 @@ export default function AccessEndedPage() {
   const router =
     useRouter();
 
+  const [
+    checkingAccess,
+    setCheckingAccess,
+  ] =
+    useState(
+      true
+    );
+
   // ==========================================================
-  // UI
+  // CHECK WHETHER USER HAS SINCE PAID
+  // ==========================================================
+
+  useEffect(
+    () => {
+      let mounted =
+        true;
+
+      async function checkAccess() {
+        try {
+          const supabase =
+            createBrowserClient(
+              process.env
+                .NEXT_PUBLIC_SUPABASE_URL!,
+              process.env
+                .NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            );
+
+          // ==================================================
+          // GET LOGGED-IN USER
+          // ==================================================
+
+          const {
+            data: {
+              user,
+            },
+            error:
+              userError,
+          } =
+            await supabase
+              .auth
+              .getUser();
+
+          if (
+            userError ||
+            !user
+          ) {
+            if (
+              mounted
+            ) {
+              setCheckingAccess(
+                false
+              );
+            }
+
+            return;
+          }
+
+          // ==================================================
+          // GET PROFILE
+          // ==================================================
+
+          const {
+            data:
+              profile,
+            error:
+              profileError,
+          } =
+            await supabase
+              .from(
+                "profiles"
+              )
+              .select(
+                `
+                  organisation_id,
+                  subscription_tier,
+                  is_subscribed
+                `
+              )
+              .eq(
+                "id",
+                user.id
+              )
+              .maybeSingle();
+
+          if (
+            profileError
+          ) {
+            console.error(
+              "[ACCESS ENDED] Profile lookup failed:",
+              profileError
+            );
+          }
+
+          // ==================================================
+          // DETERMINE ORGANISATION ID
+          // ==================================================
+
+          let organisationId:
+            string | null =
+            profile
+              ?.organisation_id ??
+            null;
+
+          // ==================================================
+          // FALLBACK:
+          // organisation_members
+          // ==================================================
+
+          if (
+            !organisationId
+          ) {
+            const {
+              data:
+                membership,
+              error:
+                membershipError,
+            } =
+              await supabase
+                .from(
+                  "organisation_members"
+                )
+                .select(
+                  "organisation_id"
+                )
+                .eq(
+                  "user_id",
+                  user.id
+                )
+                .limit(
+                  1
+                )
+                .maybeSingle();
+
+            if (
+              membershipError
+            ) {
+              console.error(
+                "[ACCESS ENDED] Membership lookup failed:",
+                membershipError
+              );
+            }
+
+            organisationId =
+              membership
+                ?.organisation_id ??
+              null;
+          }
+
+          // ==================================================
+          // FALLBACK:
+          // user_organisations
+          // ==================================================
+
+          if (
+            !organisationId
+          ) {
+            const {
+              data:
+                userOrganisation,
+              error:
+                userOrganisationError,
+            } =
+              await supabase
+                .from(
+                  "user_organisations"
+                )
+                .select(
+                  "organisation_id"
+                )
+                .eq(
+                  "user_id",
+                  user.id
+                )
+                .limit(
+                  1
+                )
+                .maybeSingle();
+
+            if (
+              userOrganisationError
+            ) {
+              console.error(
+                "[ACCESS ENDED] User organisation lookup failed:",
+                userOrganisationError
+              );
+            }
+
+            organisationId =
+              userOrganisation
+                ?.organisation_id ??
+              null;
+          }
+
+          // ==================================================
+          // LOAD ORGANISATION
+          // ==================================================
+
+          if (
+            organisationId
+          ) {
+            const {
+              data:
+                organisation,
+              error:
+                organisationError,
+            } =
+              await supabase
+                .from(
+                  "organisations"
+                )
+                .select(
+                  `
+                    id,
+                    subscription_tier,
+                    subscription_status,
+                    access_status
+                  `
+                )
+                .eq(
+                  "id",
+                  organisationId
+                )
+                .maybeSingle();
+
+            if (
+              organisationError
+            ) {
+              console.error(
+                "[ACCESS ENDED] Organisation lookup failed:",
+                organisationError
+              );
+            }
+
+            // ==================================================
+            // AUTHORITATIVE PAID ACCESS CHECK
+            // ==================================================
+
+            const organisationHasPaidAccess =
+              Boolean(
+                organisation &&
+                  isPaidTier(
+                    organisation
+                      .subscription_tier
+                  ) &&
+                  organisation
+                    .subscription_status ===
+                    "active" &&
+                  organisation
+                    .access_status ===
+                    "active"
+              );
+
+            if (
+              organisationHasPaidAccess
+            ) {
+              router.replace(
+                "/dashboard"
+              );
+
+              router.refresh();
+
+              return;
+            }
+          }
+
+          // ==================================================
+          // PROFILE FALLBACK
+          //
+          // Useful if organisation SELECT is temporarily
+          // blocked by RLS but the paid profile has already
+          // been synchronised successfully.
+          // ==================================================
+
+          const profileHasPaidAccess =
+            Boolean(
+              profile
+                ?.is_subscribed ===
+                true &&
+                isPaidTier(
+                  profile
+                    ?.subscription_tier
+                )
+            );
+
+          if (
+            profileHasPaidAccess
+          ) {
+            router.replace(
+              "/dashboard"
+            );
+
+            router.refresh();
+
+            return;
+          }
+        } catch (
+          error
+        ) {
+          console.error(
+            "[ACCESS ENDED] Access check failed:",
+            error
+          );
+        }
+
+        if (
+          mounted
+        ) {
+          setCheckingAccess(
+            false
+          );
+        }
+      }
+
+      void checkAccess();
+
+      return () => {
+        mounted =
+          false;
+      };
+    },
+    [
+      router,
+    ]
+  );
+
+  // ==========================================================
+  // CHECKING ACCESS
+  // ==========================================================
+
+  if (
+    checkingAccess
+  ) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5">
+
+        <div className="flex flex-col items-center">
+
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-stone-200 bg-white shadow-sm">
+
+            <Loader2
+              size={22}
+              className="animate-spin text-[#82936b]"
+            />
+
+          </div>
+
+          <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
+            Checking your TOTS-OS access
+          </p>
+
+        </div>
+
+      </main>
+    );
+  }
+
+  // ==========================================================
+  // ACCESS ENDED UI
   // ==========================================================
 
   return (

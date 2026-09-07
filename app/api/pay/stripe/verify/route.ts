@@ -237,7 +237,7 @@ export async function POST(
     }
 
     // ========================================================
-    // ORGANISATION ID FROM STRIPE METADATA
+    // ORGANISATION ID
     // ========================================================
 
     const organisationId =
@@ -385,7 +385,7 @@ export async function POST(
       );
 
     // ========================================================
-    // ADMIN SUPABASE
+    // ADMIN SUPABASE CLIENT
     // ========================================================
 
     const admin =
@@ -423,7 +423,10 @@ export async function POST(
           `
             id,
             name,
-            created_by
+            created_by,
+            subscription_tier,
+            subscription_status,
+            access_status
           `
         )
         .eq(
@@ -670,11 +673,23 @@ export async function POST(
           "organisations"
         )
         .update({
+          subscription_tier:
+            tier,
+
           subscription_status:
             "active",
 
           access_status:
             "active",
+
+          beta_ended_at:
+            null,
+
+          beta_grace_ends_at:
+            null,
+
+          retention_trial_ends_at:
+            null,
         })
         .eq(
           "id",
@@ -728,8 +743,8 @@ export async function POST(
       );
 
       /*
-       * Do not revoke paid access just because
-       * the profile sync failed.
+       * Do not remove paid access just because
+       * profile syncing failed.
        */
     }
 

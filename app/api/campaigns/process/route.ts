@@ -36,9 +36,7 @@ const supabaseAdmin = createClient(
   }
 );
 
-const resend = new Resend(
-  resendApiKey
-);
+const resend = new Resend(resendApiKey);
 
 // ==================================================
 // SETTINGS
@@ -50,15 +48,13 @@ const MAX_EMAILS_PER_RUN = 20;
 // retrying a permanently failing address.
 const MAX_ATTEMPTS = 5;
 
-// We are sending 20 per minute, but also space the
-// individual Resend API calls apart.
-// 200ms = max ~5 requests/sec, below Resend's
-// 10 requests/sec limit.
+// Space individual Resend API calls apart.
+// 200ms = max ~5 requests/sec.
 const SEND_DELAY_MS = 200;
 
-// If a Vercel invocation dies after claiming a row,
-// allow it to be recovered after this amount of time.
-const STALE_PROCESSING_MINUTES = 3;
+// If an invocation dies after claiming a delivery,
+// recover it after this amount of time.
+const STALE_SENDING_MINUTES = 3;
 
 // ==================================================
 // TYPES
@@ -88,6 +84,10 @@ function cleanEmail(value: unknown): string {
   }
 
   return value.trim().toLowerCase();
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 function escapeHtml(value: unknown): string {
@@ -216,9 +216,7 @@ function isAuthorisedCron(
   }
 
   const authorization =
-    req.headers.get(
-      "authorization"
-    );
+    req.headers.get("authorization");
 
   return (
     authorization ===
@@ -227,14 +225,17 @@ function isAuthorisedCron(
 }
 
 // ==================================================
-// RECOVER STALE PROCESSING ROWS
+// RECOVER STALE SENDING ROWS
 // ==================================================
 
 async function recoverStaleDeliveries() {
+  const now =
+    new Date().toISOString();
+
   const staleBefore =
     new Date(
       Date.now() -
-        STALE_PROCESSING_MINUTES *
+        STALE_SENDING_MINUTES *
           60 *
           1000
     ).toISOString();
@@ -246,9 +247,9 @@ async function recoverStaleDeliveries() {
     .from("campaign_deliveries")
     .update({
       status: "pending",
-      updated_at: new Date().toISOString(),
+      updated_at: now,
     })
-    .eq("status", "processing")
+    .eq("status", "sending")
     .lt("updated_at", staleBefore)
     .select("id");
 
@@ -342,27 +343,32 @@ async function loadNextDeliveries(
 
 async function claimDelivery(
   delivery: Delivery
-): Promise<boolean> {
+): Promise<{
+  claimed: boolean;
+  attempts: number;
+}> {
   const now =
     new Date().toISOString();
 
-  // IMPORTANT:
-  // The status = pending condition makes this a
-  // lightweight optimistic lock. If two cron
-  // invocations overlap, only one should successfully
-  // change this specific row from pending → processing.
+  const nextAttempts =
+    Number(
+      delivery.attempts || 0
+    ) + 1;
+
+  // Lightweight optimistic lock.
+  //
+  // DB delivery statuses are:
+  // pending -> sending -> sent / failed
+  //
+  // Campaign status itself remains "processing".
   const {
     data,
     error,
   } = await supabaseAdmin
     .from("campaign_deliveries")
     .update({
-      status: "processing",
-      attempts:
-        Number(
-          delivery.attempts ||
-            0
-        ) + 1,
+      status: "sending",
+      attempts: nextAttempts,
       updated_at: now,
     })
     .eq(
@@ -373,9 +379,7 @@ async function claimDelivery(
       "status",
       "pending"
     )
-    .select(
-      "id"
-    );
+    .select("id");
 
   if (error) {
     throw new Error(
@@ -383,10 +387,13 @@ async function claimDelivery(
     );
   }
 
-  return Boolean(
-    data &&
-      data.length === 1
-  );
+  return {
+    claimed: Boolean(
+      data &&
+        data.length === 1
+    ),
+    attempts: nextAttempts,
+  };
 }
 
 // ==================================================
@@ -427,25 +434,33 @@ async function markDeliverySent({
 }
 
 // ==================================================
-// MARK FAILED
+// MARK FAILED / RETRY
 // ==================================================
 
 async function markDeliveryFailed({
   deliveryId,
   errorMessage,
+  attempts,
 }: {
   deliveryId: string;
   errorMessage: string;
+  attempts: number;
 }) {
   const now =
     new Date().toISOString();
+
+  const exhausted =
+    attempts >= MAX_ATTEMPTS;
 
   const {
     error,
   } = await supabaseAdmin
     .from("campaign_deliveries")
     .update({
-      status: "pending",
+      status:
+        exhausted
+          ? "failed"
+          : "pending",
       last_error: errorMessage,
       updated_at: now,
     })
@@ -456,7 +471,9 @@ async function markDeliveryFailed({
 
   if (error) {
     console.error(
-      "Could not mark delivery for retry:",
+      exhausted
+        ? "Could not mark delivery as failed:"
+        : "Could not mark delivery for retry:",
       deliveryId,
       error.message
     );
@@ -520,9 +537,10 @@ async function getCampaignCounts(
     );
   }
 
+  // Only genuinely retryable/in-flight rows count as active.
   const {
-    count: pending,
-    error: pendingError,
+    count: retryablePending,
+    error: retryablePendingError,
   } = await supabaseAdmin
     .from("campaign_deliveries")
     .select(
@@ -536,23 +554,24 @@ async function getCampaignCounts(
       "campaign_id",
       campaignId
     )
-    .in(
+    .eq(
       "status",
-      [
-        "pending",
-        "processing",
-      ]
+      "pending"
+    )
+    .lt(
+      "attempts",
+      MAX_ATTEMPTS
     );
 
-  if (pendingError) {
+  if (retryablePendingError) {
     throw new Error(
-      pendingError.message
+      retryablePendingError.message
     );
   }
 
   const {
-    count: exhausted,
-    error: exhaustedError,
+    count: sending,
+    error: sendingError,
   } = await supabaseAdmin
     .from("campaign_deliveries")
     .select(
@@ -566,26 +585,101 @@ async function getCampaignCounts(
       "campaign_id",
       campaignId
     )
-    .neq(
+    .eq(
       "status",
-      "sent"
+      "sending"
+    );
+
+  if (sendingError) {
+    throw new Error(
+      sendingError.message
+    );
+  }
+
+  const {
+    count: failed,
+    error: failedError,
+  } = await supabaseAdmin
+    .from("campaign_deliveries")
+    .select(
+      "id",
+      {
+        count: "exact",
+        head: true,
+      }
+    )
+    .eq(
+      "campaign_id",
+      campaignId
+    )
+    .eq(
+      "status",
+      "failed"
+    );
+
+  if (failedError) {
+    throw new Error(
+      failedError.message
+    );
+  }
+
+  const {
+    count: exhaustedPending,
+    error: exhaustedPendingError,
+  } = await supabaseAdmin
+    .from("campaign_deliveries")
+    .select(
+      "id",
+      {
+        count: "exact",
+        head: true,
+      }
+    )
+    .eq(
+      "campaign_id",
+      campaignId
+    )
+    .eq(
+      "status",
+      "pending"
     )
     .gte(
       "attempts",
       MAX_ATTEMPTS
     );
 
-  if (exhaustedError) {
+  if (exhaustedPendingError) {
     throw new Error(
-      exhaustedError.message
+      exhaustedPendingError.message
     );
   }
+
+  const active =
+    (retryablePending || 0) +
+    (sending || 0);
+
+  const exhausted =
+    (failed || 0) +
+    (exhaustedPending || 0);
 
   return {
     total: total || 0,
     sent: sent || 0,
-    pending: pending || 0,
-    exhausted: exhausted || 0,
+
+    // Keep "pending" in response for compatibility
+    // with your existing diagnostics/UI.
+    pending: active,
+
+    retryablePending:
+      retryablePending || 0,
+
+    sending:
+      sending || 0,
+
+    failed:
+      failed || 0,
+
+    exhausted,
   };
 }
 
@@ -604,10 +698,62 @@ async function updateCampaignProgress(
   const now =
     new Date().toISOString();
 
-  // Everything sent successfully.
+  // ==================================================
+  // ZERO DELIVERY SAFETY
+  // ==================================================
+  //
+  // An old/test campaign with no delivery rows must
+  // never remain processing forever and block every
+  // newer campaign behind it.
+
+  if (counts.total === 0) {
+    const {
+      error,
+    } = await supabaseAdmin
+      .from("campaigns")
+      .update({
+        status: "failed",
+        sent_count: 0,
+      })
+      .eq(
+        "id",
+        campaign.id
+      );
+
+    if (error) {
+      throw new Error(
+        error.message
+      );
+    }
+
+    await supabaseAdmin
+      .from("campaign_jobs")
+      .update({
+        status: "failed",
+      })
+      .eq(
+        "campaign_id",
+        campaign.id
+      )
+      .eq(
+        "status",
+        "processing"
+      );
+
+    return {
+      ...counts,
+      campaignStatus:
+        "failed",
+    };
+  }
+
+  // ==================================================
+  // EVERYTHING SENT
+  // ==================================================
+
   if (
-    counts.total > 0 &&
-    counts.sent === counts.total
+    counts.sent ===
+    counts.total
   ) {
     const {
       error,
@@ -615,7 +761,8 @@ async function updateCampaignProgress(
       .from("campaigns")
       .update({
         status: "sent",
-        sent_count: counts.sent,
+        sent_count:
+          counts.sent,
         sent_at:
           campaign.sent_at ||
           now,
@@ -652,8 +799,10 @@ async function updateCampaignProgress(
     };
   }
 
-  // Nothing remains processable, but some recipients
-  // exhausted their retry limit.
+  // ==================================================
+  // NOTHING LEFT TO PROCESS + FAILURES EXIST
+  // ==================================================
+
   if (
     counts.pending === 0 &&
     counts.exhausted > 0
@@ -664,7 +813,8 @@ async function updateCampaignProgress(
       .from("campaigns")
       .update({
         status: "failed",
-        sent_count: counts.sent,
+        sent_count:
+          counts.sent,
       })
       .eq(
         "id",
@@ -698,14 +848,18 @@ async function updateCampaignProgress(
     };
   }
 
-  // Still working.
+  // ==================================================
+  // STILL WORKING
+  // ==================================================
+
   const {
     error,
   } = await supabaseAdmin
     .from("campaigns")
     .update({
       status: "processing",
-      sent_count: counts.sent,
+      sent_count:
+        counts.sent,
     })
     .eq(
       "id",
@@ -802,7 +956,10 @@ async function processCampaign() {
     const delivery =
       deliveries[index];
 
-    const claimed =
+    const {
+      claimed,
+      attempts,
+    } =
       await claimDelivery(
         delivery
       );
@@ -810,7 +967,6 @@ async function processCampaign() {
     // Another invocation got this row first.
     if (!claimed) {
       skippedThisRun++;
-
       continue;
     }
 
@@ -819,12 +975,16 @@ async function processCampaign() {
         delivery.email
       );
 
-    if (!email) {
+    if (
+      !email ||
+      !isValidEmail(email)
+    ) {
       await markDeliveryFailed({
         deliveryId:
           delivery.id,
         errorMessage:
           "Invalid recipient email",
+        attempts,
       });
 
       failedThisRun++;
@@ -843,15 +1003,8 @@ async function processCampaign() {
     // IDEMPOTENCY
     // ==================================================
     //
-    // This is deliberately deterministic.
-    //
-    // The same campaign + delivery always gets the
-    // same Resend idempotency key.
-    //
-    // If Resend accepts the email but Vercel dies
-    // before Supabase gets updated, retrying the same
-    // delivery within Resend's idempotency window does
-    // not send another copy.
+    // Same campaign + delivery always uses the same
+    // deterministic Resend idempotency key.
 
     const idempotencyKey =
       `campaign/${campaign.id}/delivery/${delivery.id}`;
@@ -924,12 +1077,12 @@ async function processCampaign() {
           delivery.id,
         errorMessage:
           message,
+        attempts,
       });
 
       failedThisRun++;
     }
 
-    // Do not sleep after the final email.
     if (
       index <
       deliveries.length - 1
@@ -965,18 +1118,21 @@ async function processCampaign() {
     success: true,
     campaignId:
       campaign.id,
+
     processed:
       sentThisRun +
       failedThisRun,
+
     sentThisRun,
     failedThisRun,
     skippedThisRun,
+
     ...progress,
   };
 }
 
 // ==================================================
-// GET — VERCEL CRON
+// GET — SUPABASE / VERCEL CRON
 // ==================================================
 
 export async function GET(
@@ -986,6 +1142,7 @@ export async function GET(
     if (!isAuthorisedCron(req)) {
       return NextResponse.json(
         {
+          success: false,
           error:
             "Unauthorized",
         },
@@ -1019,6 +1176,5 @@ export async function GET(
         status: 500,
       }
     );
-    
   }
 }

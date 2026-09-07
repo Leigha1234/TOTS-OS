@@ -242,7 +242,9 @@ export async function POST(req: Request) {
     if (campaignError || !campaign) {
       return NextResponse.json(
         {
-          error: campaignError?.message || "Campaign not found",
+          error:
+            campaignError?.message ||
+            "Campaign not found",
         },
         {
           status: 404,
@@ -272,6 +274,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // Prevent duplicate queueing while already active.
     if (
       campaign.status === "processing" ||
       campaign.status === "sending"
@@ -279,7 +282,8 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: true,
-          message: "Campaign is already queued and processing.",
+          message:
+            "Campaign is already queued and processing.",
           campaignId,
           status: campaign.status,
         },
@@ -293,14 +297,16 @@ export async function POST(req: Request) {
     // LOAD AUDIENCE
     // ==================================================
 
-    const recipients = await loadCampaignRecipients(
-      campaign
-    );
+    const recipients =
+      await loadCampaignRecipients(
+        campaign
+      );
 
     if (recipients.length === 0) {
       return NextResponse.json(
         {
-          error: "No recipients found for this campaign",
+          error:
+            "No recipients found for this campaign",
         },
         {
           status: 400,
@@ -323,7 +329,10 @@ export async function POST(req: Request) {
         status,
         attempts
       `)
-      .eq("campaign_id", campaignId);
+      .eq(
+        "campaign_id",
+        campaignId
+      );
 
     if (existingError) {
       throw new Error(
@@ -337,13 +346,28 @@ export async function POST(req: Request) {
     >();
 
     for (const row of existingRows || []) {
+      const email =
+        cleanEmail(
+          row.email
+        );
+
+      if (!email) {
+        continue;
+      }
+
       existingMap.set(
-        cleanEmail(row.email),
+        email,
         {
           id: String(row.id),
-          email: cleanEmail(row.email),
-          status: String(row.status || ""),
-          attempts: Number(row.attempts || 0),
+          email,
+          status:
+            String(
+              row.status || ""
+            ),
+          attempts:
+            Number(
+              row.attempts || 0
+            ),
         }
       );
     }
@@ -352,34 +376,66 @@ export async function POST(req: Request) {
     // DETERMINE WHAT STILL NEEDS SENDING
     // ==================================================
 
-    const alreadySent = recipients.filter(
-      recipient =>
-        existingMap.get(recipient.email)?.status === "sent"
-    );
+    const alreadySent =
+      recipients.filter(
+        recipient =>
+          existingMap.get(
+            recipient.email
+          )?.status ===
+          "sent"
+      );
 
-    const needsSending = recipients.filter(
-      recipient =>
-        existingMap.get(recipient.email)?.status !== "sent"
-    );
+    const needsSending =
+      recipients.filter(
+        recipient =>
+          existingMap.get(
+            recipient.email
+          )?.status !==
+          "sent"
+      );
 
-    if (needsSending.length === 0) {
-      const now = new Date().toISOString();
+    // ==================================================
+    // EVERYTHING ALREADY SENT
+    // ==================================================
 
-      await supabaseAdmin
+    if (
+      needsSending.length === 0
+    ) {
+      const now =
+        new Date().toISOString();
+
+      const {
+        error,
+      } = await supabaseAdmin
         .from("campaigns")
         .update({
           status: "sent",
-          sent_count: alreadySent.length,
-          sent_at: campaign.sent_at || now,
+          sent_count:
+            alreadySent.length,
+          sent_at:
+            campaign.sent_at ||
+            now,
         })
-        .eq("id", campaignId);
+        .eq(
+          "id",
+          campaignId
+        );
+
+      if (error) {
+        throw new Error(
+          `Failed to finalise campaign: ${error.message}`
+        );
+      }
 
       return NextResponse.json({
         success: true,
-        message: "All campaign recipients have already been sent.",
+        message:
+          "All campaign recipients have already been sent.",
         campaignId,
-        totalRecipients: recipients.length,
-        alreadySent: alreadySent.length,
+        totalRecipients:
+          recipients.length,
+        alreadySent:
+          alreadySent.length,
         queued: 0,
       });
     }
@@ -388,33 +444,49 @@ export async function POST(req: Request) {
     // CREATE / RESET UNSENT DELIVERY ROWS
     // ==================================================
 
-    const now = new Date().toISOString();
+    const now =
+      new Date().toISOString();
 
-    const queueRows = needsSending.map(
-      recipient => {
-        const existing = existingMap.get(
-          recipient.email
-        );
+    const queueRows =
+      needsSending.map(
+        recipient => ({
+          campaign_id:
+            campaignId,
 
-        return {
-          campaign_id: campaignId,
-          organisation_id: campaign.organisation_id,
-          email: recipient.email,
+          organisation_id:
+            campaign.organisation_id,
 
-          // Reset failed / old processing records so the
-          // cron worker can safely pick them up.
-          status: "pending",
+          email:
+            recipient.email,
 
-          // Keep previous attempt history.
-          attempts: existing?.attempts || 0,
+          // Delivery states are:
+          // pending -> sending -> sent / failed
+          status:
+            "pending",
 
-          resend_id: null,
-          last_error: null,
-          sent_at: null,
-          updated_at: now,
-        };
-      }
-    );
+          // IMPORTANT:
+          // A deliberate queue/requeue starts a fresh
+          // retry cycle.
+          //
+          // This prevents historical rate-limit failures
+          // from causing the new worker to immediately
+          // skip recipients because attempts >= 5.
+          attempts:
+            0,
+
+          resend_id:
+            null,
+
+          last_error:
+            null,
+
+          sent_at:
+            null,
+
+          updated_at:
+            now,
+        })
+      );
 
     const {
       error: queueError,
@@ -423,7 +495,8 @@ export async function POST(req: Request) {
       .upsert(
         queueRows,
         {
-          onConflict: "campaign_id,email",
+          onConflict:
+            "campaign_id,email",
         }
       );
 
@@ -438,16 +511,25 @@ export async function POST(req: Request) {
     // ==================================================
 
     const {
-      error: campaignUpdateError,
+      error:
+        campaignUpdateError,
     } = await supabaseAdmin
       .from("campaigns")
       .update({
-        status: "processing",
-        sent_count: alreadySent.length,
-      })
-      .eq("id", campaignId);
+        status:
+          "processing",
 
-    if (campaignUpdateError) {
+        sent_count:
+          alreadySent.length,
+      })
+      .eq(
+        "id",
+        campaignId
+      );
+
+    if (
+      campaignUpdateError
+    ) {
       throw new Error(
         `Failed to update campaign: ${campaignUpdateError.message}`
       );
@@ -456,18 +538,24 @@ export async function POST(req: Request) {
     // ==================================================
     // CAMPAIGN JOB
     // ==================================================
+    //
+    // campaign_jobs is useful for tracking but is not
+    // the source of truth. A job insert failure should
+    // therefore not stop the campaign itself.
 
-    // Do not let campaign_jobs failure stop the actual
-    // campaign queue. It is useful tracking, not the
-    // source of truth.
     const {
       error: jobError,
     } = await supabaseAdmin
       .from("campaign_jobs")
       .insert({
-        campaign_id: campaignId,
-        status: "processing",
-        created_at: now,
+        campaign_id:
+          campaignId,
+
+        status:
+          "processing",
+
+        created_at:
+          now,
       });
 
     if (jobError) {
@@ -477,23 +565,49 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log("CAMPAIGN QUEUED:", {
-      campaignId,
-      totalRecipients: recipients.length,
-      alreadySent: alreadySent.length,
-      queued: needsSending.length,
-    });
+    console.log(
+      "CAMPAIGN QUEUED:",
+      {
+        campaignId,
+
+        totalRecipients:
+          recipients.length,
+
+        alreadySent:
+          alreadySent.length,
+
+        queued:
+          needsSending.length,
+      }
+    );
+
+    // ==================================================
+    // RESPONSE
+    // ==================================================
 
     return NextResponse.json({
       success: true,
-      message: "Campaign queued successfully.",
+
+      message:
+        "Campaign queued successfully.",
+
       campaignId,
-      totalRecipients: recipients.length,
-      alreadySent: alreadySent.length,
-      queued: needsSending.length,
-      rate: "20 emails per minute",
+
+      totalRecipients:
+        recipients.length,
+
+      alreadySent:
+        alreadySent.length,
+
+      queued:
+        needsSending.length,
+
+      rate:
+        "20 emails per minute",
     });
-  } catch (error: unknown) {
+  } catch (
+    error: unknown
+  ) {
     console.error(
       "QUEUE CAMPAIGN ERROR:",
       error
@@ -501,7 +615,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json(
       {
-        error: getErrorMessage(error),
+        error:
+          getErrorMessage(
+            error
+          ),
       },
       {
         status: 500,

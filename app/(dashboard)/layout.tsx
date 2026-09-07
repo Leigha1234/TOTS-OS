@@ -10,6 +10,7 @@ import Link from "next/link";
 
 import {
   usePathname,
+  useRouter,
 } from "next/navigation";
 
 import {
@@ -103,8 +104,16 @@ function DashboardLayoutInner({
     setMobileMenuOpen,
   ] = useState(false);
 
+  const [
+    accessChecked,
+    setAccessChecked,
+  ] = useState(false);
+
   const pathname =
     usePathname();
+
+  const router =
+    useRouter();
 
   const {
     mobileNav,
@@ -357,6 +366,98 @@ function DashboardLayoutInner({
     ];
 
   // ==========================================================
+  // CHECK ACCOUNT ACCESS
+  // ==========================================================
+
+  useEffect(
+    () => {
+      let cancelled =
+        false;
+
+      async function checkAccess() {
+        try {
+          const response =
+            await fetch(
+              "/api/account/access",
+              {
+                method:
+                  "GET",
+
+                cache:
+                  "no-store",
+              }
+            );
+
+          const data =
+            await response
+              .json()
+              .catch(
+                () => ({})
+              );
+
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          if (
+            response.status ===
+            401
+          ) {
+            router.replace(
+              "/login"
+            );
+
+            return;
+          }
+
+          if (
+            !response.ok ||
+            data.allowed !==
+              true
+          ) {
+            router.replace(
+              "/access-ended"
+            );
+
+            return;
+          }
+
+          setAccessChecked(
+            true
+          );
+        } catch (
+          error
+        ) {
+          console.error(
+            "Unable to check account access:",
+            error
+          );
+
+          if (
+            !cancelled
+          ) {
+            router.replace(
+              "/access-ended"
+            );
+          }
+        }
+      }
+
+      void checkAccess();
+
+      return () => {
+        cancelled =
+          true;
+      };
+    },
+    [
+      router,
+    ]
+  );
+
+  // ==========================================================
   // RESOLVE MOBILE NAV
   //
   // IMPORTANT:
@@ -543,6 +644,48 @@ function DashboardLayoutInner({
       mobileMenuOpen,
     ]
   );
+
+  // ==========================================================
+  // ACCESS LOADING STATE
+  // ==========================================================
+
+  if (
+    !accessChecked
+  ) {
+    return (
+      <div
+        className="
+          flex
+          h-screen
+          w-full
+          items-center
+          justify-center
+          bg-[#fcfaf7]
+        "
+      >
+        <div className="text-center">
+
+          <div
+            className="
+              mx-auto
+              h-8
+              w-8
+              animate-spin
+              rounded-full
+              border-2
+              border-stone-200
+              border-t-[#829473]
+            "
+          />
+
+          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
+            Loading your workspace
+          </p>
+
+        </div>
+      </div>
+    );
+  }
 
   // ==========================================================
   // RENDER

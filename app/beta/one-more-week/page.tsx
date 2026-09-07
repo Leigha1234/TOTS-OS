@@ -255,7 +255,7 @@ export default function OneMoreWeekPage() {
                 type="button"
                 onClick={() =>
                   router.push(
-                    "/manage-subscription"
+                    "/billing"
                   )
                 }
                 className="rounded-full border border-stone-200 bg-white px-8 py-4 text-[10px] font-black uppercase tracking-[0.16em] text-stone-700 transition hover:border-[#a9b897] hover:bg-[#edf1e8]"

@@ -435,10 +435,10 @@ export async function POST(
             "auto",
 
           success_url:
-            `${appUrl}/settings/billing?success=true&session_id={CHECKOUT_SESSION_ID}`,
+  `${appUrl}/billing?success=true&session_id={CHECKOUT_SESSION_ID}`,
 
-          cancel_url:
-            `${appUrl}/settings/billing?cancelled=true`,
+cancel_url:
+  `${appUrl}/billing?cancelled=true`,
 
           // ==================================================
           // CHECKOUT METADATA

@@ -23,10 +23,45 @@ const supabaseAdmin = createClient(
 // TYPES
 // ==================================================
 
+type RecipientSource =
+  | "profile"
+  | "manual";
+
 type CampaignRecipient = {
   id: string;
   email: string;
-  source: "profile" | "manual";
+  source: RecipientSource;
+};
+
+type ExistingDelivery = {
+  id: string;
+  email: string;
+  status: string;
+  attempts: number;
+  resend_id: string | null;
+  last_error: string | null;
+  sent_at: string | null;
+};
+
+type SentRecipient = {
+  id: string;
+  email: string;
+  source: RecipientSource;
+  resendId: string | null;
+};
+
+type FailedRecipient = {
+  id: string;
+  email: string;
+  source: RecipientSource;
+  error: string;
+};
+
+type SkippedRecipient = {
+  id: string;
+  email: string;
+  source: RecipientSource;
+  reason: string;
 };
 
 type ProcessCampaignArgs = {
@@ -36,14 +71,35 @@ type ProcessCampaignArgs = {
   resend: Resend;
   fromEmail: string;
   trackingBaseUrl: string;
+  jobId?: string | null;
 };
 
 type ProcessCampaignResult = {
-  sentCount: number;
-  failedCount: number;
   total: number;
-  status: "sent" | "failed";
+
+  attemptedCount: number;
+
+  newlySentCount: number;
+
+  totalSentCount: number;
+
+  failedCount: number;
+
+  skippedCount: number;
+
+  remainingCount: number;
+
+  status:
+    | "sent"
+    | "failed";
+
   campaign: any;
+
+  sentRecipients: SentRecipient[];
+
+  failedRecipients: FailedRecipient[];
+
+  skippedRecipients: SkippedRecipient[];
 };
 
 // ==================================================
@@ -65,6 +121,8 @@ function cleanEmail(
     .toLowerCase();
 }
 
+// ==================================================
+
 function isValidEmail(
   value: string
 ) {
@@ -72,6 +130,8 @@ function isValidEmail(
     value
   );
 }
+
+// ==================================================
 
 function escapeHtml(
   value: unknown
@@ -101,6 +161,8 @@ function escapeHtml(
     );
 }
 
+// ==================================================
+
 function normaliseBaseUrl(
   value: string
 ) {
@@ -128,17 +190,135 @@ function normaliseBaseUrl(
 }
 
 // ==================================================
+
+function getErrorMessage(
+  error: unknown
+) {
+  if (
+    error instanceof Error
+  ) {
+    return error.message;
+  }
+
+  if (
+    typeof error ===
+    "string"
+  ) {
+    return error;
+  }
+
+  try {
+    return JSON.stringify(
+      error
+    );
+  } catch {
+    return "Unknown error";
+  }
+}
+
+// ==================================================
+// UPDATE CAMPAIGN JOB
+// ==================================================
+
+async function updateCampaignJob(
+  jobId: string | null | undefined,
+  status: string
+) {
+  if (
+    !jobId
+  ) {
+    return;
+  }
+
+  const {
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "campaign_jobs"
+      )
+      .update({
+        status,
+      })
+      .eq(
+        "id",
+        jobId
+      );
+
+  if (
+    error
+  ) {
+    console.warn(
+      "⚠️ Campaign job status update failed:",
+      {
+        jobId,
+        status,
+
+        message:
+          error.message,
+
+        details:
+          error.details,
+
+        hint:
+          error.hint,
+
+        code:
+          error.code,
+      }
+    );
+  }
+}
+
+// ==================================================
 // LOAD RECIPIENTS
 // ==================================================
 
 async function loadCampaignRecipients(
   campaign: any
-): Promise<CampaignRecipient[]> {
+): Promise<
+  CampaignRecipient[]
+> {
   if (
     !campaign?.list_id
   ) {
     return [];
   }
+
+  if (
+    !campaign
+      ?.organisation_id
+  ) {
+    throw new Error(
+      "Campaign is missing organisation_id"
+    );
+  }
+
+  console.log(
+    "=================================================="
+  );
+
+  console.log(
+    "LOADING CAMPAIGN RECIPIENTS"
+  );
+
+  console.log(
+    "=================================================="
+  );
+
+  console.log({
+    campaignId:
+      campaign.id,
+
+    campaignTitle:
+      campaign.title,
+
+    listId:
+      campaign.list_id,
+
+    organisationId:
+      campaign.organisation_id,
+  });
 
   // ==================================================
   // PROFILE SUBSCRIBERS
@@ -147,6 +327,7 @@ async function loadCampaignRecipients(
   const {
     data:
       profileLinks,
+
     error:
       profileError,
   } =
@@ -173,7 +354,7 @@ async function loadCampaignRecipients(
     profileError
   ) {
     console.error(
-      "Profile subscriber lookup failed:",
+      "❌ Profile subscriber lookup failed:",
       {
         message:
           profileError.message,
@@ -194,12 +375,38 @@ async function loadCampaignRecipients(
     );
   }
 
+  console.log(
+    "Profile list rows returned:",
+    profileLinks?.length ||
+      0
+  );
+
   // ==================================================
   // MANUAL EMAIL SUBSCRIBERS
   // ==================================================
+  //
+  // IMPORTANT:
+  //
+  // We allow BOTH:
+  //
+  // organisation_id = campaign organisation
+  //
+  // OR
+  //
+  // organisation_id IS NULL
+  //
+  // This fixes the imported-recipient issue without allowing
+  // rows belonging to another organisation to be included.
+  // ==================================================
 
-  let manualQuery =
-    supabaseAdmin
+  const {
+    data:
+      manualRows,
+
+    error:
+      manualError,
+  } =
+    await supabaseAdmin
       .from(
         "campaign_list_emails"
       )
@@ -209,31 +416,16 @@ async function loadCampaignRecipients(
       .eq(
         "list_id",
         campaign.list_id
+      )
+      .or(
+        `organisation_id.eq.${campaign.organisation_id},organisation_id.is.null`
       );
-
-  if (
-    campaign.organisation_id
-  ) {
-    manualQuery =
-      manualQuery.eq(
-        "organisation_id",
-        campaign.organisation_id
-      );
-  }
-
-  const {
-    data:
-      manualRows,
-    error:
-      manualError,
-  } =
-    await manualQuery;
 
   if (
     manualError
   ) {
     console.error(
-      "Manual subscriber lookup failed:",
+      "❌ Manual subscriber lookup failed:",
       {
         message:
           manualError.message,
@@ -254,11 +446,55 @@ async function loadCampaignRecipients(
     );
   }
 
+  console.log(
+    "Manual list rows returned:",
+    manualRows?.length ||
+      0
+  );
+
   // ==================================================
-  // NORMALISE PROFILE RECIPIENTS
+  // ORGANISATION BREAKDOWN
   // ==================================================
 
-  const profileRecipients: CampaignRecipient[] =
+  const organisationBreakdown =
+    new Map<
+      string,
+      number
+    >();
+
+  for (
+    const row of
+      manualRows ||
+      []
+  ) {
+    const key =
+      row.organisation_id ||
+      "NULL";
+
+    organisationBreakdown.set(
+      key,
+      (
+        organisationBreakdown.get(
+          key
+        ) ||
+        0
+      ) + 1
+    );
+  }
+
+  console.log(
+    "Manual recipient organisation breakdown:",
+    Object.fromEntries(
+      organisationBreakdown.entries()
+    )
+  );
+
+  // ==================================================
+  // PROFILE RECIPIENTS
+  // ==================================================
+
+  const profileRecipients:
+    CampaignRecipient[] =
     [];
 
   for (
@@ -270,12 +506,18 @@ async function loadCampaignRecipients(
       Array.isArray(
         row.profiles
       )
-        ? row.profiles[0]
+        ? row
+            .profiles[0]
         : row.profiles;
 
     if (
       !profile
     ) {
+      console.warn(
+        "⚠️ Profile relation missing:",
+        row.profile_id
+      );
+
       continue;
     }
 
@@ -283,6 +525,11 @@ async function loadCampaignRecipients(
       profile.is_subscribed ===
       false
     ) {
+      console.log(
+        "⏭️ Skipping unsubscribed profile:",
+        profile.email
+      );
+
       continue;
     }
 
@@ -297,6 +544,11 @@ async function loadCampaignRecipients(
         email
       )
     ) {
+      console.warn(
+        "⚠️ Invalid profile email:",
+        profile.email
+      );
+
       continue;
     }
 
@@ -315,10 +567,11 @@ async function loadCampaignRecipients(
   }
 
   // ==================================================
-  // NORMALISE MANUAL RECIPIENTS
+  // MANUAL RECIPIENTS
   // ==================================================
 
-  const manualRecipients: CampaignRecipient[] =
+  const manualRecipients:
+    CampaignRecipient[] =
     [];
 
   for (
@@ -337,6 +590,17 @@ async function loadCampaignRecipients(
         email
       )
     ) {
+      console.warn(
+        "⚠️ Invalid manual email:",
+        {
+          id:
+            row.id,
+
+          email:
+            row.email,
+        }
+      );
+
       continue;
     }
 
@@ -357,16 +621,16 @@ async function loadCampaignRecipients(
   // COMBINE + DEDUPE
   // ==================================================
 
-  const combined: CampaignRecipient[] =
-    [
-      ...profileRecipients,
-      ...manualRecipients,
-    ];
+  const combined = [
+    ...profileRecipients,
+    ...manualRecipients,
+  ];
 
   const seen =
     new Set<string>();
 
-  const unique: CampaignRecipient[] =
+  const unique:
+    CampaignRecipient[] =
     [];
 
   for (
@@ -378,6 +642,11 @@ async function loadCampaignRecipients(
         recipient.email
       )
     ) {
+      console.log(
+        "⏭️ Duplicate email removed:",
+        recipient.email
+      );
+
       continue;
     }
 
@@ -391,26 +660,124 @@ async function loadCampaignRecipients(
   }
 
   console.log(
-    "Campaign recipients loaded:",
-    {
-      campaignId:
-        campaign.id,
+    "=================================================="
+  );
 
-      listId:
-        campaign.list_id,
+  console.log(
+    "CAMPAIGN RECIPIENT SUMMARY"
+  );
 
-      profileRecipients:
-        profileRecipients.length,
+  console.log(
+    "=================================================="
+  );
 
-      manualRecipients:
-        manualRecipients.length,
+  console.log({
+    profileRows:
+      profileLinks?.length ||
+      0,
 
-      uniqueRecipients:
-        unique.length,
+    profileRecipients:
+      profileRecipients.length,
+
+    manualRows:
+      manualRows?.length ||
+      0,
+
+    manualRecipients:
+      manualRecipients.length,
+
+    combinedBeforeDedupe:
+      combined.length,
+
+    uniqueRecipients:
+      unique.length,
+  });
+
+  console.log(
+    "FINAL RECIPIENT LIST:"
+  );
+
+  unique.forEach(
+    (
+      recipient,
+      index
+    ) => {
+      console.log(
+        `${index + 1}. ${recipient.email} [${recipient.source}]`
+      );
     }
   );
 
   return unique;
+}
+
+// ==================================================
+// LOAD EXISTING DELIVERIES
+// ==================================================
+
+async function loadExistingDeliveries(
+  campaignId: string
+) {
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "campaign_deliveries"
+      )
+      .select(`
+        id,
+        email,
+        status,
+        attempts,
+        resend_id,
+        last_error,
+        sent_at
+      `)
+      .eq(
+        "campaign_id",
+        campaignId
+      );
+
+  if (
+    error
+  ) {
+    console.error(
+      "❌ Existing delivery lookup failed:",
+      error
+    );
+
+    throw new Error(
+      `Failed to load campaign deliveries: ${error.message}`
+    );
+  }
+
+  const map =
+    new Map<
+      string,
+      ExistingDelivery
+    >();
+
+  for (
+    const delivery of
+      data ||
+      []
+  ) {
+    map.set(
+      cleanEmail(
+        delivery.email
+      ),
+      delivery as ExistingDelivery
+    );
+  }
+
+  console.log(
+    "Existing campaign delivery records:",
+    map.size
+  );
+
+  return map;
 }
 
 // ==================================================
@@ -440,7 +807,14 @@ async function markCampaignStatus(
         campaignId
       )
       .select(
-        "id,status,sent_at,sent_count,open_count,click_count"
+        `
+          id,
+          status,
+          sent_at,
+          sent_count,
+          open_count,
+          click_count
+        `
       )
       .single();
 
@@ -448,10 +822,9 @@ async function markCampaignStatus(
     error
   ) {
     console.error(
-      "Campaign status update failed:",
+      "❌ Campaign status update failed:",
       {
         campaignId,
-
         payload,
 
         message:
@@ -477,6 +850,255 @@ async function markCampaignStatus(
 }
 
 // ==================================================
+// PREPARE DELIVERY ATTEMPT
+// ==================================================
+
+async function prepareDeliveryAttempt({
+  campaignId,
+  organisationId,
+  subscriber,
+  existingDelivery,
+}: {
+  campaignId: string;
+  organisationId: string;
+  subscriber: CampaignRecipient;
+  existingDelivery?: ExistingDelivery;
+}) {
+  const now =
+    new Date()
+      .toISOString();
+
+  const attempts =
+    Number(
+      existingDelivery
+        ?.attempts ||
+        0
+    ) + 1;
+
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "campaign_deliveries"
+      )
+      .upsert(
+        {
+          campaign_id:
+            campaignId,
+
+          organisation_id:
+            organisationId,
+
+          email:
+            subscriber.email,
+
+          status:
+            "pending",
+
+          attempts,
+
+          last_error:
+            null,
+
+          updated_at:
+            now,
+        },
+        {
+          onConflict:
+            "campaign_id,email",
+        }
+      )
+      .select(
+        `
+          id,
+          email,
+          status,
+          attempts,
+          resend_id,
+          last_error,
+          sent_at
+        `
+      )
+      .single();
+
+  if (
+    error
+  ) {
+    throw new Error(
+      `Could not create delivery record: ${error.message}`
+    );
+  }
+
+  return data;
+}
+
+// ==================================================
+// MARK DELIVERY SENT
+// ==================================================
+
+async function markDeliverySent({
+  campaignId,
+  email,
+  resendId,
+}: {
+  campaignId: string;
+  email: string;
+  resendId:
+    | string
+    | null;
+}) {
+  const now =
+    new Date()
+      .toISOString();
+
+  const {
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "campaign_deliveries"
+      )
+      .update({
+        status:
+          "sent",
+
+        resend_id:
+          resendId,
+
+        last_error:
+          null,
+
+        sent_at:
+          now,
+
+        updated_at:
+          now,
+      })
+      .eq(
+        "campaign_id",
+        campaignId
+      )
+      .eq(
+        "email",
+        email
+      );
+
+  if (
+    error
+  ) {
+    throw new Error(
+      `Email was accepted by Resend but delivery record could not be marked sent: ${error.message}`
+    );
+  }
+}
+
+// ==================================================
+// MARK DELIVERY FAILED
+// ==================================================
+
+async function markDeliveryFailed({
+  campaignId,
+  email,
+  errorMessage,
+}: {
+  campaignId: string;
+  email: string;
+  errorMessage: string;
+}) {
+  const {
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "campaign_deliveries"
+      )
+      .update({
+        status:
+          "failed",
+
+        last_error:
+          errorMessage,
+
+        updated_at:
+          new Date()
+            .toISOString(),
+      })
+      .eq(
+        "campaign_id",
+        campaignId
+      )
+      .eq(
+        "email",
+        email
+      );
+
+  if (
+    error
+  ) {
+    console.error(
+      "❌ Could not mark delivery failed:",
+      {
+        campaignId,
+        email,
+
+        databaseError:
+          error.message,
+
+        originalError:
+          errorMessage,
+      }
+    );
+  }
+}
+
+// ==================================================
+// COUNT TOTAL SENT DELIVERIES
+// ==================================================
+
+async function countSentDeliveries(
+  campaignId: string
+) {
+  const {
+    count,
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "campaign_deliveries"
+      )
+      .select(
+        "id",
+        {
+          count:
+            "exact",
+
+          head:
+            true,
+        }
+      )
+      .eq(
+        "campaign_id",
+        campaignId
+      )
+      .eq(
+        "status",
+        "sent"
+      );
+
+  if (
+    error
+  ) {
+    throw new Error(
+      `Could not count sent deliveries: ${error.message}`
+    );
+  }
+
+  return count || 0;
+}
+
+// ==================================================
 // PROCESS CAMPAIGN
 // ==================================================
 
@@ -487,33 +1109,238 @@ async function processCampaign({
   resend,
   fromEmail,
   trackingBaseUrl,
+  jobId,
 }: ProcessCampaignArgs): Promise<ProcessCampaignResult> {
+  if (
+    !campaign
+      .organisation_id
+  ) {
+    throw new Error(
+      "Campaign is missing organisation_id"
+    );
+  }
+
   const batchSize =
     50;
 
-  let sentCount =
-    0;
+  const sentRecipients:
+    SentRecipient[] =
+    [];
 
-  let failedCount =
-    0;
+  const failedRecipients:
+    FailedRecipient[] =
+    [];
+
+  const skippedRecipients:
+    SkippedRecipient[] =
+    [];
+
+  // ==================================================
+  // EXISTING DELIVERIES
+  // ==================================================
+
+  const existingDeliveries =
+    await loadExistingDeliveries(
+      campaignId
+    );
+
+  // ==================================================
+  // SKIP ALREADY-SENT RECIPIENTS
+  // ==================================================
+
+  const sendCandidates:
+    CampaignRecipient[] =
+    [];
+
+  for (
+    const subscriber of
+      subscribers
+  ) {
+    const existing =
+      existingDeliveries.get(
+        subscriber.email
+      );
+
+    if (
+      existing
+        ?.status ===
+      "sent"
+    ) {
+      skippedRecipients.push({
+        id:
+          subscriber.id,
+
+        email:
+          subscriber.email,
+
+        source:
+          subscriber.source,
+
+        reason:
+          "Already sent",
+      });
+
+      console.log(
+        `⏭️ ALREADY SENT — SKIPPING: ${subscriber.email}`
+      );
+
+      continue;
+    }
+
+    sendCandidates.push(
+      subscriber
+    );
+  }
+
+  console.log(
+    "=================================================="
+  );
+
+  console.log(
+    "SAFE SEND SUMMARY"
+  );
+
+  console.log(
+    "=================================================="
+  );
+
+  console.log({
+    totalAudience:
+      subscribers.length,
+
+    alreadySent:
+      skippedRecipients.length,
+
+    remainingToAttempt:
+      sendCandidates.length,
+  });
+
+  // ==================================================
+  // NOTHING LEFT TO SEND
+  // ==================================================
+
+  if (
+    sendCandidates.length ===
+    0
+  ) {
+    const totalSent =
+      await countSentDeliveries(
+        campaignId
+      );
+
+    const updatedCampaign =
+      await markCampaignStatus(
+        campaignId,
+        {
+          status:
+            "sent",
+
+          sent_count:
+            totalSent,
+
+          sent_at:
+            campaign.sent_at ||
+            new Date()
+              .toISOString(),
+        }
+      );
+
+    await updateCampaignJob(
+      jobId,
+      "completed"
+    );
+
+    return {
+      total:
+        subscribers.length,
+
+      attemptedCount:
+        0,
+
+      newlySentCount:
+        0,
+
+      totalSentCount:
+        totalSent,
+
+      failedCount:
+        0,
+
+      skippedCount:
+        skippedRecipients.length,
+
+      remainingCount:
+        0,
+
+      status:
+        "sent",
+
+      campaign:
+        updatedCampaign,
+
+      sentRecipients,
+
+      failedRecipients,
+
+      skippedRecipients,
+    };
+  }
 
   // ==================================================
   // MARK PROCESSING
   // ==================================================
 
-  const processingCampaign =
-    await markCampaignStatus(
-      campaignId,
-      {
-        status:
-          "processing",
-      }
-    );
+  await markCampaignStatus(
+    campaignId,
+    {
+      status:
+        "processing",
+    }
+  );
+
+  await updateCampaignJob(
+    jobId,
+    "processing"
+  );
 
   console.log(
-    "Campaign marked processing:",
-    processingCampaign
+    "=================================================="
   );
+
+  console.log(
+    "STARTING CAMPAIGN SEND"
+  );
+
+  console.log(
+    "=================================================="
+  );
+
+  console.log({
+    campaignId,
+
+    totalAudience:
+      subscribers.length,
+
+    sendCandidates:
+      sendCandidates.length,
+
+    skippedAlreadySent:
+      skippedRecipients.length,
+
+    batchSize,
+
+    totalBatches:
+      Math.ceil(
+        sendCandidates.length /
+          batchSize
+      ),
+
+    fromEmail,
+
+    replyTo:
+      campaign.reply_to ||
+      fromEmail,
+  });
 
   // ==================================================
   // SEND IN BATCHES
@@ -522,15 +1349,38 @@ async function processCampaign({
   for (
     let i = 0;
     i <
-    subscribers.length;
+    sendCandidates.length;
     i += batchSize
   ) {
     const batch =
-      subscribers.slice(
+      sendCandidates.slice(
         i,
         i +
           batchSize
       );
+
+    const batchNumber =
+      Math.floor(
+        i / batchSize
+      ) + 1;
+
+    const totalBatches =
+      Math.ceil(
+        sendCandidates.length /
+          batchSize
+      );
+
+    console.log(
+      "=================================================="
+    );
+
+    console.log(
+      `SENDING BATCH ${batchNumber}/${totalBatches}`
+    );
+
+    console.log(
+      "=================================================="
+    );
 
     const results =
       await Promise.allSettled(
@@ -538,8 +1388,56 @@ async function processCampaign({
           async (
             subscriber
           ) => {
+            const existing =
+              existingDeliveries.get(
+                subscriber.email
+              );
+
+            console.log(
+              `📤 ATTEMPTING: ${subscriber.email}`
+            );
+
             // ==================================================
-            // OPEN TRACKING URL
+            // CREATE / UPDATE DELIVERY RECORD BEFORE SEND
+            // ==================================================
+
+            try {
+              const prepared =
+                await prepareDeliveryAttempt({
+                  campaignId,
+
+                  organisationId:
+                    campaign.organisation_id,
+
+                  subscriber,
+
+                  existingDelivery:
+                    existing,
+                });
+
+              console.log(
+                `📝 DELIVERY ATTEMPT ${prepared.attempts}: ${subscriber.email}`
+              );
+            } catch (
+              error: unknown
+            ) {
+              const message =
+                getErrorMessage(
+                  error
+                );
+
+              console.error(
+                `❌ DELIVERY TRACKING PREPARATION FAILED: ${subscriber.email}`,
+                message
+              );
+
+              throw new Error(
+                message
+              );
+            }
+
+            // ==================================================
+            // TRACKING URL
             // ==================================================
 
             const trackingUrl =
@@ -613,52 +1511,66 @@ async function processCampaign({
             `;
 
             // ==================================================
-            // SEND WITH RESEND
+            // SEND
             // ==================================================
 
-            const {
-              data,
-              error,
-            } =
-              await resend.emails.send({
-                from:
-                  fromEmail,
+            try {
+              const {
+                data,
+                error,
+              } =
+                await resend
+                  .emails
+                  .send({
+                    from:
+                      fromEmail,
 
-                to:
+                    to:
+                      subscriber.email,
+
+                    subject:
+                      campaign.subject ||
+                      campaign.title ||
+                      "Campaign",
+
+                    html,
+
+                    replyTo:
+                      campaign.reply_to ||
+                      fromEmail,
+                  });
+
+              if (
+                error
+              ) {
+                throw new Error(
+                  error.message ||
+                    `Failed to send to ${subscriber.email}`
+                );
+              }
+
+              const resendId =
+                data?.id ||
+                null;
+
+              // ==================================================
+              // MARK SENT
+              // ==================================================
+
+              await markDeliverySent({
+                campaignId,
+
+                email:
                   subscriber.email,
 
-                subject:
-                  campaign.subject ||
-                  campaign.title ||
-                  "Campaign",
-
-                html,
-
-                ...(campaign.reply_to
-                  ? {
-                      replyTo:
-                        campaign.reply_to,
-                    }
-                  : {}),
+                resendId,
               });
 
-            if (
-              error
-            ) {
-              console.error(
-                `Resend failed for ${subscriber.email}:`,
-                error
+              console.log(
+                `✅ SENT: ${subscriber.email}`
               );
 
-              throw new Error(
-                error.message ||
-                  `Failed to send to ${subscriber.email}`
-              );
-            }
-
-            console.log(
-              "Campaign email accepted by Resend:",
-              {
+              console.log({
                 campaignId,
 
                 email:
@@ -667,87 +1579,187 @@ async function processCampaign({
                 source:
                   subscriber.source,
 
-                resendId:
-                  data?.id,
-              }
-            );
+                resendId,
+              });
 
-            return {
-              email:
-                subscriber.email,
+              return {
+                id:
+                  subscriber.id,
 
-              resendId:
-                data?.id,
+                email:
+                  subscriber.email,
 
-              source:
-                subscriber.source,
-            };
+                source:
+                  subscriber.source,
+
+                resendId,
+              } satisfies SentRecipient;
+            } catch (
+              error: unknown
+            ) {
+              const message =
+                getErrorMessage(
+                  error
+                );
+
+              await markDeliveryFailed({
+                campaignId,
+
+                email:
+                  subscriber.email,
+
+                errorMessage:
+                  message,
+              });
+
+              console.error(
+                `❌ FAILED: ${subscriber.email}`
+              );
+
+              console.error({
+                campaignId,
+
+                email:
+                  subscriber.email,
+
+                source:
+                  subscriber.source,
+
+                error:
+                  message,
+              });
+
+              throw new Error(
+                message
+              );
+            }
           }
         )
       );
 
     // ==================================================
-    // COUNT RESULTS
+    // PROCESS BATCH RESULTS
     // ==================================================
 
     for (
-      const result of
-        results
+      let resultIndex = 0;
+      resultIndex <
+      results.length;
+      resultIndex++
     ) {
+      const result =
+        results[
+          resultIndex
+        ];
+
+      const subscriber =
+        batch[
+          resultIndex
+        ];
+
       if (
         result.status ===
         "fulfilled"
       ) {
-        sentCount +=
-          1;
-      } else {
-        failedCount +=
-          1;
+        sentRecipients.push(
+          result.value
+        );
 
-        console.error(
-          "Individual campaign email failed:",
+        continue;
+      }
+
+      const errorMessage =
+        getErrorMessage(
           result.reason
         );
-      }
+
+      failedRecipients.push({
+        id:
+          subscriber.id,
+
+        email:
+          subscriber.email,
+
+        source:
+          subscriber.source,
+
+        error:
+          errorMessage,
+      });
     }
+
+    console.log(
+      `BATCH ${batchNumber} COMPLETE`
+    );
+
+    console.log({
+      batchSize:
+        batch.length,
+
+      successfulThisRun:
+        sentRecipients.length,
+
+      failedThisRun:
+        failedRecipients.length,
+
+      remaining:
+        sendCandidates.length -
+        (
+          sentRecipients.length +
+          failedRecipients.length
+        ),
+    });
   }
 
   // ==================================================
-  // FINAL STATUS
+  // FINAL DATABASE COUNTS
+  // ==================================================
+
+  const totalSentCount =
+    await countSentDeliveries(
+      campaignId
+    );
+
+  const remainingCount =
+    Math.max(
+      subscribers.length -
+        totalSentCount,
+      0
+    );
+
+  // ==================================================
+  // FINAL CAMPAIGN STATUS
   // ==================================================
 
   const finalStatus:
     | "sent"
     | "failed" =
-    sentCount > 0
+    totalSentCount > 0
       ? "sent"
       : "failed";
 
-  const sentAt =
-    sentCount > 0
-      ? new Date().toISOString()
-      : null;
-
   /*
-   * IMPORTANT:
+   * Do NOT reset open_count / click_count.
    *
-   * DO NOT reset open_count or click_count here.
-   *
-   * Email clients can request the tracking pixel almost
-   * immediately after delivery. If an open has already
-   * been recorded and we subsequently write open_count: 0,
-   * we erase that analytics data.
+   * Some email clients open tracking pixels immediately.
    */
 
   const finalPayload = {
     status:
       finalStatus,
 
-    sent_at:
-      sentAt,
-
     sent_count:
-      sentCount,
+      totalSentCount,
+
+    ...(totalSentCount >
+    0
+      ? {
+          sent_at:
+            campaign.sent_at ||
+            new Date()
+              .toISOString(),
+        }
+      : {}),
   };
 
   const updatedCampaign =
@@ -756,57 +1768,213 @@ async function processCampaign({
       finalPayload
     );
 
+  // ==================================================
+  // JOB FINAL STATUS
+  // ==================================================
+
+  await updateCampaignJob(
+    jobId,
+    failedRecipients.length >
+      0
+      ? "failed"
+      : "completed"
+  );
+
+  // ==================================================
+  // FINAL LOGGING
+  // ==================================================
+
   console.log(
-    "Campaign successfully finalised:",
-    {
-      campaignId,
+    "=================================================="
+  );
 
-      status:
-        updatedCampaign.status,
+  console.log(
+    "CAMPAIGN SEND COMPLETE"
+  );
 
-      sentAt:
-        updatedCampaign.sent_at,
+  console.log(
+    "=================================================="
+  );
 
-      sentCount:
-        updatedCampaign.sent_count,
+  console.log({
+    campaignId,
 
-      openCount:
-        updatedCampaign.open_count,
+    audience:
+      subscribers.length,
 
-      clickCount:
-        updatedCampaign.click_count,
+    attempted:
+      sendCandidates.length,
 
-      failedCount,
+    newlySent:
+      sentRecipients.length,
+
+    alreadySent:
+      skippedRecipients.length,
+
+    failed:
+      failedRecipients.length,
+
+    totalSent:
+      totalSentCount,
+
+    remaining:
+      remainingCount,
+
+    status:
+      updatedCampaign.status,
+
+    sentAt:
+      updatedCampaign.sent_at,
+
+    openCount:
+      updatedCampaign.open_count,
+
+    clickCount:
+      updatedCampaign.click_count,
+  });
+
+  // ==================================================
+  // SUCCESS LIST
+  // ==================================================
+
+  console.log(
+    "=================================================="
+  );
+
+  console.log(
+    `✅ NEWLY SENT: ${sentRecipients.length}`
+  );
+
+  console.log(
+    "=================================================="
+  );
+
+  sentRecipients.forEach(
+    (
+      recipient,
+      index
+    ) => {
+      console.log(
+        `${index + 1}. ${recipient.email}`
+      );
+
+      console.log({
+        source:
+          recipient.source,
+
+        resendId:
+          recipient.resendId,
+      });
     }
   );
 
   // ==================================================
-  // VERIFY FINAL STATUS
+  // SKIPPED LIST
   // ==================================================
 
   if (
-    sentCount > 0 &&
-    updatedCampaign.status !==
-      "sent"
+    skippedRecipients.length >
+    0
   ) {
-    throw new Error(
-      `Campaign emails were sent but campaign status is "${updatedCampaign.status}" instead of "sent".`
+    console.log(
+      "=================================================="
+    );
+
+    console.log(
+      `⏭️ ALREADY SENT / SKIPPED: ${skippedRecipients.length}`
+    );
+
+    console.log(
+      "=================================================="
+    );
+
+    skippedRecipients.forEach(
+      (
+        recipient,
+        index
+      ) => {
+        console.log(
+          `${index + 1}. ${recipient.email} — ${recipient.reason}`
+        );
+      }
+    );
+  }
+
+  // ==================================================
+  // FAILED LIST
+  // ==================================================
+
+  if (
+    failedRecipients.length >
+    0
+  ) {
+    console.log(
+      "=================================================="
+    );
+
+    console.log(
+      `❌ FAILED: ${failedRecipients.length}`
+    );
+
+    console.log(
+      "=================================================="
+    );
+
+    failedRecipients.forEach(
+      (
+        recipient,
+        index
+      ) => {
+        console.error(
+          `${index + 1}. ${recipient.email}`
+        );
+
+        console.error({
+          source:
+            recipient.source,
+
+          error:
+            recipient.error,
+        });
+      }
+    );
+  } else {
+    console.log(
+      "✅ No recipient failures."
     );
   }
 
   return {
-    sentCount,
-
-    failedCount,
-
     total:
       subscribers.length,
+
+    attemptedCount:
+      sendCandidates.length,
+
+    newlySentCount:
+      sentRecipients.length,
+
+    totalSentCount,
+
+    failedCount:
+      failedRecipients.length,
+
+    skippedCount:
+      skippedRecipients.length,
+
+    remainingCount,
 
     status:
       finalStatus,
 
     campaign:
       updatedCampaign,
+
+    sentRecipients,
+
+    failedRecipients,
+
+    skippedRecipients,
   };
 }
 
@@ -821,13 +1989,11 @@ export async function POST(
     | string
     | undefined;
 
-  /*
-   * Tracks whether sending itself completed.
-   *
-   * This matters because if email sending succeeds but
-   * the final status write fails, blindly marking the
-   * campaign "failed" would imply the email was not sent.
-   */
+  let jobId:
+    | string
+    | null =
+    null;
+
   let emailSendingStarted =
     false;
 
@@ -861,7 +2027,7 @@ export async function POST(
       !fromEmail
     ) {
       console.error(
-        "Missing RESEND configuration",
+        "❌ Missing RESEND configuration:",
         {
           hasResendKey:
             Boolean(
@@ -898,7 +2064,7 @@ export async function POST(
       );
 
     // ==================================================
-    // REQUEST BODY
+    // REQUEST
     // ==================================================
 
     const body =
@@ -925,6 +2091,22 @@ export async function POST(
       );
     }
 
+    console.log(
+      "=================================================="
+    );
+
+    console.log(
+      "CAMPAIGN SEND REQUEST RECEIVED"
+    );
+
+    console.log(
+      "=================================================="
+    );
+
+    console.log({
+      campaignId,
+    });
+
     // ==================================================
     // FETCH CAMPAIGN
     // ==================================================
@@ -932,6 +2114,7 @@ export async function POST(
     const {
       data:
         campaign,
+
       error:
         campaignError,
     } =
@@ -939,7 +2122,9 @@ export async function POST(
         .from(
           "campaigns"
         )
-        .select("*")
+        .select(
+          "*"
+        )
         .eq(
           "id",
           campaignId
@@ -951,7 +2136,7 @@ export async function POST(
       !campaign
     ) {
       console.error(
-        "Campaign lookup failed:",
+        "❌ Campaign lookup failed:",
         {
           campaignId,
 
@@ -986,16 +2171,17 @@ export async function POST(
     }
 
     // ==================================================
-    // VALIDATE LIST
+    // REQUIRED CAMPAIGN DATA
     // ==================================================
 
     if (
-      !campaign.list_id
+      !campaign
+        .organisation_id
     ) {
       return NextResponse.json(
         {
           error:
-            "Campaign missing list_id",
+            "Campaign is missing organisation_id",
         },
         {
           status:
@@ -1004,25 +2190,56 @@ export async function POST(
       );
     }
 
-    // ==================================================
-    // PREVENT DUPLICATE SEND
-    // ==================================================
-
     if (
-      campaign.status ===
-      "sent"
+      !campaign.list_id
     ) {
       return NextResponse.json(
         {
           error:
-            "Campaign has already been sent",
+            "Campaign is missing list_id",
         },
         {
           status:
-            409,
+            400,
         }
       );
     }
+
+    console.log(
+      "Campaign loaded:",
+      {
+        id:
+          campaign.id,
+
+        title:
+          campaign.title,
+
+        subject:
+          campaign.subject,
+
+        listId:
+          campaign.list_id,
+
+        organisationId:
+          campaign.organisation_id,
+
+        status:
+          campaign.status,
+
+        previousSentCount:
+          campaign.sent_count,
+
+        fromEmail,
+
+        replyTo:
+          campaign.reply_to ||
+          fromEmail,
+      }
+    );
+
+    // ==================================================
+    // PREVENT PARALLEL SENDS
+    // ==================================================
 
     if (
       campaign.status ===
@@ -1043,7 +2260,7 @@ export async function POST(
     }
 
     // ==================================================
-    // LOAD RECIPIENTS
+    // LOAD FULL AUDIENCE
     // ==================================================
 
     const subscribers =
@@ -1055,19 +2272,6 @@ export async function POST(
       subscribers.length ===
       0
     ) {
-      console.error(
-        "No campaign recipients found:",
-        {
-          campaignId,
-
-          listId:
-            campaign.list_id,
-
-          organisationId:
-            campaign.organisation_id,
-        }
-      );
-
       return NextResponse.json(
         {
           error:
@@ -1080,11 +2284,144 @@ export async function POST(
       );
     }
 
+    console.log(
+      `✅ ${subscribers.length} unique recipients loaded.`
+    );
+
     // ==================================================
-    // OPTIONAL JOB RECORD
+    // CHECK SENT CAMPAIGN
+    // ==================================================
+    //
+    // A campaign marked sent can still be retried ONLY if
+    // campaign_deliveries tells us exactly who is still unsent.
+    //
+    // This allows safe retries without duplicate emails.
+    // ==================================================
+
+    if (
+      campaign.status ===
+      "sent"
+    ) {
+      const deliveries =
+        await loadExistingDeliveries(
+          campaignId
+        );
+
+      const sentEmails =
+        new Set(
+          Array.from(
+            deliveries.values()
+          )
+            .filter(
+              (
+                delivery
+              ) =>
+                delivery.status ===
+                "sent"
+            )
+            .map(
+              (
+                delivery
+              ) =>
+                delivery.email
+            )
+        );
+
+      const remaining =
+        subscribers.filter(
+          (
+            subscriber
+          ) =>
+            !sentEmails.has(
+              subscriber.email
+            )
+        );
+
+      // ==================================================
+      // LEGACY SAFETY
+      // ==================================================
+      //
+      // Campaign says it was previously sent but there are no
+      // recipient-level delivery records.
+      //
+      // We cannot safely know who got it.
+      // ==================================================
+
+      if (
+        deliveries.size ===
+          0 &&
+        Number(
+          campaign.sent_count ||
+            0
+        ) > 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "This campaign was sent before recipient-level delivery tracking was enabled. It cannot be safely retried because TOTS-OS cannot determine which recipients already received it.",
+
+            sentCount:
+              campaign.sent_count,
+
+            campaignId,
+          },
+          {
+            status:
+              409,
+          }
+        );
+      }
+
+      // ==================================================
+      // EVERYONE ALREADY SENT
+      // ==================================================
+
+      if (
+        remaining.length ===
+        0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Campaign has already been sent to every recipient.",
+
+            total:
+              subscribers.length,
+
+            sent:
+              sentEmails.size,
+          },
+          {
+            status:
+              409,
+          }
+        );
+      }
+
+      console.log(
+        "♻️ SAFE RETRY DETECTED:"
+      );
+
+      console.log({
+        totalAudience:
+          subscribers.length,
+
+        alreadySent:
+          sentEmails.size,
+
+        remaining:
+          remaining.length,
+      });
+    }
+
+    // ==================================================
+    // CREATE JOB
     // ==================================================
 
     const {
+      data:
+        job,
+
       error:
         jobError,
     } =
@@ -1100,18 +2437,19 @@ export async function POST(
             "queued",
 
           created_at:
-            new Date().toISOString(),
-        });
+            new Date()
+              .toISOString(),
+        })
+        .select(
+          "id"
+        )
+        .maybeSingle();
 
     if (
       jobError
     ) {
-      /*
-       * We don't block sending just because the optional
-       * job record could not be created.
-       */
       console.warn(
-        "Could not create campaign job:",
+        "⚠️ Could not create campaign job:",
         {
           message:
             jobError.message,
@@ -1126,6 +2464,10 @@ export async function POST(
             jobError.code,
         }
       );
+    } else {
+      jobId =
+        job?.id ||
+        null;
     }
 
     // ==================================================
@@ -1148,17 +2490,19 @@ export async function POST(
         fromEmail,
 
         trackingBaseUrl,
+
+        jobId,
       });
 
     emailSendingCompleted =
       true;
 
     // ==================================================
-    // NO EMAILS SUCCEEDED
+    // ALL FAILED
     // ==================================================
 
     if (
-      result.sentCount ===
+      result.totalSentCount ===
       0
     ) {
       return NextResponse.json(
@@ -1166,20 +2510,7 @@ export async function POST(
           error:
             "Campaign failed to send to all recipients",
 
-          total:
-            result.total,
-
-          sent:
-            result.sentCount,
-
-          failed:
-            result.failedCount,
-
-          status:
-            result.status,
-
-          campaign:
-            result.campaign,
+          ...result,
         },
         {
           status:
@@ -1198,18 +2529,43 @@ export async function POST(
           true,
 
         message:
-          result.failedCount > 0
-            ? "Campaign sent with some failed recipients"
-            : "Campaign sent successfully",
+          result.failedCount >
+          0
+            ? "Campaign processed with some failed recipients"
+            : result.skippedCount >
+                0
+              ? "Campaign retry completed successfully"
+              : "Campaign sent successfully",
 
         total:
           result.total,
 
-        sent:
-          result.sentCount,
+        attempted:
+          result.attemptedCount,
+
+        newlySent:
+          result.newlySentCount,
+
+        totalSent:
+          result.totalSentCount,
 
         failed:
           result.failedCount,
+
+        skipped:
+          result.skippedCount,
+
+        remaining:
+          result.remainingCount,
+
+        sentRecipients:
+          result.sentRecipients,
+
+        failedRecipients:
+          result.failedRecipients,
+
+        skippedRecipients:
+          result.skippedRecipients,
 
         status:
           result.campaign
@@ -1243,29 +2599,46 @@ export async function POST(
     err: unknown
   ) {
     const message =
-      err instanceof
-      Error
-        ? err.message
-        : "Campaign send failed";
+      getErrorMessage(
+        err
+      );
 
     console.error(
-      "Campaign send error:",
-      {
-        campaignId,
+      "=================================================="
+    );
 
-        message,
+    console.error(
+      "❌ CAMPAIGN SEND ERROR"
+    );
 
-        emailSendingStarted,
+    console.error(
+      "=================================================="
+    );
 
-        emailSendingCompleted,
+    console.error({
+      campaignId,
 
-        error:
-          err,
-      }
+      message,
+
+      emailSendingStarted,
+
+      emailSendingCompleted,
+
+      error:
+        err,
+    });
+
+    // ==================================================
+    // UPDATE JOB
+    // ==================================================
+
+    await updateCampaignJob(
+      jobId,
+      "failed"
     );
 
     // ==================================================
-    // MARK FAILED ONLY WHEN APPROPRIATE
+    // SAFE CAMPAIGN FAILURE STATUS
     // ==================================================
 
     if (
@@ -1281,7 +2654,12 @@ export async function POST(
             "campaigns"
           )
           .select(
-            "id,status,sent_at,sent_count"
+            `
+              id,
+              status,
+              sent_at,
+              sent_count
+            `
           )
           .eq(
             "id",
@@ -1289,10 +2667,6 @@ export async function POST(
           )
           .maybeSingle();
 
-      /*
-       * If sent_at or sent_count already proves that delivery
-       * occurred, do NOT overwrite the row with "failed".
-       */
       const alreadySent =
         Boolean(
           currentCampaign
@@ -1302,11 +2676,12 @@ export async function POST(
           currentCampaign
             ?.sent_count ||
             0
-        ) > 0 ||
-        currentCampaign
-          ?.status ===
-          "sent";
+        ) > 0;
 
+      /*
+       * Do not overwrite a campaign as failed when
+       * some emails have already been delivered.
+       */
       if (
         !alreadySent
       ) {
@@ -1331,7 +2706,7 @@ export async function POST(
           failedUpdateError
         ) {
           console.error(
-            "Failed to mark campaign failed:",
+            "❌ Failed to mark campaign failed:",
             {
               campaignId,
 

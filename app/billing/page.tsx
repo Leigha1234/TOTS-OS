@@ -6,6 +6,7 @@ import {
 } from "react";
 
 import {
+  ArrowRight,
   Check,
   CreditCard,
   Loader2,
@@ -35,6 +36,12 @@ type Tier = {
   popular?:
     boolean;
 };
+
+type VerificationState =
+  | "idle"
+  | "verifying"
+  | "success"
+  | "error";
 
 // ==================================================
 // PLANS
@@ -146,30 +153,205 @@ export default function BillingPage() {
       false
     );
 
+  const [
+    verificationState,
+    setVerificationState,
+  ] =
+    useState<VerificationState>(
+      "idle"
+    );
+
+  const [
+    verificationError,
+    setVerificationError,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+  const [
+    verifiedTier,
+    setVerifiedTier,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+  const [
+    verifiedOrganisationName,
+    setVerifiedOrganisationName,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
   // ==================================================
-  // DETECT BILLING MODE
+  // DETECT BILLING MODE + VERIFY SUCCESS RETURN
   // ==================================================
 
   useEffect(
     () => {
-      const params =
-        new URLSearchParams(
-          window.location.search
+      let cancelled =
+        false;
+
+      async function initialiseBillingPage() {
+        const params =
+          new URLSearchParams(
+            window.location.search
+          );
+
+        const existing =
+          params.get(
+            "existing"
+          );
+
+        const success =
+          params.get(
+            "success"
+          );
+
+        const sessionId =
+          params.get(
+            "session_id"
+          );
+
+        setExistingAccount(
+          existing ===
+            "true"
         );
 
-      const existing =
-        params.get(
-          "existing"
+        // ============================================
+        // STRIPE SUCCESS RETURN
+        // ============================================
+
+        if (
+          success ===
+            "true" &&
+          sessionId
+        ) {
+          setVerificationState(
+            "verifying"
+          );
+
+          try {
+            const response =
+              await fetch(
+                "/api/pay/stripe/verify",
+                {
+                  method:
+                    "POST",
+
+                  headers: {
+                    "Content-Type":
+                      "application/json",
+                  },
+
+                  body:
+                    JSON.stringify({
+                      sessionId,
+                    }),
+                }
+              );
+
+            const data =
+              await response
+                .json()
+                .catch(
+                  () => ({})
+                );
+
+            if (
+              cancelled
+            ) {
+              return;
+            }
+
+            if (
+              !response.ok
+            ) {
+              throw new Error(
+                data.error ||
+                  "Unable to verify your subscription."
+              );
+            }
+
+            setVerifiedTier(
+              typeof data.tier ===
+                "string"
+                ? data.tier
+                : null
+            );
+
+            setVerifiedOrganisationName(
+              typeof data.organisationName ===
+                "string"
+                ? data.organisationName
+                : null
+            );
+
+            setVerificationState(
+              "success"
+            );
+
+            setModeReady(
+              true
+            );
+
+            return;
+          } catch (
+            error
+          ) {
+            console.error(
+              "Subscription verification failed:",
+              error
+            );
+
+            if (
+              cancelled
+            ) {
+              return;
+            }
+
+            setVerificationError(
+              error instanceof
+                Error
+                ? error.message
+                : "Unable to verify your subscription."
+            );
+
+            setVerificationState(
+              "error"
+            );
+
+            setModeReady(
+              true
+            );
+
+            return;
+          }
+        }
+
+        // ============================================
+        // NORMAL BILLING PAGE
+        // ============================================
+
+        setModeReady(
+          true
         );
+      }
 
-      setExistingAccount(
-        existing ===
-          "true"
-      );
+      void initialiseBillingPage();
 
-      setModeReady(
-        true
-      );
+      return () => {
+        cancelled =
+          true;
+      };
     },
     []
   );
@@ -392,7 +574,263 @@ export default function BillingPage() {
     };
 
   // ==================================================
-  // UI
+  // VERIFYING SCREEN
+  // ==================================================
+
+  if (
+    verificationState ===
+    "verifying"
+  ) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5">
+
+        <div className="w-full max-w-xl rounded-[2.5rem] border border-stone-200 bg-white p-10 text-center shadow-[0_20px_60px_rgba(28,25,23,0.06)] md:p-14">
+
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#edf1e8]">
+
+            <Loader2
+              size={24}
+              className="animate-spin text-[#82936b]"
+            />
+
+          </div>
+
+          <p className="mt-7 text-[9px] font-black uppercase tracking-[0.2em] text-[#748361]">
+            Confirming your membership
+          </p>
+
+          <h1 className="mt-4 font-serif text-4xl italic tracking-tight text-stone-900 md:text-5xl">
+            Just a moment...
+          </h1>
+
+          <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-stone-500">
+            We&apos;re confirming your Stripe subscription and
+            reconnecting your TOTS-OS workspace.
+          </p>
+
+        </div>
+
+      </main>
+    );
+  }
+
+  // ==================================================
+  // SUCCESS SCREEN
+  // ==================================================
+
+  if (
+    verificationState ===
+    "success"
+  ) {
+    const displayTier =
+      verifiedTier
+        ? verifiedTier
+            .charAt(
+              0
+            )
+            .toUpperCase() +
+          verifiedTier.slice(
+            1
+          )
+        : null;
+
+    return (
+      <main className="min-h-screen bg-[#f7f5f2] px-5 py-12 md:px-10 md:py-16">
+
+        <div className="mx-auto max-w-3xl">
+
+          <div className="overflow-hidden rounded-[2.5rem] border border-stone-200 bg-white shadow-[0_20px_60px_rgba(28,25,23,0.06)]">
+
+            <div className="border-b border-stone-100 p-8 md:p-14">
+
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#edf1e8] px-4 py-2">
+
+                <Sparkles
+                  size={13}
+                  className="text-[#82936b]"
+                />
+
+                <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#748361]">
+                  Membership active
+                </span>
+
+              </div>
+
+              <div className="mt-8 flex h-14 w-14 items-center justify-center rounded-full bg-[#edf1e8]">
+
+                <Check
+                  size={23}
+                  strokeWidth={3}
+                  className="text-[#82936b]"
+                />
+
+              </div>
+
+              <h1 className="mt-7 max-w-2xl font-serif text-5xl italic tracking-tight text-stone-900 md:text-7xl">
+                You&apos;re all set.
+              </h1>
+
+              {verifiedOrganisationName && (
+                <p className="mt-5 text-[10px] font-black uppercase tracking-[0.16em] text-[#829473]">
+                  {
+                    verifiedOrganisationName
+                  }
+                </p>
+              )}
+
+              <p className="mt-6 max-w-2xl text-base leading-8 text-stone-500">
+                Your TOTS-OS membership has been activated and
+                your existing workspace is ready to use.
+              </p>
+
+            </div>
+
+            <div className="p-8 md:p-14">
+
+              <div className="rounded-[2rem] border border-[#cdd7c3] bg-[#edf1e8] p-6 md:p-8">
+
+                <div className="flex items-start gap-4">
+
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
+
+                    <ShieldCheck
+                      size={18}
+                      strokeWidth={2.5}
+                      className="text-[#82936b]"
+                    />
+
+                  </div>
+
+                  <div>
+
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#748361]">
+                      Your access is active
+                    </p>
+
+                    {displayTier && (
+                      <p className="mt-3 text-sm font-semibold text-stone-700">
+                        {
+                          displayTier
+                        } membership
+                      </p>
+                    )}
+
+                    <p className="mt-2 max-w-xl text-xs leading-6 text-stone-500">
+                      Your existing projects, contacts, notes,
+                      settings and business data are still exactly
+                      where you left them.
+                    </p>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              <div className="mt-8">
+
+                <p className="font-serif text-3xl italic text-stone-800">
+                  Welcome back.
+                </p>
+
+                <p className="mt-3 max-w-xl text-sm leading-7 text-stone-500">
+                  Head straight back into TOTS-OS and carry on
+                  running your business.
+                </p>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href =
+                    "/dashboard";
+                }}
+                className="mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-stone-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-stone-700 sm:w-auto"
+              >
+                Go to TOTS-OS
+
+                <ArrowRight
+                  size={13}
+                />
+
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </main>
+    );
+  }
+
+  // ==================================================
+  // VERIFICATION ERROR
+  // ==================================================
+
+  if (
+    verificationState ===
+    "error"
+  ) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5">
+
+        <div className="w-full max-w-xl rounded-[2.5rem] border border-stone-200 bg-white p-10 text-center shadow-[0_20px_60px_rgba(28,25,23,0.06)] md:p-14">
+
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-stone-100">
+
+            <ShieldCheck
+              size={22}
+              className="text-stone-500"
+            />
+
+          </div>
+
+          <p className="mt-7 text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">
+            Payment received
+          </p>
+
+          <h1 className="mt-4 font-serif text-4xl italic tracking-tight text-stone-900 md:text-5xl">
+            We couldn&apos;t finish activating your account.
+          </h1>
+
+          <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-stone-500">
+            Your Stripe payment may still have completed. Please
+            don&apos;t make another payment.
+          </p>
+
+          {verificationError && (
+            <div className="mt-6 rounded-2xl border border-stone-200 bg-stone-50 px-5 py-4">
+
+              <p className="text-xs leading-6 text-stone-500">
+                {
+                  verificationError
+                }
+              </p>
+
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() =>
+              window.location.reload()
+            }
+            className="mt-7 inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 px-7 py-4 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-stone-700"
+          >
+            Try verification again
+          </button>
+
+        </div>
+
+      </main>
+    );
+  }
+
+  // ==================================================
+  // MAIN BILLING UI
   // ==================================================
 
   return (

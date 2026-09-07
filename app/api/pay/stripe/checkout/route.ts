@@ -13,6 +13,10 @@ import {
   cookies,
 } from "next/headers";
 
+// ======================================================
+// RUNTIME
+// ======================================================
+
 export const runtime =
   "nodejs";
 
@@ -179,7 +183,13 @@ export async function POST(
             },
 
             setAll(
-              cookiesToSet
+              cookiesToSet: {
+                name: string;
+                value: string;
+                options?: Parameters<
+                  typeof cookieStore.set
+                >[2];
+              }[]
             ) {
               try {
                 cookiesToSet.forEach(
@@ -196,8 +206,10 @@ export async function POST(
                   }
                 );
               } catch {
-                // Can be ignored when
-                // cookies cannot be written.
+                /*
+                 * Safe to ignore in contexts
+                 * where cookies cannot be written.
+                 */
               }
             },
           },
@@ -234,7 +246,7 @@ export async function POST(
     }
 
     // ==================================================
-    // REQUEST
+    // REQUEST BODY
     // ==================================================
 
     const body =
@@ -254,7 +266,7 @@ export async function POST(
         Number(
           body.additionalSeats ||
             0
-        )
+        ) || 0
       );
 
     // ==================================================
@@ -356,18 +368,6 @@ export async function POST(
     // ==================================================
     // OPTIONAL TEAM SEATS
     // ==================================================
-    //
-    // Your UI currently allows
-    // additional team seats.
-    //
-    // If you already have a Stripe
-    // recurring Price for those seats,
-    // set:
-    //
-    // STRIPE_PRICE_TEAM_SEAT
-    //
-    // in Vercel.
-    // ==================================================
 
     if (
       additionalSeats >
@@ -404,7 +404,7 @@ export async function POST(
     }
 
     // ==================================================
-    // CREATE CHECKOUT SESSION
+    // CREATE STRIPE CHECKOUT SESSION
     // ==================================================
 
     const session =
@@ -415,12 +415,12 @@ export async function POST(
           mode:
             "subscription",
 
-          // Beta tester is now
-          // choosing to become
-          // a paying customer.
-          //
-          // DO NOT add another
-          // 14-day Stripe trial here.
+          /*
+           * Existing beta users are
+           * moving onto a paid plan.
+           *
+           * No extra Stripe trial here.
+           */
 
           line_items:
             lineItems,
@@ -439,6 +439,10 @@ export async function POST(
 
           cancel_url:
             `${appUrl}/settings/billing?cancelled=true`,
+
+          // ==================================================
+          // CHECKOUT METADATA
+          // ==================================================
 
           metadata: {
             user_id:
@@ -461,6 +465,10 @@ export async function POST(
                 additionalSeats
               ),
           },
+
+          // ==================================================
+          // SUBSCRIPTION METADATA
+          // ==================================================
 
           subscription_data: {
             metadata: {
@@ -485,7 +493,7 @@ export async function POST(
         });
 
     // ==================================================
-    // CHECK URL
+    // CHECK STRIPE URL
     // ==================================================
 
     if (

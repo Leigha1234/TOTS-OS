@@ -270,7 +270,223 @@ export async function POST(
       );
 
     // ==================================================
-    // FIND ORGANISATION
+    // FIND ORGANISATION ID
+    // ==================================================
+
+    let organisationId:
+      string | null =
+      null;
+
+    // ==================================================
+    // PRIMARY LOOKUP:
+    // profiles.organisation_id
+    // ==================================================
+
+    const {
+      data:
+        profile,
+      error:
+        profileError,
+    } =
+      await supabase
+        .from(
+          "profiles"
+        )
+        .select(
+          "organisation_id"
+        )
+        .eq(
+          "id",
+          user.id
+        )
+        .maybeSingle();
+
+    if (
+      profileError
+    ) {
+      console.error(
+        "Profile organisation lookup error:",
+        profileError
+      );
+    }
+
+    if (
+      profile
+        ?.organisation_id
+    ) {
+      organisationId =
+        profile
+          .organisation_id;
+    }
+
+    // ==================================================
+    // FALLBACK 1:
+    // organisation_members
+    // ==================================================
+
+    if (
+      !organisationId
+    ) {
+      const {
+        data:
+          membership,
+        error:
+          membershipError,
+      } =
+        await supabase
+          .from(
+            "organisation_members"
+          )
+          .select(
+            "organisation_id"
+          )
+          .eq(
+            "user_id",
+            user.id
+          )
+          .limit(
+            1
+          )
+          .maybeSingle();
+
+      if (
+        membershipError
+      ) {
+        console.error(
+          "Organisation membership lookup error:",
+          membershipError
+        );
+      }
+
+      if (
+        membership
+          ?.organisation_id
+      ) {
+        organisationId =
+          membership
+            .organisation_id;
+      }
+    }
+
+    // ==================================================
+    // FALLBACK 2:
+    // user_organisations
+    // ==================================================
+
+    if (
+      !organisationId
+    ) {
+      const {
+        data:
+          userOrganisation,
+        error:
+          userOrganisationError,
+      } =
+        await supabase
+          .from(
+            "user_organisations"
+          )
+          .select(
+            "organisation_id"
+          )
+          .eq(
+            "user_id",
+            user.id
+          )
+          .limit(
+            1
+          )
+          .maybeSingle();
+
+      if (
+        userOrganisationError
+      ) {
+        console.error(
+          "User organisation lookup error:",
+          userOrganisationError
+        );
+      }
+
+      if (
+        userOrganisation
+          ?.organisation_id
+      ) {
+        organisationId =
+          userOrganisation
+            .organisation_id;
+      }
+    }
+
+    // ==================================================
+    // FALLBACK 3:
+    // organisations.created_by
+    // ==================================================
+
+    if (
+      !organisationId
+    ) {
+      const {
+        data:
+          createdOrganisation,
+        error:
+          createdOrganisationError,
+      } =
+        await supabase
+          .from(
+            "organisations"
+          )
+          .select(
+            "id"
+          )
+          .eq(
+            "created_by",
+            user.id
+          )
+          .limit(
+            1
+          )
+          .maybeSingle();
+
+      if (
+        createdOrganisationError
+      ) {
+        console.error(
+          "Created organisation lookup error:",
+          createdOrganisationError
+        );
+      }
+
+      if (
+        createdOrganisation
+          ?.id
+      ) {
+        organisationId =
+          createdOrganisation
+            .id;
+      }
+    }
+
+    // ==================================================
+    // NO ORGANISATION FOUND
+    // ==================================================
+
+    if (
+      !organisationId
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "No organisation is connected to this account.",
+        },
+        {
+          status:
+            404,
+        }
+      );
+    }
+
+    // ==================================================
+    // LOAD ORGANISATION
     // ==================================================
 
     const {
@@ -293,8 +509,8 @@ export async function POST(
           `
         )
         .eq(
-          "created_by",
-          user.id
+          "id",
+          organisationId
         )
         .maybeSingle();
 
@@ -309,7 +525,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Unable to find your organisation.",
+            "Unable to load your organisation.",
         },
         {
           status:
@@ -324,7 +540,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "No organisation is connected to this account.",
+            "Your organisation record could not be found.",
         },
         {
           status:
@@ -435,10 +651,10 @@ export async function POST(
             "auto",
 
           success_url:
-  `${appUrl}/billing?success=true&session_id={CHECKOUT_SESSION_ID}`,
+            `${appUrl}/billing?success=true&session_id={CHECKOUT_SESSION_ID}`,
 
-cancel_url:
-  `${appUrl}/billing?cancelled=true`,
+          cancel_url:
+            `${appUrl}/billing?cancelled=true`,
 
           // ==================================================
           // CHECKOUT METADATA

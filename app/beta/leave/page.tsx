@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Suspense,
   useEffect,
   useState,
 } from "react";
@@ -14,7 +15,11 @@ import {
   Loader2,
 } from "lucide-react";
 
-export default function BetaLeavePage() {
+// ============================================================
+// INNER PAGE
+// ============================================================
+
+function BetaLeaveContent() {
   const router =
     useRouter();
 
@@ -33,6 +38,9 @@ export default function BetaLeavePage() {
 
   useEffect(
     () => {
+      let cancelled =
+        false;
+
       async function processBetaExit() {
         const token =
           searchParams.get(
@@ -42,9 +50,13 @@ export default function BetaLeavePage() {
         if (
           !token
         ) {
-          setError(
-            "This link is invalid."
-          );
+          if (
+            !cancelled
+          ) {
+            setError(
+              "This link is invalid."
+            );
+          }
 
           return;
         }
@@ -86,14 +98,28 @@ export default function BetaLeavePage() {
           }
 
           if (
+            cancelled
+          ) {
+            return;
+          }
+
+          // ==================================================
+          // ALREADY SUBSCRIBED
+          // ==================================================
+
+          if (
             data.alreadySubscribed
           ) {
             router.replace(
-              "/settings/billing"
+              "/manage-subscription"
             );
 
             return;
           }
+
+          // ==================================================
+          // SURPRISE PAGE
+          // ==================================================
 
           const params =
             new URLSearchParams();
@@ -116,25 +142,43 @@ export default function BetaLeavePage() {
             );
           }
 
+          const query =
+            params.toString();
+
           router.replace(
-            `/beta/one-more-week?${params.toString()}`
+            query
+              ? `/beta/one-more-week?${query}`
+              : "/beta/one-more-week"
           );
         } catch (
-          error
+          requestError
         ) {
           console.error(
-            error
+            "[BETA LEAVE] Error:",
+            requestError
           );
 
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
           setError(
-            error instanceof Error
-              ? error.message
+            requestError instanceof
+              Error
+              ? requestError.message
               : "Something went wrong."
           );
         }
       }
 
       void processBetaExit();
+
+      return () => {
+        cancelled =
+          true;
+      };
     },
     [
       router,
@@ -142,11 +186,16 @@ export default function BetaLeavePage() {
     ]
   );
 
+  // ==========================================================
+  // ERROR
+  // ==========================================================
+
   if (
     error
   ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5">
+
         <div className="w-full max-w-xl rounded-[2rem] border border-stone-200 bg-white p-10 text-center shadow-sm">
 
           <h1 className="font-serif text-4xl italic text-stone-900">
@@ -154,7 +203,9 @@ export default function BetaLeavePage() {
           </h1>
 
           <p className="mt-4 text-sm leading-7 text-stone-500">
-            {error}
+            {
+              error
+            }
           </p>
 
           <button
@@ -164,15 +215,20 @@ export default function BetaLeavePage() {
                 "/login"
               )
             }
-            className="mt-8 rounded-full bg-stone-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.16em] text-white"
+            className="mt-8 rounded-full bg-stone-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-stone-700"
           >
             Go to TOTS-OS
           </button>
 
         </div>
+
       </main>
     );
   }
+
+  // ==========================================================
+  // LOADING
+  // ==========================================================
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5">
@@ -184,12 +240,53 @@ export default function BetaLeavePage() {
           className="mx-auto animate-spin text-[#A3B18A]"
         />
 
-        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.16em] text-stone-400">
+        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
           Updating your TOTS-OS access
         </p>
 
       </div>
 
     </main>
+  );
+}
+
+// ============================================================
+// SUSPENSE FALLBACK
+// ============================================================
+
+function BetaLeaveFallback() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5">
+
+      <div className="text-center">
+
+        <Loader2
+          size={36}
+          className="mx-auto animate-spin text-[#A3B18A]"
+        />
+
+        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
+          Opening your TOTS-OS account
+        </p>
+
+      </div>
+
+    </main>
+  );
+}
+
+// ============================================================
+// PAGE
+// ============================================================
+
+export default function BetaLeavePage() {
+  return (
+    <Suspense
+      fallback={
+        <BetaLeaveFallback />
+      }
+    >
+      <BetaLeaveContent />
+    </Suspense>
   );
 }

@@ -28,6 +28,7 @@ import {
   ShoppingBag,
   Sparkles,
   Tag,
+  Trash2,
   User,
   Users,
   X,
@@ -142,10 +143,13 @@ type CustomerForm = {
   website: string;
   company: string;
   notes: string;
+
   stage:
     CustomerStage;
+
   mailingList:
     boolean;
+
   mailingListCategory:
     string;
 };
@@ -170,8 +174,10 @@ const EMPTY_FORM:
     website: "",
     company: "",
     notes: "",
-    stage: "client",
-    mailingList: false,
+    stage:
+      "client",
+    mailingList:
+      false,
     mailingListCategory:
       "General",
   };
@@ -217,7 +223,7 @@ function safeArray(
       item
     ): item is string =>
       typeof item ===
-      "string" &&
+        "string" &&
       Boolean(
         item.trim()
       )
@@ -267,47 +273,6 @@ function getInitials(
         1
     ][0]
   }`.toUpperCase();
-}
-
-function formatDate(
-  value:
-    | string
-    | null
-) {
-  if (
-    !value
-  ) {
-    return "—";
-  }
-
-  const date =
-    new Date(
-      value
-    );
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return "—";
-  }
-
-  return new Intl.DateTimeFormat(
-    "en-GB",
-    {
-      day:
-        "numeric",
-
-      month:
-        "short",
-
-      year:
-        "numeric",
-    }
-  ).format(
-    date
-  );
 }
 
 function getStageLabel(
@@ -450,6 +415,28 @@ export default function CRMDirectory() {
       string | null
     >(
       null
+    );
+
+  // ==========================================================
+  // MULTI SELECT
+  // ==========================================================
+
+  const [
+    selectedCustomerIds,
+    setSelectedCustomerIds,
+  ] =
+    useState<
+      string[]
+    >(
+      []
+    );
+
+  const [
+    deleting,
+    setDeleting,
+  ] =
+    useState(
+      false
     );
 
   // ==========================================================
@@ -723,6 +710,41 @@ export default function CRMDirectory() {
   );
 
   // ==========================================================
+  // REMOVE STALE SELECTIONS
+  // ==========================================================
+
+  useEffect(
+    () => {
+      const validIds =
+        new Set(
+          customers.map(
+            (
+              customer
+            ) =>
+              customer.id
+          )
+        );
+
+      setSelectedCustomerIds(
+        (
+          previous
+        ) =>
+          previous.filter(
+            (
+              id
+            ) =>
+              validIds.has(
+                id
+              )
+          )
+      );
+    },
+    [
+      customers,
+    ]
+  );
+
+  // ==========================================================
   // METRICS
   // ==========================================================
 
@@ -852,6 +874,232 @@ export default function CRMDirectory() {
         stageFilter,
       ]
     );
+
+  // ==========================================================
+  // SELECTION HELPERS
+  // ==========================================================
+
+  const selectedCount =
+    selectedCustomerIds.length;
+
+  const visibleCustomerIds =
+    useMemo(
+      () =>
+        filtered.map(
+          (
+            customer
+          ) =>
+            customer.id
+        ),
+      [
+        filtered,
+      ]
+    );
+
+  const allVisibleSelected =
+    useMemo(
+      () =>
+        visibleCustomerIds.length >
+          0 &&
+        visibleCustomerIds.every(
+          (
+            id
+          ) =>
+            selectedCustomerIds.includes(
+              id
+            )
+        ),
+      [
+        visibleCustomerIds,
+        selectedCustomerIds,
+      ]
+    );
+
+  function toggleCustomerSelection(
+    customerId:
+      string
+  ) {
+    setSelectedCustomerIds(
+      (
+        previous
+      ) => {
+        if (
+          previous.includes(
+            customerId
+          )
+        ) {
+          return previous.filter(
+            (
+              id
+            ) =>
+              id !==
+              customerId
+          );
+        }
+
+        return [
+          ...previous,
+          customerId,
+        ];
+      }
+    );
+  }
+
+  function toggleSelectAllVisible() {
+    if (
+      allVisibleSelected
+    ) {
+      const visibleSet =
+        new Set(
+          visibleCustomerIds
+        );
+
+      setSelectedCustomerIds(
+        (
+          previous
+        ) =>
+          previous.filter(
+            (
+              id
+            ) =>
+              !visibleSet.has(
+                id
+              )
+          )
+      );
+
+      return;
+    }
+
+    setSelectedCustomerIds(
+      (
+        previous
+      ) =>
+        Array.from(
+          new Set([
+            ...previous,
+            ...visibleCustomerIds,
+          ])
+        )
+    );
+  }
+
+  function clearSelection() {
+    setSelectedCustomerIds(
+      []
+    );
+  }
+
+  // ==========================================================
+  // DELETE SELECTED CUSTOMERS
+  // ==========================================================
+
+  async function deleteSelectedCustomers() {
+    if (
+      deleting ||
+      selectedCustomerIds.length ===
+        0 ||
+      !resolvedOrganisationId
+    ) {
+      return;
+    }
+
+    const count =
+      selectedCustomerIds.length;
+
+    const confirmed =
+      window.confirm(
+        count ===
+          1
+          ? "Delete this customer? This cannot be undone."
+          : `Delete these ${count} customers? This cannot be undone.`
+      );
+
+    if (
+      !confirmed
+    ) {
+      return;
+    }
+
+    setDeleting(
+      true
+    );
+
+    setError(
+      null
+    );
+
+    try {
+      const {
+        error:
+          deleteError,
+      } =
+        await supabase
+          .from(
+            "customers"
+          )
+          .delete()
+          .eq(
+            "organisation_id",
+            resolvedOrganisationId
+          )
+          .in(
+            "id",
+            selectedCustomerIds
+          );
+
+      if (
+        deleteError
+      ) {
+        throw deleteError;
+      }
+
+      const deletedIds =
+        new Set(
+          selectedCustomerIds
+        );
+
+      setCustomers(
+        (
+          previous
+        ) =>
+          previous.filter(
+            (
+              customer
+            ) =>
+              !deletedIds.has(
+                customer.id
+              )
+          )
+      );
+
+      setSelectedCustomerIds(
+        []
+      );
+
+      await loadData(
+        true
+      );
+    } catch (
+      deleteError: unknown
+    ) {
+      console.error(
+        "[TOTS CRM] Customer delete failed:",
+        deleteError
+      );
+
+      setError(
+        deleteError instanceof
+          Error
+          ? deleteError.message
+          : "The selected customers could not be deleted."
+      );
+    } finally {
+      setDeleting(
+        false
+      );
+    }
+  }
 
   // ==========================================================
   // OPEN MODAL
@@ -1307,9 +1555,13 @@ export default function CRMDirectory() {
       ===================================================== */}
 
       <section className="mx-auto max-w-[1320px] px-4 pb-6 pt-10 sm:px-6 lg:px-8 lg:pt-14">
+
         <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+
           <div>
+
             <div className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2 shadow-sm">
+
               <Users
                 size={13}
                 className="text-[#829473]"
@@ -1318,6 +1570,7 @@ export default function CRMDirectory() {
               <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#829473]">
                 CRM
               </span>
+
             </div>
 
             <h1 className="mt-5 max-w-3xl font-serif text-5xl italic leading-[0.95] tracking-tight text-stone-900 sm:text-6xl lg:text-7xl">
@@ -1327,6 +1580,7 @@ export default function CRMDirectory() {
             <p className="mt-5 max-w-2xl text-sm leading-7 text-stone-500">
               Leads, clients, store customers and partners all live here — giving you one customer record across TOTS-OS.
             </p>
+
           </div>
 
           <button
@@ -1342,7 +1596,9 @@ export default function CRMDirectory() {
 
             Add customer
           </button>
+
         </div>
+
       </section>
 
       {/* =====================================================
@@ -1352,16 +1608,19 @@ export default function CRMDirectory() {
       {error &&
         !showModal && (
         <section className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-8">
+
           <motion.div
             initial={{
               opacity:
                 0,
+
               y:
                 -10,
             }}
             animate={{
               opacity:
                 1,
+
               y:
                 0,
             }}
@@ -1377,7 +1636,9 @@ export default function CRMDirectory() {
                 error
               }
             </p>
+
           </motion.div>
+
         </section>
       )}
 
@@ -1386,6 +1647,7 @@ export default function CRMDirectory() {
       ===================================================== */}
 
       <section className="mx-auto mt-6 max-w-[1320px] px-4 sm:px-6 lg:px-8">
+
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 
           <MetricCard
@@ -1429,6 +1691,7 @@ export default function CRMDirectory() {
           />
 
         </div>
+
       </section>
 
       {/* =====================================================
@@ -1436,10 +1699,13 @@ export default function CRMDirectory() {
       ===================================================== */}
 
       <section className="mx-auto mt-8 max-w-[1320px] px-4 sm:px-6 lg:px-8">
+
         <div className="rounded-[1.75rem] border border-stone-200 bg-white p-4 shadow-sm">
+
           <div className="flex flex-col gap-3 md:flex-row">
 
             <div className="relative flex-1">
+
               <Search
                 size={15}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
@@ -1459,9 +1725,11 @@ export default function CRMDirectory() {
                 placeholder="Search by name, business, email or phone..."
                 className="w-full rounded-xl border border-stone-100 bg-stone-50 py-3.5 pl-11 pr-4 text-xs outline-none transition focus:border-[#a9b897] focus:bg-white"
               />
+
             </div>
 
             <div className="relative">
+
               <Filter
                 size={13}
                 className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
@@ -1499,11 +1767,121 @@ export default function CRMDirectory() {
                 <option value="member">
                   Team
                 </option>
+
               </select>
+
             </div>
 
           </div>
+
+          {/* =================================================
+              MULTI SELECT TOOLBAR
+          ================================================= */}
+
+          {!loading &&
+            filtered.length >
+              0 && (
+              <div className="mt-4 flex flex-col gap-3 border-t border-stone-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+
+                <div className="flex flex-wrap items-center gap-2">
+
+                  <button
+                    type="button"
+                    onClick={
+                      toggleSelectAllVisible
+                    }
+                    className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] transition ${
+                      allVisibleSelected
+                        ? "border-[#a9b897] bg-[#a9b897]/15 text-[#718164]"
+                        : "border-stone-200 bg-stone-50 text-stone-500 hover:bg-stone-100"
+                    }`}
+                  >
+
+                    <span
+                      className={`flex h-4 w-4 items-center justify-center rounded border transition ${
+                        allVisibleSelected
+                          ? "border-[#829473] bg-[#829473] text-white"
+                          : "border-stone-300 bg-white text-transparent"
+                      }`}
+                    >
+                      <Check
+                        size={10}
+                        strokeWidth={3}
+                      />
+                    </span>
+
+                    {allVisibleSelected
+                      ? "Deselect visible"
+                      : "Select all visible"}
+
+                  </button>
+
+                  {selectedCount >
+                    0 && (
+                    <>
+
+                      <div className="rounded-xl bg-[#a9b897]/10 px-3.5 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] text-[#718164]">
+                        {selectedCount}{" "}
+                        selected
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={
+                          clearSelection
+                        }
+                        disabled={
+                          deleting
+                        }
+                        className="rounded-xl px-3 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] text-stone-400 transition hover:bg-stone-50 hover:text-stone-700 disabled:opacity-40"
+                      >
+                        Clear
+                      </button>
+
+                    </>
+                  )}
+
+                </div>
+
+                {selectedCount >
+                  0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void deleteSelectedCustomers()
+                    }
+                    disabled={
+                      deleting
+                    }
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.14em] text-red-600 transition hover:border-red-200 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+
+                    {deleting ? (
+                      <Loader2
+                        size={13}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <Trash2
+                        size={13}
+                      />
+                    )}
+
+                    {deleting
+                      ? "Deleting..."
+                      : selectedCount ===
+                          1
+                        ? "Delete selected"
+                        : `Delete ${selectedCount} selected`}
+
+                  </button>
+                )}
+
+              </div>
+            )}
+
         </div>
+
       </section>
 
       {/* =====================================================
@@ -1514,6 +1892,7 @@ export default function CRMDirectory() {
 
         {loading ? (
           <div className="flex min-h-[340px] flex-col items-center justify-center rounded-[2rem] border border-stone-200 bg-white">
+
             <Loader2
               size={25}
               className="animate-spin text-[#829473]"
@@ -1522,6 +1901,7 @@ export default function CRMDirectory() {
             <p className="mt-4 text-[8px] font-black uppercase tracking-[0.2em] text-stone-300">
               Loading CRM
             </p>
+
           </div>
         ) : filtered.length >
           0 ? (
@@ -1536,19 +1916,67 @@ export default function CRMDirectory() {
                     customer
                   );
 
+                const selected =
+                  selectedCustomerIds.includes(
+                    customer.id
+                  );
+
                 return (
                   <Link
                     href={`/crm/${customer.id}`}
                     key={
                       customer.id
                     }
-                    className="group block rounded-[1.5rem] border border-stone-200 bg-white p-4 no-underline shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#a9b897] hover:shadow-lg sm:p-5"
+                    className={`group block rounded-[1.5rem] border p-4 no-underline shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg sm:p-5 ${
+                      selected
+                        ? "border-[#a9b897] bg-[#f8faf6] ring-1 ring-[#a9b897]/30"
+                        : "border-stone-200 bg-white hover:border-[#a9b897]"
+                    }`}
                   >
-                    <div className="flex items-center gap-4">
+
+                    <div className="flex items-center gap-3 sm:gap-4">
+
+                      {/* =======================================
+                          SELECT
+                      ======================================= */}
+
+                      <button
+                        type="button"
+                        aria-label={
+                          selected
+                            ? `Deselect ${customer.name || "customer"}`
+                            : `Select ${customer.name || "customer"}`
+                        }
+                        onClick={(
+                          event
+                        ) => {
+                          event.preventDefault();
+
+                          event.stopPropagation();
+
+                          toggleCustomerSelection(
+                            customer.id
+                          );
+                        }}
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition ${
+                          selected
+                            ? "border-[#829473] bg-[#829473] text-white shadow-sm"
+                            : "border-stone-200 bg-white text-transparent hover:border-[#a9b897]"
+                        }`}
+                      >
+                        <Check
+                          size={12}
+                          strokeWidth={3}
+                        />
+                      </button>
 
                       {/* AVATAR */}
 
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-stone-100 text-sm font-black text-stone-500 transition group-hover:bg-[#a9b897] group-hover:text-white">
+                      <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-sm font-black transition ${
+                        selected
+                          ? "bg-[#a9b897] text-white"
+                          : "bg-stone-100 text-stone-500 group-hover:bg-[#a9b897] group-hover:text-white"
+                      }`}>
                         {getInitials(
                           customer.name
                         )}
@@ -1559,6 +1987,7 @@ export default function CRMDirectory() {
                       <div className="min-w-0 flex-1">
 
                         <div className="flex flex-wrap items-center gap-2">
+
                           <h3 className="truncate text-sm font-bold text-stone-800 sm:text-base">
                             {customer.name ||
                               "Unnamed customer"}
@@ -1573,19 +2002,23 @@ export default function CRMDirectory() {
                           {source ===
                             "Store" && (
                             <span className="flex items-center gap-1 rounded-full bg-stone-900 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-white">
+
                               <ShoppingBag
                                 size={8}
                               />
 
                               Store customer
+
                             </span>
                           )}
+
                         </div>
 
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-[10px] text-stone-400">
 
                           {customer.company && (
                             <span className="flex items-center gap-1.5">
+
                               <Building2
                                 size={10}
                               />
@@ -1593,11 +2026,13 @@ export default function CRMDirectory() {
                               {
                                 customer.company
                               }
+
                             </span>
                           )}
 
                           {customer.email && (
                             <span className="flex items-center gap-1.5">
+
                               <Mail
                                 size={10}
                               />
@@ -1605,11 +2040,13 @@ export default function CRMDirectory() {
                               {
                                 customer.email
                               }
+
                             </span>
                           )}
 
                           {customer.phone && (
                             <span className="flex items-center gap-1.5">
+
                               <Phone
                                 size={10}
                               />
@@ -1617,10 +2054,12 @@ export default function CRMDirectory() {
                               {
                                 customer.phone
                               }
+
                             </span>
                           )}
 
                         </div>
+
                       </div>
 
                       {/* COUNTS */}
@@ -1656,12 +2095,15 @@ export default function CRMDirectory() {
                       {/* ARROW */}
 
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-50 text-stone-300 transition group-hover:bg-stone-900 group-hover:text-white">
+
                         <ChevronRight
                           size={16}
                         />
+
                       </div>
 
                     </div>
+
                   </Link>
                 );
               }
@@ -1672,9 +2114,11 @@ export default function CRMDirectory() {
           <div className="rounded-[2rem] border border-dashed border-stone-200 bg-white px-6 py-20 text-center">
 
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-stone-50 text-stone-300">
+
               <Database
                 size={24}
               />
+
             </div>
 
             <h2 className="mt-5 font-serif text-3xl italic text-stone-700">
@@ -1692,11 +2136,13 @@ export default function CRMDirectory() {
               }
               className="mt-5 inline-flex items-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
             >
+
               <Plus
                 size={12}
               />
 
               Add customer
+
             </button>
 
           </div>
@@ -1705,7 +2151,51 @@ export default function CRMDirectory() {
       </section>
 
       {/* =====================================================
-          MODAL
+          REFRESHING INDICATOR
+      ===================================================== */}
+
+      <AnimatePresence>
+        {refreshing && (
+          <motion.div
+            initial={{
+              opacity:
+                0,
+
+              y:
+                10,
+            }}
+            animate={{
+              opacity:
+                1,
+
+              y:
+                0,
+            }}
+            exit={{
+              opacity:
+                0,
+
+              y:
+                10,
+            }}
+            className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-3 shadow-lg"
+          >
+
+            <Loader2
+              size={12}
+              className="animate-spin text-[#829473]"
+            />
+
+            <span className="text-[7px] font-black uppercase tracking-[0.15em] text-stone-400">
+              Updating
+            </span>
+
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* =====================================================
+          ADD CUSTOMER MODAL
       ===================================================== */}
 
       <AnimatePresence>
@@ -1743,24 +2233,30 @@ export default function CRMDirectory() {
               initial={{
                 opacity:
                   0,
+
                 scale:
                   0.97,
+
                 y:
                   16,
               }}
               animate={{
                 opacity:
                   1,
+
                 scale:
                   1,
+
                 y:
                   0,
               }}
               exit={{
                 opacity:
                   0,
+
                 scale:
                   0.97,
+
                 y:
                   16,
               }}
@@ -1774,10 +2270,13 @@ export default function CRMDirectory() {
                 <div className="flex items-start justify-between gap-5">
 
                   <div>
+
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#a9b897]/15 text-[#829473]">
+
                       <CircleUserRound
                         size={19}
                       />
+
                     </div>
 
                     <h2 className="mt-4 font-serif text-4xl italic leading-none text-stone-900">
@@ -1787,6 +2286,7 @@ export default function CRMDirectory() {
                     <p className="mt-2 text-xs leading-5 text-stone-400">
                       This creates the main customer record used across TOTS-OS.
                     </p>
+
                   </div>
 
                   <button
@@ -1801,9 +2301,11 @@ export default function CRMDirectory() {
                     }
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-500 disabled:opacity-40"
                   >
+
                     <X
                       size={15}
                     />
+
                   </button>
 
                 </div>
@@ -1821,6 +2323,7 @@ export default function CRMDirectory() {
 
                 {error && (
                   <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4">
+
                     <AlertCircle
                       size={15}
                       className="mt-0.5 shrink-0 text-red-500"
@@ -1831,6 +2334,7 @@ export default function CRMDirectory() {
                         error
                       }
                     </p>
+
                   </div>
                 )}
 
@@ -1958,6 +2462,7 @@ export default function CRMDirectory() {
                         }
                         className="crm-field appearance-none"
                       >
+
                         <option value="client">
                           Client
                         </option>
@@ -1973,6 +2478,7 @@ export default function CRMDirectory() {
                         <option value="member">
                           Team member
                         </option>
+
                       </select>
                     </Field>
 
@@ -1993,6 +2499,7 @@ export default function CRMDirectory() {
                       Building2
                     }
                   >
+
                     <input
                       value={
                         form.company
@@ -2014,6 +2521,7 @@ export default function CRMDirectory() {
                       placeholder="Company name"
                       className="crm-field"
                     />
+
                   </Field>
 
                   <Field
@@ -2022,6 +2530,7 @@ export default function CRMDirectory() {
                       MapPin
                     }
                   >
+
                     <input
                       value={
                         form.address
@@ -2043,6 +2552,7 @@ export default function CRMDirectory() {
                       placeholder="Business or customer address"
                       className="crm-field"
                     />
+
                   </Field>
 
                   <Field
@@ -2051,6 +2561,7 @@ export default function CRMDirectory() {
                       Hash
                     }
                   >
+
                     <input
                       value={
                         form.website
@@ -2072,6 +2583,7 @@ export default function CRMDirectory() {
                       placeholder="https://example.com"
                       className="crm-field"
                     />
+
                   </Field>
 
                 </FormSection>
@@ -2107,6 +2619,7 @@ export default function CRMDirectory() {
                   />
 
                   <div>
+
                     <p className="mb-2 text-[8px] font-black uppercase tracking-[0.16em] text-stone-400">
                       Attachment
                     </p>
@@ -2114,6 +2627,7 @@ export default function CRMDirectory() {
                     <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-stone-200 bg-stone-50 px-4 py-4 transition hover:bg-stone-100">
 
                       <div className="flex min-w-0 items-center gap-3">
+
                         <Paperclip
                           size={14}
                           className="shrink-0 text-stone-400"
@@ -2124,6 +2638,7 @@ export default function CRMDirectory() {
                             ? attachmentFile.name
                             : "Choose a file"}
                         </span>
+
                       </div>
 
                       <span className="shrink-0 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
@@ -2145,6 +2660,7 @@ export default function CRMDirectory() {
                       />
 
                     </label>
+
                   </div>
 
                 </FormSection>
@@ -2159,6 +2675,7 @@ export default function CRMDirectory() {
                   <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-stone-100 bg-stone-50 p-4">
 
                     <div>
+
                       <p className="text-xs font-semibold text-stone-700">
                         Add to mailing list
                       </p>
@@ -2166,6 +2683,7 @@ export default function CRMDirectory() {
                       <p className="mt-1 text-[9px] leading-4 text-stone-400">
                         Mark this customer as opted-in for marketing.
                       </p>
+
                     </div>
 
                     <input
@@ -2227,24 +2745,30 @@ export default function CRMDirectory() {
                   }
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.18em] text-white shadow-lg transition hover:bg-[#829473] disabled:cursor-not-allowed disabled:opacity-40"
                 >
+
                   {saving ? (
                     <>
+
                       <Loader2
                         size={14}
                         className="animate-spin"
                       />
 
                       Creating customer...
+
                     </>
                   ) : (
                     <>
+
                       Add customer
 
                       <ArrowRight
                         size={13}
                       />
+
                     </>
                   )}
+
                 </button>
 
               </form>
@@ -2256,6 +2780,7 @@ export default function CRMDirectory() {
       </AnimatePresence>
 
       <CRMGlobalStyles />
+
     </main>
   );
 }
@@ -2280,6 +2805,7 @@ function MetricCard({
       <div className="flex items-start justify-between">
 
         <div>
+
           <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
             {
               label
@@ -2291,12 +2817,15 @@ function MetricCard({
               value
             }
           </p>
+
         </div>
 
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a9b897]/15 text-[#829473]">
+
           <Icon
             size={15}
           />
+
         </div>
 
       </div>
@@ -2318,6 +2847,7 @@ function SmallStat({
 }) {
   return (
     <div className="text-center">
+
       <p className="text-sm font-bold text-stone-700">
         {
           value
@@ -2329,6 +2859,7 @@ function SmallStat({
           label
         }
       </p>
+
     </div>
   );
 }
@@ -2343,8 +2874,10 @@ function FormSection({
   children,
 }: {
   title: string;
+
   description:
     string;
+
   children:
     React.ReactNode;
 }) {
@@ -2352,6 +2885,7 @@ function FormSection({
     <section>
 
       <div className="mb-4">
+
         <p className="text-[8px] font-black uppercase tracking-[0.17em] text-[#829473]">
           {
             title
@@ -2363,6 +2897,7 @@ function FormSection({
             description
           }
         </p>
+
       </div>
 
       <div className="space-y-4">
@@ -2386,7 +2921,9 @@ function Field({
   children,
 }: {
   label: string;
+
   icon: any;
+
   children:
     React.ReactNode;
 }) {

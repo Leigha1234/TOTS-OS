@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
 import {
   Check,
@@ -127,6 +130,62 @@ export default function BillingPage() {
       "Professional"
     );
 
+  const [
+    existingAccount,
+    setExistingAccount,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    modeReady,
+    setModeReady,
+  ] =
+    useState(
+      false
+    );
+
+  // ==================================================
+  // DETECT BILLING MODE
+  // ==================================================
+
+  useEffect(
+    () => {
+      const params =
+        new URLSearchParams(
+          window.location.search
+        );
+
+      const existing =
+        params.get(
+          "existing"
+        );
+
+      setExistingAccount(
+        existing ===
+          "true"
+      );
+
+      setModeReady(
+        true
+      );
+    },
+    []
+  );
+
+  // ==================================================
+  // NORMALISE TIER
+  // ==================================================
+
+  function getApiTier(
+    tier:
+      Tier["name"]
+  ) {
+    return tier
+      .toLowerCase();
+  }
+
   // ==================================================
   // CHECKOUT
   // ==================================================
@@ -137,7 +196,8 @@ export default function BillingPage() {
         Tier
     ) => {
       if (
-        loading
+        loading ||
+        !modeReady
       ) {
         return;
       }
@@ -151,6 +211,81 @@ export default function BillingPage() {
       );
 
       try {
+        // ============================================
+        // EXISTING / BETA CUSTOMER
+        // ============================================
+
+        if (
+          existingAccount
+        ) {
+          const response =
+            await fetch(
+              "/api/pay/stripe/checkout",
+              {
+                method:
+                  "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+
+                body:
+                  JSON.stringify({
+                    tier:
+                      getApiTier(
+                        tier.name
+                      ),
+
+                    additionalSeats:
+                      0,
+                  }),
+              }
+            );
+
+          const data =
+            await response
+              .json()
+              .catch(
+                () => ({})
+              );
+
+          if (
+            !response.ok
+          ) {
+            if (
+              response.status ===
+              401
+            ) {
+              throw new Error(
+                "Please sign in to your existing TOTS-OS account before choosing your plan."
+              );
+            }
+
+            throw new Error(
+              data.error ||
+                "Unable to create checkout session."
+            );
+          }
+
+          if (
+            !data.url
+          ) {
+            throw new Error(
+              "Stripe checkout URL was not returned."
+            );
+          }
+
+          window.location.href =
+            data.url;
+
+          return;
+        }
+
+        // ============================================
+        // NEW CUSTOMER
+        // ============================================
+
         const storedRegistration =
           sessionStorage.getItem(
             "pendingRegistration"
@@ -262,6 +397,7 @@ export default function BillingPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f5f2] px-5 py-8 md:px-10 md:py-12">
+
       <div className="mx-auto max-w-[1400px]">
 
         {/* ==========================================
@@ -269,142 +405,297 @@ export default function BillingPage() {
         ========================================== */}
 
         <header className="mb-10 border-b border-stone-200 pb-8 md:mb-14">
+
           <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
 
             <div>
+
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2">
+
                 <Sparkles
                   size={13}
                   className="text-[#A3B18A]"
                 />
 
                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-500">
-                  TOTS-OS Membership
+                  {existingAccount
+                    ? "Continue with TOTS-OS"
+                    : "TOTS-OS Membership"}
                 </span>
+
               </div>
 
               <h1 className="max-w-3xl font-serif text-4xl italic tracking-tight text-stone-900 md:text-6xl">
-                Choose how you want
-                to run your business.
+                {existingAccount
+                  ? "Choose the plan you want to continue with."
+                  : "Choose how you want to run your business."}
               </h1>
 
               <p className="mt-5 max-w-2xl text-sm leading-7 text-stone-500">
-                Pick the level of
-                TOTS-OS that fits your
-                business now. You can
-                upgrade later as your
-                system grows.
+                {existingAccount
+                  ? "Your TOTS-OS account, data and setup stay exactly where they are. Simply choose the membership that fits your business and continue where you left off."
+                  : "Pick the level of TOTS-OS that fits your business now. You can upgrade later as your system grows."}
               </p>
 
               {/* ======================================
-                  FREE TRIAL MESSAGE
+                  STATUS MESSAGE
               ====================================== */}
 
-              <div className="mt-6 flex max-w-xl items-start gap-4 rounded-2xl border border-[#cdd7c3] bg-[#edf1e8] px-5 py-4">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#82936b] shadow-sm">
-                  <Check
-                    size={16}
-                    strokeWidth={3}
-                  />
+              {existingAccount ? (
+                <div className="mt-6 flex max-w-xl items-start gap-4 rounded-2xl border border-[#cdd7c3] bg-[#edf1e8] px-5 py-4">
+
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#82936b] shadow-sm">
+
+                    <Check
+                      size={16}
+                      strokeWidth={3}
+                    />
+
+                  </div>
+
+                  <div>
+
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#748361]">
+                      Keep your TOTS-OS account
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold text-stone-700">
+                      Nothing needs to be set up again.
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-stone-500">
+                      Choose your membership below and your
+                      existing account, data and workspace
+                      will remain in place.
+                    </p>
+
+                  </div>
+
                 </div>
+              ) : (
+                <div className="mt-6 flex max-w-xl items-start gap-4 rounded-2xl border border-[#cdd7c3] bg-[#edf1e8] px-5 py-4">
 
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#748361]">
-                    14-day free trial
-                  </p>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#82936b] shadow-sm">
 
-                  <p className="mt-1 text-sm font-semibold text-stone-700">
-                    No bank details required.
-                  </p>
+                    <Check
+                      size={16}
+                      strokeWidth={3}
+                    />
 
-                  <p className="mt-1 text-xs leading-5 text-stone-500">
-                    Create your account, choose
-                    your plan and use TOTS-OS
-                    completely free for two weeks.
-                  </p>
+                  </div>
+
+                  <div>
+
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#748361]">
+                      14-day free trial
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold text-stone-700">
+                      No bank details required.
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-stone-500">
+                      Create your account, choose
+                      your plan and use TOTS-OS
+                      completely free for two weeks.
+                    </p>
+
+                  </div>
+
                 </div>
-              </div>
+              )}
+
             </div>
 
             {/* SELECTED PLAN */}
 
             <div className="w-fit rounded-2xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
+
               <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
                 Selected plan
               </p>
 
               <div className="mt-1 flex items-center gap-2">
+
                 <span className="h-2 w-2 rounded-full bg-[#A3B18A]" />
 
                 <p className="font-serif text-xl italic text-stone-900">
-                  {selectedTier}
+                  {
+                    selectedTier
+                  }
                 </p>
+
               </div>
+
             </div>
+
           </div>
+
         </header>
 
         {/* ==========================================
-            TRIAL STRIP
+            INFO STRIP
         ========================================== */}
 
         <section className="mb-7 grid gap-3 md:grid-cols-3">
-          <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
-              <Sparkles
-                size={15}
-                className="text-[#82936b]"
-              />
-            </div>
 
-            <div>
-              <p className="text-xs font-semibold text-stone-700">
-                2 weeks free
-              </p>
+          {existingAccount ? (
+            <>
+              <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
 
-              <p className="mt-0.5 text-[10px] text-stone-400">
-                Full trial access
-              </p>
-            </div>
-          </div>
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
 
-          <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
-              <CreditCard
-                size={15}
-                className="text-[#82936b]"
-              />
-            </div>
+                  <Check
+                    size={15}
+                    strokeWidth={3}
+                    className="text-[#82936b]"
+                  />
 
-            <div>
-              <p className="text-xs font-semibold text-stone-700">
-                No bank details
-              </p>
+                </div>
 
-              <p className="mt-0.5 text-[10px] text-stone-400">
-                Nothing charged upfront
-              </p>
-            </div>
-          </div>
+                <div>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
-              <ShieldCheck
-                size={15}
-                className="text-[#82936b]"
-              />
-            </div>
+                  <p className="text-xs font-semibold text-stone-700">
+                    Keep your workspace
+                  </p>
 
-            <div>
-              <p className="text-xs font-semibold text-stone-700">
-                No commitment
-              </p>
+                  <p className="mt-0.5 text-[10px] text-stone-400">
+                    Your existing data stays put
+                  </p>
 
-              <p className="mt-0.5 text-[10px] text-stone-400">
-                Decide after your trial
-              </p>
-            </div>
-          </div>
+                </div>
+
+              </div>
+
+              <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
+
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
+
+                  <CreditCard
+                    size={15}
+                    className="text-[#82936b]"
+                  />
+
+                </div>
+
+                <div>
+
+                  <p className="text-xs font-semibold text-stone-700">
+                    Simple monthly billing
+                  </p>
+
+                  <p className="mt-0.5 text-[10px] text-stone-400">
+                    Choose the plan that suits you
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
+
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
+
+                  <ShieldCheck
+                    size={15}
+                    className="text-[#82936b]"
+                  />
+
+                </div>
+
+                <div>
+
+                  <p className="text-xs font-semibold text-stone-700">
+                    Continue seamlessly
+                  </p>
+
+                  <p className="mt-0.5 text-[10px] text-stone-400">
+                    No new account required
+                  </p>
+
+                </div>
+
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
+
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
+
+                  <Sparkles
+                    size={15}
+                    className="text-[#82936b]"
+                  />
+
+                </div>
+
+                <div>
+
+                  <p className="text-xs font-semibold text-stone-700">
+                    2 weeks free
+                  </p>
+
+                  <p className="mt-0.5 text-[10px] text-stone-400">
+                    Full trial access
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
+
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
+
+                  <CreditCard
+                    size={15}
+                    className="text-[#82936b]"
+                  />
+
+                </div>
+
+                <div>
+
+                  <p className="text-xs font-semibold text-stone-700">
+                    No bank details
+                  </p>
+
+                  <p className="mt-0.5 text-[10px] text-stone-400">
+                    Nothing charged upfront
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
+
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
+
+                  <ShieldCheck
+                    size={15}
+                    className="text-[#82936b]"
+                  />
+
+                </div>
+
+                <div>
+
+                  <p className="text-xs font-semibold text-stone-700">
+                    No commitment
+                  </p>
+
+                  <p className="mt-0.5 text-[10px] text-stone-400">
+                    Decide after your trial
+                  </p>
+
+                </div>
+
+              </div>
+            </>
+          )}
+
         </section>
 
         {/* ==========================================
@@ -412,6 +703,7 @@ export default function BillingPage() {
         ========================================== */}
 
         <section className="grid gap-6 lg:grid-cols-3">
+
           {TIERS.map(
             (
               tier
@@ -481,6 +773,7 @@ export default function BillingPage() {
                   {/* PLAN HEADING */}
 
                   <div>
+
                     <p className="mb-3 pr-24 text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
                       {
                         tier.description
@@ -488,12 +781,15 @@ export default function BillingPage() {
                     </p>
 
                     <h2 className="font-serif text-4xl italic text-stone-900">
-                      {tier.name}
+                      {
+                        tier.name
+                      }
                     </h2>
 
                     {/* PRICE */}
 
                     <div className="mt-7 flex items-end gap-2">
+
                       <span className="font-serif text-6xl leading-none text-stone-900">
                         £
                         {
@@ -504,25 +800,53 @@ export default function BillingPage() {
                       <span className="pb-1 text-xs font-bold uppercase tracking-wide text-stone-400">
                         / month
                       </span>
+
                     </div>
 
-                    {/* FREE TRIAL */}
+                    {/* STATUS BADGE */}
 
-                    <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#edf1e8] px-3 py-2">
-                      <Check
-                        size={11}
-                        strokeWidth={3}
-                        className="text-[#82936b]"
-                      />
+                    {existingAccount ? (
+                      <>
+                        <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#edf1e8] px-3 py-2">
 
-                      <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#748361]">
-                        14 days free
-                      </span>
-                    </div>
+                          <Check
+                            size={11}
+                            strokeWidth={3}
+                            className="text-[#82936b]"
+                          />
 
-                    <p className="mt-2 text-[10px] font-medium text-stone-400">
-                      No bank details required
-                    </p>
+                          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#748361]">
+                            Continue on this plan
+                          </span>
+
+                        </div>
+
+                        <p className="mt-2 text-[10px] font-medium text-stone-400">
+                          Keep your existing TOTS-OS account
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#edf1e8] px-3 py-2">
+
+                          <Check
+                            size={11}
+                            strokeWidth={3}
+                            className="text-[#82936b]"
+                          />
+
+                          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#748361]">
+                            14 days free
+                          </span>
+
+                        </div>
+
+                        <p className="mt-2 text-[10px] font-medium text-stone-400">
+                          No bank details required
+                        </p>
+                      </>
+                    )}
+
                   </div>
 
                   <div className="my-8 h-px bg-stone-100" />
@@ -530,11 +854,13 @@ export default function BillingPage() {
                   {/* FEATURES */}
 
                   <div className="flex-1">
+
                     <p className="mb-5 text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
                       Included
                     </p>
 
                     <ul className="space-y-4">
+
                       {tier.features.map(
                         (
                           feature
@@ -545,6 +871,7 @@ export default function BillingPage() {
                             }
                             className="flex items-start gap-3 text-sm text-stone-600"
                           >
+
                             <span
                               className={`
                                 mt-0.5
@@ -563,6 +890,7 @@ export default function BillingPage() {
                                 }
                               `}
                             >
+
                               <Check
                                 size={12}
                                 strokeWidth={3}
@@ -572,6 +900,7 @@ export default function BillingPage() {
                                     : "text-stone-400"
                                 }
                               />
+
                             </span>
 
                             <span>
@@ -579,10 +908,13 @@ export default function BillingPage() {
                                 feature
                               }
                             </span>
+
                           </li>
                         )
                       )}
+
                     </ul>
+
                   </div>
 
                   {/* CHECKOUT BUTTON */}
@@ -600,7 +932,8 @@ export default function BillingPage() {
                     }}
                     disabled={
                       loading !==
-                      null
+                        null ||
+                      !modeReady
                     }
                     className={`
                       mt-10
@@ -635,6 +968,7 @@ export default function BillingPage() {
                       disabled:opacity-50
                     `}
                   >
+
                     {isLoading ? (
                       <>
                         <Loader2
@@ -644,6 +978,13 @@ export default function BillingPage() {
 
                         Preparing checkout
                       </>
+                    ) : existingAccount ? (
+                      <>
+                        Continue with{" "}
+                        {
+                          tier.name
+                        }
+                      </>
                     ) : (
                       <>
                         Start free with{" "}
@@ -652,60 +993,126 @@ export default function BillingPage() {
                         }
                       </>
                     )}
+
                   </button>
 
                   <p className="mt-3 text-center text-[9px] font-medium text-stone-400">
-                    14 days free · no bank details
+                    {existingAccount
+                      ? `£${tier.price}/month`
+                      : "14 days free · no bank details"}
                   </p>
+
                 </article>
               );
             }
           )}
+
         </section>
 
         {/* ==========================================
             CHECKOUT INFORMATION
         ========================================== */}
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-5 rounded-[2rem] border border-stone-200 bg-white px-6 py-5 text-center shadow-sm md:flex-row md:text-left">
-          <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#edf1e8]">
-              <Check
-                size={16}
-                strokeWidth={3}
-                className="text-[#82936b]"
-              />
+        {existingAccount ? (
+          <div className="mt-10 flex flex-col items-center justify-between gap-5 rounded-[2rem] border border-stone-200 bg-white px-6 py-5 text-center shadow-sm md:flex-row md:text-left">
+
+            <div className="flex items-center gap-4">
+
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#edf1e8]">
+
+                <Check
+                  size={16}
+                  strokeWidth={3}
+                  className="text-[#82936b]"
+                />
+
+              </div>
+
+              <div>
+
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-500">
+                  Continue with TOTS-OS
+                </p>
+
+                <p className="mt-1 text-xs font-semibold text-stone-600">
+                  Your existing workspace stays exactly where it is.
+                </p>
+
+                <p className="mt-1 text-[10px] text-stone-400">
+                  Choose your plan and continue using your
+                  existing account, data and setup.
+                </p>
+
+              </div>
+
             </div>
 
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-500">
-                Start completely free
-              </p>
+            <div className="text-center md:text-right">
 
-              <p className="mt-1 text-xs font-semibold text-stone-600">
-                14-day free trial · no bank details required.
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
+                TOTS-OS
               </p>
 
               <p className="mt-1 text-[10px] text-stone-400">
-                Choose your plan now and decide whether
-                you want to continue once you&apos;ve
-                properly tried TOTS-OS.
+                Secure monthly billing through Stripe.
               </p>
+
             </div>
-          </div>
 
-          <div className="text-center md:text-right">
-            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
-              TOTS-OS
-            </p>
-
-            <p className="mt-1 text-[10px] text-stone-400">
-              Monthly pricing begins only
-              after your free trial.
-            </p>
           </div>
-        </div>
+        ) : (
+          <div className="mt-10 flex flex-col items-center justify-between gap-5 rounded-[2rem] border border-stone-200 bg-white px-6 py-5 text-center shadow-sm md:flex-row md:text-left">
+
+            <div className="flex items-center gap-4">
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#edf1e8]">
+
+                <Check
+                  size={16}
+                  strokeWidth={3}
+                  className="text-[#82936b]"
+                />
+
+              </div>
+
+              <div>
+
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-500">
+                  Start completely free
+                </p>
+
+                <p className="mt-1 text-xs font-semibold text-stone-600">
+                  14-day free trial · no bank details required.
+                </p>
+
+                <p className="mt-1 text-[10px] text-stone-400">
+                  Choose your plan now and decide whether
+                  you want to continue once you&apos;ve
+                  properly tried TOTS-OS.
+                </p>
+
+              </div>
+
+            </div>
+
+            <div className="text-center md:text-right">
+
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
+                TOTS-OS
+              </p>
+
+              <p className="mt-1 text-[10px] text-stone-400">
+                Monthly pricing begins only
+                after your free trial.
+              </p>
+
+            </div>
+
+          </div>
+        )}
+
       </div>
+
     </main>
   );
 }

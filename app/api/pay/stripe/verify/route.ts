@@ -46,8 +46,7 @@ const stripe =
 // ============================================================
 
 function cleanString(
-  value:
-    unknown
+  value: unknown
 ) {
   if (
     typeof value !==
@@ -64,8 +63,7 @@ function cleanString(
 // ============================================================
 
 export async function POST(
-  request:
-    NextRequest
+  request: NextRequest
 ) {
   try {
     // ========================================================
@@ -239,7 +237,7 @@ export async function POST(
     }
 
     // ========================================================
-    // ORGANISATION
+    // ORGANISATION ID FROM STRIPE METADATA
     // ========================================================
 
     const organisationId =
@@ -408,7 +406,7 @@ export async function POST(
       );
 
     // ========================================================
-    // VERIFY ORGANISATION OWNERSHIP
+    // LOAD ORGANISATION
     // ========================================================
 
     const {
@@ -432,17 +430,13 @@ export async function POST(
           "id",
           organisationId
         )
-        .eq(
-          "created_by",
-          user.id
-        )
         .maybeSingle();
 
     if (
       organisationLookupError
     ) {
       console.error(
-        "Organisation verification failed:",
+        "Organisation lookup failed:",
         organisationLookupError
       );
 
@@ -452,6 +446,205 @@ export async function POST(
     if (
       !organisation
     ) {
+      return NextResponse.json(
+        {
+          error:
+            "Organisation could not be found.",
+        },
+        {
+          status:
+            404,
+        }
+      );
+    }
+
+    // ========================================================
+    // VERIFY USER BELONGS TO ORGANISATION
+    // ========================================================
+
+    let organisationVerified =
+      false;
+
+    // --------------------------------------------------------
+    // METHOD 1:
+    // profiles.organisation_id
+    // --------------------------------------------------------
+
+    const {
+      data:
+        profile,
+      error:
+        profileLookupError,
+    } =
+      await admin
+        .from(
+          "profiles"
+        )
+        .select(
+          "organisation_id"
+        )
+        .eq(
+          "id",
+          user.id
+        )
+        .maybeSingle();
+
+    if (
+      profileLookupError
+    ) {
+      console.error(
+        "Profile organisation verification error:",
+        profileLookupError
+      );
+    }
+
+    if (
+      profile
+        ?.organisation_id ===
+      organisationId
+    ) {
+      organisationVerified =
+        true;
+    }
+
+    // --------------------------------------------------------
+    // METHOD 2:
+    // organisation_members
+    // --------------------------------------------------------
+
+    if (
+      !organisationVerified
+    ) {
+      const {
+        data:
+          membership,
+        error:
+          membershipError,
+      } =
+        await admin
+          .from(
+            "organisation_members"
+          )
+          .select(
+            "organisation_id"
+          )
+          .eq(
+            "user_id",
+            user.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .limit(
+            1
+          )
+          .maybeSingle();
+
+      if (
+        membershipError
+      ) {
+        console.error(
+          "Organisation membership verification error:",
+          membershipError
+        );
+      }
+
+      if (
+        membership
+          ?.organisation_id ===
+        organisationId
+      ) {
+        organisationVerified =
+          true;
+      }
+    }
+
+    // --------------------------------------------------------
+    // METHOD 3:
+    // user_organisations
+    // --------------------------------------------------------
+
+    if (
+      !organisationVerified
+    ) {
+      const {
+        data:
+          userOrganisation,
+        error:
+          userOrganisationError,
+      } =
+        await admin
+          .from(
+            "user_organisations"
+          )
+          .select(
+            "organisation_id"
+          )
+          .eq(
+            "user_id",
+            user.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .limit(
+            1
+          )
+          .maybeSingle();
+
+      if (
+        userOrganisationError
+      ) {
+        console.error(
+          "User organisation verification error:",
+          userOrganisationError
+        );
+      }
+
+      if (
+        userOrganisation
+          ?.organisation_id ===
+        organisationId
+      ) {
+        organisationVerified =
+          true;
+      }
+    }
+
+    // --------------------------------------------------------
+    // METHOD 4:
+    // legacy created_by
+    // --------------------------------------------------------
+
+    if (
+      !organisationVerified &&
+      organisation
+        .created_by ===
+        user.id
+    ) {
+      organisationVerified =
+        true;
+    }
+
+    // ========================================================
+    // ORGANISATION VERIFICATION FAILED
+    // ========================================================
+
+    if (
+      !organisationVerified
+    ) {
+      console.error(
+        "[STRIPE VERIFY] User does not belong to organisation:",
+        {
+          userId:
+            user.id,
+
+          organisationId,
+        }
+      );
+
       return NextResponse.json(
         {
           error:
@@ -517,6 +710,9 @@ export async function POST(
 
           team_seats_allocated:
             additionalSeats,
+
+          is_subscribed:
+            true,
         })
         .eq(
           "id",
@@ -531,7 +727,10 @@ export async function POST(
         profileUpdateError
       );
 
-      // Do NOT revoke paid access just because profile sync failed.
+      /*
+       * Do not revoke paid access just because
+       * the profile sync failed.
+       */
     }
 
     // ========================================================
@@ -550,6 +749,8 @@ export async function POST(
         subscriptionId,
 
         tier,
+
+        additionalSeats,
       }
     );
 
@@ -569,6 +770,8 @@ export async function POST(
 
       subscriptionStatus:
         subscription.status,
+
+      additionalSeats,
     });
   } catch (
     error

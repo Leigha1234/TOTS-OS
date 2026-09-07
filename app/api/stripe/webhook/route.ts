@@ -199,7 +199,26 @@ function isStoreSubscriptionMetadata(
 }
 
 // ============================================================
-// ENABLED SUBSCRIPTION STATUS
+// EXISTING ACCOUNT SUBSCRIPTION?
+// ============================================================
+
+function isExistingAccountMetadata(
+  metadata:
+    Stripe.Metadata |
+    null |
+    undefined
+) {
+  return (
+    cleanString(
+      metadata
+        ?.checkout_type
+    ) ===
+    "existing_account"
+  );
+}
+
+// ============================================================
+// STORE ACCESS ENABLED
 // ============================================================
 
 function storeAccessEnabled(
@@ -212,6 +231,52 @@ function storeAccessEnabled(
   ].includes(
     status
   );
+}
+
+// ============================================================
+// NORMAL TOTS ACCESS ENABLED
+// ============================================================
+
+function totsAccessEnabled(
+  status:
+    Stripe.Subscription.Status
+) {
+  return [
+    "active",
+    "trialing",
+  ].includes(
+    status
+  );
+}
+
+// ============================================================
+// MAP STRIPE STATUS TO OUR ORGANISATION STATUS
+// ============================================================
+
+function mapTotsSubscriptionStatus(
+  status:
+    Stripe.Subscription.Status
+):
+  | "active"
+  | "cancelled"
+  | "expired" {
+  if (
+    status ===
+      "active" ||
+    status ===
+      "trialing"
+  ) {
+    return "active";
+  }
+
+  if (
+    status ===
+    "canceled"
+  ) {
+    return "cancelled";
+  }
+
+  return "expired";
 }
 
 // ============================================================
@@ -232,9 +297,9 @@ function getCurrentPeriodEnd(
 
   if (
     typeof rootPeriodEnd ===
-    "number" &&
+      "number" &&
     rootPeriodEnd >
-    0
+      0
   ) {
     return new Date(
       rootPeriodEnd *
@@ -242,7 +307,7 @@ function getCurrentPeriodEnd(
     ).toISOString();
   }
 
-  const itemPeriodEnd =
+  const item =
     typed
       .items
       ?.data?.[0] as
@@ -255,12 +320,12 @@ function getCurrentPeriodEnd(
       | undefined;
 
   if (
-    typeof itemPeriodEnd
+    typeof item
       ?.current_period_end ===
-      "number"
+    "number"
   ) {
     return new Date(
-      itemPeriodEnd
+      item
         .current_period_end *
         1000
     ).toISOString();
@@ -340,14 +405,14 @@ async function findStoreOrganisation({
     string |
     null;
 }) {
-  // ==========================================================
-  // METADATA ORGANISATION ID
-  // ==========================================================
-
   const cleanOrganisationId =
     cleanString(
       organisationId
     );
+
+  // ==========================================================
+  // ORGANISATION ID
+  // ==========================================================
 
   if (
     cleanOrganisationId
@@ -503,7 +568,7 @@ async function findStoreOrganisation({
 }
 
 // ============================================================
-// IS THIS ACTUALLY THE STORE PRODUCT?
+// STORE PRODUCT?
 // ============================================================
 
 function isStoreSubscription(
@@ -542,19 +607,11 @@ async function syncStoreSubscription(
   subscription:
     Stripe.Subscription
 ) {
-  // ==========================================================
-  // IGNORE NORMAL TOTS SUBSCRIPTION
-  // ==========================================================
-
   if (
     !isStoreSubscription(
       subscription
     )
   ) {
-    console.log(
-      `[STORE SUBSCRIPTION] Ignoring non-store subscription ${subscription.id}.`
-    );
-
     return;
   }
 
@@ -584,26 +641,10 @@ async function syncStoreSubscription(
   if (
     !organisation
   ) {
-    console.error(
-      "[STORE SUBSCRIPTION] Could not find organisation for subscription:",
-      {
-        subscriptionId:
-          subscription.id,
-
-        customerId,
-
-        metadataOrganisationId,
-      }
-    );
-
     throw new Error(
       `Organisation could not be found for Store subscription ${subscription.id}.`
     );
   }
-
-  // ==========================================================
-  // ACCESS
-  // ==========================================================
 
   const enabled =
     storeAccessEnabled(
@@ -619,10 +660,6 @@ async function syncStoreSubscription(
     getSubscriptionPriceId(
       subscription
     );
-
-  // ==========================================================
-  // UPDATE PAYLOAD
-  // ==========================================================
 
   const payload: Record<
     string,
@@ -651,10 +688,6 @@ async function syncStoreSubscription(
         .cancel_at_period_end ===
       true,
   };
-
-  // ==========================================================
-  // FIRST ACTIVATION DATE
-  // ==========================================================
 
   if (
     enabled &&
@@ -685,11 +718,6 @@ async function syncStoreSubscription(
   if (
     error
   ) {
-    console.error(
-      "[STORE SUBSCRIPTION] Organisation sync failed:",
-      error
-    );
-
     throw error;
   }
 
@@ -702,23 +730,312 @@ async function syncStoreSubscription(
       subscriptionId:
         subscription.id,
 
-      customerId,
-
       status:
         subscription.status,
 
       storeEnabled:
         enabled,
-
-      cancelAtPeriodEnd:
-        subscription
-          .cancel_at_period_end,
     }
   );
 }
 
 // ============================================================
-// DISABLE DELETED STORE SUBSCRIPTION
+// SYNC EXISTING TOTS-OS SUBSCRIPTION
+// ============================================================
+
+async function syncExistingAccountSubscription(
+  subscription:
+    Stripe.Subscription
+) {
+  if (
+    !isExistingAccountMetadata(
+      subscription.metadata
+    )
+  ) {
+    return;
+  }
+
+  const organisationId =
+    cleanString(
+      subscription
+        .metadata
+        ?.organisation_id
+    );
+
+  const userId =
+    cleanString(
+      subscription
+        .metadata
+        ?.user_id
+    );
+
+  const subscriptionTier =
+    cleanString(
+      subscription
+        .metadata
+        ?.subscription_tier
+    ).toLowerCase();
+
+  const additionalSeatsRaw =
+    cleanString(
+      subscription
+        .metadata
+        ?.additional_seats
+    );
+
+  const additionalSeats =
+    Math.max(
+      0,
+      Number(
+        additionalSeatsRaw ||
+          0
+      ) || 0
+    );
+
+  if (
+    !organisationId
+  ) {
+    throw new Error(
+      `Existing account subscription ${subscription.id} is missing organisation_id metadata.`
+    );
+  }
+
+  const hasAccess =
+    totsAccessEnabled(
+      subscription.status
+    );
+
+  const mappedStatus =
+    mapTotsSubscriptionStatus(
+      subscription.status
+    );
+
+  // ==========================================================
+  // UPDATE ORGANISATION
+  // ==========================================================
+
+  const {
+    error:
+      organisationError,
+  } =
+    await supabaseAdmin
+      .from(
+        "organisations"
+      )
+      .update({
+        subscription_status:
+          mappedStatus,
+
+        access_status:
+          hasAccess
+            ? "active"
+            : "restricted",
+      })
+      .eq(
+        "id",
+        organisationId
+      );
+
+  if (
+    organisationError
+  ) {
+    console.error(
+      "[TOTS SUBSCRIPTION] Organisation update failed:",
+      organisationError
+    );
+
+    throw organisationError;
+  }
+
+  // ==========================================================
+  // UPDATE PROFILE PLAN
+  // ==========================================================
+
+  if (
+    userId
+  ) {
+    const profilePayload:
+      Record<
+        string,
+        unknown
+      > = {};
+
+    if (
+      [
+        "standard",
+        "professional",
+        "elite",
+      ].includes(
+        subscriptionTier
+      )
+    ) {
+      profilePayload
+        .subscription_tier =
+        subscriptionTier;
+    }
+
+    profilePayload
+      .team_seats_allocated =
+      additionalSeats;
+
+    const {
+      error:
+        profileError,
+    } =
+      await supabaseAdmin
+        .from(
+          "profiles"
+        )
+        .update(
+          profilePayload
+        )
+        .eq(
+          "id",
+          userId
+        );
+
+    if (
+      profileError
+    ) {
+      console.error(
+        "[TOTS SUBSCRIPTION] Profile update failed:",
+        profileError
+      );
+
+      throw profileError;
+    }
+  }
+
+  console.log(
+    "[TOTS SUBSCRIPTION] Existing account synced:",
+    {
+      organisationId,
+
+      userId,
+
+      subscriptionId:
+        subscription.id,
+
+      stripeStatus:
+        subscription.status,
+
+      totsStatus:
+        mappedStatus,
+
+      access:
+        hasAccess
+          ? "active"
+          : "restricted",
+
+      subscriptionTier,
+
+      additionalSeats,
+    }
+  );
+}
+
+// ============================================================
+// HANDLE EXISTING ACCOUNT CHECKOUT
+// ============================================================
+
+async function handleExistingAccountCheckout(
+  session:
+    Stripe.Checkout.Session
+) {
+  const organisationId =
+    cleanString(
+      session
+        .metadata
+        ?.organisation_id
+    );
+
+  const userId =
+    cleanString(
+      session
+        .metadata
+        ?.user_id
+    );
+
+  const tier =
+    cleanString(
+      session
+        .metadata
+        ?.subscription_tier
+    ).toLowerCase();
+
+  const subscriptionId =
+    typeof session
+      .subscription ===
+    "string"
+      ? session
+          .subscription
+      : session
+          .subscription
+          ?.id ||
+        null;
+
+  if (
+    !organisationId
+  ) {
+    throw new Error(
+      "Existing-account checkout is missing organisation_id metadata."
+    );
+  }
+
+  if (
+    !userId
+  ) {
+    throw new Error(
+      "Existing-account checkout is missing user_id metadata."
+    );
+  }
+
+  if (
+    !subscriptionId
+  ) {
+    throw new Error(
+      "Existing-account checkout did not contain a Stripe subscription."
+    );
+  }
+
+  // ==========================================================
+  // RETRIEVE ACTUAL SUBSCRIPTION
+  // ==========================================================
+
+  const subscription =
+    await stripe
+      .subscriptions
+      .retrieve(
+        subscriptionId
+      );
+
+  // ==========================================================
+  // SYNC SUBSCRIPTION INTO TOTS-OS
+  // ==========================================================
+
+  await syncExistingAccountSubscription(
+    subscription
+  );
+
+  console.log(
+    "[TOTS SUBSCRIPTION] Existing beta/account checkout completed:",
+    {
+      sessionId:
+        session.id,
+
+      organisationId,
+
+      userId,
+
+      tier,
+
+      subscriptionId,
+    }
+  );
+}
+
+// ============================================================
+// DELETE STORE SUBSCRIPTION
 // ============================================================
 
 async function handleStoreSubscriptionDeleted(
@@ -806,14 +1123,10 @@ async function handleStoreSubscriptionDeleted(
   ) {
     throw error;
   }
-
-  console.log(
-    `[STORE SUBSCRIPTION] Store disabled for organisation ${organisation.id}.`
-  );
 }
 
 // ============================================================
-// HANDLE STORE CHECKOUT
+// STORE CHECKOUT COMPLETED
 // ============================================================
 
 async function handleStoreCheckoutCompleted(
@@ -865,10 +1178,6 @@ async function handleStoreCheckoutCompleted(
     );
   }
 
-  // ==========================================================
-  // SAVE REFERENCES IMMEDIATELY
-  // ==========================================================
-
   const {
     error:
       referenceError,
@@ -904,10 +1213,6 @@ async function handleStoreCheckoutCompleted(
     throw referenceError;
   }
 
-  // ==========================================================
-  // RETRIEVE SUBSCRIPTION
-  // ==========================================================
-
   const subscription =
     await stripe
       .subscriptions
@@ -915,31 +1220,13 @@ async function handleStoreCheckoutCompleted(
         subscriptionId
       );
 
-  // ==========================================================
-  // SYNC LIVE STATUS
-  // ==========================================================
-
   await syncStoreSubscription(
     subscription
-  );
-
-  console.log(
-    "[STORE SUBSCRIPTION] Checkout completed:",
-    {
-      organisationId,
-
-      sessionId:
-        session.id,
-
-      subscriptionId,
-
-      customerId,
-    }
   );
 }
 
 // ============================================================
-// HANDLE NORMAL TOTS REGISTRATION
+// NORMAL NEW REGISTRATION CHECKOUT
 // ============================================================
 
 async function handleRegistrationCheckout(
@@ -953,17 +1240,9 @@ async function handleRegistrationCheckout(
         ?.registration_id
     );
 
-  // ==========================================================
-  // NOT A REGISTRATION CHECKOUT
-  // ==========================================================
-
   if (
     !registrationId
   ) {
-    console.log(
-      `[REGISTRATION] Checkout ${session.id} has no registration_id. Ignoring as registration.`
-    );
-
     return;
   }
 
@@ -990,10 +1269,6 @@ async function handleRegistrationCheckout(
     );
   }
 
-  // ==========================================================
-  // PAYMENT
-  // ==========================================================
-
   if (
     session
       .payment_status !==
@@ -1006,10 +1281,6 @@ async function handleRegistrationCheckout(
 
     return;
   }
-
-  // ==========================================================
-  // CREATE ACCOUNT
-  // ==========================================================
 
   await completeRegistration(
     registrationId,
@@ -1056,7 +1327,7 @@ async function handleRegistrationCheckout(
 }
 
 // ============================================================
-// GET INVOICE SUBSCRIPTION ID
+// INVOICE SUBSCRIPTION ID
 // ============================================================
 
 function getInvoiceSubscriptionId(
@@ -1124,10 +1395,10 @@ function getInvoiceSubscriptionId(
 }
 
 // ============================================================
-// HANDLE INVOICE EVENT
+// HANDLE INVOICE
 // ============================================================
 
-async function handleStoreInvoice(
+async function handleInvoice(
   invoice:
     Stripe.Invoice
 ) {
@@ -1139,10 +1410,6 @@ async function handleStoreInvoice(
   if (
     !subscriptionId
   ) {
-    console.log(
-      `[STORE SUBSCRIPTION] Invoice ${invoice.id} has no subscription.`
-    );
-
     return;
   }
 
@@ -1178,7 +1445,7 @@ async function handleStoreInvoice(
         404
     ) {
       console.warn(
-        `[STORE SUBSCRIPTION] Subscription ${subscriptionId} no longer exists.`
+        `[STRIPE WEBHOOK] Subscription ${subscriptionId} no longer exists.`
       );
 
       return;
@@ -1187,17 +1454,37 @@ async function handleStoreInvoice(
     throw error;
   }
 
+  // ==========================================================
+  // STORE SUBSCRIPTION
+  // ==========================================================
+
   if (
-    !isStoreSubscription(
+    isStoreSubscription(
       subscription
     )
   ) {
+    await syncStoreSubscription(
+      subscription
+    );
+
     return;
   }
 
-  await syncStoreSubscription(
-    subscription
-  );
+  // ==========================================================
+  // EXISTING NORMAL TOTS SUBSCRIPTION
+  // ==========================================================
+
+  if (
+    isExistingAccountMetadata(
+      subscription.metadata
+    )
+  ) {
+    await syncExistingAccountSubscription(
+      subscription
+    );
+
+    return;
+  }
 }
 
 // ============================================================
@@ -1340,7 +1627,7 @@ export async function POST(
             Stripe.Checkout.Session;
 
         // ====================================================
-        // STORE ADD-ON
+        // STORE
         // ====================================================
 
         if (
@@ -1356,7 +1643,23 @@ export async function POST(
         }
 
         // ====================================================
-        // NORMAL TOTS-OS REGISTRATION
+        // EXISTING / BETA ACCOUNT
+        // ====================================================
+
+        if (
+          isExistingAccountMetadata(
+            session.metadata
+          )
+        ) {
+          await handleExistingAccountCheckout(
+            session
+          );
+
+          break;
+        }
+
+        // ====================================================
+        // NEW REGISTRATION
         // ====================================================
 
         if (
@@ -1366,31 +1669,22 @@ export async function POST(
               ?.registration_id
           )
         ) {
-          try {
-            await handleRegistrationCheckout(
-              session
-            );
-          } catch (
-            registrationError
-          ) {
-            console.error(
-              "[REGISTRATION] Failed to complete registration after payment:",
-              registrationError
-            );
-
-            throw registrationError;
-          }
-        } else {
-          console.log(
-            `[STRIPE WEBHOOK] Checkout ${session.id} is neither a Store add-on nor registration checkout.`
+          await handleRegistrationCheckout(
+            session
           );
+
+          break;
         }
+
+        console.log(
+          `[STRIPE WEBHOOK] Checkout ${session.id} did not match a known checkout type.`
+        );
 
         break;
       }
 
       // ======================================================
-      // STORE SUBSCRIPTION CREATED
+      // SUBSCRIPTION CREATED
       // ======================================================
 
       case "customer.subscription.created": {
@@ -1400,15 +1694,33 @@ export async function POST(
             .object as
             Stripe.Subscription;
 
-        await syncStoreSubscription(
-          subscription
-        );
+        if (
+          isStoreSubscription(
+            subscription
+          )
+        ) {
+          await syncStoreSubscription(
+            subscription
+          );
+
+          break;
+        }
+
+        if (
+          isExistingAccountMetadata(
+            subscription.metadata
+          )
+        ) {
+          await syncExistingAccountSubscription(
+            subscription
+          );
+        }
 
         break;
       }
 
       // ======================================================
-      // STORE SUBSCRIPTION UPDATED
+      // SUBSCRIPTION UPDATED
       // ======================================================
 
       case "customer.subscription.updated": {
@@ -1418,15 +1730,33 @@ export async function POST(
             .object as
             Stripe.Subscription;
 
-        await syncStoreSubscription(
-          subscription
-        );
+        if (
+          isStoreSubscription(
+            subscription
+          )
+        ) {
+          await syncStoreSubscription(
+            subscription
+          );
+
+          break;
+        }
+
+        if (
+          isExistingAccountMetadata(
+            subscription.metadata
+          )
+        ) {
+          await syncExistingAccountSubscription(
+            subscription
+          );
+        }
 
         break;
       }
 
       // ======================================================
-      // STORE SUBSCRIPTION DELETED
+      // SUBSCRIPTION DELETED
       // ======================================================
 
       case "customer.subscription.deleted": {
@@ -1436,9 +1766,27 @@ export async function POST(
             .object as
             Stripe.Subscription;
 
-        await handleStoreSubscriptionDeleted(
-          subscription
-        );
+        if (
+          isStoreSubscription(
+            subscription
+          )
+        ) {
+          await handleStoreSubscriptionDeleted(
+            subscription
+          );
+
+          break;
+        }
+
+        if (
+          isExistingAccountMetadata(
+            subscription.metadata
+          )
+        ) {
+          await syncExistingAccountSubscription(
+            subscription
+          );
+        }
 
         break;
       }
@@ -1454,7 +1802,7 @@ export async function POST(
             .object as
             Stripe.Invoice;
 
-        await handleStoreInvoice(
+        await handleInvoice(
           invoice
         );
 
@@ -1472,7 +1820,7 @@ export async function POST(
             .object as
             Stripe.Invoice;
 
-        await handleStoreInvoice(
+        await handleInvoice(
           invoice
         );
 
@@ -1480,7 +1828,7 @@ export async function POST(
       }
 
       // ======================================================
-      // OTHER STRIPE EVENTS
+      // OTHER EVENTS
       // ======================================================
 
       default: {
@@ -1525,13 +1873,6 @@ export async function POST(
       "[STRIPE WEBHOOK] Processing error:",
       error
     );
-
-    /*
-     * Returning 500 here is deliberate.
-     *
-     * If a database update fails after Stripe has successfully
-     * charged somebody, Stripe will retry the webhook.
-     */
 
     return NextResponse.json(
       {

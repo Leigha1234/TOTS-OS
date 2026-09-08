@@ -783,9 +783,6 @@ export async function POST(
 
     // ========================================================
     // LOAD ACCOUNT
-    //
-    // IMPORTANT:
-    // Restrict it to the authenticated user.
     // ========================================================
 
     const {
@@ -889,21 +886,6 @@ export async function POST(
       platform ===
         "instagram"
     ) {
-      /*
-       * BACKWARDS COMPATIBILITY:
-       *
-       * Your older composer does not send destinations.
-       *
-       * Default behaviour:
-       *
-       * Facebook always.
-       *
-       * Instagram also when:
-       *
-       * - an image URL exists
-       * - an Instagram Business account is connected
-       */
-
       if (
         destinations.length ===
         0
@@ -923,10 +905,6 @@ export async function POST(
           );
         }
       }
-
-      // ======================================================
-      // REMOVE DUPLICATES
-      // ======================================================
 
       destinations =
         Array.from(
@@ -1048,10 +1026,6 @@ export async function POST(
         }
       }
 
-      // ======================================================
-      // NOTHING SELECTED
-      // ======================================================
-
       if (
         destinations.length ===
         0
@@ -1070,10 +1044,6 @@ export async function POST(
           }
         );
       }
-
-      // ======================================================
-      // EVERYTHING FAILED
-      // ======================================================
 
       if (
         results.length ===
@@ -1127,10 +1097,6 @@ export async function POST(
           }
         );
       }
-
-      // ======================================================
-      // PARTIAL / COMPLETE SUCCESS
-      // ======================================================
 
       const successfulDestinations =
         results
@@ -1267,17 +1233,38 @@ export async function POST(
       platform ===
       "tiktok"
     ) {
+      /*
+       * TikTok Direct Post is intentionally handled by the
+       * scheduled-post publishing worker rather than this
+       * legacy immediate Meta publishing route.
+       *
+       * TikTok requires creator-info validation, explicit
+       * privacy selection, interaction settings, commercial
+       * disclosure settings and video-transfer information.
+       *
+       * Do not initialise a TikTok post here until those values
+       * are available in this request.
+       */
+
       return NextResponse.json(
         {
           success:
             false,
 
+          code:
+            "tiktok_publish_worker_required",
+
           error:
-            "TikTok publishing integration is not finished yet.",
+            "TikTok posts must be published through the TOTS-OS TikTok publishing workflow.",
         },
         {
           status:
-            501,
+            409,
+
+          headers: {
+            "Cache-Control":
+              "no-store",
+          },
         }
       );
     }

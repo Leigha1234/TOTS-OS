@@ -754,7 +754,7 @@ export async function POST(
           open_id:
             cleanString(
               creator
-                .creator_username
+                .open_id
             ) ||
             null,
 

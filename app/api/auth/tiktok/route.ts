@@ -33,8 +33,18 @@ type TikTokOAuthState = {
 // CONSTANTS
 // ============================================================
 
+// TEMPORARY DIAGNOSTIC SCOPE
+//
+// We are intentionally requesting only the baseline Login Kit
+// scope to confirm whether video.publish is the part causing
+// TikTok to reject the OAuth request.
+//
+// Once this test succeeds, we can restore:
+//
+// "user.info.basic,video.publish"
+//
 const TIKTOK_SCOPE =
-  "user.info.basic,video.publish";
+  "user.info.basic";
 
 // ============================================================
 // HELPERS

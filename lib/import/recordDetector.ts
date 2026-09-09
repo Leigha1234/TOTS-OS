@@ -160,11 +160,6 @@ function parseAmount(
         ""
       );
 
-  /**
-   * Handles accounting-style negatives:
-   *
-   * (25.00) -> -25.00
-   */
   const accountingNegative =
     raw.startsWith(
       "("
@@ -325,12 +320,6 @@ function getHeaders(
   const headers =
     new Set<string>();
 
-  /**
-   * Inspect several rows rather than only the first one.
-   *
-   * Some spreadsheet parsers can expose slightly different
-   * objects between rows.
-   */
   const sample =
     rows.slice(
       0,
@@ -652,12 +641,6 @@ function detectTargetTable(
 
   // ==========================================================
   // MAILER / SUBSCRIBER SIGNALS
-  //
-  // TargetTableType does not yet contain a subscribers table,
-  // so subscriber exports currently route into CRM contacts.
-  //
-  // Their original data remains available in rawPayload for
-  // later marketing/subscriber fan-out.
   // ==========================================================
 
   if (
@@ -708,10 +691,6 @@ function detectTargetTable(
   // NEGATIVE / CONFLICT SIGNALS
   // ==========================================================
 
-  /**
-   * An email column alone must not beat a strongly identified
-   * invoice/expense/project file.
-   */
   const strongFinanceOrProject =
     Math.max(
       scores.invoices,
@@ -761,7 +740,7 @@ function detectTargetTable(
     ];
 
   // ==========================================================
-  // FALLBACK DETECTION USING ACTUAL VALUES
+  // FALLBACK DETECTION USING VALUES
   // ==========================================================
 
   if (
@@ -843,13 +822,6 @@ function detectTargetTable(
       }
     }
 
-    /**
-     * Final conservative fallback.
-     *
-     * A generic unknown file should not automatically create
-     * organisations just because the detector could not
-     * understand it.
-     */
     return "contacts";
   }
 
@@ -933,13 +905,6 @@ function buildContactPayload(
     lastName
   );
 
-  /**
-   * Keep a combined name only when separate fields were not
-   * available.
-   *
-   * batchImporter.ts will safely split this into first_name /
-   * last_name before writing to contacts.
-   */
   if (
     !hasValue(
       firstName
@@ -978,13 +943,6 @@ function buildContactPayload(
     position
   );
 
-  /**
-   * This is temporary relationship metadata.
-   *
-   * batchImporter.ts deliberately strips company_name from the
-   * contacts insert until the proper CRM customer relationship
-   * schema is wired in.
-   */
   addIfPresent(
     payload,
     "company_name",
@@ -1083,10 +1041,6 @@ function buildOrganisationPayload(
       "created_at"
     );
 
-  /**
-   * Explicit company/organisation fields always win over the
-   * generic Name field.
-   */
   addIfPresent(
     payload,
     "name",
@@ -1173,7 +1127,11 @@ function buildInvoicePayload(
       "amount"
     );
 
-  const date =
+  const invoiceDate =
+    findMappedValue(
+      row,
+      "invoice_date"
+    ) ??
     findMappedValue(
       row,
       "date"
@@ -1191,22 +1149,28 @@ function buildInvoicePayload(
       "status"
     );
 
-  const description =
+  const tax =
     findMappedValue(
       row,
-      "description"
+      "tax"
     );
 
-  const email =
+  const currency =
     findMappedValue(
       row,
-      "email"
+      "currency"
     );
 
-  const companyName =
+  const amountPaid =
     findMappedValue(
       row,
-      "company_name"
+      "amount_paid"
+    );
+
+  const balanceDue =
+    findMappedValue(
+      row,
+      "balance_due"
     );
 
   addIfPresent(
@@ -1214,6 +1178,10 @@ function buildInvoicePayload(
     "invoice_number",
     invoiceNumber
   );
+
+  // ----------------------------------------------------------
+  // TOTAL
+  // ----------------------------------------------------------
 
   const parsedAmount =
     parseAmount(
@@ -1228,11 +1196,19 @@ function buildInvoicePayload(
       parsedAmount;
   }
 
+  // ----------------------------------------------------------
+  // INVOICE DATE
+  // ----------------------------------------------------------
+
   addIfPresent(
     payload,
-    "date",
-    date
+    "invoice_date",
+    invoiceDate
   );
+
+  // ----------------------------------------------------------
+  // DUE DATE
+  // ----------------------------------------------------------
 
   addIfPresent(
     payload,
@@ -1240,34 +1216,93 @@ function buildInvoicePayload(
     dueDate
   );
 
+  // ----------------------------------------------------------
+  // STATUS
+  // ----------------------------------------------------------
+
   addIfPresent(
     payload,
     "status",
     status
   );
 
-  addIfPresent(
-    payload,
-    "description",
-    description
-  );
+  // ----------------------------------------------------------
+  // TAX
+  // ----------------------------------------------------------
+
+  const parsedTax =
+    parseAmount(
+      tax
+    );
 
   if (
-    hasValue(
-      email
-    )
+    parsedTax !==
+    null
   ) {
-    payload.email =
-      cleanEmail(
-        email
-      );
+    payload.tax =
+      parsedTax;
   }
+
+  // ----------------------------------------------------------
+  // AMOUNT PAID
+  // ----------------------------------------------------------
+
+  const parsedAmountPaid =
+    parseAmount(
+      amountPaid
+    );
+
+  if (
+    parsedAmountPaid !==
+    null
+  ) {
+    payload.amount_paid =
+      parsedAmountPaid;
+  }
+
+  // ----------------------------------------------------------
+  // BALANCE
+  // ----------------------------------------------------------
+
+  const parsedBalanceDue =
+    parseAmount(
+      balanceDue
+    );
+
+  if (
+    parsedBalanceDue !==
+    null
+  ) {
+    payload.balance_due =
+      parsedBalanceDue;
+  }
+
+  // ----------------------------------------------------------
+  // CURRENCY
+  // ----------------------------------------------------------
 
   addIfPresent(
     payload,
-    "company_name",
-    companyName
+    "currency",
+    currency
   );
+
+  // ----------------------------------------------------------
+  // TOTS-OS INVOICE TYPE
+  // ----------------------------------------------------------
+
+  payload.type =
+    "invoice";
+
+  payload.doc_type =
+    "invoice";
+
+  payload.source =
+    "import_hub";
+
+  // ----------------------------------------------------------
+  // WORKSPACE
+  // ----------------------------------------------------------
 
   if (
     orgId
@@ -1277,26 +1312,28 @@ function buildInvoicePayload(
   }
 
   /**
-   * Preserve source-specific invoice fields for now.
+   * IMPORTANT:
    *
-   * Once we inspect the invoices schema, batchImporter.ts should
-   * receive a strict invoices allowlist just like contacts.
+   * Do NOT copy unknown invoice source fields into payload.
+   *
+   * The full untouched CSV row is preserved separately as
+   * ProcessedRow.rawPayload.
+   *
+   * batchImporter.ts then stores that safely inside:
+   *
+   * public.invoices.data
+   *
+   * This prevents fields such as:
+   *
+   * 2Checkout
+   * Salesperson
+   * Purchase Order
+   * Customer Name
+   * Payment Gateway
+   * Zoho-specific IDs
+   *
+   * from being treated as PostgreSQL columns.
    */
-  copyUnknownSourceFields(
-    row,
-    payload,
-    [
-      "invoice_number",
-      "amount",
-      "date",
-      "due_date",
-      "status",
-      "description",
-      "email",
-      "company_name",
-      "organisation_id",
-    ]
-  );
 
   return payload;
 }
@@ -1633,14 +1670,6 @@ export function detectRecords(
     return [];
   }
 
-  // ==========================================================
-  // DETECT FILE DESTINATION ONCE
-  //
-  // An uploaded spreadsheet normally represents one dataset,
-  // so detection should be based on the whole file rather than
-  // independently guessing each row.
-  // ==========================================================
-
   const detectedTarget:
     ResolvedTargetTable =
     targetTableOverride ===
@@ -1649,10 +1678,6 @@ export function detectRecords(
           rawRows
         )
       : targetTableOverride;
-
-  // ==========================================================
-  // BUILD RECORDS
-  // ==========================================================
 
   return rawRows.map(
     (
@@ -1676,14 +1701,11 @@ export function detectRecords(
         payload,
 
         /**
-         * Always preserve the untouched source row.
+         * Preserve the untouched source row.
          *
-         * This is important for:
-         *
-         * - import previews
-         * - failed-record downloads
-         * - audit/debugging
-         * - future subscriber/campaign fan-out
+         * For invoices, batchImporter.ts stores this safely
+         * inside public.invoices.data instead of sending random
+         * spreadsheet columns directly into PostgreSQL.
          */
         rawPayload: {
           ...row,

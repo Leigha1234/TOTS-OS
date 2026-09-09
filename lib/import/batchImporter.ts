@@ -73,6 +73,35 @@ const ALLOWED_COLUMNS:
     "date_closed",
     "created_at",
   ],
+
+  invoices: [
+    "customer_id",
+    "amount",
+    "status",
+    "link",
+    "type",
+    "items",
+    "tax",
+    "doc_type",
+    "recurring",
+    "interval",
+    "due_date",
+    "team_id",
+    "created_at",
+    "updated_at",
+    "data",
+    "organisation_id",
+    "project_id",
+    "invoice_number",
+
+    // These are safe to include IF you add them
+    // to public.invoices as discussed.
+    "invoice_date",
+    "amount_paid",
+    "balance_due",
+    "currency",
+    "source",
+  ],
 };
 
 // ============================================================
@@ -207,6 +236,83 @@ function cleanPayload(
   );
 
   return output;
+}
+
+// ============================================================
+
+function parseNumber(
+  value:
+    unknown
+): number | null {
+  if (
+    !hasValue(
+      value
+    )
+  ) {
+    return null;
+  }
+
+  if (
+    typeof value ===
+      "number"
+  ) {
+    return Number.isFinite(
+      value
+    )
+      ? value
+      : null;
+  }
+
+  const raw =
+    String(
+      value
+    )
+      .trim()
+      .replace(
+        /\s/g,
+        ""
+      )
+      .replace(
+        /,/g,
+        ""
+      )
+      .replace(
+        /[£$€]/g,
+        ""
+      );
+
+  const accountingNegative =
+    raw.startsWith(
+      "("
+    ) &&
+    raw.endsWith(
+      ")"
+    );
+
+  const cleaned =
+    raw.replace(
+      /[()]/g,
+      ""
+    );
+
+  const parsed =
+    Number(
+      cleaned
+    );
+
+  if (
+    !Number.isFinite(
+      parsed
+    )
+  ) {
+    return null;
+  }
+
+  return accountingNegative
+    ? -Math.abs(
+        parsed
+      )
+    : parsed;
 }
 
 // ============================================================
@@ -510,10 +616,6 @@ function prepareContactPayload(
       source
     );
 
-  // ----------------------------------------------------------
-  // NAME
-  // ----------------------------------------------------------
-
   const name =
     buildContactName(
       payload
@@ -525,10 +627,6 @@ function prepareContactPayload(
     payload.name =
       name;
   }
-
-  // ----------------------------------------------------------
-  // EMAIL
-  // ----------------------------------------------------------
 
   const email =
     cleanEmail(
@@ -544,10 +642,6 @@ function prepareContactPayload(
     delete payload.email;
   }
 
-  // ----------------------------------------------------------
-  // ROLE
-  // ----------------------------------------------------------
-
   const role =
     stringValue(
       payload.role ??
@@ -562,10 +656,6 @@ function prepareContactPayload(
     payload.role =
       role;
   }
-
-  // ----------------------------------------------------------
-  // COMPANY
-  // ----------------------------------------------------------
 
   const companyName =
     stringValue(
@@ -584,10 +674,6 @@ function prepareContactPayload(
       companyName;
   }
 
-  // ----------------------------------------------------------
-  // ADDRESS
-  // ----------------------------------------------------------
-
   const address =
     stringValue(
       payload.address ??
@@ -602,10 +688,6 @@ function prepareContactPayload(
       address;
   }
 
-  // ----------------------------------------------------------
-  // WEBSITE
-  // ----------------------------------------------------------
-
   const website =
     stringValue(
       payload.website ??
@@ -619,10 +701,6 @@ function prepareContactPayload(
       website;
   }
 
-  // ----------------------------------------------------------
-  // WORKSPACE
-  // ----------------------------------------------------------
-
   if (
     orgId
   ) {
@@ -632,10 +710,6 @@ function prepareContactPayload(
     delete payload
       .organisation_id;
   }
-
-  // ----------------------------------------------------------
-  // REMOVE IMPORT-ONLY FIELDS
-  // ----------------------------------------------------------
 
   delete payload.first_name;
   delete payload.firstname;
@@ -664,12 +738,6 @@ function prepareContactPayload(
   delete payload.id;
   delete payload.created_by;
 
-  /**
-   * Never trust a customer relationship ID supplied by an
-   * external spreadsheet.
-   *
-   * We resolve customer_id ourselves below.
-   */
   delete payload.customer_id;
 
   return applyAllowlist(
@@ -762,44 +830,301 @@ function prepareOrganisationPayload(
       payload.date_created;
   }
 
-  delete payload
-    .organisation_id;
-
-  delete payload
-    .created_by;
-
+  delete payload.organisation_id;
+  delete payload.created_by;
   delete payload.id;
 
-  delete payload
-    .company_name;
-
+  delete payload.company_name;
   delete payload.company;
-
-  delete payload
-    .organisation_name;
-
-  delete payload
-    .organization_name;
-
-  delete payload
-    .organisation;
-
-  delete payload
-    .organization;
-
-  delete payload
-    .business_name;
-
+  delete payload.organisation_name;
+  delete payload.organization_name;
+  delete payload.organisation;
+  delete payload.organization;
+  delete payload.business_name;
   delete payload.domain;
-
-  delete payload
-    .description;
-
-  delete payload
-    .date_created;
+  delete payload.description;
+  delete payload.date_created;
 
   return applyAllowlist(
     "organisations",
+    payload
+  );
+}
+
+// ============================================================
+// PREPARE INVOICE
+// ============================================================
+
+function prepareInvoicePayload(
+  row:
+    ProcessedRow,
+
+  orgId:
+    string | null
+): PreparedPayload {
+  const sourcePayload =
+    cleanPayload(
+      row.payload
+    );
+
+  const rawPayload =
+    cleanPayload(
+      (
+        row.rawPayload ??
+        {}
+      ) as Record<
+        string,
+        unknown
+      >
+    );
+
+  const payload:
+    PreparedPayload = {};
+
+  // ----------------------------------------------------------
+  // KNOWN CORE FIELDS
+  // ----------------------------------------------------------
+
+  const invoiceNumber =
+    stringValue(
+      sourcePayload
+        .invoice_number
+    );
+
+  if (
+    invoiceNumber
+  ) {
+    payload.invoice_number =
+      invoiceNumber;
+  }
+
+  const amount =
+    parseNumber(
+      sourcePayload.amount
+    );
+
+  if (
+    amount !==
+    null
+  ) {
+    payload.amount =
+      amount;
+  }
+
+  const tax =
+    parseNumber(
+      sourcePayload.tax
+    );
+
+  if (
+    tax !==
+    null
+  ) {
+    payload.tax =
+      tax;
+  }
+
+  if (
+    hasValue(
+      sourcePayload.status
+    )
+  ) {
+    payload.status =
+      sourcePayload.status;
+  }
+
+  if (
+    hasValue(
+      sourcePayload.due_date
+    )
+  ) {
+    payload.due_date =
+      sourcePayload.due_date;
+  }
+
+  if (
+    hasValue(
+      sourcePayload.link
+    )
+  ) {
+    payload.link =
+      sourcePayload.link;
+  }
+
+  if (
+    hasValue(
+      sourcePayload.type
+    )
+  ) {
+    payload.type =
+      sourcePayload.type;
+  } else {
+    payload.type =
+      "invoice";
+  }
+
+  if (
+    hasValue(
+      sourcePayload.doc_type
+    )
+  ) {
+    payload.doc_type =
+      sourcePayload.doc_type;
+  } else {
+    payload.doc_type =
+      "invoice";
+  }
+
+  if (
+    hasValue(
+      sourcePayload.items
+    )
+  ) {
+    payload.items =
+      sourcePayload.items;
+  }
+
+  if (
+    hasValue(
+      sourcePayload.recurring
+    )
+  ) {
+    payload.recurring =
+      sourcePayload.recurring;
+  }
+
+  if (
+    hasValue(
+      sourcePayload.interval
+    )
+  ) {
+    payload.interval =
+      sourcePayload.interval;
+  }
+
+  if (
+    hasValue(
+      sourcePayload.project_id
+    )
+  ) {
+    payload.project_id =
+      sourcePayload.project_id;
+  }
+
+  // ----------------------------------------------------------
+  // OPTIONAL HISTORICAL FIELDS
+  // ----------------------------------------------------------
+
+  if (
+    hasValue(
+      sourcePayload.invoice_date
+    )
+  ) {
+    payload.invoice_date =
+      sourcePayload.invoice_date;
+  }
+
+  const amountPaid =
+    parseNumber(
+      sourcePayload.amount_paid
+    );
+
+  if (
+    amountPaid !==
+    null
+  ) {
+    payload.amount_paid =
+      amountPaid;
+  }
+
+  const balanceDue =
+    parseNumber(
+      sourcePayload.balance_due
+    );
+
+  if (
+    balanceDue !==
+    null
+  ) {
+    payload.balance_due =
+      balanceDue;
+  }
+
+  if (
+    hasValue(
+      sourcePayload.currency
+    )
+  ) {
+    payload.currency =
+      sourcePayload.currency;
+  }
+
+  if (
+    hasValue(
+      sourcePayload.source
+    )
+  ) {
+    payload.source =
+      sourcePayload.source;
+  } else {
+    payload.source =
+      "import_hub";
+  }
+
+  // ----------------------------------------------------------
+  // WORKSPACE OWNERSHIP
+  // ----------------------------------------------------------
+
+  if (
+    orgId
+  ) {
+    payload.organisation_id =
+      orgId;
+  }
+
+  // ----------------------------------------------------------
+  // PRESERVE FULL SOURCE ROW SAFELY
+  // ----------------------------------------------------------
+
+  const existingData =
+    sourcePayload.data &&
+    typeof sourcePayload.data ===
+      "object" &&
+    !Array.isArray(
+      sourcePayload.data
+    )
+      ? sourcePayload.data as Record<
+          string,
+          unknown
+        >
+      : {};
+
+  payload.data = {
+    ...existingData,
+
+    source_record: {
+      ...rawPayload,
+    },
+
+    import_metadata: {
+      source:
+        "import_hub",
+
+      target:
+        "invoices",
+
+      imported_at:
+        new Date()
+          .toISOString(),
+    },
+  };
+
+  // ----------------------------------------------------------
+  // FINAL DATABASE SAFETY BARRIER
+  // ----------------------------------------------------------
+
+  return applyAllowlist(
+    "invoices",
     payload
   );
 }
@@ -830,8 +1155,7 @@ function prepareGenericPayload(
       orgId;
   }
 
-  delete payload
-    .created_by;
+  delete payload.created_by;
 
   return payload;
 }
@@ -859,6 +1183,12 @@ function preparePayload(
     case "organisations":
       return prepareOrganisationPayload(
         row.payload
+      );
+
+    case "invoices":
+      return prepareInvoicePayload(
+        row,
+        orgId
       );
 
     default:
@@ -1046,10 +1376,6 @@ async function findExistingContact(
       payload.email
     );
 
-  // ----------------------------------------------------------
-  // EMAIL FIRST
-  // ----------------------------------------------------------
-
   if (
     email
   ) {
@@ -1099,10 +1425,6 @@ async function findExistingContact(
       return record;
     }
   }
-
-  // ----------------------------------------------------------
-  // PHONE + NAME FALLBACK
-  // ----------------------------------------------------------
 
   const phone =
     normalisePhone(
@@ -1260,10 +1582,6 @@ async function findMatchingCustomer(
       contactPayload.email
     );
 
-  // ----------------------------------------------------------
-  // EMAIL
-  // ----------------------------------------------------------
-
   if (
     email
   ) {
@@ -1313,10 +1631,6 @@ async function findMatchingCustomer(
       return byEmail;
     }
   }
-
-  // ----------------------------------------------------------
-  // PHONE + NAME
-  // ----------------------------------------------------------
 
   const name =
     stringValue(
@@ -1420,12 +1734,6 @@ function buildNewCustomerPayload(
       "Imported",
     ],
 
-    /**
-     * IMPORTANT:
-     *
-     * Importing someone into CRM is NOT the same as gaining
-     * marketing consent.
-     */
     on_mailing_list:
       false,
 
@@ -1575,20 +1883,6 @@ function buildCustomerUpdatePayload(
       address;
   }
 
-  /**
-   * Do NOT update:
-   *
-   * on_mailing_list
-   * stage
-   * client_type
-   * status
-   * tags
-   *
-   * on an existing customer during a generic contact import.
-   *
-   * Those may already contain deliberate CRM decisions.
-   */
-
   return payload;
 }
 
@@ -1729,10 +2023,6 @@ async function resolveCustomerForContact(
   duplicateStrategy:
     DuplicateResolutionStrategy
 ): Promise<CustomerResolution> {
-  // ----------------------------------------------------------
-  // EXISTING CONTACT ALREADY LINKED
-  // ----------------------------------------------------------
-
   if (
     existingContact
       ?.customer_id
@@ -1778,13 +2068,6 @@ async function resolveCustomerForContact(
     }
   }
 
-  // ----------------------------------------------------------
-  // CREATE STRATEGY
-  //
-  // Explicitly creating duplicates means create a fresh CRM
-  // master record too.
-  // ----------------------------------------------------------
-
   if (
     duplicateStrategy ===
     "create"
@@ -1803,10 +2086,6 @@ async function resolveCustomerForContact(
         true,
     };
   }
-
-  // ----------------------------------------------------------
-  // FIND MATCHING CUSTOMER
-  // ----------------------------------------------------------
 
   const matchingCustomer =
     await findMatchingCustomer(
@@ -1846,10 +2125,6 @@ async function resolveCustomerForContact(
         false,
     };
   }
-
-  // ----------------------------------------------------------
-  // CREATE CUSTOMER
-  // ----------------------------------------------------------
 
   const customer =
     await createCustomer(
@@ -2054,20 +2329,12 @@ async function processContact(
     );
   }
 
-  // ----------------------------------------------------------
-  // FIND EXISTING CONTACT
-  // ----------------------------------------------------------
-
   const existingContact =
     await findExistingContact(
       contactPayload,
       supabase,
       orgId
     );
-
-  // ----------------------------------------------------------
-  // SKIP
-  // ----------------------------------------------------------
 
   if (
     duplicateStrategy ===
@@ -2076,10 +2343,6 @@ async function processContact(
   ) {
     return "skipped";
   }
-
-  // ----------------------------------------------------------
-  // RESOLVE CRM MASTER CUSTOMER
-  // ----------------------------------------------------------
 
   const customerResolution =
     await resolveCustomerForContact(
@@ -2108,10 +2371,6 @@ async function processContact(
   };
 
   try {
-    // --------------------------------------------------------
-    // CREATE DUPLICATE
-    // --------------------------------------------------------
-
     if (
       duplicateStrategy ===
       "create"
@@ -2124,10 +2383,6 @@ async function processContact(
 
       return "inserted";
     }
-
-    // --------------------------------------------------------
-    // UPDATE EXISTING
-    // --------------------------------------------------------
 
     if (
       existingContact
@@ -2142,10 +2397,6 @@ async function processContact(
       return "updated";
     }
 
-    // --------------------------------------------------------
-    // INSERT NEW CONTACT
-    // --------------------------------------------------------
-
     await insertRecord(
       "contacts",
       finalContactPayload,
@@ -2156,14 +2407,6 @@ async function processContact(
   } catch (
     error
   ) {
-    /**
-     * Browser-side Supabase operations cannot share a database
-     * transaction across customers + contacts.
-     *
-     * If we created a brand new customer and the contact then
-     * fails, make a best-effort attempt to remove that orphaned
-     * customer.
-     */
     if (
       customerResolution
         .created

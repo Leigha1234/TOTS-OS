@@ -1053,7 +1053,15 @@ function getOpenRate(
   );
 }
 
-function getClickRate(
+function getLeadCount(
+  campaign: Campaign
+) {
+  return Number(
+    campaign.click_count || 0
+  );
+}
+
+function getConversionRate(
   campaign: Campaign
 ) {
   const sent =
@@ -1062,7 +1070,7 @@ function getClickRate(
         0
     );
 
-  const clicks =
+  const leads =
     Number(
       campaign.click_count ||
         0
@@ -1075,7 +1083,7 @@ function getClickRate(
   return Math.min(
     100,
     Math.round(
-      (clicks / sent) *
+      (leads / sent) *
         100
     )
   );
@@ -7350,17 +7358,18 @@ await callSendApi(campaignId);
               },
               {
                 label:
-                  "Clicks",
+                  "Leads",
                 value:
-                  selectedCampaign.click_count ||
-                  0,
+                  getLeadCount(
+                    selectedCampaign
+                  ),
                 icon:
                   MousePointerClick,
               },
               {
                 label:
-                  "Click rate",
-                value: `${getClickRate(
+                  "Conversion rate",
+                value: `${getConversionRate(
                   selectedCampaign
                 )}%`,
                 icon:
@@ -7786,13 +7795,13 @@ await callSendApi(campaignId);
 
                             <span>
                               <strong>
-                                {getClickRate(
+                                {getConversionRate(
                                   campaign
                                 )}
                                 %
                               </strong>
                               <span className="ml-1 text-stone-400">
-                                click
+                                conversion
                               </span>
                             </span>
                           </div>

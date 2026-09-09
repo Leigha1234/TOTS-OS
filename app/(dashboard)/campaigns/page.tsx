@@ -6614,30 +6614,6 @@ await callSendApi(campaignId);
                         savingCampaign
                       }
                       onClick={() =>
-                        void saveAsDraft()
-                      }
-                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-5 py-4 text-[10px] font-black uppercase tracking-[0.14em] text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
-                    >
-                      {savingCampaign ? (
-                        <Loader2
-                          size={14}
-                          className="animate-spin"
-                        />
-                      ) : (
-                        <FileText
-                          size={14}
-                        />
-                      )}
-                    
-                      Save as draft
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={
-                        savingCampaign
-                      }
-                      onClick={() =>
                         void saveAndSendNow()
                       }
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-4 text-[10px] font-black uppercase tracking-[0.14em] text-[#a9b897] disabled:opacity-50"
@@ -6662,6 +6638,35 @@ await callSendApi(campaignId);
                       now
                     </button>
                   )}
+
+                  <button
+                    type="button"
+                    disabled={
+                      savingCampaign
+                    }
+                    onClick={() =>
+                      void saveAsDraft()
+                    }
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-5 py-4 text-[10px] font-black uppercase tracking-[0.14em] text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
+                  >
+                    {savingCampaign ? (
+                      <Loader2
+                        size={
+                          14
+                        }
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <FileText
+                        size={
+                          14
+                        }
+                      />
+                    )}
+
+                    Save
+                    as draft
+                  </button>
 
                   <div className="rounded-[1.75rem] border border-amber-100 bg-amber-50 p-5">
                     <p className="text-[9px] font-black uppercase tracking-wider text-amber-700">

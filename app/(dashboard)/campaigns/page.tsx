@@ -58,6 +58,7 @@ type Campaign = {
   scheduled_for: string | null;
   status?: string | null;
   sent_at?: string | null;
+  created_at?: string | null;
   sent_count?: number | null;
   open_count?: number | null;
   click_count?: number | null;
@@ -162,6 +163,20 @@ type EditorStep =
   | "audience"
   | "design"
   | "review";
+
+type CampaignFilter =
+  | "all"
+  | "draft"
+  | "scheduled"
+  | "sending"
+  | "sent"
+  | "failed";
+
+type CampaignSort =
+  | "date_desc"
+  | "date_asc"
+  | "title_asc"
+  | "title_desc";
 
 // ==================================================
 // CONSTANTS
@@ -1399,6 +1414,22 @@ export default function CampaignsPage() {
   ] =
     useState<Campaign[]>(
       []
+    );
+
+  const [
+    campaignFilter,
+    setCampaignFilter,
+  ] =
+    useState<CampaignFilter>(
+      "all"
+    );
+
+  const [
+    campaignSort,
+    setCampaignSort,
+  ] =
+    useState<CampaignSort>(
+      "date_desc"
     );
 
   const [
@@ -3459,6 +3490,133 @@ export default function CampaignsPage() {
       );
     };
 
+  const displayedCampaigns =
+    useMemo(() => {
+      const getCampaignDate =
+        (
+          campaign:
+            Campaign
+        ) => {
+          const value =
+            campaign.scheduled_for ||
+            campaign.sent_at ||
+            campaign.created_at;
+
+          if (!value) {
+            return 0;
+          }
+
+          const timestamp =
+            new Date(
+              value
+            ).getTime();
+
+          return Number.isNaN(
+            timestamp
+          )
+            ? 0
+            : timestamp;
+        };
+
+      const filtered =
+        campaigns.filter(
+          (
+            campaign
+          ) => {
+            if (
+              campaignFilter ===
+              "all"
+            ) {
+              return true;
+            }
+
+            const status =
+              getStatusLabel(
+                campaign
+              );
+
+            if (
+              campaignFilter ===
+              "scheduled"
+            ) {
+              return (
+                status ===
+                  "queued" ||
+                status ===
+                  "scheduled"
+              );
+            }
+
+            return (
+              status ===
+              campaignFilter
+            );
+          }
+        );
+
+      return [
+        ...filtered,
+      ].sort(
+        (
+          a,
+          b
+        ) => {
+          if (
+            campaignSort ===
+            "date_asc"
+          ) {
+            return (
+              getCampaignDate(
+                a
+              ) -
+              getCampaignDate(
+                b
+              )
+            );
+          }
+
+          if (
+            campaignSort ===
+            "title_asc"
+          ) {
+            return (
+              a.title ||
+              ""
+            ).localeCompare(
+              b.title ||
+              ""
+            );
+          }
+
+          if (
+            campaignSort ===
+            "title_desc"
+          ) {
+            return (
+              b.title ||
+              ""
+            ).localeCompare(
+              a.title ||
+              ""
+            );
+          }
+
+          return (
+            getCampaignDate(
+              b
+            ) -
+            getCampaignDate(
+              a
+            )
+          );
+        }
+      );
+    }, [
+      campaigns,
+      campaignFilter,
+      campaignSort,
+    ]);
+
   // ==================================================
   // CAMPAIGN OPEN / EDIT
   // ==================================================
@@ -3989,6 +4147,126 @@ export default function CampaignsPage() {
       }
 
       return result;
+    };
+
+  const saveAsDraft =
+    async () => {
+      if (
+        !organisationId
+      ) {
+        alert(
+          "No active organisation found."
+        );
+
+        return;
+      }
+
+      setSavingCampaign(
+        true
+      );
+
+      try {
+        const {
+          data: {
+            user,
+          },
+        } =
+          await supabase.auth.getUser();
+
+        const draftTitle =
+          campaignForm.title.trim() ||
+          "Untitled draft";
+
+        const payload = {
+          ...buildPayload(
+            null
+          ),
+
+          title:
+            draftTitle,
+
+          scheduled_for:
+            null,
+
+          status:
+            "draft",
+
+          sent_at:
+            null,
+        };
+
+        if (
+          editingCampaignId
+        ) {
+          const {
+            error,
+          } =
+            await supabase
+              .from(
+                "campaigns"
+              )
+              .update(
+                payload
+              )
+              .eq(
+                "id",
+                editingCampaignId
+              );
+
+          if (error) {
+            throw error;
+          }
+        } else {
+          const {
+            data,
+            error,
+          } =
+            await supabase
+              .from(
+                "campaigns"
+              )
+              .insert({
+                ...payload,
+
+                user_id:
+                  user?.id,
+              })
+              .select(
+                "id"
+              )
+              .single();
+
+          if (error) {
+            throw error;
+          }
+
+          setEditingCampaignId(
+            data.id
+          );
+        }
+
+        await loadCampaigns();
+
+        setScreen(
+          "campaigns"
+        );
+      } catch (
+        error
+      ) {
+        console.error(
+          error
+        );
+
+        alert(
+          error instanceof Error
+            ? error.message
+            : "Could not save draft."
+        );
+      } finally {
+        setSavingCampaign(
+          false
+        );
+      }
     };
 
   const saveAndSendNow =
@@ -6336,6 +6614,30 @@ await callSendApi(campaignId);
                         savingCampaign
                       }
                       onClick={() =>
+                        void saveAsDraft()
+                      }
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-5 py-4 text-[10px] font-black uppercase tracking-[0.14em] text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
+                    >
+                      {savingCampaign ? (
+                        <Loader2
+                          size={14}
+                          className="animate-spin"
+                        />
+                      ) : (
+                        <FileText
+                          size={14}
+                        />
+                      )}
+                    
+                      Save as draft
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={
+                        savingCampaign
+                      }
+                      onClick={() =>
                         void saveAndSendNow()
                       }
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-4 text-[10px] font-black uppercase tracking-[0.14em] text-[#a9b897] disabled:opacity-50"
@@ -7651,8 +7953,75 @@ await callSendApi(campaignId);
 
         {/* CAMPAIGNS TABLE */}
 
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ["all", "All"],
+                ["draft", "Drafts"],
+                ["scheduled", "Scheduled"],
+                ["sending", "Sending"],
+                ["sent", "Sent"],
+                ["failed", "Failed"],
+              ] as const
+            ).map(
+              ([
+                value,
+                label,
+              ]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() =>
+                    setCampaignFilter(
+                      value
+                    )
+                  }
+                  className={`rounded-xl px-4 py-2 text-[8px] font-black uppercase tracking-[0.12em] transition ${
+                    campaignFilter ===
+                    value
+                      ? "bg-stone-900 text-[#a9b897]"
+                      : "border border-stone-200 bg-white text-stone-500 hover:border-stone-400"
+                  }`}
+                >
+                  {label}
+                </button>
+              )
+            )}
+          </div>
+        
+          <select
+            value={campaignSort}
+            onChange={(
+              event
+            ) =>
+              setCampaignSort(
+                event.target
+                  .value as CampaignSort
+              )
+            }
+            className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-[9px] font-black uppercase tracking-[0.1em] text-stone-600 outline-none"
+          >
+            <option value="date_desc">
+              Date · newest first
+            </option>
+        
+            <option value="date_asc">
+              Date · oldest first
+            </option>
+        
+            <option value="title_asc">
+              Name · A–Z
+            </option>
+        
+            <option value="title_desc">
+              Name · Z–A
+            </option>
+          </select>
+        </div>
+
         <section className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm">
-          {campaigns.length ===
+          {displayedCampaigns.length ===
           0 ? (
             <div className="py-20 text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100">
@@ -7665,18 +8034,15 @@ await callSendApi(campaignId);
               </div>
 
               <h2 className="mt-5 text-xl font-black">
-                No
-                campaigns
-                yet
+                {campaigns.length === 0
+                  ? "No campaigns yet"
+                  : "No matching campaigns"}
               </h2>
 
               <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-stone-400">
-                Create your
-                first email,
-                choose your
-                audience and
-                send it from
-                TOTS-OS.
+                {campaigns.length === 0
+                  ? "Create your first email, choose your audience and send it from TOTS-OS."
+                  : "Try changing your campaign filter."}
               </p>
 
               <button
@@ -7707,7 +8073,7 @@ await callSendApi(campaignId);
                 <span />
               </div>
 
-              {campaigns.map(
+              {displayedCampaigns.map(
                 (
                   campaign
                 ) => {

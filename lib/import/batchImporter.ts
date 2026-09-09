@@ -37,6 +37,11 @@ type CustomerResolution = {
     boolean;
 };
 
+type ImportAction =
+  | "inserted"
+  | "updated"
+  | "skipped";
+
 // ============================================================
 // ALLOWED DATABASE COLUMNS
 // ============================================================
@@ -93,9 +98,6 @@ const ALLOWED_COLUMNS:
     "organisation_id",
     "project_id",
     "invoice_number",
-
-    // These are safe to include IF you add them
-    // to public.invoices as discussed.
     "invoice_date",
     "amount_paid",
     "balance_due",
@@ -176,6 +178,87 @@ function normalisePhone(
     /[^0-9+]/g,
     ""
   );
+}
+
+// ============================================================
+
+function normaliseLookupKey(
+  value:
+    string
+): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(
+      /[^a-z0-9]/g,
+      ""
+    );
+}
+
+// ============================================================
+
+function getObjectValue(
+  object:
+    Record<
+      string,
+      unknown
+    > | null |
+    undefined,
+
+  aliases:
+    string[]
+): unknown {
+  if (
+    !object
+  ) {
+    return undefined;
+  }
+
+  const entries =
+    Object.entries(
+      object
+    );
+
+  for (
+    const alias of
+    aliases
+  ) {
+    const expected =
+      normaliseLookupKey(
+        alias
+      );
+
+    const match =
+      entries.find(
+        ([
+          key,
+        ]) =>
+          normaliseLookupKey(
+            key
+          ) ===
+          expected
+      );
+
+    if (
+      !match
+    ) {
+      continue;
+    }
+
+    if (
+      hasValue(
+        match[
+          1
+        ]
+      )
+    ) {
+      return match[
+        1
+      ];
+    }
+  }
+
+  return undefined;
 }
 
 // ============================================================
@@ -881,10 +964,6 @@ function prepareInvoicePayload(
   const payload:
     PreparedPayload = {};
 
-  // ----------------------------------------------------------
-  // KNOWN CORE FIELDS
-  // ----------------------------------------------------------
-
   const invoiceNumber =
     stringValue(
       sourcePayload
@@ -1011,10 +1090,6 @@ function prepareInvoicePayload(
       sourcePayload.project_id;
   }
 
-  // ----------------------------------------------------------
-  // OPTIONAL HISTORICAL FIELDS
-  // ----------------------------------------------------------
-
   if (
     hasValue(
       sourcePayload.invoice_date
@@ -1071,20 +1146,12 @@ function prepareInvoicePayload(
       "import_hub";
   }
 
-  // ----------------------------------------------------------
-  // WORKSPACE OWNERSHIP
-  // ----------------------------------------------------------
-
   if (
     orgId
   ) {
     payload.organisation_id =
       orgId;
   }
-
-  // ----------------------------------------------------------
-  // PRESERVE FULL SOURCE ROW SAFELY
-  // ----------------------------------------------------------
 
   const existingData =
     sourcePayload.data &&
@@ -1118,10 +1185,6 @@ function prepareInvoicePayload(
           .toISOString(),
     },
   };
-
-  // ----------------------------------------------------------
-  // FINAL DATABASE SAFETY BARRIER
-  // ----------------------------------------------------------
 
   return applyAllowlist(
     "invoices",
@@ -2099,7 +2162,7 @@ async function resolveCustomerForContact(
   ) {
     if (
       duplicateStrategy ===
-      "update"
+        "update"
     ) {
       const updated =
         await updateCustomer(
@@ -2129,6 +2192,450 @@ async function resolveCustomerForContact(
   const customer =
     await createCustomer(
       contactPayload,
+      supabase,
+      orgId
+    );
+
+  return {
+    customer,
+
+    created:
+      true,
+  };
+}
+
+// ============================================================
+// INVOICE CUSTOMER SOURCE
+// ============================================================
+
+function buildInvoiceCustomerPayload(
+  row:
+    ProcessedRow
+): PreparedPayload {
+  const raw =
+    (
+      row.rawPayload ??
+      {}
+    ) as Record<
+      string,
+      unknown
+    >;
+
+  const name =
+    stringValue(
+      getObjectValue(
+        raw,
+        [
+          "Customer Name",
+          "customer_name",
+          "Client Name",
+          "client_name",
+          "Company Name",
+          "company_name",
+          "Contact Name",
+          "contact_name",
+        ]
+      )
+    );
+
+  const email =
+    cleanEmail(
+      getObjectValue(
+        raw,
+        [
+          "Primary Contact EmailID",
+          "Primary Contact Email ID",
+          "Primary Contact Email",
+          "Customer Email",
+          "Customer Email Address",
+          "Email",
+          "Email Address",
+          "Contact Email",
+        ]
+      )
+    );
+
+  const phone =
+    stringValue(
+      getObjectValue(
+        raw,
+        [
+          "Primary Contact Mobile",
+          "Primary Contact Phone",
+          "Customer Phone",
+          "Billing Phone",
+          "Phone",
+          "Mobile",
+          "Telephone",
+        ]
+      )
+    );
+
+  const address =
+    stringValue(
+      getObjectValue(
+        raw,
+        [
+          "Billing Address",
+          "Customer Address",
+          "Address",
+          "Billing Address 1",
+          "Billing Street",
+        ]
+      )
+    );
+
+  const payload:
+    PreparedPayload = {};
+
+  if (
+    name
+  ) {
+    payload.name =
+      name;
+
+    payload.company_name =
+      name;
+  }
+
+  if (
+    email
+  ) {
+    payload.email =
+      email;
+  }
+
+  if (
+    phone
+  ) {
+    payload.phone =
+      phone;
+  }
+
+  if (
+    address
+  ) {
+    payload.address =
+      address;
+  }
+
+  return payload;
+}
+
+// ============================================================
+// FIND CUSTOMER FOR INVOICE
+// ============================================================
+
+async function findCustomerForInvoice(
+  invoiceCustomer:
+    PreparedPayload,
+
+  supabase:
+    any,
+
+  orgId:
+    string
+): Promise<DatabaseRecord | null> {
+  const email =
+    cleanEmail(
+      invoiceCustomer.email
+    );
+
+  const name =
+    stringValue(
+      invoiceCustomer.name
+    );
+
+  const phone =
+    normalisePhone(
+      invoiceCustomer.phone
+    );
+
+  // ----------------------------------------------------------
+  // EMAIL FIRST
+  // ----------------------------------------------------------
+
+  if (
+    email
+  ) {
+    const byEmail =
+      await withRetry(
+        async () => {
+          const {
+            data,
+            error,
+          } =
+            await supabase
+              .from(
+                "customers"
+              )
+              .select(
+                "*"
+              )
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .ilike(
+                "email",
+                email
+              )
+              .limit(
+                1
+              )
+              .maybeSingle();
+
+          if (
+            error
+          ) {
+            throw error;
+          }
+
+          return (
+            data ??
+            null
+          );
+        }
+      );
+
+    if (
+      byEmail
+    ) {
+      return byEmail;
+    }
+  }
+
+  // ----------------------------------------------------------
+  // EXACT CUSTOMER NAME
+  // ----------------------------------------------------------
+
+  if (
+    name
+  ) {
+    const byName =
+      await withRetry(
+        async () => {
+          const {
+            data,
+            error,
+          } =
+            await supabase
+              .from(
+                "customers"
+              )
+              .select(
+                "*"
+              )
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .ilike(
+                "name",
+                name
+              )
+              .limit(
+                1
+              )
+              .maybeSingle();
+
+          if (
+            error
+          ) {
+            throw error;
+          }
+
+          return (
+            data ??
+            null
+          );
+        }
+      );
+
+    if (
+      byName
+    ) {
+      return byName;
+    }
+  }
+
+  // ----------------------------------------------------------
+  // COMPANY FIELD FALLBACK
+  // ----------------------------------------------------------
+
+  if (
+    name
+  ) {
+    const byCompany =
+      await withRetry(
+        async () => {
+          const {
+            data,
+            error,
+          } =
+            await supabase
+              .from(
+                "customers"
+              )
+              .select(
+                "*"
+              )
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .ilike(
+                "company",
+                name
+              )
+              .limit(
+                1
+              )
+              .maybeSingle();
+
+          if (
+            error
+          ) {
+            throw error;
+          }
+
+          return (
+            data ??
+            null
+          );
+        }
+      );
+
+    if (
+      byCompany
+    ) {
+      return byCompany;
+    }
+  }
+
+  // ----------------------------------------------------------
+  // PHONE FALLBACK
+  // ----------------------------------------------------------
+
+  if (
+    phone
+  ) {
+    const candidates =
+      await withRetry(
+        async () => {
+          const {
+            data,
+            error,
+          } =
+            await supabase
+              .from(
+                "customers"
+              )
+              .select(
+                "*"
+              )
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .limit(
+                500
+              );
+
+          if (
+            error
+          ) {
+            throw error;
+          }
+
+          return Array.isArray(
+            data
+          )
+            ? data
+            : [];
+        }
+      );
+
+    const byPhone =
+      candidates.find(
+        (
+          customer:
+            DatabaseRecord
+        ) =>
+          normalisePhone(
+            customer.phone
+          ) ===
+          phone
+      );
+
+    if (
+      byPhone
+    ) {
+      return byPhone;
+    }
+  }
+
+  return null;
+}
+
+// ============================================================
+// RESOLVE CUSTOMER FOR INVOICE
+// ============================================================
+
+async function resolveCustomerForInvoice(
+  row:
+    ProcessedRow,
+
+  supabase:
+    any,
+
+  orgId:
+    string
+): Promise<CustomerResolution | null> {
+  const invoiceCustomer =
+    buildInvoiceCustomerPayload(
+      row
+    );
+
+  const hasCustomerIdentity =
+    hasValue(
+      invoiceCustomer.name
+    ) ||
+    hasValue(
+      invoiceCustomer.email
+    ) ||
+    hasValue(
+      invoiceCustomer.phone
+    );
+
+  if (
+    !hasCustomerIdentity
+  ) {
+    return null;
+  }
+
+  const existingCustomer =
+    await findCustomerForInvoice(
+      invoiceCustomer,
+      supabase,
+      orgId
+    );
+
+  if (
+    existingCustomer
+  ) {
+    return {
+      customer:
+        existingCustomer,
+
+      created:
+        false,
+    };
+  }
+
+  const customer =
+    await createCustomer(
+      invoiceCustomer,
       supabase,
       orgId
     );
@@ -2272,20 +2779,32 @@ async function cleanupNewCustomer(
   }
 
   try {
-    await supabase
-      .from(
-        "customers"
-      )
-      .delete()
-      .eq(
-        "id",
-        id
+    const {
+      error,
+    } =
+      await supabase
+        .from(
+          "customers"
+        )
+        .delete()
+        .eq(
+          "id",
+          id
+        );
+
+    if (
+      error
+    ) {
+      console.warn(
+        "[TOTS IMPORT] Could not clean up customer:",
+        error
       );
+    }
   } catch (
     cleanupError
   ) {
     console.warn(
-      "[TOTS IMPORT] Could not clean up customer after failed contact import:",
+      "[TOTS IMPORT] Could not clean up customer after failed import:",
       cleanupError
     );
   }
@@ -2307,11 +2826,7 @@ async function processContact(
 
   duplicateStrategy:
     DuplicateResolutionStrategy
-): Promise<
-  | "inserted"
-  | "updated"
-  | "skipped"
-> {
+): Promise<ImportAction> {
   const contactPayload =
     prepareContactPayload(
       row.payload,
@@ -2424,6 +2939,166 @@ async function processContact(
 }
 
 // ============================================================
+// PROCESS INVOICE
+// ============================================================
+
+async function processInvoice(
+  row:
+    ProcessedRow,
+
+  supabase:
+    any,
+
+  orgId:
+    string,
+
+  duplicateStrategy:
+    DuplicateResolutionStrategy
+): Promise<ImportAction> {
+  let payload =
+    prepareInvoicePayload(
+      row,
+      orgId
+    );
+
+  if (
+    Object.keys(
+      payload
+    ).length ===
+    0
+  ) {
+    throw new Error(
+      "No supported invoice fields remained after preparing the import payload."
+    );
+  }
+
+  // ----------------------------------------------------------
+  // FIND EXISTING INVOICE FIRST
+  // ----------------------------------------------------------
+
+  const existingInvoice =
+    duplicateStrategy ===
+      "create"
+      ? null
+      : await findExistingRecord(
+          "invoices",
+          payload,
+          supabase,
+          orgId
+        );
+
+  // ----------------------------------------------------------
+  // TRUE SKIP
+  //
+  // If Skip is selected, don't create customer records for an
+  // invoice that isn't going to be changed.
+  // ----------------------------------------------------------
+
+  if (
+    duplicateStrategy ===
+      "skip" &&
+    existingInvoice
+  ) {
+    return "skipped";
+  }
+
+  // ----------------------------------------------------------
+  // RESOLVE TOTS CUSTOMER
+  // ----------------------------------------------------------
+
+  const customerResolution =
+    await resolveCustomerForInvoice(
+      row,
+      supabase,
+      orgId
+    );
+
+  if (
+    customerResolution
+      ?.customer
+      ?.id
+  ) {
+    payload = {
+      ...payload,
+
+      customer_id:
+        customerResolution
+          .customer
+          .id,
+    };
+  }
+
+  try {
+    // --------------------------------------------------------
+    // CREATE
+    // --------------------------------------------------------
+
+    if (
+      duplicateStrategy ===
+      "create"
+    ) {
+      await insertRecord(
+        "invoices",
+        payload,
+        supabase
+      );
+
+      return "inserted";
+    }
+
+    // --------------------------------------------------------
+    // UPDATE EXISTING
+    // --------------------------------------------------------
+
+    if (
+      existingInvoice
+    ) {
+      await updateRecord(
+        "invoices",
+        existingInvoice,
+        payload,
+        supabase
+      );
+
+      return "updated";
+    }
+
+    // --------------------------------------------------------
+    // INSERT NEW
+    // --------------------------------------------------------
+
+    await insertRecord(
+      "invoices",
+      payload,
+      supabase
+    );
+
+    return "inserted";
+  } catch (
+    error
+  ) {
+    /**
+     * If this invoice caused a brand-new customer to be created
+     * and the invoice itself then failed, remove the orphaned
+     * customer.
+     */
+    if (
+      customerResolution
+        ?.created
+    ) {
+      await cleanupNewCustomer(
+        customerResolution
+          .customer
+          .id,
+        supabase
+      );
+    }
+
+    throw error;
+  }
+}
+
+// ============================================================
 // FAILURE
 // ============================================================
 
@@ -2483,6 +3158,41 @@ function appendFailure(
       message,
     }
   );
+}
+
+// ============================================================
+// APPLY RESULT ACTION
+// ============================================================
+
+function applyActionResult(
+  result:
+    BatchImportResult,
+
+  action:
+    ImportAction
+) {
+  if (
+    action ===
+      "inserted"
+  ) {
+    result.inserted +=
+      1;
+
+    return;
+  }
+
+  if (
+    action ===
+      "updated"
+  ) {
+    result.updated +=
+      1;
+
+    return;
+  }
+
+  result.skipped +=
+    1;
 }
 
 // ============================================================
@@ -2615,22 +3325,42 @@ export async function processBatches(
               duplicateStrategy
             );
 
+          applyActionResult(
+            result,
+            action
+          );
+
+          continue;
+        }
+
+        // ====================================================
+        // INVOICES
+        // ====================================================
+
+        if (
+          row.targetTable ===
+          "invoices"
+        ) {
           if (
-            action ===
-            "inserted"
+            !orgId
           ) {
-            result.inserted +=
-              1;
-          } else if (
-            action ===
-            "updated"
-          ) {
-            result.updated +=
-              1;
-          } else {
-            result.skipped +=
-              1;
+            throw new Error(
+              "No active organisation is available for this invoice import."
+            );
           }
+
+          const action =
+            await processInvoice(
+              row,
+              supabase,
+              orgId,
+              duplicateStrategy
+            );
+
+          applyActionResult(
+            result,
+            action
+          );
 
           continue;
         }

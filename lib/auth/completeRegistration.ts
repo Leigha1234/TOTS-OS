@@ -66,14 +66,6 @@ if (
   );
 }
 
-if (
-  !encryptionKey
-) {
-  throw new Error(
-    "REGISTRATION_ENCRYPTION_KEY is missing"
-  );
-}
-
 // ============================================================
 // SUPABASE
 // ============================================================
@@ -372,15 +364,6 @@ function normaliseTier(
 
 // ============================================================
 // SEND NEW SIGNUP NOTIFICATION
-//
-// IMPORTANT:
-//
-// Notification errors NEVER cause registration to fail.
-//
-// Registration has already been marked complete by the time
-// this runs. Therefore normal Stripe webhook retries will hit
-// the registration.completed guard and will NOT send another
-// notification.
 // ============================================================
 
 async function sendNewSignupNotification({
@@ -497,6 +480,7 @@ async function sendNewSignupNotification({
       <html>
         <head>
           <meta charset="utf-8" />
+
           <meta
             name="viewport"
             content="width=device-width, initial-scale=1"
@@ -897,15 +881,20 @@ async function sendNewSignupNotification({
                     word-break: break-all;
                   "
                 >
-                  User: ${escapeHtml(
+                  User:
+                  ${escapeHtml(
                     userId
-                  )}<br />
+                  )}
+                  <br />
 
-                  Organisation: ${escapeHtml(
+                  Organisation:
+                  ${escapeHtml(
                     organisationId
-                  )}<br />
+                  )}
+                  <br />
 
-                  Registration: ${escapeHtml(
+                  Registration:
+                  ${escapeHtml(
                     registrationId
                   )}
                 </div>
@@ -965,10 +954,6 @@ async function sendNewSignupNotification({
         }
       );
 
-    // ========================================================
-    // ERROR
-    // ========================================================
-
     if (
       !response.ok
     ) {
@@ -993,10 +978,6 @@ async function sendNewSignupNotification({
 
       return;
     }
-
-    // ========================================================
-    // SUCCESS
-    // ========================================================
 
     const responseData =
       await response
@@ -1045,13 +1026,6 @@ export async function completeRegistration(
   session?:
     StripeRegistrationSession
 ) {
-  /*
-   * Only runs after Stripe confirms payment.
-   *
-   * The selected subscription tier is taken from the
-   * pending registration that was created BEFORE checkout.
-   */
-
   // ==========================================================
   // LOAD PENDING REGISTRATION
   // ==========================================================
@@ -1081,20 +1055,14 @@ export async function completeRegistration(
     !registration
   ) {
     throw new Error(
+      registrationError
+        ?.message ||
       "Pending registration not found."
     );
   }
 
   // ==========================================================
   // ALREADY COMPLETE
-  //
-  // Stripe may retry webhooks.
-  //
-  // Returning here prevents:
-  // - duplicate users
-  // - duplicate organisations
-  // - duplicate subscriptions
-  // - duplicate signup notification emails
   // ==========================================================
 
   if (
@@ -1134,27 +1102,7 @@ export async function completeRegistration(
   }
 
   // ==========================================================
-  // PASSWORD
-  // ==========================================================
-
-  if (
-    !registration
-      .encrypted_password
-  ) {
-    throw new Error(
-      "Encrypted password missing from registration."
-    );
-  }
-
-  // ==========================================================
   // SUBSCRIPTION TIER
-  //
-  // CRITICAL:
-  //
-  // There is deliberately NO Elite/default fallback.
-  //
-  // Missing/invalid tier stops registration rather than
-  // silently assigning the wrong package.
   // ==========================================================
 
   const subscriptionTier =
@@ -1164,182 +1112,439 @@ export async function completeRegistration(
     );
 
   // ==========================================================
-  // DECRYPT PASSWORD
+  // EXISTING PARTIAL STATE
+  //
+  // This is critical for webhook recovery.
+  //
+  // If a previous webhook got as far as creating the user or
+  // organisation and then failed, we reuse those records.
+  //
+  // We NEVER blindly create a second account.
   // ==========================================================
 
-  const password =
-    decryptPassword(
+  let userId =
+    cleanString(
       registration
-        .encrypted_password
+        .user_id
+    );
+
+  let organisationId =
+    cleanString(
+      registration
+        .organisation_id
     );
 
   // ==========================================================
-  // CREATE AUTH USER
+  // AUTH USER
   // ==========================================================
 
-  const {
-    data:
-      authData,
+  if (
+    userId
+  ) {
+    const {
+      data:
+        existingAuthUser,
 
-    error:
-      authError,
-  } =
-    await supabase
-      .auth
-      .admin
-      .createUser({
-        email:
-          registration
-            .email,
+      error:
+        existingAuthError,
+    } =
+      await supabase
+        .auth
+        .admin
+        .getUserById(
+          userId
+        );
 
-        password,
+    if (
+      existingAuthError ||
+      !existingAuthUser
+        ?.user
+    ) {
+      throw new Error(
+        existingAuthError
+          ?.message ||
+        "Pending registration references an Auth user that no longer exists."
+      );
+    }
 
-        email_confirm:
-          true,
+    console.log(
+      "[REGISTRATION] Reusing existing Auth user:",
+      {
+        registrationId,
+        userId,
+      }
+    );
+  } else {
+    // ========================================================
+    // PASSWORD REQUIRED ONLY FOR BRAND NEW AUTH USER
+    // ========================================================
 
-        user_metadata: {
-          full_name:
+    if (
+      !registration
+        .encrypted_password
+    ) {
+      throw new Error(
+        "Encrypted password missing from registration."
+      );
+    }
+
+    const password =
+      decryptPassword(
+        registration
+          .encrypted_password
+      );
+
+    // ========================================================
+    // CREATE AUTH USER
+    // ========================================================
+
+    const {
+      data:
+        authData,
+
+      error:
+        authError,
+    } =
+      await supabase
+        .auth
+        .admin
+        .createUser({
+          email:
             registration
-              .full_name,
+              .email,
 
-          organisation_name:
-            registration
-              .company_name,
+          password,
 
-          registration_id:
+          email_confirm:
+            true,
+
+          user_metadata: {
+            full_name:
+              registration
+                .full_name,
+
+            organisation_name:
+              registration
+                .company_name,
+
+            registration_id:
+              registration
+                .id,
+
+            subscription_tier:
+              subscriptionTier,
+          },
+        });
+
+    if (
+      authError ||
+      !authData.user
+    ) {
+      throw new Error(
+        authError
+          ?.message ||
+        "Failed to create Auth user."
+      );
+    }
+
+    userId =
+      authData
+        .user
+        .id;
+
+    // ========================================================
+    // IMMEDIATELY LINK USER
+    //
+    // Makes retries recoverable even if the next step fails.
+    // ========================================================
+
+    const {
+      error:
+        userLinkError,
+    } =
+      await supabase
+        .from(
+          "pending_registrations"
+        )
+        .update({
+          user_id:
+            userId,
+        })
+        .eq(
+          "id",
+          registrationId
+        );
+
+    if (
+      userLinkError
+    ) {
+      throw new Error(
+        `Auth user was created but pending registration could not be linked: ${userLinkError.message}`
+      );
+    }
+
+    console.log(
+      "[REGISTRATION] Auth user created:",
+      {
+        registrationId,
+        userId,
+      }
+    );
+  }
+
+  // ==========================================================
+  // ORGANISATION
+  // ==========================================================
+
+  if (
+    organisationId
+  ) {
+    // ========================================================
+    // RECOVER EXISTING ORGANISATION
+    // ========================================================
+
+    const {
+      data:
+        existingOrganisation,
+
+      error:
+        existingOrganisationError,
+    } =
+      await supabase
+        .from(
+          "organisations"
+        )
+        .select(
+          "id"
+        )
+        .eq(
+          "id",
+          organisationId
+        )
+        .maybeSingle();
+
+    if (
+      existingOrganisationError
+    ) {
+      throw new Error(
+        existingOrganisationError
+          .message
+      );
+    }
+
+    if (
+      !existingOrganisation
+    ) {
+      throw new Error(
+        "Pending registration references an organisation that no longer exists."
+      );
+    }
+
+    // ========================================================
+    // IMPORTANT:
+    //
+    // Stripe has confirmed payment before this function runs.
+    // Therefore a paid organisation must be ACTIVE.
+    //
+    // This also repairs Cristian-style partial registrations
+    // that were incorrectly left restricted/beta.
+    // ========================================================
+
+    const {
+      error:
+        organisationRepairError,
+    } =
+      await supabase
+        .from(
+          "organisations"
+        )
+        .update({
+          name:
             registration
-              .id,
+              .company_name ||
+            "New Organisation",
+
+          created_by:
+            userId,
+
+          status:
+            "active",
+
+          email:
+            registration
+              .email,
 
           subscription_tier:
             subscriptionTier,
-        },
-      });
 
-  if (
-    authError ||
-    !authData.user
-  ) {
-    throw new Error(
-      authError
-        ?.message ||
-      "Failed to create auth user."
-    );
-  }
+          subscription_status:
+            "active",
 
-  // ==========================================================
-  // CREATED USER ID
-  // ==========================================================
+          access_status:
+            "active",
+        })
+        .eq(
+          "id",
+          organisationId
+        );
 
-  const userId =
-    authData
-      .user
-      .id;
-
-  // ==========================================================
-  // CREATE ORGANISATION
-  // ==========================================================
-
-  const {
-    data:
-      organisation,
-
-    error:
-      organisationError,
-  } =
-    await supabase
-      .from(
-        "organisations"
-      )
-      .insert({
-        name:
-          registration
-            .company_name ||
-          "New Organisation",
-
-        created_by:
-          userId,
-
-        available_seats:
-          1,
-
-        status:
-          "active",
-
-        email:
-          registration
-            .email,
-
-        /*
-         * Actual Stripe-selected plan.
-         */
-        subscription_tier:
-          subscriptionTier,
-
-        /*
-         * Store remains a completely separate add-on.
-         *
-         * New organisations must NOT accidentally receive
-         * Store access.
-         */
-        store_enabled:
-          false,
-
-        store_subscription_status:
-          null,
-
-        store_stripe_subscription_id:
-          null,
-
-        store_stripe_customer_id:
-          null,
-
-        store_price_id:
-          null,
-
-        store_current_period_end:
-          null,
-
-        store_cancel_at_period_end:
-          false,
-      })
-      .select()
-      .single();
-
-  if (
-    organisationError ||
-    !organisation
-  ) {
-    // ========================================================
-    // CLEAN UP AUTH USER
-    // ========================================================
-
-    await supabase
-      .auth
-      .admin
-      .deleteUser(
-        userId
+    if (
+      organisationRepairError
+    ) {
+      throw new Error(
+        organisationRepairError
+          .message
       );
+    }
 
-    throw new Error(
-      organisationError
-        ?.message ||
-      "Failed to create organisation."
+    console.log(
+      "[REGISTRATION] Existing organisation repaired:",
+      {
+        registrationId,
+        organisationId,
+        subscriptionTier,
+      }
+    );
+  } else {
+    // ========================================================
+    // CREATE NEW PAID ORGANISATION
+    // ========================================================
+
+    const {
+      data:
+        organisation,
+
+      error:
+        organisationError,
+    } =
+      await supabase
+        .from(
+          "organisations"
+        )
+        .insert({
+          name:
+            registration
+              .company_name ||
+            "New Organisation",
+
+          created_by:
+            userId,
+
+          available_seats:
+            1,
+
+          status:
+            "active",
+
+          email:
+            registration
+              .email,
+
+          // ==================================================
+          // MAIN TOTS-OS PLAN
+          //
+          // Payment has already been confirmed by Stripe.
+          // ==================================================
+
+          subscription_tier:
+            subscriptionTier,
+
+          subscription_status:
+            "active",
+
+          access_status:
+            "active",
+
+          // ==================================================
+          // STORE IS A SEPARATE ADD-ON
+          // ==================================================
+
+          store_enabled:
+            false,
+
+          store_subscription_status:
+            null,
+
+          store_stripe_subscription_id:
+            null,
+
+          store_stripe_customer_id:
+            null,
+
+          store_price_id:
+            null,
+
+          store_current_period_end:
+            null,
+
+          store_cancel_at_period_end:
+            false,
+        })
+        .select(
+          "id"
+        )
+        .single();
+
+    if (
+      organisationError ||
+      !organisation
+    ) {
+      throw new Error(
+        organisationError
+          ?.message ||
+        "Failed to create organisation."
+      );
+    }
+
+    organisationId =
+      organisation.id;
+
+    // ========================================================
+    // IMMEDIATELY LINK ORGANISATION
+    // ========================================================
+
+    const {
+      error:
+        organisationLinkError,
+    } =
+      await supabase
+        .from(
+          "pending_registrations"
+        )
+        .update({
+          organisation_id:
+            organisationId,
+        })
+        .eq(
+          "id",
+          registrationId
+        );
+
+    if (
+      organisationLinkError
+    ) {
+      throw new Error(
+        `Organisation was created but pending registration could not be linked: ${organisationLinkError.message}`
+      );
+    }
+
+    console.log(
+      "[REGISTRATION] Organisation created:",
+      {
+        registrationId,
+        organisationId,
+        subscriptionTier,
+      }
     );
   }
 
-  const organisationId =
-    organisation.id;
-
   // ==========================================================
-  // LINK PENDING REGISTRATION
-  //
-  // Do this early so there is a recovery reference if another
-  // downstream operation fails.
+  // ENSURE BOTH RECOVERY REFERENCES ARE PRESENT
   // ==========================================================
 
   const {
     error:
-      pendingLinkError,
+      finalLinkError,
   } =
     await supabase
       .from(
@@ -1358,11 +1563,11 @@ export async function completeRegistration(
       );
 
   if (
-    pendingLinkError
+    finalLinkError
   ) {
-    console.error(
-      "[REGISTRATION] Could not link pending registration:",
-      pendingLinkError
+    throw new Error(
+      finalLinkError
+        .message
     );
   }
 
@@ -1371,43 +1576,113 @@ export async function completeRegistration(
   // ==========================================================
 
   const {
+    data:
+      existingMembership,
+
     error:
-      memberError,
+      membershipLookupError,
   } =
     await supabase
       .from(
         "organisation_members"
       )
-      .insert({
-        organisation_id:
-          organisationId,
-
-        user_id:
-          userId,
-
-        role:
-          "owner",
-      });
+      .select(
+        "id, role"
+      )
+      .eq(
+        "organisation_id",
+        organisationId
+      )
+      .eq(
+        "user_id",
+        userId
+      )
+      .maybeSingle();
 
   if (
-    memberError
+    membershipLookupError
   ) {
-    await supabase
-      .auth
-      .admin
-      .deleteUser(
-        userId
-      );
-
     throw new Error(
-      memberError.message
+      membershipLookupError
+        .message
     );
   }
 
+  if (
+    existingMembership
+  ) {
+    // ========================================================
+    // ENSURE EXISTING MEMBERSHIP IS OWNER
+    // ========================================================
+
+    if (
+      existingMembership
+        .role !==
+      "owner"
+    ) {
+      const {
+        error:
+          membershipUpdateError,
+      } =
+        await supabase
+          .from(
+            "organisation_members"
+          )
+          .update({
+            role:
+              "owner",
+          })
+          .eq(
+            "id",
+            existingMembership
+              .id
+          );
+
+      if (
+        membershipUpdateError
+      ) {
+        throw new Error(
+          membershipUpdateError
+            .message
+        );
+      }
+    }
+  } else {
+    // ========================================================
+    // CREATE OWNER MEMBERSHIP
+    // ========================================================
+
+    const {
+      error:
+        membershipCreateError,
+    } =
+      await supabase
+        .from(
+          "organisation_members"
+        )
+        .insert({
+          organisation_id:
+            organisationId,
+
+          user_id:
+            userId,
+
+          role:
+            "owner",
+        });
+
+    if (
+      membershipCreateError
+    ) {
+      throw new Error(
+        membershipCreateError
+          .message
+      );
+    }
+  }
+
   // ==========================================================
-  // UPDATE PROFILE
-  //
-  // Your auth trigger already creates the profile.
+  // PROFILE
   // ==========================================================
 
   const {
@@ -1448,77 +1723,215 @@ export async function completeRegistration(
   if (
     profileError
   ) {
-    await supabase
-      .auth
-      .admin
-      .deleteUser(
-        userId
-      );
-
     throw new Error(
-      profileError.message
+      profileError
+        .message
     );
   }
 
   // ==========================================================
-  // STORE MAIN TOTS SUBSCRIPTION
+  // RE-ASSERT PAID ORGANISATION ACCESS
   //
-  // NOTE:
-  // This is the user's main TOTS-OS subscription.
+  // This deliberately happens again near the end.
   //
-  // It is NOT the £39 Store add-on subscription.
+  // If an earlier piece of application logic changed the
+  // organisation while registration was being completed,
+  // successful Stripe registration wins.
   // ==========================================================
 
   const {
     error:
-      subscriptionError,
+      paidAccessError,
+  } =
+    await supabase
+      .from(
+        "organisations"
+      )
+      .update({
+        subscription_tier:
+          subscriptionTier,
+
+        subscription_status:
+          "active",
+
+        access_status:
+          "active",
+
+        status:
+          "active",
+      })
+      .eq(
+        "id",
+        organisationId
+      );
+
+  if (
+    paidAccessError
+  ) {
+    throw new Error(
+      paidAccessError
+        .message
+    );
+  }
+
+  // ==========================================================
+  // MAIN TOTS-OS SUBSCRIPTION
+  //
+  // This is separate from Store.
+  //
+  // IMPORTANT:
+  // Older/partial registrations may already have a row.
+  // Therefore UPDATE if one exists, otherwise INSERT.
+  // ==========================================================
+
+  const {
+    data:
+      existingSubscription,
+
+    error:
+      subscriptionLookupError,
   } =
     await supabase
       .from(
         "subscriptions"
       )
-      .insert({
-        organisation_id:
-          organisationId,
+      .select(
+        "id"
+      )
+      .eq(
+        "organisation_id",
+        organisationId
+      )
+      .limit(
+        1
+      )
+      .maybeSingle();
 
-        stripe_customer_id:
-          session
-            ?.stripe_customer_id ??
-          null,
+  if (
+    subscriptionLookupError
+  ) {
+    throw new Error(
+      subscriptionLookupError
+        .message
+    );
+  }
 
-        stripe_subscription_id:
-          session
-            ?.stripe_subscription_id ??
-          null,
+  const stripeCustomerId =
+    cleanString(
+      session
+        ?.stripe_customer_id
+    ) ||
+    null;
+
+  const stripeSubscriptionId =
+    cleanString(
+      session
+        ?.stripe_subscription_id
+    ) ||
+    null;
+
+  if (
+    existingSubscription
+  ) {
+    const subscriptionPayload:
+      Record<
+        string,
+        unknown
+      > = {
+        active:
+          true,
 
         status:
           "active",
-      });
+      };
 
-  if (
-    subscriptionError
-  ) {
-    await supabase
-      .auth
-      .admin
-      .deleteUser(
-        userId
+    // ========================================================
+    // DON'T DESTROY GOOD STRIPE REFERENCES WITH NULL
+    // ========================================================
+
+    if (
+      stripeCustomerId
+    ) {
+      subscriptionPayload
+        .stripe_customer_id =
+        stripeCustomerId;
+    }
+
+    if (
+      stripeSubscriptionId
+    ) {
+      subscriptionPayload
+        .stripe_subscription_id =
+        stripeSubscriptionId;
+    }
+
+    const {
+      error:
+        subscriptionUpdateError,
+    } =
+      await supabase
+        .from(
+          "subscriptions"
+        )
+        .update(
+          subscriptionPayload
+        )
+        .eq(
+          "id",
+          existingSubscription
+            .id
+        );
+
+    if (
+      subscriptionUpdateError
+    ) {
+      throw new Error(
+        subscriptionUpdateError
+          .message
       );
+    }
+  } else {
+    const {
+      error:
+        subscriptionCreateError,
+    } =
+      await supabase
+        .from(
+          "subscriptions"
+        )
+        .insert({
+          organisation_id:
+            organisationId,
 
-    throw new Error(
-      subscriptionError.message
-    );
+          stripe_customer_id:
+            stripeCustomerId,
+
+          stripe_subscription_id:
+            stripeSubscriptionId,
+
+          active:
+            true,
+
+          status:
+            "active",
+        });
+
+    if (
+      subscriptionCreateError
+    ) {
+      throw new Error(
+        subscriptionCreateError
+          .message
+      );
+    }
   }
 
   // ==========================================================
   // MARK REGISTRATION COMPLETE
   //
-  // IMPORTANT:
+  // This is intentionally the final critical database step.
   //
-  // We mark this complete BEFORE sending the admin email.
-  //
-  // This prevents a Stripe webhook retry from generating
-  // another signup email.
+  // Once true, webhook retries become no-ops.
   // ==========================================================
 
   const {
@@ -1535,6 +1948,12 @@ export async function completeRegistration(
 
         encrypted_password:
           null,
+
+        user_id:
+          userId,
+
+        organisation_id:
+          organisationId,
       })
       .eq(
         "id",
@@ -1545,12 +1964,13 @@ export async function completeRegistration(
     completeError
   ) {
     throw new Error(
-      completeError.message
+      completeError
+        .message
     );
   }
 
   // ==========================================================
-  // SUCCESS LOG
+  // SUCCESS
   // ==========================================================
 
   console.log(
@@ -1571,16 +1991,17 @@ export async function completeRegistration(
       company:
         registration
           .company_name,
+
+      stripeCustomerId,
+
+      stripeSubscriptionId,
     }
   );
 
   // ==========================================================
-  // NEW SIGNUP ADMIN NOTIFICATION
+  // ADMIN SIGNUP NOTIFICATION
   //
-  // NON-BLOCKING FROM THE CUSTOMER'S PERSPECTIVE.
-  //
-  // Any problem with Resend is caught inside the function.
-  // The customer's successful registration remains intact.
+  // Notification failure NEVER rolls back customer access.
   // ==========================================================
 
   await sendNewSignupNotification({
@@ -1611,24 +2032,22 @@ export async function completeRegistration(
 
     subscriptionTier,
 
-    stripeCustomerId:
-      session
-        ?.stripe_customer_id ??
-      null,
+    stripeCustomerId,
 
-    stripeSubscriptionId:
-      session
-        ?.stripe_subscription_id ??
-      null,
+    stripeSubscriptionId,
 
     stripeSessionId:
-      session
-        ?.stripe_session_id ??
+      cleanString(
+        session
+          ?.stripe_session_id
+      ) ||
       null,
 
     paymentStatus:
-      session
-        ?.payment_status ??
+      cleanString(
+        session
+          ?.payment_status
+      ) ||
       null,
   });
 

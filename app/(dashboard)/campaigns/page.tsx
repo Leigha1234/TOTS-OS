@@ -19,6 +19,7 @@ import {
   Clock,
   Code2,
   Copy,
+  Download,
   Edit3,
   Eye,
   FileText,
@@ -3530,6 +3531,56 @@ export default function CampaignsPage() {
         ]
       );
     };
+
+  const exportMailingList = () => {
+    if (!selectedList) {
+      return;
+    }
+
+    if (listSubscribers.length === 0) {
+      alert("This audience has no subscribers to export.");
+      return;
+    }
+
+    const escapeCsvValue = (value: string | null) => {
+      const text = String(value ?? "");
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+
+    const rows = [
+      ["Name", "Email", "Source"],
+      ...listSubscribers.map((subscriber) => [
+        subscriber.name || "",
+        subscriber.email,
+        subscriber.source === "profile"
+          ? "Contact"
+          : "Manual",
+      ]),
+    ];
+
+    const csv = rows
+      .map((row) => row.map((value) => escapeCsvValue(value)).join(","))
+      .join("\r\n");
+
+    const blob = new Blob(["\uFEFF", csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeListName = selectedList.name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "mailing-list";
+
+    link.href = url;
+    link.download = `${safeListName}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const displayedCampaigns =
     useMemo(() => {
@@ -7315,28 +7366,42 @@ await callSendApi(campaignId);
               </p>
             </div>
 
-            <button
-              onClick={() => {
-                setSelectedProfiles(
-                  []
-                );
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                onClick={exportMailingList}
+                disabled={listSubscribers.length === 0}
+                className="flex items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-5 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Download
+                  size={13}
+                />
+                Export
+                mailing list
+              </button>
 
-                setManualEmails(
-                  ""
-                );
+              <button
+                onClick={() => {
+                  setSelectedProfiles(
+                    []
+                  );
 
-                setShowSubscriberManager(
-                  true
-                );
-              }}
-              className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
-            >
-              <Plus
-                size={13}
-              />
-              Add
-              subscribers
-            </button>
+                  setManualEmails(
+                    ""
+                  );
+
+                  setShowSubscriberManager(
+                    true
+                  );
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+              >
+                <Plus
+                  size={13}
+                />
+                Add
+                subscribers
+              </button>
+            </div>
           </div>
 
           <div className="relative mb-4">

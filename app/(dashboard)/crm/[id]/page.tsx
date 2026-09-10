@@ -20,6 +20,10 @@ import {
   FolderKanban,
   Loader2,
   Mail,
+  Paperclip,
+  Link2,
+  Eye,
+  Heading2,
   Pencil,
   Phone,
   Plus,
@@ -501,6 +505,110 @@ type StoreOrderRecord = {
   created_at?:
     | string
     | null;
+};
+
+type EmailLink = {
+  id: string;
+  label: string;
+  url: string;
+};
+
+type EmailAttachment = {
+  name: string;
+  type: string;
+  size: number;
+  data: string;
+};
+
+type EmailTemplateKey =
+  | "blank"
+  | "trial-ending"
+  | "welcome"
+  | "payment-required"
+  | "feature-announcement"
+  | "client-follow-up"
+  | "newsletter";
+
+type EmailTemplate = {
+  label: string;
+  subject: string;
+  title: string;
+  preview: string;
+  body: string;
+  ctaLabel: string;
+  ctaUrl: string;
+};
+
+const EMAIL_TEMPLATES: Record<EmailTemplateKey, EmailTemplate> = {
+  blank: {
+    label: "Blank email",
+    subject: "",
+    title: "",
+    preview: "",
+    body: "",
+    ctaLabel: "",
+    ctaUrl: "",
+  },
+  "trial-ending": {
+    label: "Trial ending",
+    subject: "Your TOTS-OS access is ending soon",
+    title: "Keep everything you've set up",
+    preview: "A quick heads-up before your TOTS-OS access ends.",
+    body:
+      "Hi,\n\nYour current TOTS-OS access is due to finish soon.\n\nIf you'd like to keep your workspace, data and everything you've already set up, you can continue onto a paid plan without having to start again.\n\nIf you're unsure which option makes the most sense for your business, just reply and we'll happily help.",
+    ctaLabel: "Continue with TOTS-OS",
+    ctaUrl: "https://tots-os.co.uk",
+  },
+  welcome: {
+    label: "Welcome",
+    subject: "Welcome to TOTS-OS",
+    title: "You're in.",
+    preview: "Your TOTS-OS workspace is ready.",
+    body:
+      "Hi,\n\nWelcome to TOTS-OS. Your workspace is ready for you to start bringing your clients, projects, tasks, finances and day-to-day business admin into one place.\n\nIf you need a hand getting set up, just reply to this email.",
+    ctaLabel: "Open TOTS-OS",
+    ctaUrl: "https://tots-os.co.uk",
+  },
+  "payment-required": {
+    label: "Payment required",
+    subject: "Action needed on your TOTS-OS account",
+    title: "Your account needs attention",
+    preview: "Please update your billing to keep your TOTS-OS access active.",
+    body:
+      "Hi,\n\nWe need you to update the billing on your TOTS-OS account to keep your access active.\n\nOnce that's sorted, your existing workspace and data will remain available as normal.\n\nIf you think you've received this by mistake, just reply and we'll check it for you.",
+    ctaLabel: "Update billing",
+    ctaUrl: "https://tots-os.co.uk",
+  },
+  "feature-announcement": {
+    label: "Feature announcement",
+    subject: "New in TOTS-OS",
+    title: "Something new has landed",
+    preview: "Take a look at the latest TOTS-OS update.",
+    body:
+      "Hi,\n\nWe've added something new to TOTS-OS and wanted you to be one of the first to know.\n\nAdd the feature details here, explain what it changes, and tell the client exactly where they can find it.\n\nAs always, reply if you'd like any help using it.",
+    ctaLabel: "Open TOTS-OS",
+    ctaUrl: "https://tots-os.co.uk",
+  },
+  "client-follow-up": {
+    label: "Client follow-up",
+    subject: "Just following up",
+    title: "A quick follow-up",
+    preview: "Checking in after our recent conversation.",
+    body:
+      "Hi,\n\nJust following up on our recent conversation.\n\nAdd your follow-up here, including any next steps, links or documents they need.\n\nIf you have any questions, just reply to this email.",
+    ctaLabel: "",
+    ctaUrl: "",
+  },
+  newsletter: {
+    label: "Newsletter / update",
+    subject: "What's new",
+    title: "A little update from us",
+    preview: "The latest news, updates and useful links.",
+    body:
+      "Hi,\n\nHere's a quick update on what's new.\n\nAdd your main story or announcement here, followed by anything else you'd like your audience to know.\n\nThanks for being part of it.",
+    ctaLabel: "Find out more",
+    ctaUrl: "https://tots-os.co.uk",
+  },
 };
 
 type EditForm = {
@@ -1049,12 +1157,97 @@ export default function AccountProfilePage() {
     setNewEmail,
   ] =
     useState({
-      subject:
-        "",
-
-      body:
-        "",
+      template: "blank" as EmailTemplateKey,
+      fromName: "",
+      fromEmail: "",
+      subject: "",
+      title: "",
+      preview: "",
+      body: "",
+      cc: "",
+      bcc: "",
+      ctaLabel: "",
+      ctaUrl: "",
+      links: [] as EmailLink[],
+      attachments: [] as EmailAttachment[],
     });
+
+  const [
+    showEmailPreview,
+    setShowEmailPreview,
+  ] = useState(false);
+
+  const resetNewEmail = () => {
+    setNewEmail({
+      template: "blank",
+      fromName: "",
+      fromEmail: "",
+      subject: "",
+      title: "",
+      preview: "",
+      body: "",
+      cc: "",
+      bcc: "",
+      ctaLabel: "",
+      ctaUrl: "",
+      links: [],
+      attachments: [],
+    });
+    setShowEmailPreview(false);
+  };
+
+  const applyEmailTemplate = (templateKey: EmailTemplateKey) => {
+    const template = EMAIL_TEMPLATES[templateKey];
+
+    setNewEmail((previous) => ({
+      ...previous,
+      template: templateKey,
+      subject: template.subject,
+      title: template.title,
+      preview: template.preview,
+      body: template.body,
+      ctaLabel: template.ctaLabel,
+      ctaUrl: template.ctaUrl,
+    }));
+  };
+
+  const handleEmailAttachments = async (files: FileList | null) => {
+    if (!files?.length) return;
+
+    const MAX_FILE_SIZE = 8 * 1024 * 1024;
+    const selected = Array.from(files);
+
+    const oversized = selected.find((file) => file.size > MAX_FILE_SIZE);
+    if (oversized) {
+      alert(`${oversized.name} is larger than 8MB. Please choose a smaller file.`);
+      return;
+    }
+
+    const encoded = await Promise.all(
+      selected.map(
+        (file) =>
+          new Promise<EmailAttachment>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = String(reader.result || "");
+              resolve({
+                name: file.name,
+                type: file.type || "application/octet-stream",
+                size: file.size,
+                data: result.includes(",") ? result.split(",")[1] : result,
+              });
+            };
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          })
+      )
+    );
+
+    setNewEmail((previous) => ({
+      ...previous,
+      attachments: [...previous.attachments, ...encoded],
+    }));
+  };
 
   // ==========================================================
   // EDITING
@@ -3880,14 +4073,29 @@ export default function AccountProfilePage() {
 
               body:
                 JSON.stringify({
-                  to:
-                    customer.email,
-
-                  subject:
-                    newEmail.subject.trim(),
-
-                  body:
-                    newEmail.body.trim(),
+                  fromName: newEmail.fromName.trim() || undefined,
+                  fromEmail: newEmail.fromEmail.trim(),
+                  to: customer.email,
+                  cc: newEmail.cc.trim() || undefined,
+                  bcc: newEmail.bcc.trim() || undefined,
+                  subject: newEmail.subject.trim(),
+                  title: newEmail.title.trim() || undefined,
+                  preview: newEmail.preview.trim() || undefined,
+                  body: newEmail.body.trim(),
+                  cta:
+                    newEmail.ctaLabel.trim() && newEmail.ctaUrl.trim()
+                      ? {
+                          label: newEmail.ctaLabel.trim(),
+                          url: newEmail.ctaUrl.trim(),
+                        }
+                      : undefined,
+                  links: newEmail.links
+                    .filter((link) => link.label.trim() && link.url.trim())
+                    .map((link) => ({
+                      label: link.label.trim(),
+                      url: link.url.trim(),
+                    })),
+                  attachments: newEmail.attachments,
                 }),
             }
           );
@@ -3912,13 +4120,7 @@ export default function AccountProfilePage() {
         if (
           !linkedContact?.id
         ) {
-          setNewEmail({
-            subject:
-              "",
-
-            body:
-              "",
-          });
+          resetNewEmail();
 
           alert(
             "Email sent successfully. This customer does not yet have a linked contact record, so the conversation could not be added to the TOTS email history."
@@ -4056,13 +4258,7 @@ export default function AccountProfilePage() {
             threadId
           );
 
-        setNewEmail({
-          subject:
-            "",
-
-          body:
-            "",
-        });
+        resetNewEmail();
 
         await fetchThreads();
 
@@ -5978,13 +6174,7 @@ export default function AccountProfilePage() {
                       true
                     );
 
-                    setNewEmail({
-                      subject:
-                        "",
-
-                      body:
-                        "",
-                    });
+                    resetNewEmail();
                   }}
                   className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 p-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
                 >
@@ -6096,84 +6286,411 @@ export default function AccountProfilePage() {
 
                 {showComposer && (
                   <form
-                    onSubmit={
-                      handleSendEmail
-                    }
-                    className="mb-6 space-y-3 rounded-2xl bg-stone-50 p-4"
+                    onSubmit={handleSendEmail}
+                    className="mb-6 overflow-hidden rounded-2xl border border-stone-200 bg-stone-50"
                   >
-                    <input
-                      className="tots-input bg-white"
-                      placeholder="Subject"
-                      value={
-                        newEmail.subject
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setNewEmail(
-                          (
-                            previous
-                          ) => ({
-                            ...previous,
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 bg-white px-4 py-3">
+                      <div>
+                        <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+                          Email builder
+                        </p>
+                        <p className="mt-1 text-xs text-stone-500">
+                          Build a richer, branded email without leaving the client record.
+                        </p>
+                      </div>
 
-                            subject:
-                              event.target.value,
-                          })
-                        )
-                      }
-                    />
+                      <button
+                        type="button"
+                        onClick={() => setShowEmailPreview((current) => !current)}
+                        className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-[8px] font-black uppercase tracking-[0.12em] text-stone-600 hover:bg-stone-50"
+                      >
+                        <Eye size={12} />
+                        {showEmailPreview ? "Edit email" : "Preview"}
+                      </button>
+                    </div>
 
-                    <textarea
-                      className="tots-input min-h-[140px] resize-none bg-white"
-                      placeholder="Write your message..."
-                      value={
-                        newEmail.body
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setNewEmail(
-                          (
-                            previous
-                          ) => ({
-                            ...previous,
+                    {showEmailPreview ? (
+                      <div className="p-4 sm:p-6">
+                        <div className="mx-auto max-w-2xl overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+                          <div className="border-b border-stone-100 bg-white px-6 py-3 text-[10px] text-stone-500">
+                            <span className="font-bold text-stone-700">
+                              From:
+                            </span>{" "}
+                            {newEmail.fromName.trim()
+                              ? `${newEmail.fromName.trim()} <${newEmail.fromEmail.trim() || "sender@example.com"}>`
+                              : newEmail.fromEmail.trim() || "sender@example.com"}
+                          </div>
+                          {newEmail.preview.trim() && (
+                            <div className="border-b border-stone-100 bg-stone-50 px-6 py-2 text-[10px] text-stone-400">
+                              {newEmail.preview}
+                            </div>
+                          )}
+                          <div className="p-6 sm:p-8">
+                            {newEmail.title.trim() && (
+                              <h3 className="font-serif text-3xl italic leading-tight text-stone-800">
+                                {newEmail.title}
+                              </h3>
+                            )}
+                            <div className="mt-5 whitespace-pre-wrap text-sm leading-7 text-stone-600">
+                              {newEmail.body || "Your email body will appear here."}
+                            </div>
+                            {newEmail.ctaLabel.trim() && newEmail.ctaUrl.trim() && (
+                              <div className="mt-6">
+                                <span className="inline-flex rounded-xl bg-[#a9b897] px-5 py-3 text-xs font-bold text-white">
+                                  {newEmail.ctaLabel}
+                                </span>
+                              </div>
+                            )}
+                            {newEmail.links.some((link) => link.label.trim() && link.url.trim()) && (
+                              <div className="mt-6 border-t border-stone-100 pt-5">
+                                <p className="mb-2 text-[9px] font-black uppercase tracking-[0.12em] text-stone-400">
+                                  Links
+                                </p>
+                                <div className="space-y-2">
+                                  {newEmail.links
+                                    .filter((link) => link.label.trim() && link.url.trim())
+                                    .map((link) => (
+                                      <div key={link.id} className="text-xs text-[#708064] underline">
+                                        {link.label}
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+                            )}
+                            {newEmail.attachments.length > 0 && (
+                              <div className="mt-6 border-t border-stone-100 pt-5">
+                                <p className="mb-2 text-[9px] font-black uppercase tracking-[0.12em] text-stone-400">
+                                  Attachments
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {newEmail.attachments.map((file, index) => (
+                                    <span key={`${file.name}-${index}`} className="rounded-lg bg-stone-100 px-3 py-2 text-[10px] text-stone-600">
+                                      {file.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-5 p-4 sm:p-5">
+                        <div className="rounded-2xl border border-[#a9b897]/40 bg-[#a9b897]/5 p-4">
+                          <label className="mb-1.5 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.12em] text-stone-500">
+                            <Sparkles size={11} /> Email template
+                          </label>
+                          <select
+                            className="tots-input bg-white"
+                            value={newEmail.template}
+                            onChange={(event) =>
+                              applyEmailTemplate(event.target.value as EmailTemplateKey)
+                            }
+                          >
+                            {(Object.entries(EMAIL_TEMPLATES) as [EmailTemplateKey, EmailTemplate][]).map(
+                              ([key, template]) => (
+                                <option key={key} value={key}>
+                                  {template.label}
+                                </option>
+                              )
+                            )}
+                          </select>
+                          <p className="mt-2 text-[10px] leading-5 text-stone-500">
+                            Selecting a template fills the subject, preview, title, message and CTA. You can edit everything afterwards.
+                          </p>
+                        </div>
 
-                            body:
-                              event.target.value,
-                          })
-                        )
-                      }
-                    />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
+                              From name
+                            </label>
+                            <input
+                              className="tots-input bg-white"
+                              placeholder="e.g. Leigha at The Organised Types"
+                              value={newEmail.fromName}
+                              onChange={(event) =>
+                                setNewEmail((previous) => ({
+                                  ...previous,
+                                  fromName: event.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
+                              From email
+                            </label>
+                            <input
+                              type="email"
+                              className="tots-input bg-white"
+                              placeholder="e.g. hello@yourdomain.co.uk"
+                              value={newEmail.fromEmail}
+                              onChange={(event) =>
+                                setNewEmail((previous) => ({
+                                  ...previous,
+                                  fromEmail: event.target.value,
+                                }))
+                              }
+                              required
+                            />
+                            <p className="mt-1 text-[9px] leading-4 text-stone-400">
+                              Must use a domain verified in your Resend account.
+                            </p>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
+                              To
+                            </label>
+                            <input className="tots-input bg-stone-100" value={customer.email || ""} disabled />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">CC</label>
+                            <input
+                              className="tots-input bg-white"
+                              placeholder="name@company.com"
+                              value={newEmail.cc}
+                              onChange={(event) => setNewEmail((previous) => ({ ...previous, cc: event.target.value }))}
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">BCC</label>
+                            <input
+                              className="tots-input bg-white"
+                              placeholder="name@company.com"
+                              value={newEmail.bcc}
+                              onChange={(event) => setNewEmail((previous) => ({ ...previous, bcc: event.target.value }))}
+                            />
+                          </div>
+                        </div>
 
-                    <button
-                      type="submit"
-                      disabled={
-                        emailSaving ||
-                        !customer.email ||
-                        !newEmail.subject.trim() ||
-                        !newEmail.body.trim()
-                      }
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#a9b897] py-3.5 text-[8px] font-black uppercase tracking-[0.14em] text-white disabled:opacity-40"
-                    >
-                      {emailSaving ? (
-                        <>
-                          <Loader2
-                            size={13}
-                            className="animate-spin"
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="sm:col-span-2">
+                            <label className="mb-1.5 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
+                              <Mail size={11} /> Subject
+                            </label>
+                            <input
+                              className="tots-input bg-white"
+                              placeholder="What appears in the inbox"
+                              value={newEmail.subject}
+                              onChange={(event) => setNewEmail((previous) => ({ ...previous, subject: event.target.value }))}
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
+                              <Heading2 size={11} /> Email title
+                            </label>
+                            <input
+                              className="tots-input bg-white"
+                              placeholder="Large heading inside the email"
+                              value={newEmail.title}
+                              onChange={(event) => setNewEmail((previous) => ({ ...previous, title: event.target.value }))}
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">Preview text</label>
+                            <input
+                              className="tots-input bg-white"
+                              placeholder="Short inbox preview / preheader"
+                              value={newEmail.preview}
+                              maxLength={180}
+                              onChange={(event) => setNewEmail((previous) => ({ ...previous, preview: event.target.value }))}
+                            />
+                            <p className="mt-1 text-right text-[9px] text-stone-400">{newEmail.preview.length}/180</p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">Message</label>
+                          <textarea
+                            className="tots-input min-h-[190px] resize-y bg-white"
+                            placeholder="Write your message..."
+                            value={newEmail.body}
+                            onChange={(event) => setNewEmail((previous) => ({ ...previous, body: event.target.value }))}
                           />
+                        </div>
 
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Send
-                            size={13}
-                          />
+                        <div className="rounded-2xl border border-stone-200 bg-white p-4">
+                          <div className="mb-3 flex items-center gap-2">
+                            <Link2 size={13} className="text-[#849276]" />
+                            <p className="text-[9px] font-black uppercase tracking-[0.12em] text-stone-500">Primary button</p>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <input
+                              className="tots-input bg-stone-50"
+                              placeholder="Button label e.g. Continue with TOTS-OS"
+                              value={newEmail.ctaLabel}
+                              onChange={(event) => setNewEmail((previous) => ({ ...previous, ctaLabel: event.target.value }))}
+                            />
+                            <input
+                              className="tots-input bg-stone-50"
+                              placeholder="https://..."
+                              value={newEmail.ctaUrl}
+                              onChange={(event) => setNewEmail((previous) => ({ ...previous, ctaUrl: event.target.value }))}
+                            />
+                          </div>
+                        </div>
 
-                          Send email
-                        </>
-                      )}
-                    </button>
+                        <div className="rounded-2xl border border-stone-200 bg-white p-4">
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <Link2 size={13} className="text-[#849276]" />
+                              <p className="text-[9px] font-black uppercase tracking-[0.12em] text-stone-500">Additional links</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setNewEmail((previous) => ({
+                                  ...previous,
+                                  links: [
+                                    ...previous.links,
+                                    { id: `${Date.now()}-${previous.links.length}`, label: "", url: "" },
+                                  ],
+                                }))
+                              }
+                              className="flex items-center gap-1 rounded-lg bg-stone-100 px-2.5 py-2 text-[8px] font-black uppercase tracking-[0.1em] text-stone-600"
+                            >
+                              <Plus size={11} /> Add link
+                            </button>
+                          </div>
+
+                          {newEmail.links.length === 0 ? (
+                            <p className="text-xs text-stone-400">Add text links for booking pages, documents, payment pages, websites or anything else.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {newEmail.links.map((link, index) => (
+                                <div key={link.id} className="grid gap-2 sm:grid-cols-[1fr_1.5fr_auto]">
+                                  <input
+                                    className="tots-input bg-stone-50"
+                                    placeholder="Link text"
+                                    value={link.label}
+                                    onChange={(event) =>
+                                      setNewEmail((previous) => ({
+                                        ...previous,
+                                        links: previous.links.map((item, itemIndex) =>
+                                          itemIndex === index ? { ...item, label: event.target.value } : item
+                                        ),
+                                      }))
+                                    }
+                                  />
+                                  <input
+                                    className="tots-input bg-stone-50"
+                                    placeholder="https://..."
+                                    value={link.url}
+                                    onChange={(event) =>
+                                      setNewEmail((previous) => ({
+                                        ...previous,
+                                        links: previous.links.map((item, itemIndex) =>
+                                          itemIndex === index ? { ...item, url: event.target.value } : item
+                                        ),
+                                      }))
+                                    }
+                                  />
+                                  <button
+                                    type="button"
+                                    aria-label="Remove link"
+                                    onClick={() =>
+                                      setNewEmail((previous) => ({
+                                        ...previous,
+                                        links: previous.links.filter((_, itemIndex) => itemIndex !== index),
+                                      }))
+                                    }
+                                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-stone-200 text-stone-400 hover:bg-stone-50 hover:text-red-500"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="rounded-2xl border border-stone-200 bg-white p-4">
+                          <div className="mb-3 flex items-center gap-2">
+                            <Paperclip size={13} className="text-[#849276]" />
+                            <p className="text-[9px] font-black uppercase tracking-[0.12em] text-stone-500">Attachments</p>
+                          </div>
+
+                          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-stone-300 bg-stone-50 px-4 py-4 text-xs text-stone-500 hover:border-[#a9b897] hover:bg-[#a9b897]/5">
+                            <Paperclip size={14} />
+                            Add files
+                            <input
+                              type="file"
+                              multiple
+                              className="hidden"
+                              onChange={(event) => {
+                                void handleEmailAttachments(event.target.files);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                          </label>
+
+                          {newEmail.attachments.length > 0 && (
+                            <div className="mt-3 space-y-2">
+                              {newEmail.attachments.map((file, index) => (
+                                <div key={`${file.name}-${index}`} className="flex items-center justify-between gap-3 rounded-xl bg-stone-50 px-3 py-2.5">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-xs font-medium text-stone-700">{file.name}</p>
+                                    <p className="mt-0.5 text-[9px] text-stone-400">{(file.size / 1024).toFixed(file.size > 1024 * 1024 ? 0 : 1)} KB</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setNewEmail((previous) => ({
+                                        ...previous,
+                                        attachments: previous.attachments.filter((_, itemIndex) => itemIndex !== index),
+                                      }))
+                                    }
+                                    className="rounded-lg p-2 text-stone-400 hover:bg-white hover:text-red-500"
+                                  >
+                                    <X size={13} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <p className="mt-2 text-[9px] text-stone-400">Up to 8MB per file. Your send-email API must accept the attachment payload shown in this page.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-3 border-t border-stone-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-[10px] text-stone-400">
+                        {newEmail.attachments.length} attachment{newEmail.attachments.length === 1 ? "" : "s"} · {newEmail.links.length} extra link{newEmail.links.length === 1 ? "" : "s"}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={resetNewEmail}
+                          className="rounded-xl border border-stone-200 px-4 py-3 text-[8px] font-black uppercase tracking-[0.12em] text-stone-500"
+                        >
+                          Clear
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={
+                            emailSaving ||
+                            !customer.email ||
+                            !newEmail.fromEmail.trim() ||
+                            !newEmail.subject.trim() ||
+                            !newEmail.body.trim()
+                          }
+                          className="flex min-w-[150px] items-center justify-center gap-2 rounded-xl bg-[#a9b897] px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white disabled:opacity-40"
+                        >
+                          {emailSaving ? (
+                            <>
+                              <Loader2 size={13} className="animate-spin" />
+                              Sending...
+                            </>
+                          ) : (
+                            <>
+                              <Send size={13} />
+                              Send email
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
                   </form>
                 )}
 

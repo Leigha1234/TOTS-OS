@@ -1159,7 +1159,6 @@ export default function AccountProfilePage() {
     useState({
       template: "blank" as EmailTemplateKey,
       fromName: "",
-      fromEmail: "",
       subject: "",
       title: "",
       preview: "",
@@ -1181,7 +1180,6 @@ export default function AccountProfilePage() {
     setNewEmail({
       template: "blank",
       fromName: "",
-      fromEmail: "",
       subject: "",
       title: "",
       preview: "",
@@ -4074,7 +4072,6 @@ export default function AccountProfilePage() {
               body:
                 JSON.stringify({
                   fromName: newEmail.fromName.trim() || undefined,
-                  fromEmail: newEmail.fromEmail.trim(),
                   to: customer.email,
                   cc: newEmail.cc.trim() || undefined,
                   bcc: newEmail.bcc.trim() || undefined,
@@ -6317,8 +6314,8 @@ export default function AccountProfilePage() {
                               From:
                             </span>{" "}
                             {newEmail.fromName.trim()
-                              ? `${newEmail.fromName.trim()} <${newEmail.fromEmail.trim() || "sender@example.com"}>`
-                              : newEmail.fromEmail.trim() || "sender@example.com"}
+                              ? `${newEmail.fromName.trim()} <hello@tots-os.co.uk>`
+                              : "hello@tots-os.co.uk"}
                           </div>
                           {newEmail.preview.trim() && (
                             <div className="border-b border-stone-100 bg-stone-50 px-6 py-2 text-[10px] text-stone-400">
@@ -6401,7 +6398,7 @@ export default function AccountProfilePage() {
                         </div>
 
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <div>
+                          <div className="sm:col-span-2">
                             <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
                               From name
                             </label>
@@ -6416,27 +6413,25 @@ export default function AccountProfilePage() {
                                 }))
                               }
                             />
-                          </div>
-                          <div>
-                            <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
-                              From email
-                            </label>
-                            <input
-                              type="email"
-                              className="tots-input bg-white"
-                              placeholder="e.g. hello@yourdomain.co.uk"
-                              value={newEmail.fromEmail}
-                              onChange={(event) =>
-                                setNewEmail((previous) => ({
-                                  ...previous,
-                                  fromEmail: event.target.value,
-                                }))
-                              }
-                              required
-                            />
-                            <p className="mt-1 text-[9px] leading-4 text-stone-400">
-                              Must use a domain verified in your Resend account.
-                            </p>
+
+                            <div className="mt-3 rounded-xl border border-[#a9b897]/40 bg-[#a9b897]/10 px-4 py-3">
+                              <p className="text-[11px] font-semibold leading-5 text-stone-700">
+                                This email will be sent from{" "}
+                                <span className="font-black">
+                                  {newEmail.fromName.trim() || "[From name]"} - hello@tots-os.co.uk
+                                </span>
+                              </p>
+                              <p className="mt-1 text-[10px] leading-5 text-stone-500">
+                                If you want emails to be sent from your actual email address, get in touch with{" "}
+                                <a
+                                  href="mailto:theorganisedtypes@gmail.com"
+                                  className="font-bold text-stone-700 underline underline-offset-2"
+                                >
+                                  theorganisedtypes@gmail.com
+                                </a>
+                                .
+                              </p>
+                            </div>
                           </div>
                           <div className="sm:col-span-2">
                             <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
@@ -6671,7 +6666,6 @@ export default function AccountProfilePage() {
                           disabled={
                             emailSaving ||
                             !customer.email ||
-                            !newEmail.fromEmail.trim() ||
                             !newEmail.subject.trim() ||
                             !newEmail.body.trim()
                           }

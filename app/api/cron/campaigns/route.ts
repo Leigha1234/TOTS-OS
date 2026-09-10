@@ -441,25 +441,28 @@ function buildUnsubscribeUrl(
   }
 
   const token =
-    createCampaignUnsubscribeToken({
-      recipientId:
-        delivery.recipient_id,
+  createCampaignUnsubscribeToken({
+    campaignId:
+      campaign.id,
 
-      email:
-        normaliseEmail(
-          delivery.email
-        ),
+    recipientId:
+      delivery.recipient_id,
 
-      source:
-        delivery.recipient_source,
+    email:
+      normaliseEmail(
+        delivery.email
+      ),
 
-      listId:
-        campaign.list_id,
+    source:
+      delivery.recipient_source,
 
-      organisationId:
-        campaign.organisation_id,
-    });
+    listId:
+      campaign.list_id,
 
+    organisationId:
+      campaign.organisation_id,
+  });
+  
   const origin =
     buildAppOrigin(
       request

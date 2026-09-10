@@ -78,6 +78,44 @@ function getErrorMessage(error: unknown): string {
 }
 
 // ==================================================
+// LOAD UNSUBSCRIBED EMAILS
+// ==================================================
+
+async function loadSuppressedEmails(
+  organisationId: string
+): Promise<Set<string>> {
+  const {
+    data,
+    error,
+  } = await supabaseAdmin
+    .from("campaign_unsubscribes")
+    .select("email")
+    .eq(
+      "organisation_id",
+      organisationId
+    );
+
+  if (error) {
+    // If the table has not been created yet,
+    // do not break campaign queueing.
+    console.warn(
+      "Could not load campaign_unsubscribes:",
+      error.message
+    );
+
+    return new Set<string>();
+  }
+
+  return new Set(
+    (data || [])
+      .map((row) =>
+        cleanEmail(row.email)
+      )
+      .filter(Boolean)
+  );
+}
+
+// ==================================================
 // LOAD CAMPAIGN RECIPIENTS
 // ==================================================
 
@@ -89,10 +127,17 @@ async function loadCampaignRecipients(
   }
 
   if (!campaign.organisation_id) {
-    throw new Error("Campaign missing organisation_id");
+    throw new Error(
+      "Campaign missing organisation_id"
+    );
   }
 
   const recipients: CampaignRecipient[] = [];
+
+  const suppressedEmails =
+    await loadSuppressedEmails(
+      campaign.organisation_id
+    );
 
   // ==================================================
   // PROFILE RECIPIENTS
@@ -111,7 +156,10 @@ async function loadCampaignRecipients(
         is_subscribed
       )
     `)
-    .eq("list_id", campaign.list_id);
+    .eq(
+      "list_id",
+      campaign.list_id
+    );
 
   if (profileError) {
     throw new Error(
@@ -128,18 +176,35 @@ async function loadCampaignRecipients(
       continue;
     }
 
-    if (profile.is_subscribed === false) {
+    if (
+      profile.is_subscribed === false
+    ) {
       continue;
     }
 
-    const email = cleanEmail(profile.email);
+    const email =
+      cleanEmail(
+        profile.email
+      );
 
-    if (!email || !isValidEmail(email)) {
+    if (
+      !email ||
+      !isValidEmail(email)
+    ) {
+      continue;
+    }
+
+    if (
+      suppressedEmails.has(email)
+    ) {
       continue;
     }
 
     recipients.push({
-      id: String(profile.id || row.profile_id),
+      id: String(
+        profile.id ||
+          row.profile_id
+      ),
       email,
       source: "profile",
     });
@@ -154,9 +219,19 @@ async function loadCampaignRecipients(
     error: manualError,
   } = await supabaseAdmin
     .from("campaign_list_emails")
-    .select("id,email,organisation_id")
-    .eq("list_id", campaign.list_id)
-    .eq("organisation_id", campaign.organisation_id);
+    .select(`
+      id,
+      email,
+      organisation_id
+    `)
+    .eq(
+      "list_id",
+      campaign.list_id
+    )
+    .eq(
+      "organisation_id",
+      campaign.organisation_id
+    );
 
   if (manualError) {
     throw new Error(
@@ -165,9 +240,15 @@ async function loadCampaignRecipients(
   }
 
   for (const row of manualRows || []) {
-    const email = cleanEmail(row.email);
+    const email =
+      cleanEmail(
+        row.email
+      );
 
-    if (!email || !isValidEmail(email)) {
+    if (
+      !email ||
+      !isValidEmail(email)
+    ) {
       console.warn(
         "Skipping invalid campaign email:",
         row.email
@@ -176,8 +257,16 @@ async function loadCampaignRecipients(
       continue;
     }
 
+    if (
+      suppressedEmails.has(email)
+    ) {
+      continue;
+    }
+
     recipients.push({
-      id: String(row.id),
+      id: String(
+        row.id
+      ),
       email,
       source: "manual",
     });
@@ -187,16 +276,28 @@ async function loadCampaignRecipients(
   // DEDUPE
   // ==================================================
 
-  const seen = new Set<string>();
-  const uniqueRecipients: CampaignRecipient[] = [];
+  const seen =
+    new Set<string>();
+
+  const uniqueRecipients: CampaignRecipient[] =
+    [];
 
   for (const recipient of recipients) {
-    if (seen.has(recipient.email)) {
+    if (
+      seen.has(
+        recipient.email
+      )
+    ) {
       continue;
     }
 
-    seen.add(recipient.email);
-    uniqueRecipients.push(recipient);
+    seen.add(
+      recipient.email
+    );
+
+    uniqueRecipients.push(
+      recipient
+    );
   }
 
   return uniqueRecipients;
@@ -206,9 +307,12 @@ async function loadCampaignRecipients(
 // POST
 // ==================================================
 
-export async function POST(req: Request) {
+export async function POST(
+  req: Request
+) {
   try {
-    const body = await req.json();
+    const body =
+      await req.json();
 
     const campaignId =
       typeof body?.campaignId === "string"
@@ -218,7 +322,8 @@ export async function POST(req: Request) {
     if (!campaignId) {
       return NextResponse.json(
         {
-          error: "Missing campaignId",
+          error:
+            "Missing campaignId",
         },
         {
           status: 400,
@@ -236,10 +341,16 @@ export async function POST(req: Request) {
     } = await supabaseAdmin
       .from("campaigns")
       .select("*")
-      .eq("id", campaignId)
+      .eq(
+        "id",
+        campaignId
+      )
       .single();
 
-    if (campaignError || !campaign) {
+    if (
+      campaignError ||
+      !campaign
+    ) {
       return NextResponse.json(
         {
           error:
@@ -252,40 +363,52 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!campaign.organisation_id) {
-      return NextResponse.json(
-        {
-          error: "Campaign missing organisation_id",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (!campaign.list_id) {
-      return NextResponse.json(
-        {
-          error: "Campaign missing list_id",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    // Prevent duplicate queueing while already active.
     if (
-      campaign.status === "processing" ||
-      campaign.status === "sending"
+      !campaign.organisation_id
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Campaign missing organisation_id",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (
+      !campaign.list_id
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Campaign missing list_id",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    // Prevent duplicate queueing while active.
+    if (
+      campaign.status ===
+        "processing" ||
+      campaign.status ===
+        "sending"
     ) {
       return NextResponse.json(
         {
           success: true,
+
           message:
             "Campaign is already queued and processing.",
+
           campaignId,
-          status: campaign.status,
+
+          status:
+            campaign.status,
         },
         {
           status: 200,
@@ -302,11 +425,13 @@ export async function POST(req: Request) {
         campaign
       );
 
-    if (recipients.length === 0) {
+    if (
+      recipients.length === 0
+    ) {
       return NextResponse.json(
         {
           error:
-            "No recipients found for this campaign",
+            "No subscribed recipients found for this campaign",
         },
         {
           status: 400,
@@ -322,7 +447,9 @@ export async function POST(req: Request) {
       data: existingRows,
       error: existingError,
     } = await supabaseAdmin
-      .from("campaign_deliveries")
+      .from(
+        "campaign_deliveries"
+      )
       .select(`
         id,
         email,
@@ -334,18 +461,24 @@ export async function POST(req: Request) {
         campaignId
       );
 
-    if (existingError) {
+    if (
+      existingError
+    ) {
       throw new Error(
         `Failed to load deliveries: ${existingError.message}`
       );
     }
 
-    const existingMap = new Map<
-      string,
-      ExistingDelivery
-    >();
+    const existingMap =
+      new Map<
+        string,
+        ExistingDelivery
+      >();
 
-    for (const row of existingRows || []) {
+    for (
+      const row of
+      existingRows || []
+    ) {
       const email =
         cleanEmail(
           row.email
@@ -358,15 +491,22 @@ export async function POST(req: Request) {
       existingMap.set(
         email,
         {
-          id: String(row.id),
+          id: String(
+            row.id
+          ),
+
           email,
+
           status:
             String(
-              row.status || ""
+              row.status ||
+                ""
             ),
+
           attempts:
             Number(
-              row.attempts || 0
+              row.attempts ||
+                0
             ),
         }
       );
@@ -378,7 +518,7 @@ export async function POST(req: Request) {
 
     const alreadySent =
       recipients.filter(
-        recipient =>
+        (recipient) =>
           existingMap.get(
             recipient.email
           )?.status ===
@@ -387,7 +527,7 @@ export async function POST(req: Request) {
 
     const needsSending =
       recipients.filter(
-        recipient =>
+        (recipient) =>
           existingMap.get(
             recipient.email
           )?.status !==
@@ -402,16 +542,22 @@ export async function POST(req: Request) {
       needsSending.length === 0
     ) {
       const now =
-        new Date().toISOString();
+        new Date()
+          .toISOString();
 
       const {
         error,
       } = await supabaseAdmin
-        .from("campaigns")
+        .from(
+          "campaigns"
+        )
         .update({
-          status: "sent",
+          status:
+            "sent",
+
           sent_count:
             alreadySent.length,
+
           sent_at:
             campaign.sent_at ||
             now,
@@ -429,13 +575,18 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         success: true,
+
         message:
           "All campaign recipients have already been sent.",
+
         campaignId,
+
         totalRecipients:
           recipients.length,
+
         alreadySent:
           alreadySent.length,
+
         queued: 0,
       });
     }
@@ -445,32 +596,30 @@ export async function POST(req: Request) {
     // ==================================================
 
     const now =
-      new Date().toISOString();
+      new Date()
+        .toISOString();
 
     const queueRows =
       needsSending.map(
-        recipient => ({
+        (recipient) => ({
           campaign_id:
             campaignId,
 
           organisation_id:
             campaign.organisation_id,
 
+          recipient_id:
+            recipient.id,
+
+          recipient_source:
+            recipient.source,
+
           email:
             recipient.email,
 
-          // Delivery states are:
-          // pending -> sending -> sent / failed
           status:
             "pending",
 
-          // IMPORTANT:
-          // A deliberate queue/requeue starts a fresh
-          // retry cycle.
-          //
-          // This prevents historical rate-limit failures
-          // from causing the new worker to immediately
-          // skip recipients because attempts >= 5.
           attempts:
             0,
 
@@ -491,7 +640,9 @@ export async function POST(req: Request) {
     const {
       error: queueError,
     } = await supabaseAdmin
-      .from("campaign_deliveries")
+      .from(
+        "campaign_deliveries"
+      )
       .upsert(
         queueRows,
         {
@@ -514,7 +665,9 @@ export async function POST(req: Request) {
       error:
         campaignUpdateError,
     } = await supabaseAdmin
-      .from("campaigns")
+      .from(
+        "campaigns"
+      )
       .update({
         status:
           "processing",
@@ -538,15 +691,14 @@ export async function POST(req: Request) {
     // ==================================================
     // CAMPAIGN JOB
     // ==================================================
-    //
-    // campaign_jobs is useful for tracking but is not
-    // the source of truth. A job insert failure should
-    // therefore not stop the campaign itself.
 
     const {
-      error: jobError,
+      error:
+        jobError,
     } = await supabaseAdmin
-      .from("campaign_jobs")
+      .from(
+        "campaign_jobs"
+      )
       .insert({
         campaign_id:
           campaignId,

@@ -31,6 +31,7 @@ import {
   MousePointerClick,
   Plus,
   RefreshCw,
+  Search,
   Send,
   Sparkles,
   Trash2,
@@ -193,6 +194,9 @@ const MESSAGE_END =
 
 const IMAGE_BUCKET =
   "campaign-images";
+
+const UNSUBSCRIBE_URL_TOKEN =
+  "{{unsubscribe_url}}";
 
 const EDITOR_STEPS: {
   id: EditorStep;
@@ -930,6 +934,31 @@ function buildCampaignHtml({
             : ""
         }
 
+        <div
+          style="
+            margin-top:18px;
+          "
+        >
+          <a
+            href="${UNSUBSCRIBE_URL_TOKEN}"
+            data-tots-unsubscribe="true"
+            style="
+              display:inline-block;
+              padding:9px 14px;
+              border:1px solid #d6d3d1;
+              border-radius:999px;
+              color:#78716c;
+              font-size:9px;
+              font-weight:700;
+              letter-spacing:0.08em;
+              text-decoration:none;
+              text-transform:uppercase;
+            "
+          >
+            Unsubscribe
+          </a>
+        </div>
+
         <p
           style="
             margin:16px 0 0;
@@ -1431,6 +1460,18 @@ export default function CampaignsPage() {
     useState<CampaignSort>(
       "date_desc"
     );
+
+  const [
+    campaignSearch,
+    setCampaignSearch,
+  ] =
+    useState("");
+
+  const [
+    subscriberSearch,
+    setSubscriberSearch,
+  ] =
+    useState("");
 
   const [
     lists,
@@ -3518,11 +3559,36 @@ export default function CampaignsPage() {
             : timestamp;
         };
 
+      const searchTerm =
+        campaignSearch
+          .trim()
+          .toLowerCase();
+
       const filtered =
         campaigns.filter(
           (
             campaign
           ) => {
+            const matchesSearch =
+              !searchTerm ||
+              [
+                campaign.title,
+                campaign.subject,
+                campaign.subscriber_lists?.name,
+                campaign.sender_name,
+                campaign.reply_to,
+              ]
+                .filter(Boolean)
+                .some((value) =>
+                  String(value)
+                    .toLowerCase()
+                    .includes(searchTerm)
+                );
+
+            if (!matchesSearch) {
+              return false;
+            }
+
             if (
               campaignFilter ===
               "all"
@@ -3615,6 +3681,66 @@ export default function CampaignsPage() {
       campaigns,
       campaignFilter,
       campaignSort,
+      campaignSearch,
+    ]);
+
+  const filteredListSubscribers =
+    useMemo(() => {
+      const term =
+        subscriberSearch
+          .trim()
+          .toLowerCase();
+
+      if (!term) {
+        return listSubscribers;
+      }
+
+      return listSubscribers.filter(
+        (subscriber) =>
+          [
+            subscriber.name,
+            subscriber.email,
+          ]
+            .filter(Boolean)
+            .some((value) =>
+              String(value)
+                .toLowerCase()
+                .includes(term)
+            )
+      );
+    }, [
+      listSubscribers,
+      subscriberSearch,
+    ]);
+
+  const filteredProfiles =
+    useMemo(() => {
+      const term =
+        subscriberSearch
+          .trim()
+          .toLowerCase();
+
+      if (!term) {
+        return profiles;
+      }
+
+      return profiles.filter(
+        (profile) =>
+          [
+            profile.full_name,
+            profile.name,
+            profile.email,
+          ]
+            .filter(Boolean)
+            .some((value) =>
+              String(value)
+                .toLowerCase()
+                .includes(term)
+            )
+      );
+    }, [
+      profiles,
+      subscriberSearch,
     ]);
 
   // ==================================================
@@ -4748,7 +4874,7 @@ await callSendApi(campaignId);
       );
 
       try {
-        const html =
+        const generatedHtml =
           buildCampaignHtml(
             {
               message:
@@ -4780,6 +4906,12 @@ await callSendApi(campaignId);
               customHtml:
                 campaignForm.customHtml,
             }
+          );
+
+        const html =
+          generatedHtml.replaceAll(
+            UNSUBSCRIBE_URL_TOKEN,
+            "https://tots-os.co.uk/unsubscribe"
           );
 
         const response =
@@ -7207,6 +7339,24 @@ await callSendApi(campaignId);
             </button>
           </div>
 
+          <div className="relative mb-4">
+            <Search
+              size={15}
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
+            />
+            <input
+              type="search"
+              value={subscriberSearch}
+              onChange={(event) =>
+                setSubscriberSearch(
+                  event.target.value
+                )
+              }
+              placeholder="Search subscribers by name or email..."
+              className="w-full rounded-2xl border border-stone-200 bg-white py-3.5 pl-11 pr-4 text-sm outline-none transition focus:border-stone-400"
+            />
+          </div>
+
           <div className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm">
             <div className="grid grid-cols-[1fr_auto] border-b border-stone-100 bg-stone-50 px-6 py-4 text-[8px] font-black uppercase tracking-wider text-stone-400">
               <span>
@@ -7222,7 +7372,7 @@ await callSendApi(campaignId);
               <div className="flex justify-center py-16">
                 <Loader2 className="animate-spin text-stone-300" />
               </div>
-            ) : listSubscribers.length ===
+            ) : filteredListSubscribers.length ===
               0 ? (
               <div className="py-16 text-center">
                 <Mail
@@ -7231,13 +7381,13 @@ await callSendApi(campaignId);
                 />
 
                 <p className="mt-4 text-sm font-semibold text-stone-400">
-                  This
-                  audience is
-                  empty.
+                  {listSubscribers.length === 0
+                    ? "This audience is empty."
+                    : "No subscribers match your search."}
                 </p>
               </div>
             ) : (
-              listSubscribers.map(
+              filteredListSubscribers.map(
                 (
                   subscriber
                 ) => (
@@ -7378,8 +7528,26 @@ await callSendApi(campaignId);
                       contacts
                     </FieldLabel>
 
+                    <div className="relative mb-3">
+                      <Search
+                        size={14}
+                        className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+                      />
+                      <input
+                        type="search"
+                        value={subscriberSearch}
+                        onChange={(event) =>
+                          setSubscriberSearch(
+                            event.target.value
+                          )
+                        }
+                        placeholder="Search contacts..."
+                        className="w-full rounded-xl border border-stone-200 bg-stone-50 py-3 pl-10 pr-3 text-sm outline-none"
+                      />
+                    </div>
+
                     <div className="space-y-2">
-                      {profiles.map(
+                      {filteredProfiles.map(
                         (
                           profile
                         ) => {
@@ -7958,7 +8126,26 @@ await callSendApi(campaignId);
 
         {/* CAMPAIGNS TABLE */}
 
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4">
+          <div className="relative mb-3">
+            <Search
+              size={15}
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
+            />
+            <input
+              type="search"
+              value={campaignSearch}
+              onChange={(event) =>
+                setCampaignSearch(
+                  event.target.value
+                )
+              }
+              placeholder="Search campaigns by title, subject, audience, sender or reply-to..."
+              className="w-full rounded-2xl border border-stone-200 bg-white py-3.5 pl-11 pr-4 text-sm outline-none transition focus:border-stone-400"
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-2">
             {(
               [
@@ -8023,6 +8210,7 @@ await callSendApi(campaignId);
               Name · Z–A
             </option>
           </select>
+          </div>
         </div>
 
         <section className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm">
@@ -8047,7 +8235,7 @@ await callSendApi(campaignId);
               <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-stone-400">
                 {campaigns.length === 0
                   ? "Create your first email, choose your audience and send it from TOTS-OS."
-                  : "Try changing your campaign filter."}
+                  : "Try changing your search or campaign filter."}
               </p>
 
               <button

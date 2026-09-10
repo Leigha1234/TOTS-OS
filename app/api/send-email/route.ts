@@ -30,7 +30,7 @@ type EmailAttachment = {
 
 type SendEmailRequest = {
   fromName?: string;
-  fromEmail?: string;
+  replyTo?: string;
 
   to?: string;
   email?: string;
@@ -55,6 +55,16 @@ type SendEmailRequest = {
 
   type?: string;
 };
+
+// ============================================================
+// CONSTANTS
+// ============================================================
+
+const SENDER_EMAIL =
+  "hello@tots-os.co.uk";
+
+const DEFAULT_FROM_NAME =
+  "TOTS-OS";
 
 // ============================================================
 // HELPERS
@@ -179,10 +189,18 @@ function bodyToHtml(
     .split("\n\n")
     .map(
       (paragraph) =>
-        `<p style="margin:0 0 18px;">${paragraph.replaceAll(
-          "\n",
-          "<br />"
-        )}</p>`
+        `
+          <p
+            style="
+              margin:0 0 18px;
+            "
+          >
+            ${paragraph.replaceAll(
+              "\n",
+              "<br />"
+            )}
+          </p>
+        `
     )
     .join("");
 }
@@ -195,6 +213,10 @@ export async function POST(
   req: NextRequest
 ) {
   try {
+    // ==========================================================
+    // RESEND
+    // ==========================================================
+
     const resendApiKey =
       process.env
         .RESEND_API_KEY;
@@ -207,6 +229,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
+
           error:
             "Email service is not configured.",
         },
@@ -221,6 +244,10 @@ export async function POST(
         resendApiKey
       );
 
+    // ==========================================================
+    // REQUEST BODY
+    // ==========================================================
+
     let payload: SendEmailRequest;
 
     try {
@@ -230,6 +257,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
+
           error:
             "Invalid request body.",
         },
@@ -240,31 +268,54 @@ export async function POST(
     }
 
     // ==========================================================
-    // SENDER
+    // FROM
     // ==========================================================
 
-    const fromEmail =
-      normaliseEmail(
-        payload.fromEmail
-      );
-
-    const fromName =
+    const rawFromName =
       typeof payload.fromName ===
       "string"
         ? payload.fromName.trim()
         : "";
 
+    const fromName =
+      rawFromName ||
+      DEFAULT_FROM_NAME;
+
+    // Prevent someone putting HTML/email syntax
+    // into the display name.
+
+    const safeFromName =
+      fromName
+        .replace(
+          /[<>]/g,
+          ""
+        )
+        .trim();
+
+    const from =
+      `${safeFromName} <${SENDER_EMAIL}>`;
+
+    // ==========================================================
+    // REPLY TO
+    // ==========================================================
+
+    const replyTo =
+      normaliseEmail(
+        payload.replyTo
+      );
+
     if (
-      !fromEmail ||
+      replyTo &&
       !isValidEmail(
-        fromEmail
+        replyTo
       )
     ) {
       return NextResponse.json(
         {
           success: false,
+
           error:
-            "Please enter a valid From email address.",
+            "Please enter a valid reply-to email address.",
         },
         {
           status: 400,
@@ -272,13 +323,8 @@ export async function POST(
       );
     }
 
-    const from =
-      fromName
-        ? `${fromName.replace(/[<>]/g, "")} <${fromEmail}>`
-        : fromEmail;
-
     // ==========================================================
-    // RECIPIENTS
+    // RECIPIENT
     // ==========================================================
 
     const to =
@@ -286,6 +332,29 @@ export async function POST(
         payload.to ||
           payload.email
       );
+
+    if (
+      !to ||
+      !isValidEmail(
+        to
+      )
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+
+          error:
+            "Missing or invalid 'to' email address.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    // ==========================================================
+    // CC / BCC
+    // ==========================================================
 
     const cc =
       parseEmailList(
@@ -297,11 +366,33 @@ export async function POST(
         payload.bcc
       );
 
+    // ==========================================================
+    // SUBJECT
+    // ==========================================================
+
     const subject =
       typeof payload.subject ===
       "string"
         ? payload.subject.trim()
         : "";
+
+    if (!subject) {
+      return NextResponse.json(
+        {
+          success: false,
+
+          error:
+            "Missing subject.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    // ==========================================================
+    // EMAIL CONTENT
+    // ==========================================================
 
     const title =
       typeof payload.title ===
@@ -330,6 +421,27 @@ export async function POST(
         ? payload.html.trim()
         : "";
 
+    if (
+      !body &&
+      !suppliedHtml
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+
+          error:
+            "Missing email body.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    // ==========================================================
+    // CTA
+    // ==========================================================
+
     const ctaLabel =
       typeof payload.cta
         ?.label ===
@@ -341,6 +453,10 @@ export async function POST(
       normaliseUrl(
         payload.cta?.url
       );
+
+    // ==========================================================
+    // LINKS
+    // ==========================================================
 
     const links =
       Array.isArray(
@@ -354,6 +470,7 @@ export async function POST(
                   "string"
                     ? link.label.trim()
                     : "",
+
                 url:
                   normaliseUrl(
                     link.url
@@ -370,6 +487,10 @@ export async function POST(
                 )
             )
         : [];
+
+    // ==========================================================
+    // ATTACHMENTS
+    // ==========================================================
 
     const attachments =
       Array.isArray(
@@ -395,6 +516,7 @@ export async function POST(
                   String(
                     attachment.name
                   ),
+
                 content:
                   Buffer.from(
                     String(
@@ -407,56 +529,7 @@ export async function POST(
         : [];
 
     // ==========================================================
-    // VALIDATION
-    // ==========================================================
-
-    if (
-      !to ||
-      !isValidEmail(to)
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Missing or invalid 'to' email address",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (!subject) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Missing subject",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (
-      !body &&
-      !suppliedHtml
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Missing email body",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    // ==========================================================
-    // EMAIL CONTENT
+    // PREVIEW TEXT
     // ==========================================================
 
     const previewHtml =
@@ -466,6 +539,7 @@ export async function POST(
             style="
               display:none;
               max-height:0;
+              max-width:0;
               overflow:hidden;
               opacity:0;
               color:transparent;
@@ -475,10 +549,16 @@ export async function POST(
             ${escapeHtml(
               preview
             )}
+
+            &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
             &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
           </div>
         `
         : "";
+
+    // ==========================================================
+    // TITLE
+    // ==========================================================
 
     const titleHtml =
       title
@@ -500,12 +580,20 @@ export async function POST(
         `
         : "";
 
+    // ==========================================================
+    // BODY
+    // ==========================================================
+
     const bodyHtml =
       body
         ? bodyToHtml(
             body
           )
         : "";
+
+    // ==========================================================
+    // CTA BUTTON
+    // ==========================================================
 
     const ctaHtml =
       ctaLabel &&
@@ -516,7 +604,9 @@ export async function POST(
             cellspacing="0"
             cellpadding="0"
             border="0"
-            style="margin:28px 0;"
+            style="
+              margin:28px 0;
+            "
           >
             <tr>
               <td
@@ -534,10 +624,16 @@ export async function POST(
                   style="
                     display:inline-block;
                     padding:14px 24px;
-                    font-family:Arial,Helvetica,sans-serif;
+
+                    font-family:
+                      Arial,
+                      Helvetica,
+                      sans-serif;
+
                     font-size:14px;
                     font-weight:700;
                     line-height:1;
+
                     text-decoration:none;
                     color:#ffffff;
                   "
@@ -552,6 +648,10 @@ export async function POST(
         `
         : "";
 
+    // ==========================================================
+    // ADDITIONAL LINKS
+    // ==========================================================
+
     const linksHtml =
       links.length > 0
         ? `
@@ -565,11 +665,14 @@ export async function POST(
             <p
               style="
                 margin:0 0 12px;
+
                 font-size:12px;
                 line-height:1.4;
                 font-weight:700;
+
                 text-transform:uppercase;
                 letter-spacing:1px;
+
                 color:#8b8580;
               "
             >
@@ -581,7 +684,11 @@ export async function POST(
                 (
                   link
                 ) => `
-                  <p style="margin:0 0 8px;">
+                  <p
+                    style="
+                      margin:0 0 8px;
+                    "
+                  >
                     <a
                       href="${escapeHtml(
                         link.url
@@ -601,24 +708,33 @@ export async function POST(
                   </p>
                 `
               )
-              .join("")}
+              .join(
+                ""
+              )}
           </div>
         `
         : "";
 
+    // ==========================================================
+    // GENERATED HTML EMAIL
+    // ==========================================================
+
     const generatedHtml =
       `
         <!DOCTYPE html>
+
         <html>
           <head>
             <meta
               name="viewport"
               content="width=device-width, initial-scale=1.0"
             />
+
             <meta
               http-equiv="Content-Type"
               content="text/html; charset=UTF-8"
             />
+
             <title>
               ${escapeHtml(
                 subject
@@ -633,6 +749,7 @@ export async function POST(
               background:#f7f5f2;
             "
           >
+
             ${previewHtml}
 
             <table
@@ -648,7 +765,10 @@ export async function POST(
               "
             >
               <tr>
-                <td align="center">
+                <td
+                  align="center"
+                >
+
                   <table
                     role="presentation"
                     width="100%"
@@ -658,100 +778,199 @@ export async function POST(
                     style="
                       width:100%;
                       max-width:640px;
+
                       background:#ffffff;
+
                       border-radius:18px;
                       overflow:hidden;
-                      border:1px solid #ebe7e2;
+
+                      border:
+                        1px solid
+                        #ebe7e2;
                     "
                   >
+
+                    <!-- HEADER -->
+
                     <tr>
                       <td
                         style="
-                          padding:28px 34px;
-                          background:#4f4a46;
+                          padding:
+                            28px
+                            34px;
+
+                          background:
+                            #4f4a46;
                         "
                       >
+
                         <p
                           style="
                             margin:0;
-                            font-family:Arial,Helvetica,sans-serif;
-                            font-size:12px;
-                            line-height:1;
-                            font-weight:700;
-                            text-transform:uppercase;
-                            letter-spacing:2px;
-                            color:#dfe6da;
+
+                            font-family:
+                              Arial,
+                              Helvetica,
+                              sans-serif;
+
+                            font-size:
+                              12px;
+
+                            line-height:
+                              1;
+
+                            font-weight:
+                              700;
+
+                            text-transform:
+                              uppercase;
+
+                            letter-spacing:
+                              2px;
+
+                            color:
+                              #dfe6da;
                           "
                         >
                           TOTS-OS
                         </p>
+
                         <p
                           style="
-                            margin:8px 0 0;
-                            font-family:Arial,Helvetica,sans-serif;
-                            font-size:11px;
-                            line-height:1.4;
-                            color:#d3cfcb;
+                            margin:
+                              8px
+                              0
+                              0;
+
+                            font-family:
+                              Arial,
+                              Helvetica,
+                              sans-serif;
+
+                            font-size:
+                              11px;
+
+                            line-height:
+                              1.4;
+
+                            color:
+                              #d3cfcb;
                           "
                         >
                           by The Organised Types
                         </p>
+
                       </td>
                     </tr>
+
+                    <!-- CONTENT -->
 
                     <tr>
                       <td
                         style="
-                          padding:38px 34px;
-                          font-family:Arial,Helvetica,sans-serif;
-                          font-size:15px;
-                          line-height:1.7;
-                          color:#4f4a46;
+                          padding:
+                            38px
+                            34px;
+
+                          font-family:
+                            Arial,
+                            Helvetica,
+                            sans-serif;
+
+                          font-size:
+                            15px;
+
+                          line-height:
+                            1.7;
+
+                          color:
+                            #4f4a46;
                         "
                       >
+
                         ${titleHtml}
+
                         ${bodyHtml}
+
                         ${ctaHtml}
+
                         ${linksHtml}
+
                       </td>
                     </tr>
+
+                    <!-- FOOTER -->
 
                     <tr>
                       <td
                         style="
-                          padding:24px 34px;
-                          background:#faf8f5;
-                          border-top:1px solid #ece8e4;
-                          font-family:Arial,Helvetica,sans-serif;
+                          padding:
+                            24px
+                            34px;
+
+                          background:
+                            #faf8f5;
+
+                          border-top:
+                            1px solid
+                            #ece8e4;
+
+                          font-family:
+                            Arial,
+                            Helvetica,
+                            sans-serif;
                         "
                       >
+
                         <p
                           style="
-                            margin:0 0 5px;
-                            font-size:12px;
-                            line-height:1.5;
-                            font-weight:700;
-                            color:#4f4a46;
+                            margin:
+                              0
+                              0
+                              5px;
+
+                            font-size:
+                              12px;
+
+                            line-height:
+                              1.5;
+
+                            font-weight:
+                              700;
+
+                            color:
+                              #4f4a46;
                           "
                         >
                           TOTS-OS
                         </p>
+
                         <p
                           style="
                             margin:0;
-                            font-size:11px;
-                            line-height:1.5;
-                            color:#938d87;
+
+                            font-size:
+                              11px;
+
+                            line-height:
+                              1.5;
+
+                            color:
+                              #938d87;
                           "
                         >
                           Your business, organised.
                         </p>
+
                       </td>
                     </tr>
+
                   </table>
+
                 </td>
               </tr>
             </table>
+
           </body>
         </html>
       `;
@@ -759,6 +978,10 @@ export async function POST(
     const html =
       suppliedHtml ||
       generatedHtml;
+
+    // ==========================================================
+    // PLAIN TEXT FALLBACK
+    // ==========================================================
 
     const plainTextParts: string[] =
       [];
@@ -804,37 +1027,65 @@ export async function POST(
 
     const text =
       plainTextParts
-        .filter(Boolean)
+        .filter(
+          Boolean
+        )
         .join(
           "\n\n"
         ) ||
       undefined;
 
+    // ==========================================================
+    // LOG REQUEST
+    // ==========================================================
+
     console.log(
       "EMAIL REQUEST RECEIVED:",
       {
         from,
+
+        replyTo:
+          replyTo ||
+          null,
+
         to,
+
         ccCount:
           cc.length,
+
         bccCount:
           bcc.length,
+
         subject,
+
+        title:
+          title ||
+          null,
+
+        preview:
+          preview ||
+          null,
+
         hasBody:
           Boolean(body),
+
         hasHtml:
           Boolean(
             suppliedHtml
           ),
+
         hasCTA:
           Boolean(
             ctaLabel &&
               ctaUrl
           ),
-        links:
+
+        linkCount:
           links.length,
-        attachments:
+
+        attachmentCount:
           attachments.length,
+
         type:
           payload.type ||
           null,
@@ -850,11 +1101,34 @@ export async function POST(
       error,
     } =
       await resend.emails.send({
+        // ------------------------------------------------------
+        // Sender always uses the verified TOTS-OS email.
+        // Only the display name changes.
+        // ------------------------------------------------------
+
         from,
+
+        // ------------------------------------------------------
+        // Recipient
+        // ------------------------------------------------------
 
         to: [
           to,
         ],
+
+        // ------------------------------------------------------
+        // Reply-to
+        // ------------------------------------------------------
+
+        ...(replyTo
+          ? {
+              replyTo,
+            }
+          : {}),
+
+        // ------------------------------------------------------
+        // CC
+        // ------------------------------------------------------
 
         ...(cc.length >
         0
@@ -863,6 +1137,10 @@ export async function POST(
             }
           : {}),
 
+        // ------------------------------------------------------
+        // BCC
+        // ------------------------------------------------------
+
         ...(bcc.length >
         0
           ? {
@@ -870,9 +1148,19 @@ export async function POST(
             }
           : {}),
 
+        // ------------------------------------------------------
+        // Email
+        // ------------------------------------------------------
+
         subject,
+
         html,
+
         text,
+
+        // ------------------------------------------------------
+        // Attachments
+        // ------------------------------------------------------
 
         ...(attachments.length >
         0
@@ -882,33 +1170,36 @@ export async function POST(
           : {}),
       });
 
+    // ==========================================================
+    // RESEND ERROR
+    // ==========================================================
+
     if (error) {
       console.error(
         "RESEND SEND ERROR:",
         {
           from,
+
+          replyTo:
+            replyTo ||
+            null,
+
           to,
+
           subject,
+
           error,
         }
       );
 
-      const message =
-        error.message ||
-        "Resend rejected the email.";
-
-      const looksLikeDomainError =
-        /domain|sender|from|verify|verified/i.test(
-          message
-        );
-
       return NextResponse.json(
         {
           success: false,
+
           error:
-            looksLikeDomainError
-              ? `${message} Make sure the From email uses a domain verified in your Resend account.`
-              : message,
+            error.message ||
+            "Resend rejected the email.",
+
           resendError:
             error,
         },
@@ -918,10 +1209,25 @@ export async function POST(
       );
     }
 
+    // ==========================================================
+    // CHECK EMAIL ID
+    // ==========================================================
+
     if (!data?.id) {
+      console.error(
+        "RESEND SEND ERROR: No email ID returned",
+        {
+          from,
+          to,
+          subject,
+          data,
+        }
+      );
+
       return NextResponse.json(
         {
           success: false,
+
           error:
             "Resend did not return an email ID.",
         },
@@ -931,25 +1237,62 @@ export async function POST(
       );
     }
 
+    // ==========================================================
+    // SUCCESS
+    // ==========================================================
+
     console.log(
       "EMAIL ACCEPTED BY RESEND:",
       {
         id:
           data.id,
+
         from,
+
+        replyTo:
+          replyTo ||
+          null,
+
         to,
+
+        cc,
+
+        bccCount:
+          bcc.length,
+
         subject,
+
+        attachmentCount:
+          attachments.length,
+
+        linkCount:
+          links.length,
+
+        hasCTA:
+          Boolean(
+            ctaLabel &&
+              ctaUrl
+          ),
       }
     );
 
     return NextResponse.json(
       {
         success: true,
+
         id:
           data.id,
+
         from,
+
+        replyTo:
+          replyTo ||
+          null,
+
         to,
+
         cc,
+
         message:
           "Email accepted by Resend.",
       },
@@ -966,6 +1309,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
+
         error:
           error instanceof Error
             ? error.message

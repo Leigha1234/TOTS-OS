@@ -1159,6 +1159,7 @@ export default function AccountProfilePage() {
     useState({
       template: "blank" as EmailTemplateKey,
       fromName: "",
+      replyTo: "",
       subject: "",
       title: "",
       preview: "",
@@ -1180,6 +1181,7 @@ export default function AccountProfilePage() {
     setNewEmail({
       template: "blank",
       fromName: "",
+      replyTo: "",
       subject: "",
       title: "",
       preview: "",
@@ -4072,6 +4074,7 @@ export default function AccountProfilePage() {
               body:
                 JSON.stringify({
                   fromName: newEmail.fromName.trim() || undefined,
+                  replyTo: newEmail.replyTo.trim() || undefined,
                   to: customer.email,
                   cc: newEmail.cc.trim() || undefined,
                   bcc: newEmail.bcc.trim() || undefined,
@@ -6316,6 +6319,15 @@ export default function AccountProfilePage() {
                             {newEmail.fromName.trim()
                               ? `${newEmail.fromName.trim()} <hello@tots-os.co.uk>`
                               : "hello@tots-os.co.uk"}
+                            {newEmail.replyTo.trim() && (
+                              <>
+                                <br />
+                                <span className="font-bold text-stone-700">
+                                  Reply to:
+                                </span>{" "}
+                                {newEmail.replyTo.trim()}
+                              </>
+                            )}
                           </div>
                           {newEmail.preview.trim() && (
                             <div className="border-b border-stone-100 bg-stone-50 px-6 py-2 text-[10px] text-stone-400">
@@ -6433,6 +6445,28 @@ export default function AccountProfilePage() {
                               </p>
                             </div>
                           </div>
+
+                          <div className="sm:col-span-2">
+                            <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
+                              Reply-to email
+                            </label>
+                            <input
+                              type="email"
+                              className="tots-input bg-white"
+                              placeholder="e.g. yourname@yourbusiness.co.uk"
+                              value={newEmail.replyTo}
+                              onChange={(event) =>
+                                setNewEmail((previous) => ({
+                                  ...previous,
+                                  replyTo: event.target.value,
+                                }))
+                              }
+                            />
+                            <p className="mt-1 text-[9px] leading-4 text-stone-400">
+                              When the recipient clicks Reply, their response will go to this address instead of hello@tots-os.co.uk.
+                            </p>
+                          </div>
+
                           <div className="sm:col-span-2">
                             <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
                               To

@@ -29,6 +29,7 @@ import {
   PanelLeftOpen,
   Store,
   ShieldCheck,
+  LockKeyhole,
 } from "lucide-react";
 
 import {
@@ -54,21 +55,107 @@ const TOTS_ADMIN_USER_ID =
 // TYPES
 // ============================================================
 
+type ModuleKey =
+  | "core"
+  | "clientsProjects"
+  | "finance"
+  | "social"
+  | "email"
+  | "store";
+
+type BillingMode =
+  | "loading"
+  | "legacy"
+  | "modular"
+  | "unknown";
+
 type SidebarLink = {
-  href: string;
-  label: string;
-  icon: React.ElementType;
+  href:
+    string;
+
+  label:
+    string;
+
+  icon:
+    React.ElementType;
 
   adminOnly?:
     boolean;
+
+  requiredModule?:
+    ModuleKey;
 };
 
 type SidebarSection = {
-  title?: string;
+  title?:
+    string;
 
   links:
     SidebarLink[];
 };
+
+type AccountAccessResponse = {
+  allowed?:
+    boolean;
+
+  reason?:
+    string;
+
+  userId?:
+    string | null;
+
+  organisationId?:
+    string | null;
+
+  organisationName?:
+    string | null;
+
+  billingModel?:
+    string | null;
+
+  billingPackage?:
+    string | null;
+
+  modules?:
+    string[];
+
+  activeModules?:
+    string[];
+
+  accessStatus?:
+    string | null;
+};
+
+// ============================================================
+// MODULE KEYS
+// ============================================================
+
+const MODULE_KEYS:
+  ModuleKey[] = [
+    "core",
+    "clientsProjects",
+    "finance",
+    "social",
+    "email",
+    "store",
+  ];
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function isModuleKey(
+  value:
+    unknown,
+): value is ModuleKey {
+  return (
+    typeof value ===
+      "string" &&
+    MODULE_KEYS.includes(
+      value as ModuleKey,
+    )
+  );
+}
 
 // ============================================================
 // SIDEBAR
@@ -81,7 +168,8 @@ export default function Sidebar() {
   const router =
     useRouter();
 
-  let context: any =
+  let context:
+    any =
     null;
 
   try {
@@ -89,7 +177,7 @@ export default function Sidebar() {
       useSettings();
   } catch {
     console.warn(
-      "Sidebar: SettingsContext missing"
+      "Sidebar: SettingsContext missing",
     );
   }
 
@@ -102,7 +190,7 @@ export default function Sidebar() {
     setCollapsed,
   ] =
     useState(
-      false
+      false,
     );
 
   const [
@@ -110,7 +198,7 @@ export default function Sidebar() {
     setIsCompact,
   ] =
     useState(
-      false
+      false,
     );
 
   const [
@@ -118,7 +206,7 @@ export default function Sidebar() {
     setIsMobile,
   ] =
     useState(
-      false
+      false,
     );
 
   const [
@@ -126,7 +214,7 @@ export default function Sidebar() {
     setLoading,
   ] =
     useState(
-      true
+      true,
     );
 
   const [
@@ -134,7 +222,7 @@ export default function Sidebar() {
     setSignedIn,
   ] =
     useState(
-      false
+      false,
     );
 
   const [
@@ -144,14 +232,36 @@ export default function Sidebar() {
     useState<
       string |
       null
-    >(null);
+    >(
+      null,
+    );
+
+  const [
+    billingMode,
+    setBillingMode,
+  ] =
+    useState<
+      BillingMode
+    >(
+      "loading",
+    );
+
+  const [
+    activeModules,
+    setActiveModules,
+  ] =
+    useState<
+      ModuleKey[]
+    >(
+      [],
+    );
 
   const [
     localColor,
     setLocalColor,
   ] =
     useState(
-      "#a9b897"
+      "#a9b897",
     );
 
   // ==========================================================
@@ -164,22 +274,45 @@ export default function Sidebar() {
       TOTS_ADMIN_USER_ID;
 
   // ==========================================================
+  // MODULE HELPER
+  // ==========================================================
+
+  const hasModule =
+    (
+      moduleKey:
+        ModuleKey,
+    ) => {
+      if (
+        isTotsAdmin
+      ) {
+        return true;
+      }
+
+      if (
+        billingMode ===
+        "legacy"
+      ) {
+        return true;
+      }
+
+      if (
+        billingMode ===
+        "modular"
+      ) {
+        return activeModules.includes(
+          moduleKey,
+        );
+      }
+
+      return false;
+    };
+
+  // ==========================================================
   // ALL LINKS
-  //
-  // Store is visible to all authenticated users.
-  //
-  // /store itself determines whether the user sees:
-  //
-  // - Store dashboard
-  // - or £39/month upgrade screen
-  //
-  // TOTS Admin is completely separate and only visible to
-  // TOTS_ADMIN_USER_ID.
   // ==========================================================
 
   const allLinks:
-    SidebarLink[] =
-    [
+    SidebarLink[] = [
       {
         href:
           "/dashboard",
@@ -200,6 +333,9 @@ export default function Sidebar() {
 
         icon:
           Users,
+
+        requiredModule:
+          "core",
       },
 
       {
@@ -211,6 +347,9 @@ export default function Sidebar() {
 
         icon:
           Megaphone,
+
+        requiredModule:
+          "email",
       },
 
       {
@@ -222,6 +361,9 @@ export default function Sidebar() {
 
         icon:
           Globe,
+
+        requiredModule:
+          "social",
       },
 
       {
@@ -233,6 +375,9 @@ export default function Sidebar() {
 
         icon:
           CircleDollarSign,
+
+        requiredModule:
+          "finance",
       },
 
       {
@@ -244,6 +389,9 @@ export default function Sidebar() {
 
         icon:
           StickyNote,
+
+        requiredModule:
+          "core",
       },
 
       {
@@ -255,6 +403,9 @@ export default function Sidebar() {
 
         icon:
           Store,
+
+        requiredModule:
+          "store",
       },
 
       {
@@ -266,6 +417,9 @@ export default function Sidebar() {
 
         icon:
           Building2,
+
+        requiredModule:
+          "clientsProjects",
       },
 
       {
@@ -277,6 +431,9 @@ export default function Sidebar() {
 
         icon:
           Calendar,
+
+        requiredModule:
+          "core",
       },
 
       {
@@ -321,23 +478,19 @@ export default function Sidebar() {
           820;
 
         setIsMobile(
-          mobile
+          mobile,
         );
 
         setIsCompact(
           mobile ||
-          compactHeight
+            compactHeight,
         );
-
-        // ====================================================
-        // MOBILE SIDEBAR
-        // ====================================================
 
         if (
           mobile
         ) {
           setCollapsed(
-            true
+            true,
           );
         }
       }
@@ -346,21 +499,21 @@ export default function Sidebar() {
 
       window.addEventListener(
         "resize",
-        syncResponsiveMode
+        syncResponsiveMode,
       );
 
       return () => {
         window.removeEventListener(
           "resize",
-          syncResponsiveMode
+          syncResponsiveMode,
         );
       };
     },
-    []
+    [],
   );
 
   // ==========================================================
-  // SESSION + BRAND COLOUR
+  // LOAD SIDEBAR CONTEXT
   // ==========================================================
 
   useEffect(
@@ -371,7 +524,15 @@ export default function Sidebar() {
       async function loadSidebarContext() {
         try {
           setLoading(
-            true
+            true,
+          );
+
+          setBillingMode(
+            "loading",
+          );
+
+          setActiveModules(
+            [],
           );
 
           // ==================================================
@@ -385,7 +546,9 @@ export default function Sidebar() {
             error:
               sessionError,
           } =
-            await supabase.auth.getSession();
+            await supabase
+              .auth
+              .getSession();
 
           if (
             cancelled
@@ -398,7 +561,7 @@ export default function Sidebar() {
           ) {
             console.warn(
               "Sidebar session load error:",
-              sessionError
+              sessionError,
             );
           }
 
@@ -411,30 +574,30 @@ export default function Sidebar() {
             !user?.id
           ) {
             setSignedIn(
-              false
+              false,
             );
 
             setCurrentUserId(
-              null
+              null,
+            );
+
+            setBillingMode(
+              "unknown",
             );
 
             return;
           }
 
           setSignedIn(
-            true
+            true,
           );
 
           setCurrentUserId(
-            user.id
+            user.id,
           );
 
           // ==================================================
-          // PROFILE
-          //
-          // Only used for brand colour.
-          //
-          // Navigation must not disappear if this fails.
+          // BRAND COLOUR
           // ==================================================
 
           try {
@@ -447,14 +610,14 @@ export default function Sidebar() {
             } =
               await supabase
                 .from(
-                  "profiles"
+                  "profiles",
                 )
                 .select(
-                  "brand_color"
+                  "brand_color",
                 )
                 .eq(
                   "id",
-                  user.id
+                  user.id,
                 )
                 .maybeSingle();
 
@@ -462,8 +625,8 @@ export default function Sidebar() {
               profileError
             ) {
               console.warn(
-                "Sidebar profile load error:",
-                profileError
+                "Sidebar brand colour load error:",
+                profileError,
               );
             }
 
@@ -474,8 +637,9 @@ export default function Sidebar() {
             ) {
               setLocalColor(
                 String(
-                  profile.brand_color
-                )
+                  profile
+                    .brand_color,
+                ),
               );
             }
           } catch (
@@ -483,26 +647,192 @@ export default function Sidebar() {
           ) {
             console.warn(
               "Sidebar profile lookup failed:",
-              profileError
+              profileError,
             );
           }
+
+          // ==================================================
+          // TOTS ADMIN
+          // ==================================================
+
+          if (
+            user.id ===
+            TOTS_ADMIN_USER_ID
+          ) {
+            setBillingMode(
+              "legacy",
+            );
+
+            setActiveModules(
+              [...MODULE_KEYS],
+            );
+
+            return;
+          }
+
+          // ==================================================
+          // AUTHORITATIVE ACCOUNT ACCESS
+          // ==================================================
+
+          const response =
+            await fetch(
+              "/api/account/access",
+              {
+                method:
+                  "GET",
+
+                cache:
+                  "no-store",
+              },
+            );
+
+          const data =
+            (
+              await response
+                .json()
+                .catch(
+                  () => ({}),
+                )
+            ) as AccountAccessResponse;
+
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          if (
+            response.status ===
+            401
+          ) {
+            setSignedIn(
+              false,
+            );
+
+            setCurrentUserId(
+              null,
+            );
+
+            setBillingMode(
+              "unknown",
+            );
+
+            return;
+          }
+
+          if (
+            !response.ok ||
+            data.allowed !==
+              true
+          ) {
+            console.warn(
+              "Sidebar account access unavailable:",
+              {
+                status:
+                  response.status,
+
+                reason:
+                  data.reason,
+              },
+            );
+
+            setBillingMode(
+              "unknown",
+            );
+
+            setActiveModules(
+              [],
+            );
+
+            return;
+          }
+
+          // ==================================================
+          // BILLING MODEL
+          // ==================================================
+
+          const rawBillingModel =
+            String(
+              data.billingModel ||
+                "",
+            )
+              .trim()
+              .toLowerCase();
+
+          if (
+            rawBillingModel ===
+            "legacy_tier"
+          ) {
+            setBillingMode(
+              "legacy",
+            );
+
+            setActiveModules(
+              [],
+            );
+
+            return;
+          }
+
+          if (
+            rawBillingModel ===
+            "modular"
+          ) {
+            const rawModules =
+              Array.isArray(
+                data.modules,
+              )
+                ? data.modules
+                : Array.isArray(
+                    data.activeModules,
+                  )
+                  ? data.activeModules
+                  : [];
+
+            const modules =
+              rawModules.filter(
+                isModuleKey,
+              );
+
+            setBillingMode(
+              "modular",
+            );
+
+            setActiveModules(
+              Array.from(
+                new Set(
+                  modules,
+                ),
+              ),
+            );
+
+            return;
+          }
+
+          setBillingMode(
+            "unknown",
+          );
+
+          setActiveModules(
+            [],
+          );
         } catch (
           error
         ) {
           console.error(
             "Sidebar load error:",
-            error
+            error,
           );
 
           if (
             !cancelled
           ) {
-            setSignedIn(
-              false
+            setBillingMode(
+              "unknown",
             );
 
-            setCurrentUserId(
-              null
+            setActiveModules(
+              [],
             );
           }
         } finally {
@@ -510,7 +840,7 @@ export default function Sidebar() {
             !cancelled
           ) {
             setLoading(
-              false
+              false,
             );
           }
         }
@@ -526,33 +856,59 @@ export default function Sidebar() {
         data:
           authListener,
       } =
-        supabase.auth.onAuthStateChange(
-          (
-            _event,
-            session
-          ) => {
-            if (
-              cancelled
-            ) {
-              return;
-            }
+        supabase
+          .auth
+          .onAuthStateChange(
+            (
+              event,
+              session,
+            ) => {
+              if (
+                cancelled
+              ) {
+                return;
+              }
 
-            const user =
-              session
-                ?.user;
+              const user =
+                session
+                  ?.user;
 
-            setSignedIn(
-              Boolean(
-                user?.id
-              )
-            );
+              setSignedIn(
+                Boolean(
+                  user?.id,
+                ),
+              );
 
-            setCurrentUserId(
-              user?.id ||
-              null
-            );
-          }
-        );
+              setCurrentUserId(
+                user?.id ||
+                  null,
+              );
+
+              if (
+                event ===
+                  "SIGNED_IN" ||
+                event ===
+                  "USER_UPDATED" ||
+                event ===
+                  "TOKEN_REFRESHED"
+              ) {
+                void loadSidebarContext();
+              }
+
+              if (
+                event ===
+                "SIGNED_OUT"
+              ) {
+                setBillingMode(
+                  "unknown",
+                );
+
+                setActiveModules(
+                  [],
+                );
+              }
+            },
+          );
 
       return () => {
         cancelled =
@@ -563,7 +919,7 @@ export default function Sidebar() {
           .unsubscribe();
       };
     },
-    []
+    [],
   );
 
   // ==========================================================
@@ -576,7 +932,9 @@ export default function Sidebar() {
         const {
           error,
         } =
-          await supabase.auth.signOut();
+          await supabase
+            .auth
+            .signOut();
 
         if (
           error
@@ -585,19 +943,27 @@ export default function Sidebar() {
         }
 
         setSignedIn(
-          false
+          false,
         );
 
         setCurrentUserId(
-          null
+          null,
+        );
+
+        setBillingMode(
+          "unknown",
+        );
+
+        setActiveModules(
+          [],
         );
 
         toast.success(
-          "Logged out successfully"
+          "Logged out successfully",
         );
 
         router.push(
-          "/login"
+          "/login",
         );
 
         router.refresh();
@@ -606,11 +972,11 @@ export default function Sidebar() {
       ) {
         console.error(
           "Logout error:",
-          error
+          error,
         );
 
         toast.error(
-          "Unable to log out"
+          "Unable to log out",
         );
       }
     };
@@ -626,29 +992,45 @@ export default function Sidebar() {
     localColor;
 
   // ==========================================================
+  // LINK ACCESS
+  // ==========================================================
+
+  const userCanAccessLink =
+    (
+      link:
+        SidebarLink,
+    ) => {
+      if (
+        !signedIn
+      ) {
+        return false;
+      }
+
+      if (
+        link.adminOnly
+      ) {
+        return isTotsAdmin;
+      }
+
+      if (
+        !link.requiredModule
+      ) {
+        return true;
+      }
+
+      return hasModule(
+        link.requiredModule,
+      );
+    };
+
+  // ==========================================================
   // VISIBLE LINKS
-  //
-  // Normal links:
-  // visible to every authenticated user.
-  //
-  // adminOnly links:
-  // visible only to TOTS_ADMIN_USER_ID.
   // ==========================================================
 
   const visibleLinks =
     signedIn
       ? allLinks.filter(
-          (
-            link
-          ) => {
-            if (
-              link.adminOnly
-            ) {
-              return isTotsAdmin;
-            }
-
-            return true;
-          }
+          userCanAccessLink,
         )
       : [];
 
@@ -659,7 +1041,7 @@ export default function Sidebar() {
   const canSee =
     (
       href:
-        string
+        string,
     ) => {
       if (
         !signedIn
@@ -669,10 +1051,10 @@ export default function Sidebar() {
 
       return visibleLinks.some(
         (
-          link
+          link,
         ) =>
           link.href ===
-          href
+          href,
       );
     };
 
@@ -681,12 +1063,7 @@ export default function Sidebar() {
   // ==========================================================
 
   const sections:
-    SidebarSection[] =
-    [
-      // ======================================================
-      // HOME
-      // ======================================================
-
+    SidebarSection[] = [
       {
         links: [
           {
@@ -702,13 +1079,9 @@ export default function Sidebar() {
         ],
       },
 
-      // ======================================================
-      // MY BUSINESS
-      // ======================================================
-
       {
         title:
-          "My Business",
+          "Core",
 
         links: [
           {
@@ -720,39 +1093,9 @@ export default function Sidebar() {
 
             icon:
               Users,
-          },
 
-          {
-            href:
-              "/campaigns",
-
-            label:
-              "Campaigns",
-
-            icon:
-              Megaphone,
-          },
-
-          {
-            href:
-              "/social",
-
-            label:
-              "Social",
-
-            icon:
-              Globe,
-          },
-
-          {
-            href:
-              "/payments",
-
-            label:
-              "Finance",
-
-            icon:
-              CircleDollarSign,
+            requiredModule:
+              "core",
           },
 
           {
@@ -764,13 +1107,82 @@ export default function Sidebar() {
 
             icon:
               StickyNote,
+
+            requiredModule:
+              "core",
+          },
+
+          {
+            href:
+              "/calendar",
+
+            label:
+              "Calendar",
+
+            icon:
+              Calendar,
+
+            requiredModule:
+              "core",
           },
         ],
       },
 
-      // ======================================================
-      // COMMERCE
-      // ======================================================
+      {
+        title:
+          "Marketing",
+
+        links: [
+          {
+            href:
+              "/campaigns",
+
+            label:
+              "Email Marketing",
+
+            icon:
+              Megaphone,
+
+            requiredModule:
+              "email",
+          },
+
+          {
+            href:
+              "/social",
+
+            label:
+              "Social Studio",
+
+            icon:
+              Globe,
+
+            requiredModule:
+              "social",
+          },
+        ],
+      },
+
+      {
+        title:
+          "Finance",
+
+        links: [
+          {
+            href:
+              "/payments",
+
+            label:
+              "Finance",
+
+            icon:
+              CircleDollarSign,
+
+            requiredModule:
+              "finance",
+          },
+        ],
+      },
 
       {
         title:
@@ -786,13 +1198,12 @@ export default function Sidebar() {
 
             icon:
               Store,
+
+            requiredModule:
+              "store",
           },
         ],
       },
-
-      // ======================================================
-      // CLIENTS & PROJECTS
-      // ======================================================
 
       {
         title:
@@ -808,38 +1219,12 @@ export default function Sidebar() {
 
             icon:
               Building2,
+
+            requiredModule:
+              "clientsProjects",
           },
         ],
       },
-
-      // ======================================================
-      // PLANNING
-      // ======================================================
-
-      {
-        title:
-          "Planning",
-
-        links: [
-          {
-            href:
-              "/calendar",
-
-            label:
-              "Calendar",
-
-            icon:
-              Calendar,
-          },
-        ],
-      },
-
-      // ======================================================
-      // PRIVATE TOTS ADMIN
-      //
-      // This section is filtered out automatically for every
-      // user except TOTS_ADMIN_USER_ID.
-      // ======================================================
 
       {
         title:
@@ -870,7 +1255,7 @@ export default function Sidebar() {
   const isActive =
     (
       href:
-        string
+        string,
     ) => {
       if (
         href ===
@@ -886,7 +1271,7 @@ export default function Sidebar() {
         pathname ===
           href ||
         pathname.startsWith(
-          `${href}/`
+          `${href}/`,
         )
       );
     };
@@ -943,10 +1328,6 @@ export default function Sidebar() {
           }
         `}
       >
-        {/* ===================================================
-            LOGO
-        =================================================== */}
-
         {!collapsed ? (
           <Link
             href="/dashboard"
@@ -1003,17 +1384,13 @@ export default function Sidebar() {
           </Link>
         )}
 
-        {/* ===================================================
-            DESKTOP COLLAPSE CONTROL
-        =================================================== */}
-
         {!collapsed &&
           !isMobile && (
             <button
               type="button"
               onClick={() =>
                 setCollapsed(
-                  true
+                  true,
                 )
               }
               title="Collapse sidebar"
@@ -1055,7 +1432,7 @@ export default function Sidebar() {
               type="button"
               onClick={() =>
                 setCollapsed(
-                  false
+                  false,
                 )
               }
               title="Expand sidebar"
@@ -1123,25 +1500,14 @@ export default function Sidebar() {
             {sections.map(
               (
                 section,
-                sectionIndex
+                sectionIndex,
               ) => {
                 const sectionLinks =
-                  section.links.filter(
-                    (
-                      link
-                    ) => {
-                      if (
-                        link.adminOnly &&
-                        !isTotsAdmin
-                      ) {
-                        return false;
-                      }
-
-                      return canSee(
-                        link.href
-                      );
-                    }
-                  );
+                  section
+                    .links
+                    .filter(
+                      userCanAccessLink,
+                    );
 
                 if (
                   sectionLinks.length ===
@@ -1157,10 +1523,6 @@ export default function Sidebar() {
                       `section-${sectionIndex}`
                     }
                   >
-                    {/* =========================================
-                        SECTION LABEL
-                    ========================================= */}
-
                     {!collapsed &&
                       section.title && (
                         <p
@@ -1185,10 +1547,6 @@ export default function Sidebar() {
                         </p>
                       )}
 
-                    {/* =========================================
-                        LINKS
-                    ========================================= */}
-
                     <div
                       className={
                         isCompact
@@ -1198,11 +1556,11 @@ export default function Sidebar() {
                     >
                       {sectionLinks.map(
                         (
-                          item
+                          item,
                         ) => {
                           const active =
                             isActive(
-                              item.href
+                              item.href,
                             );
 
                           const Icon =
@@ -1284,13 +1642,54 @@ export default function Sidebar() {
                               )}
                             </Link>
                           );
-                        }
+                        },
                       )}
                     </div>
                   </div>
                 );
-              }
+              },
             )}
+
+            {billingMode ===
+              "unknown" &&
+              !isTotsAdmin && (
+                <div
+                  className={`
+                    rounded-xl
+                    border
+                    border-stone-200
+                    bg-white
+                    text-stone-500
+
+                    ${
+                      collapsed
+                        ? "flex justify-center p-2"
+                        : "mx-1 p-3"
+                    }
+                  `}
+                >
+                  <LockKeyhole
+                    size={15}
+                    className="shrink-0"
+                  />
+
+                  {!collapsed && (
+                    <div className="mt-2">
+                      <p className="text-[10px] font-bold text-stone-700">
+                        Modules unavailable
+                      </p>
+
+                      <p className="mt-1 text-[9px] leading-4">
+                        We couldn&apos;t
+                        verify your module
+                        access. Home and
+                        Settings remain
+                        available.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
           </div>
         ) : null}
       </nav>
@@ -1302,7 +1701,7 @@ export default function Sidebar() {
       {!loading &&
         signedIn &&
         canSee(
-          "/settings"
+          "/settings",
         ) && (
           <div
             className={`
@@ -1330,7 +1729,7 @@ export default function Sidebar() {
               style={{
                 backgroundColor:
                   isActive(
-                    "/settings"
+                    "/settings",
                   )
                     ? activeColor
                     : "transparent",
@@ -1357,7 +1756,7 @@ export default function Sidebar() {
 
                 ${
                   isActive(
-                    "/settings"
+                    "/settings",
                   )
                     ? "text-white"
                     : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"

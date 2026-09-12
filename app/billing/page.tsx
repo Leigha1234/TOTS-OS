@@ -19,7 +19,6 @@ import {
   Loader2,
   Mail,
   Megaphone,
-  Minus,
   Plus,
   ShieldCheck,
   ShoppingBag,
@@ -58,68 +57,138 @@ type VerificationState =
   | "error";
 
 type ModuleInfo = {
-  key: ModuleKey;
-  name: string;
-  shortName: string;
-  description: string;
-  price: number;
-  icon: LucideIcon;
+  key:
+    ModuleKey;
+
+  name:
+    string;
+
+  shortName:
+    string;
+
+  description:
+    string;
+
+  price:
+    number;
+
+  icon:
+    LucideIcon;
 };
 
 type AiTierInfo = {
-  key: AiTierKey;
-  name: string;
-  shortName: string;
-  description: string;
-  allowance: string;
-  price: number;
+  key:
+    AiTierKey;
+
+  name:
+    string;
+
+  shortName:
+    string;
+
+  description:
+    string;
+
+  price:
+    number;
 };
 
 type PricingResult = {
-  requestedModules: ModuleKey[];
-  displayedModules: ModuleKey[];
+  requestedModules:
+    ModuleKey[];
 
-  packageType: BillingPackage;
+  displayedModules:
+    ModuleKey[];
 
-  moduleCount: number;
+  packageType:
+    BillingPackage;
 
-  undiscountedModuleTotal: number;
-  discountedModuleTotal: number;
+  moduleCount:
+    number;
 
-  moduleSaving: number;
+  undiscountedModuleTotal:
+    number;
 
-  requestedAiTier: AiTierKey;
-  displayedAiTier: AiTierKey;
+  moduleBundleTotal:
+    number;
 
-  requestedAiPrice: number;
+  moduleSaving:
+    number;
 
-  modularTotal: number;
-  totalMonthly: number;
+  requestedAiTier:
+    AiTierKey;
 
-  isComplete: boolean;
+  displayedAiTier:
+    AiTierKey;
 
-  completeSaving: number;
+  requestedAiPrice:
+    number;
 
-  discountPercent: number;
-  discountLabel: string;
+  modularTotal:
+    number;
 
-  aiUpgradeSuggested: boolean;
+  totalMonthly:
+    number;
+
+  isComplete:
+    boolean;
+
+  bundleLabel:
+    string;
+
+  aiUpgradeSuggested:
+    boolean;
 };
 
 /* ============================================================
    CONFIG
 ============================================================ */
 
-const COMPLETE_PRICE = 199;
+const COMPLETE_PRICE =
+  139;
 
-const MODULE_ORDER: ModuleKey[] = [
-  "core",
-  "clientsProjects",
-  "finance",
-  "social",
-  "email",
-  "store",
-];
+const MODULE_PRICE =
+  29;
+
+const MODULE_ORDER:
+  ModuleKey[] = [
+    "core",
+    "clientsProjects",
+    "finance",
+    "social",
+    "email",
+    "store",
+  ];
+
+/* ============================================================
+   FIXED MODULE BUNDLE PRICES
+============================================================ */
+
+const MODULE_BUNDLE_PRICES: Record<
+  number,
+  number
+> = {
+  0:
+    0,
+
+  1:
+    29,
+
+  2:
+    55,
+
+  3:
+    79,
+
+  4:
+    99,
+
+  5:
+    119,
+
+  6:
+    139,
+};
 
 /* ============================================================
    MODULES
@@ -130,7 +199,8 @@ const MODULES: Record<
   ModuleInfo
 > = {
   core: {
-    key: "core",
+    key:
+      "core",
 
     name:
       "TOTS-OS Core",
@@ -141,7 +211,8 @@ const MODULES: Record<
     description:
       "Your central workspace for dashboards, contacts, tasks, calendar, notes and everyday business organisation.",
 
-    price: 39,
+    price:
+      MODULE_PRICE,
 
     icon:
       LayoutDashboard,
@@ -160,7 +231,8 @@ const MODULES: Record<
     description:
       "Manage client relationships, projects, tasks, deadlines, notes, files and delivery in one connected workspace.",
 
-    price: 49,
+    price:
+      MODULE_PRICE,
 
     icon:
       FolderKanban,
@@ -179,7 +251,8 @@ const MODULES: Record<
     description:
       "Manage invoices, quotes, expenses and day-to-day financial visibility alongside your wider business activity.",
 
-    price: 49,
+    price:
+      MODULE_PRICE,
 
     icon:
       CircleDollarSign,
@@ -198,7 +271,8 @@ const MODULES: Record<
     description:
       "Plan, organise and publish social content without separating marketing from the rest of your business.",
 
-    price: 49,
+    price:
+      MODULE_PRICE,
 
     icon:
       Megaphone,
@@ -217,7 +291,8 @@ const MODULES: Record<
     description:
       "Manage audiences, subscriber lists, campaigns, scheduling and customer email activity.",
 
-    price: 39,
+    price:
+      MODULE_PRICE,
 
     icon:
       Mail,
@@ -236,7 +311,8 @@ const MODULES: Record<
     description:
       "Manage products, customers and orders without running your online store as another disconnected system.",
 
-    price: 39,
+    price:
+      MODULE_PRICE,
 
     icon:
       Store,
@@ -261,13 +337,11 @@ const AI_TIERS: Record<
     shortName:
       "No AI",
 
-    price: 0,
-
-    allowance:
-      "",
+    price:
+      0,
 
     description:
-      "Use your TOTS-OS workspace without an additional Clarity AI allowance.",
+      "Use your TOTS-OS workspace without adding Clarity AI.",
   },
 
   starter: {
@@ -280,13 +354,11 @@ const AI_TIERS: Record<
     shortName:
       "Starter",
 
-    price: 19,
-
-    allowance:
-      "100 AI actions / month",
+    price:
+      19,
 
     description:
-      "For occasional summaries, ideas, recommendations and quick business assistance.",
+      "A simple way to add Clarity AI support to your everyday business workflow.",
   },
 
   plus: {
@@ -299,13 +371,11 @@ const AI_TIERS: Record<
     shortName:
       "Plus",
 
-    price: 39,
-
-    allowance:
-      "500 AI actions / month",
+    price:
+      39,
 
     description:
-      "For regular AI use throughout the week across several areas of your business.",
+      "More Clarity AI capability for businesses using AI regularly across their workspace.",
   },
 
   pro: {
@@ -318,13 +388,11 @@ const AI_TIERS: Record<
     shortName:
       "Pro",
 
-    price: 69,
-
-    allowance:
-      "1,500 AI actions / month",
+    price:
+      69,
 
     description:
-      "For businesses making Clarity AI part of their everyday operating workflow.",
+      "The highest Clarity AI level for businesses making AI a bigger part of their operating workflow.",
   },
 };
 
@@ -333,29 +401,40 @@ const AI_TIERS: Record<
 ============================================================ */
 
 function isModuleKey(
-  value: string,
+  value:
+    string,
 ): value is ModuleKey {
   return MODULE_ORDER.includes(
-    value as ModuleKey,
+    value as
+      ModuleKey,
   );
 }
 
 function isAiTierKey(
-  value: string | null,
+  value:
+    string |
+    null,
 ): value is AiTierKey {
   return (
-    value === "none" ||
-    value === "starter" ||
-    value === "plus" ||
-    value === "pro"
+    value ===
+      "none" ||
+    value ===
+      "starter" ||
+    value ===
+      "plus" ||
+    value ===
+      "pro"
   );
 }
 
 function uniqueModules(
-  modules: ModuleKey[],
+  modules:
+    ModuleKey[],
 ) {
   return MODULE_ORDER.filter(
-    (key) =>
+    (
+      key,
+    ) =>
       modules.includes(
         key,
       ),
@@ -365,34 +444,39 @@ function uniqueModules(
 /* ============================================================
    PRICING
 
-   1–2 modules:
-   full module price
-
-   3–4 modules:
-   10% off
-
-   5 modules:
-   20% off
-
-   Complete:
-   £199 / month
+   1 module  = £29
+   2 modules = £55
+   3 modules = £79
+   4 modules = £99
+   5 modules = £119
+   6 modules = Complete £139
 
    Complete includes:
-   - all 6 main modules
+   - all six modules
    - Clarity AI Starter
 
-   If the selected modular setup reaches £199 or more,
-   Complete is automatically recommended instead.
-
    IMPORTANT:
-   The browser calculates this for DISPLAY ONLY.
-   Your Stripe API must calculate the real price server-side
-   from trusted Price IDs / product configuration.
+
+   We DO NOT automatically convert a 1–5 module setup to
+   Complete just because adding AI pushes the total above £139.
+
+   Example:
+   5 modules + Plus = £119 + £39 = £158.
+
+   That remains the requested modular setup.
+
+   Complete represents ALL SIX MODULES + Starter.
+
+   Browser pricing is DISPLAY ONLY.
+   Stripe/server pricing remains authoritative.
 ============================================================ */
 
 function calculatePricing(
-  modules: ModuleKey[],
-  requestedAiTier: AiTierKey,
+  modules:
+    ModuleKey[],
+
+  requestedAiTier:
+    AiTierKey,
 ): PricingResult {
   const cleanModules =
     uniqueModules(
@@ -403,77 +487,19 @@ function calculatePricing(
     cleanModules.length;
 
   const undiscountedModuleTotal =
-    cleanModules.reduce(
-      (
-        total,
-        key,
-      ) =>
-        total +
-        MODULES[key].price,
+    moduleCount *
+    MODULE_PRICE;
 
-      0,
-    );
-
-  let discountedModuleTotal =
-    undiscountedModuleTotal;
-
-  let discountPercent =
-    0;
-
-  let discountLabel =
-    "Standard module pricing";
-
-  if (
-    moduleCount === 5
-  ) {
-    discountPercent =
-      20;
-
-    discountLabel =
-      "20% bundle saving";
-
-    discountedModuleTotal =
-      Math.round(
-        undiscountedModuleTotal *
-          0.8,
-      );
-  } else if (
-    moduleCount >= 3
-  ) {
-    discountPercent =
-      10;
-
-    discountLabel =
-      "10% bundle saving";
-
-    discountedModuleTotal =
-      Math.round(
-        undiscountedModuleTotal *
-          0.9,
-      );
-  }
-
-  const moduleSaving =
-    undiscountedModuleTotal -
-    discountedModuleTotal;
-
-  const requestedAiPrice =
-    AI_TIERS[
-      requestedAiTier
-    ].price;
-
-  const modularTotal =
-    discountedModuleTotal +
-    requestedAiPrice;
-
-  const shouldUseComplete =
+  const isComplete =
     moduleCount ===
-      MODULE_ORDER.length ||
-    modularTotal >=
-      COMPLETE_PRICE;
+    MODULE_ORDER.length;
+
+  /* ==========================================================
+     COMPLETE
+  ========================================================== */
 
   if (
-    shouldUseComplete
+    isComplete
   ) {
     return {
       requestedModules:
@@ -490,18 +516,28 @@ function calculatePricing(
 
       undiscountedModuleTotal,
 
-      discountedModuleTotal,
+      moduleBundleTotal:
+        COMPLETE_PRICE,
 
-      moduleSaving,
+      moduleSaving:
+        Math.max(
+          0,
+          undiscountedModuleTotal -
+            COMPLETE_PRICE,
+        ),
 
       requestedAiTier,
 
       displayedAiTier:
         "starter",
 
-      requestedAiPrice,
+      requestedAiPrice:
+        AI_TIERS[
+          requestedAiTier
+        ].price,
 
-      modularTotal,
+      modularTotal:
+        COMPLETE_PRICE,
 
       totalMonthly:
         COMPLETE_PRICE,
@@ -509,19 +545,8 @@ function calculatePricing(
       isComplete:
         true,
 
-      completeSaving:
-        Math.max(
-          0,
-
-          modularTotal -
-            COMPLETE_PRICE,
-        ),
-
-      discountPercent:
-        0,
-
-      discountLabel:
-        "Complete fixed price",
+      bundleLabel:
+        "TOTS-OS Complete",
 
       aiUpgradeSuggested:
         requestedAiTier ===
@@ -530,6 +555,38 @@ function calculatePricing(
           "pro",
     };
   }
+
+  /* ==========================================================
+     MODULAR
+  ========================================================== */
+
+  const moduleBundleTotal =
+    MODULE_BUNDLE_PRICES[
+      moduleCount
+    ] ??
+    0;
+
+  const moduleSaving =
+    Math.max(
+      0,
+      undiscountedModuleTotal -
+        moduleBundleTotal,
+    );
+
+  const requestedAiPrice =
+    AI_TIERS[
+      requestedAiTier
+    ].price;
+
+  const modularTotal =
+    moduleBundleTotal +
+    requestedAiPrice;
+
+  const bundleLabel =
+    moduleCount ===
+      1
+      ? "1 module"
+      : `${moduleCount} module bundle`;
 
   return {
     requestedModules:
@@ -545,7 +602,7 @@ function calculatePricing(
 
     undiscountedModuleTotal,
 
-    discountedModuleTotal,
+    moduleBundleTotal,
 
     moduleSaving,
 
@@ -564,12 +621,7 @@ function calculatePricing(
     isComplete:
       false,
 
-    completeSaving:
-      0,
-
-    discountPercent,
-
-    discountLabel,
+    bundleLabel,
 
     aiUpgradeSuggested:
       false,
@@ -585,15 +637,21 @@ export default function BillingPage() {
     selectedModules,
     setSelectedModules,
   ] =
-    useState<ModuleKey[]>(
-      ["core"],
+    useState<
+      ModuleKey[]
+    >(
+      [
+        "core",
+      ],
     );
 
   const [
     selectedAiTier,
     setSelectedAiTier,
   ] =
-    useState<AiTierKey>(
+    useState<
+      AiTierKey
+    >(
       "none",
     );
 
@@ -634,7 +692,8 @@ export default function BillingPage() {
     setCheckoutError,
   ] =
     useState<
-      string | null
+      string |
+      null
     >(
       null,
     );
@@ -643,7 +702,9 @@ export default function BillingPage() {
     verificationState,
     setVerificationState,
   ] =
-    useState<VerificationState>(
+    useState<
+      VerificationState
+    >(
       "idle",
     );
 
@@ -652,7 +713,8 @@ export default function BillingPage() {
     setVerificationError,
   ] =
     useState<
-      string | null
+      string |
+      null
     >(
       null,
     );
@@ -662,7 +724,8 @@ export default function BillingPage() {
     setVerifiedOrganisationName,
   ] =
     useState<
-      string | null
+      string |
+      null
     >(
       null,
     );
@@ -672,7 +735,8 @@ export default function BillingPage() {
     setVerifiedPackage,
   ] =
     useState<
-      string | null
+      string |
+      null
     >(
       null,
     );
@@ -681,7 +745,9 @@ export default function BillingPage() {
     verifiedModules,
     setVerifiedModules,
   ] =
-    useState<string[]>(
+    useState<
+      string[]
+    >(
       [],
     );
 
@@ -690,7 +756,8 @@ export default function BillingPage() {
     setVerifiedAiTier,
   ] =
     useState<
-      string | null
+      string |
+      null
     >(
       null,
     );
@@ -706,7 +773,6 @@ export default function BillingPage() {
           selectedModules,
           selectedAiTier,
         ),
-
       [
         selectedModules,
         selectedAiTier,
@@ -725,7 +791,9 @@ export default function BillingPage() {
       async function initialiseBillingPage() {
         const params =
           new URLSearchParams(
-            window.location.search,
+            window
+              .location
+              .search,
           );
 
         const existing =
@@ -849,7 +917,8 @@ export default function BillingPage() {
               )
                 ? data.modules.filter(
                     (
-                      item: unknown,
+                      item:
+                        unknown,
                     ) =>
                       typeof item ===
                       "string",
@@ -922,6 +991,10 @@ export default function BillingPage() {
           );
         }
 
+        /* ==============================================
+           COMPLETE LINK
+        ============================================== */
+
         if (
           packageParam ===
           "complete"
@@ -934,14 +1007,22 @@ export default function BillingPage() {
             "starter",
           );
         } else {
+          /* ============================================
+             MODULES
+          ============================================ */
+
           if (
             modulesParam
           ) {
             const parsedModules =
               modulesParam
-                .split(",")
+                .split(
+                  ",",
+                )
                 .map(
-                  (value) =>
+                  (
+                    value,
+                  ) =>
                     value.trim(),
                 )
                 .filter(
@@ -959,6 +1040,10 @@ export default function BillingPage() {
               );
             }
           }
+
+          /* ============================================
+             AI
+          ============================================ */
 
           if (
             isAiTierKey(
@@ -991,7 +1076,8 @@ export default function BillingPage() {
   ========================================================== */
 
   function toggleModule(
-    moduleKey: ModuleKey,
+    moduleKey:
+      ModuleKey,
   ) {
     setCheckoutError(
       null,
@@ -1007,18 +1093,18 @@ export default function BillingPage() {
           )
         ) {
           return current.filter(
-            (key) =>
+            (
+              key,
+            ) =>
               key !==
               moduleKey,
           );
         }
 
-        return uniqueModules(
-          [
-            ...current,
-            moduleKey,
-          ],
-        );
+        return uniqueModules([
+          ...current,
+          moduleKey,
+        ]);
       },
     );
   }
@@ -1070,14 +1156,15 @@ export default function BillingPage() {
 
     try {
       /*
-        IMPORTANT:
-
-        Do NOT trust totalMonthly from the browser
-        when creating Stripe prices.
-
-        The API should calculate the real amount using
-        trusted Stripe Price IDs / module configuration.
-      */
+       * Browser price is display-only.
+       *
+       * The API remains responsible for:
+       *
+       * - bundle pricing
+       * - Stripe Price IDs
+       * - Complete pricing
+       * - AI pricing
+       */
 
       const checkoutPayload = {
         billingModel:
@@ -1283,6 +1370,7 @@ export default function BillingPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#FAF8F5] px-5">
         <div className="w-full max-w-xl rounded-[2rem] border border-[#4f4a46]/10 bg-[#FFFEFD] p-10 text-center shadow-[0_26px_80px_rgba(79,74,70,0.08)] md:p-14">
+
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EFF3EB]">
             <Loader2
               size={24}
@@ -1300,9 +1388,13 @@ export default function BillingPage() {
           </h1>
 
           <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-[#69645f]">
-            We&apos;re confirming your Stripe payment and activating
-            the right TOTS-OS modules for your workspace.
+            We&apos;re confirming your
+            Stripe subscription and
+            activating the right
+            TOTS-OS modules for your
+            workspace.
           </p>
+
         </div>
       </main>
     );
@@ -1318,16 +1410,16 @@ export default function BillingPage() {
   ) {
     const successLabel =
       verifiedPackage
-        ? verifiedPackage
-            .replaceAll(
-              "_",
-              " ",
-            )
+        ? verifiedPackage.replaceAll(
+            "_",
+            " ",
+          )
         : "TOTS-OS";
 
     return (
       <main className="min-h-screen bg-[#FAF8F5] px-5 py-12 md:px-10 md:py-16">
         <div className="mx-auto max-w-3xl">
+
           <div className="overflow-hidden rounded-[2rem] border border-[#4f4a46]/10 bg-[#FFFEFD] shadow-[0_26px_80px_rgba(79,74,70,0.08)]">
 
             <div className="border-b border-[#4f4a46]/10 p-8 md:p-14">
@@ -1364,14 +1456,18 @@ export default function BillingPage() {
               )}
 
               <p className="mt-6 max-w-2xl text-base leading-8 text-[#69645f]">
-                Your TOTS-OS membership has been activated and your
-                workspace is ready to use.
+                Your TOTS-OS membership
+                has been activated and
+                your workspace is ready
+                to use.
               </p>
+
             </div>
 
             <div className="p-8 md:p-14">
 
               <div className="rounded-[1.5rem] border border-[#A9B897]/50 bg-[#EFF3EB] p-6 md:p-8">
+
                 <div className="flex items-start gap-4">
 
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#637454] shadow-sm">
@@ -1383,6 +1479,7 @@ export default function BillingPage() {
                   </div>
 
                   <div>
+
                     <p className="text-[11px] font-black uppercase tracking-[0.15em] text-[#637454]">
                       Your access is active
                     </p>
@@ -1397,6 +1494,7 @@ export default function BillingPage() {
                     {verifiedModules.length >
                       0 && (
                       <div className="mt-4 flex flex-wrap gap-2">
+
                         {verifiedModules.map(
                           (
                             module,
@@ -1407,36 +1505,45 @@ export default function BillingPage() {
                               }
                               className="rounded-full bg-white px-3 py-1.5 text-[10px] font-bold text-[#5d5854]"
                             >
-                              {
-                                MODULES[
-                                  module as ModuleKey
-                                ]
-                                  ?.shortName ||
-                                module
-                              }
+                              {MODULES[
+                                module as
+                                  ModuleKey
+                              ]
+                                ?.shortName ||
+                                module}
                             </span>
                           ),
                         )}
+
                       </div>
                     )}
 
-                    {verifiedAiTier && (
-                      <p className="mt-4 text-xs text-[#69645f]">
-                        Clarity AI:{" "}
-                        <span className="font-semibold capitalize text-[#4f4a46]">
-                          {
-                            verifiedAiTier
-                          }
-                        </span>
-                      </p>
-                    )}
+                    {verifiedAiTier &&
+                      verifiedAiTier !==
+                        "none" && (
+                        <p className="mt-4 text-xs text-[#69645f]">
+                          Clarity AI:{" "}
+                          <span className="font-semibold capitalize text-[#4f4a46]">
+                            {
+                              verifiedAiTier
+                            }
+                          </span>
+                        </p>
+                      )}
 
                     <p className="mt-4 max-w-xl text-xs leading-6 text-[#69645f]">
-                      Your existing projects, contacts, notes, settings
-                      and business data remain exactly where they were.
+                      Your existing
+                      projects, contacts,
+                      notes, settings and
+                      business data remain
+                      exactly where they
+                      were.
                     </p>
+
                   </div>
+
                 </div>
+
               </div>
 
               <button
@@ -1445,7 +1552,7 @@ export default function BillingPage() {
                   window.location.href =
                     "/dashboard";
                 }}
-                className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#373330] px-8 py-4 text-xs font-black text-white transition hover:bg-[#4f4a46] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#373330]"
+                className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#373330] px-8 py-4 text-xs font-black text-white transition hover:bg-[#4f4a46]"
               >
                 Go to TOTS-OS
 
@@ -1454,8 +1561,11 @@ export default function BillingPage() {
                   aria-hidden="true"
                 />
               </button>
+
             </div>
+
           </div>
+
         </div>
       </main>
     );
@@ -1471,6 +1581,7 @@ export default function BillingPage() {
   ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#FAF8F5] px-5">
+
         <div className="w-full max-w-xl rounded-[2rem] border border-[#4f4a46]/10 bg-[#FFFEFD] p-10 text-center shadow-[0_26px_80px_rgba(79,74,70,0.08)] md:p-14">
 
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0ECE7] text-[#69645f]">
@@ -1481,16 +1592,19 @@ export default function BillingPage() {
           </div>
 
           <p className="mt-7 text-[11px] font-black uppercase tracking-[0.16em] text-[#69645f]">
-            Payment received
+            Subscription created
           </p>
 
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#373330] md:text-5xl">
-            We couldn&apos;t finish activating your membership.
+            We couldn&apos;t finish
+            activating your membership.
           </h1>
 
           <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-[#69645f]">
-            Your Stripe payment may still have completed. Please do not
-            make another payment.
+            Your Stripe subscription may
+            still have completed. Please
+            do not start another checkout
+            yet.
           </p>
 
           {verificationError && (
@@ -1511,11 +1625,13 @@ export default function BillingPage() {
             onClick={() =>
               window.location.reload()
             }
-            className="mt-7 inline-flex min-h-12 items-center justify-center rounded-full bg-[#373330] px-7 py-4 text-xs font-black text-white transition hover:bg-[#4f4a46] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#373330]"
+            className="mt-7 inline-flex min-h-12 items-center justify-center rounded-full bg-[#373330] px-7 py-4 text-xs font-black text-white transition hover:bg-[#4f4a46]"
           >
             Try verification again
           </button>
+
         </div>
+
       </main>
     );
   }
@@ -1544,7 +1660,7 @@ export default function BillingPage() {
 
           <a
             href="/find-your-setup"
-            className="mb-7 inline-flex min-h-11 items-center gap-2 rounded-full border border-[#4f4a46]/10 bg-white px-4 text-xs font-bold text-[#5d5854] transition hover:border-[#4f4a46]/20 hover:bg-[#FFFEFD] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#373330]"
+            className="mb-7 inline-flex min-h-11 items-center gap-2 rounded-full border border-[#4f4a46]/10 bg-white px-4 text-xs font-bold text-[#5d5854] transition hover:border-[#4f4a46]/20 hover:bg-[#FFFEFD]"
           >
             <ArrowLeft
               size={14}
@@ -1570,25 +1686,30 @@ export default function BillingPage() {
                     ? "Your recommended TOTS-OS membership"
                     : "Build your TOTS-OS membership"}
                 </span>
+
               </div>
 
               <h1 className="max-w-4xl text-5xl font-semibold leading-[0.98] tracking-[-0.055em] text-[#373330] md:text-7xl">
                 {fromQuiz
-                  ? "Review your setup before you buy."
+                  ? "Review your setup before you start."
                   : "Pay for what your business actually needs."}
               </h1>
 
               <p className="mt-6 max-w-2xl text-base leading-8 text-[#69645f]">
-                Choose the TOTS-OS modules you want, add Clarity AI if
-                you need it, and we&apos;ll automatically apply the best
-                available bundle price.
+                Choose the TOTS-OS
+                modules you want, add
+                Clarity AI if you need
+                it, and your module
+                bundle price is applied
+                automatically.
               </p>
+
             </div>
 
             <div className="rounded-[1.5rem] border border-[#4f4a46]/10 bg-[#FFFEFD] px-6 py-5 shadow-[0_12px_34px_rgba(79,74,70,0.05)]">
 
               <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#69645f]">
-                Current membership
+                Selected setup
               </p>
 
               <div className="mt-2 flex items-center gap-3">
@@ -1598,13 +1719,17 @@ export default function BillingPage() {
                 <p className="text-xl font-semibold tracking-[-0.025em] text-[#373330]">
                   {pricing.isComplete
                     ? "TOTS-OS Complete"
-                    : `${pricing.moduleCount} ${
-                        pricing.moduleCount ===
-                        1
-                          ? "module"
-                          : "modules"
-                      }`}
+                    : pricing.moduleCount ===
+                        0
+                      ? "No modules selected"
+                      : `${pricing.moduleCount} ${
+                          pricing.moduleCount ===
+                          1
+                            ? "module"
+                            : "modules"
+                        }`}
                 </p>
+
               </div>
 
               <p className="mt-2 text-sm text-[#69645f]">
@@ -1614,7 +1739,9 @@ export default function BillingPage() {
                 }
                 /month
               </p>
+
             </div>
+
           </div>
 
           {fromQuiz && (
@@ -1628,21 +1755,28 @@ export default function BillingPage() {
               </div>
 
               <div>
+
                 <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#637454]">
                   Loaded from your quiz
                 </p>
 
                 <p className="mt-1 text-sm font-semibold text-[#4f4a46]">
-                  Your recommended setup is ready to review.
+                  Your recommended setup
+                  is ready to review.
                 </p>
 
                 <p className="mt-1 text-xs leading-6 text-[#69645f]">
-                  You can buy it exactly as recommended or change any
-                  module before checkout.
+                  You can use it exactly
+                  as recommended or
+                  change any module
+                  before checkout.
                 </p>
+
               </div>
+
             </div>
           )}
+
         </header>
 
         {/* ==================================================
@@ -1655,6 +1789,7 @@ export default function BillingPage() {
         >
 
           <div className="flex items-center gap-4 rounded-2xl border border-[#4f4a46]/10 bg-white px-5 py-4">
+
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF3EB] text-[#637454]">
               <Sparkles
                 size={16}
@@ -1668,12 +1803,15 @@ export default function BillingPage() {
               </p>
 
               <p className="mt-0.5 text-xs text-[#69645f]">
-                Choose only what you need
+                Choose only what you
+                need
               </p>
             </div>
+
           </div>
 
           <div className="flex items-center gap-4 rounded-2xl border border-[#4f4a46]/10 bg-white px-5 py-4">
+
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF3EB] text-[#637454]">
               <CreditCard
                 size={16}
@@ -1683,16 +1821,18 @@ export default function BillingPage() {
 
             <div>
               <p className="text-sm font-semibold text-[#4f4a46]">
-                Automatic bundle savings
+                Fixed bundle pricing
               </p>
 
               <p className="mt-0.5 text-xs text-[#69645f]">
-                The best eligible price is applied
+                Save as you add modules
               </p>
             </div>
+
           </div>
 
           <div className="flex items-center gap-4 rounded-2xl border border-[#4f4a46]/10 bg-white px-5 py-4">
+
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF3EB] text-[#637454]">
               <ShieldCheck
                 size={16}
@@ -1702,14 +1842,123 @@ export default function BillingPage() {
 
             <div>
               <p className="text-sm font-semibold text-[#4f4a46]">
-                £199 maximum
+                Complete for £139
               </p>
 
               <p className="mt-0.5 text-xs text-[#69645f]">
-                Complete gives you everything
+                All six modules +
+                Starter
               </p>
             </div>
+
           </div>
+
+        </section>
+
+        {/* ==================================================
+            FIXED BUNDLE PRICES
+        ================================================== */}
+
+        <section className="mb-7 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+
+          {[
+            {
+              modules:
+                1,
+              price:
+                29,
+              label:
+                "1 module",
+            },
+            {
+              modules:
+                2,
+              price:
+                55,
+              label:
+                "2 modules",
+            },
+            {
+              modules:
+                3,
+              price:
+                79,
+              label:
+                "3 modules",
+            },
+            {
+              modules:
+                4,
+              price:
+                99,
+              label:
+                "4 modules",
+            },
+            {
+              modules:
+                5,
+              price:
+                119,
+              label:
+                "5 modules",
+            },
+            {
+              modules:
+                6,
+              price:
+                139,
+              label:
+                "Complete",
+            },
+          ].map(
+            (
+              bundle,
+            ) => {
+              const selected =
+                pricing.moduleCount ===
+                bundle.modules;
+
+              return (
+                <div
+                  key={
+                    bundle.modules
+                  }
+                  className={`
+                    rounded-2xl
+                    border
+                    px-4
+                    py-4
+                    text-center
+                    transition
+
+                    ${
+                      selected
+                        ? "border-[#637454] bg-[#EFF3EB]"
+                        : "border-[#4f4a46]/10 bg-white"
+                    }
+                  `}
+                >
+                  <p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#69645f]">
+                    {
+                      bundle.label
+                    }
+                  </p>
+
+                  <p className="mt-1 text-2xl font-bold tracking-[-0.04em] text-[#373330]">
+                    £
+                    {
+                      bundle.price
+                    }
+                  </p>
+
+                  <p className="mt-0.5 text-[10px] text-[#69645f]">
+                    /month
+                  </p>
+
+                </div>
+              );
+            },
+          )}
 
         </section>
 
@@ -1719,10 +1968,14 @@ export default function BillingPage() {
         >
 
           {/* ==================================================
-              LEFT: MODULE BUILDER
+              LEFT
           ================================================== */}
 
           <div>
+
+            {/* ==================================================
+                MODULE BUILDER
+            ================================================== */}
 
             <section
               aria-labelledby="module-heading"
@@ -1732,6 +1985,7 @@ export default function BillingPage() {
               <div className="flex flex-col gap-4 border-b border-[#4f4a46]/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
 
                 <div>
+
                   <p className="text-[11px] font-black uppercase tracking-[0.15em] text-[#936d43]">
                     Step 1
                   </p>
@@ -1744,9 +1998,13 @@ export default function BillingPage() {
                   </h2>
 
                   <p className="mt-2 max-w-xl text-sm leading-7 text-[#69645f]">
-                    Select the areas of TOTS-OS you want access to.
-                    Discounts are calculated automatically.
+                    Every module is £29
+                    individually. Select
+                    more and your fixed
+                    module bundle price is
+                    applied automatically.
                   </p>
+
                 </div>
 
                 <p
@@ -1762,9 +2020,11 @@ export default function BillingPage() {
                     : "modules"}{" "}
                   selected
                 </p>
+
               </div>
 
               <fieldset className="mt-6">
+
                 <legend className="sr-only">
                   Select TOTS-OS modules
                 </legend>
@@ -1857,6 +2117,7 @@ export default function BillingPage() {
                               <div className="flex items-start justify-between gap-4">
 
                                 <div>
+
                                   <h3 className="text-base font-bold text-[#373330]">
                                     {
                                       module.name
@@ -1864,12 +2125,10 @@ export default function BillingPage() {
                                   </h3>
 
                                   <p className="mt-1 text-sm font-semibold text-[#4f4a46]">
-                                    £
-                                    {
-                                      module.price
-                                    }
-                                    /month
+                                    £29/month
+                                    individually
                                   </p>
+
                                 </div>
 
                                 <span
@@ -1915,39 +2174,88 @@ export default function BillingPage() {
                   )}
 
                 </div>
+
               </fieldset>
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              {/* ==================================================
+                  BUNDLE SUMMARY
+              ================================================== */}
 
-                <div className="rounded-2xl bg-[#FAF8F5] px-4 py-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#69645f]">
-                    1–2 modules
-                  </p>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
 
-                  <p className="mt-1 text-sm font-semibold text-[#4f4a46]">
-                    Standard pricing
-                  </p>
-                </div>
+                {[
+                  {
+                    count:
+                      1,
+                    price:
+                      29,
+                  },
+                  {
+                    count:
+                      2,
+                    price:
+                      55,
+                  },
+                  {
+                    count:
+                      3,
+                    price:
+                      79,
+                  },
+                  {
+                    count:
+                      4,
+                    price:
+                      99,
+                  },
+                  {
+                    count:
+                      5,
+                    price:
+                      119,
+                  },
+                ].map(
+                  (
+                    bundle,
+                  ) => (
+                    <div
+                      key={
+                        bundle.count
+                      }
+                      className={`
+                        rounded-2xl
+                        px-4
+                        py-4
 
-                <div className="rounded-2xl bg-[#FAF8F5] px-4 py-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#69645f]">
-                    3–4 modules
-                  </p>
+                        ${
+                          pricing.moduleCount ===
+                          bundle.count
+                            ? "bg-[#EFF3EB]"
+                            : "bg-[#FAF8F5]"
+                        }
+                      `}
+                    >
+                      <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#69645f]">
+                        {
+                          bundle.count
+                        }{" "}
+                        {bundle.count ===
+                        1
+                          ? "module"
+                          : "modules"}
+                      </p>
 
-                  <p className="mt-1 text-sm font-semibold text-[#4f4a46]">
-                    10% off
-                  </p>
-                </div>
+                      <p className="mt-1 text-sm font-semibold text-[#4f4a46]">
+                        £
+                        {
+                          bundle.price
+                        }
+                        /month
+                      </p>
 
-                <div className="rounded-2xl bg-[#FAF8F5] px-4 py-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#69645f]">
-                    5 modules
-                  </p>
-
-                  <p className="mt-1 text-sm font-semibold text-[#4f4a46]">
-                    20% off
-                  </p>
-                </div>
+                    </div>
+                  ),
+                )}
 
               </div>
 
@@ -1976,8 +2284,10 @@ export default function BillingPage() {
                 </h2>
 
                 <p className="mt-2 max-w-2xl text-sm leading-7 text-[#69645f]">
-                  Add only the AI allowance that matches how often you
-                  expect to use it.
+                  Clarity AI is optional
+                  with modular setups.
+                  Starter is included with
+                  TOTS-OS Complete.
                 </p>
 
               </div>
@@ -1995,6 +2305,7 @@ export default function BillingPage() {
                     </div>
 
                     <div>
+
                       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#637454]">
                         Included with Complete
                       </p>
@@ -2003,13 +2314,12 @@ export default function BillingPage() {
                         Clarity AI Starter
                       </h3>
 
-                      <p className="mt-1 text-sm font-semibold text-[#4f4a46]">
-                        100 AI actions / month
-                      </p>
-
                       <p className="mt-3 max-w-xl text-xs leading-6 text-[#69645f]">
-                        Complete includes Clarity AI Starter as standard.
-                        Your total membership remains £199/month.
+                        Complete includes
+                        Clarity AI Starter
+                        as standard. Your
+                        Complete membership
+                        is £139/month.
                       </p>
 
                     </div>
@@ -2026,17 +2336,21 @@ export default function BillingPage() {
                       />
 
                       <p className="text-xs leading-6 text-[#5d5854]">
-                        Your quiz suggested{" "}
+                        Your recommendation
+                        originally included{" "}
                         <strong>
                           {
                             AI_TIERS[
-                              pricing.requestedAiTier
+                              pricing
+                                .requestedAiTier
                             ].name
                           }
                         </strong>
-                        , but Complete includes Starter. We recommend
-                        starting there and only increasing your AI
-                        allowance later if you actually need it.
+                        . Complete currently
+                        includes Starter.
+                        You can upgrade your
+                        AI level separately
+                        later.
                       </p>
 
                     </div>
@@ -2047,7 +2361,8 @@ export default function BillingPage() {
                 <fieldset className="mt-6">
 
                   <legend className="sr-only">
-                    Choose your Clarity AI plan
+                    Choose your Clarity AI
+                    plan
                   </legend>
 
                   <div className="grid gap-3 md:grid-cols-2">
@@ -2055,7 +2370,8 @@ export default function BillingPage() {
                     {(
                       Object.keys(
                         AI_TIERS,
-                      ) as AiTierKey[]
+                      ) as
+                        AiTierKey[]
                     ).map(
                       (
                         key,
@@ -2119,6 +2435,7 @@ export default function BillingPage() {
                             <div className="flex items-start justify-between gap-4">
 
                               <div>
+
                                 <p className="text-base font-bold text-[#373330]">
                                   {
                                     tier.name
@@ -2131,6 +2448,7 @@ export default function BillingPage() {
                                     ? "No additional charge"
                                     : `+£${tier.price}/month`}
                                 </p>
+
                               </div>
 
                               <span
@@ -2160,15 +2478,7 @@ export default function BillingPage() {
 
                             </div>
 
-                            {tier.allowance && (
-                              <p className="mt-3 text-xs font-bold text-[#936d43]">
-                                {
-                                  tier.allowance
-                                }
-                              </p>
-                            )}
-
-                            <p className="mt-2 text-xs leading-6 text-[#69645f]">
+                            <p className="mt-3 text-xs leading-6 text-[#69645f]">
                               {
                                 tier.description
                               }
@@ -2198,6 +2508,7 @@ export default function BillingPage() {
                   <div className="p-7 md:p-8">
 
                     <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-[#D1DFC6]">
+
                       <WandSparkles
                         size={14}
                         aria-hidden="true"
@@ -2206,6 +2517,7 @@ export default function BillingPage() {
                       <span className="text-[10px] font-black uppercase tracking-[0.14em]">
                         Everything in one membership
                       </span>
+
                     </div>
 
                     <h2 className="mt-5 text-3xl font-semibold tracking-[-0.04em] md:text-4xl">
@@ -2213,11 +2525,14 @@ export default function BillingPage() {
                     </h2>
 
                     <p className="mt-3 max-w-2xl text-sm leading-7 text-white/75">
-                      Get all six main modules plus Clarity AI Starter
-                      for one fixed monthly price.
+                      Get all six main
+                      modules plus Clarity
+                      AI Starter for one
+                      fixed monthly price.
                     </p>
 
                     <div className="mt-5 flex flex-wrap gap-2">
+
                       {MODULE_ORDER.map(
                         (
                           key,
@@ -2231,8 +2546,7 @@ export default function BillingPage() {
                             {
                               MODULES[
                                 key
-                              ]
-                                .shortName
+                              ].shortName
                             }
                           </span>
                         ),
@@ -2241,6 +2555,7 @@ export default function BillingPage() {
                       <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[10px] font-bold text-white/90">
                         Clarity AI Starter
                       </span>
+
                     </div>
 
                   </div>
@@ -2252,7 +2567,7 @@ export default function BillingPage() {
                     </p>
 
                     <p className="mt-2 text-5xl font-bold tracking-[-0.05em]">
-                      £199
+                      £139
                     </p>
 
                     <p className="mt-1 text-xs text-white/65">
@@ -2264,7 +2579,7 @@ export default function BillingPage() {
                       onClick={
                         selectComplete
                       }
-                      className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-xs font-black text-[#373330] transition hover:bg-[#EFF3EB] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-white"
+                      className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-xs font-black text-[#373330] transition hover:bg-[#EFF3EB]"
                     >
                       Choose Complete
 
@@ -2284,7 +2599,7 @@ export default function BillingPage() {
           </div>
 
           {/* ==================================================
-              RIGHT: STICKY SUMMARY
+              RIGHT SUMMARY
           ================================================== */}
 
           <aside
@@ -2310,7 +2625,9 @@ export default function BillingPage() {
                 </h2>
 
                 <p className="mt-2 text-xs leading-6 text-[#69645f]">
-                  Review everything below before continuing to Stripe.
+                  Review everything below
+                  before continuing to
+                  Stripe.
                 </p>
 
               </div>
@@ -2320,6 +2637,7 @@ export default function BillingPage() {
                 {selectedModules.length ===
                 0 ? (
                   <div className="rounded-2xl bg-[#FAF8F5] p-5 text-center">
+
                     <ShoppingBag
                       size={20}
                       className="mx-auto text-[#69645f]"
@@ -2331,8 +2649,11 @@ export default function BillingPage() {
                     </p>
 
                     <p className="mt-1 text-xs leading-5 text-[#69645f]">
-                      Choose at least one module to build your membership.
+                      Choose at least one
+                      module to build your
+                      membership.
                     </p>
+
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -2353,6 +2674,7 @@ export default function BillingPage() {
                             }
                             className="flex items-center justify-between gap-4"
                           >
+
                             <div className="flex min-w-0 items-center gap-3">
 
                               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#EFF3EB] text-[#637454]">
@@ -2368,14 +2690,13 @@ export default function BillingPage() {
                                   module.shortName
                                 }
                               </span>
+
                             </div>
 
                             <span className="shrink-0 text-xs font-bold text-[#69645f]">
-                              £
-                              {
-                                module.price
-                              }
+                              £29
                             </span>
+
                           </div>
                         );
                       },
@@ -2383,6 +2704,62 @@ export default function BillingPage() {
 
                   </div>
                 )}
+
+                {/* ============================================
+                    MODULE BUNDLE
+                ============================================ */}
+
+                {selectedModules.length >
+                  0 && (
+                  <div className="mt-5 rounded-2xl border border-[#A9B897]/50 bg-[#EFF3EB] px-4 py-4">
+
+                    <div className="flex items-center justify-between gap-4">
+
+                      <div>
+
+                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#637454]">
+                          {pricing.isComplete
+                            ? "Complete"
+                            : pricing.bundleLabel}
+                        </p>
+
+                        <p className="mt-1 text-xs text-[#69645f]">
+                          {pricing.isComplete
+                            ? "All six modules"
+                            : "Fixed module bundle price"}
+                        </p>
+
+                      </div>
+
+                      <p className="text-sm font-bold text-[#637454]">
+                        £
+                        {
+                          pricing.moduleBundleTotal
+                        }
+                      </p>
+
+                    </div>
+
+                    {!pricing.isComplete &&
+                      pricing.moduleSaving >
+                        0 && (
+                        <p className="mt-2 text-[10px] font-semibold text-[#637454]">
+                          Saving £
+                          {
+                            pricing.moduleSaving
+                          }{" "}
+                          compared with
+                          buying each module
+                          individually.
+                        </p>
+                      )}
+
+                  </div>
+                )}
+
+                {/* ============================================
+                    AI
+                ============================================ */}
 
                 {pricing.isComplete ? (
                   <div className="mt-5 flex items-center justify-between gap-4 border-t border-[#4f4a46]/10 pt-5">
@@ -2397,13 +2774,16 @@ export default function BillingPage() {
                       </span>
 
                       <div>
+
                         <p className="text-xs font-semibold text-[#4f4a46]">
                           Clarity AI Starter
                         </p>
 
                         <p className="mt-0.5 text-[10px] text-[#69645f]">
-                          100 actions / month
+                          Included with
+                          Complete
                         </p>
+
                       </div>
 
                     </div>
@@ -2427,23 +2807,15 @@ export default function BillingPage() {
                       </span>
 
                       <div>
+
                         <p className="text-xs font-semibold text-[#4f4a46]">
                           {
                             AI_TIERS[
                               selectedAiTier
-                            ]
-                              .name
+                            ].name
                           }
                         </p>
 
-                        <p className="mt-0.5 text-[10px] text-[#69645f]">
-                          {
-                            AI_TIERS[
-                              selectedAiTier
-                            ]
-                              .allowance
-                          }
-                        </p>
                       </div>
 
                     </div>
@@ -2453,8 +2825,7 @@ export default function BillingPage() {
                       {
                         AI_TIERS[
                           selectedAiTier
-                        ]
-                          .price
+                        ].price
                       }
                     </span>
 
@@ -2462,42 +2833,7 @@ export default function BillingPage() {
                 ) : null}
 
                 {/* ============================================
-                    DISCOUNT
-                ============================================ */}
-
-                {!pricing.isComplete &&
-                  pricing.moduleSaving >
-                    0 && (
-                    <div className="mt-5 rounded-2xl border border-[#A9B897]/50 bg-[#EFF3EB] px-4 py-4">
-
-                      <div className="flex items-center justify-between gap-4">
-
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#637454]">
-                            {
-                              pricing.discountLabel
-                            }
-                          </p>
-
-                          <p className="mt-1 text-xs text-[#69645f]">
-                            Applied automatically
-                          </p>
-                        </div>
-
-                        <p className="text-sm font-bold text-[#637454]">
-                          -£
-                          {
-                            pricing.moduleSaving
-                          }
-                        </p>
-
-                      </div>
-
-                    </div>
-                  )}
-
-                {/* ============================================
-                    COMPLETE AUTO-UPGRADE
+                    COMPLETE NOTICE
                 ============================================ */}
 
                 {pricing.isComplete && (
@@ -2512,21 +2848,68 @@ export default function BillingPage() {
                       />
 
                       <div>
+
                         <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#637454]">
-                          Complete applied
+                          TOTS-OS Complete
                         </p>
 
                         <p className="mt-1 text-xs leading-5 text-[#69645f]">
-                          Your selection reaches our Complete price, so
-                          we&apos;ve given you all six modules plus
-                          Clarity AI Starter for £199/month.
+                          All six modules
+                          are selected, so
+                          your setup is
+                          TOTS-OS Complete
+                          at £139/month with
+                          Clarity AI Starter
+                          included.
                         </p>
+
                       </div>
 
                     </div>
 
                   </div>
                 )}
+
+                {/* ============================================
+                    OPTIONAL COMPLETE UPSELL
+                ============================================ */}
+
+                {!pricing.isComplete &&
+                  pricing.moduleCount ===
+                    5 && (
+                    <div className="mt-5 rounded-2xl border border-[#C69D69]/30 bg-[#F2E7DA] px-4 py-4">
+
+                      <div className="flex items-start gap-3">
+
+                        <Sparkles
+                          size={15}
+                          className="mt-0.5 shrink-0 text-[#936d43]"
+                          aria-hidden="true"
+                        />
+
+                        <div>
+
+                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#936d43]">
+                            Almost Complete
+                          </p>
+
+                          <p className="mt-1 text-xs leading-5 text-[#5d5854]">
+                            Five modules are
+                            £119/month.
+                            TOTS-OS Complete
+                            is £139/month and
+                            adds the sixth
+                            module plus
+                            Clarity AI
+                            Starter.
+                          </p>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+                  )}
 
                 {/* ============================================
                     TOTAL
@@ -2537,21 +2920,20 @@ export default function BillingPage() {
                   <div className="flex items-end justify-between gap-4">
 
                     <div>
+
                       <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#69645f]">
                         Monthly total
                       </p>
 
-                      {pricing.isComplete &&
-                        pricing.modularTotal >
-                          COMPLETE_PRICE && (
-                          <p className="mt-1 text-xs text-[#69645f] line-through">
-                            £
-                            {
-                              pricing.modularTotal
-                            }
-                            /month
+                      {!pricing.isComplete &&
+                        selectedAiTier !==
+                          "none" && (
+                          <p className="mt-1 text-[10px] text-[#69645f]">
+                            Modules + Clarity
+                            AI
                           </p>
                         )}
+
                     </div>
 
                     <div className="text-right">
@@ -2576,15 +2958,36 @@ export default function BillingPage() {
 
                   {pricing.isComplete && (
                     <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#EFF3EB] px-3 py-2 text-[10px] font-black text-[#637454]">
+
                       <Check
                         size={11}
                         strokeWidth={3}
                         aria-hidden="true"
                       />
 
-                      £199 membership maximum
+                      Complete — £139/month
+
                     </div>
                   )}
+
+                </div>
+
+                {/* ============================================
+                    TRIAL
+                ============================================ */}
+
+                <div className="mt-5 rounded-2xl bg-[#FAF8F5] px-4 py-4">
+
+                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#637454]">
+                    14-day free trial
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-[#69645f]">
+                    Start with two weeks
+                    free. No bank details
+                    are required to begin
+                    your trial.
+                  </p>
 
                 </div>
 
@@ -2620,7 +3023,7 @@ export default function BillingPage() {
                   onClick={() => {
                     void handleCheckout();
                   }}
-                  className="mt-6 flex min-h-13 w-full items-center justify-center gap-2 rounded-full bg-[#373330] px-6 py-4 text-xs font-black text-white transition hover:bg-[#4f4a46] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#373330] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-6 flex min-h-13 w-full items-center justify-center gap-2 rounded-full bg-[#373330] px-6 py-4 text-xs font-black text-white transition hover:bg-[#4f4a46] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {checkoutLoading ? (
                     <>
@@ -2634,7 +3037,7 @@ export default function BillingPage() {
                     </>
                   ) : (
                     <>
-                      Buy this membership
+                      Start my free trial
 
                       <ArrowRight
                         size={15}
@@ -2645,12 +3048,14 @@ export default function BillingPage() {
                 </button>
 
                 <div className="mt-4 flex items-center justify-center gap-2 text-center text-[10px] font-semibold text-[#69645f]">
+
                   <ShieldCheck
                     size={12}
                     aria-hidden="true"
                   />
 
                   Secure checkout through Stripe
+
                 </div>
 
               </div>
@@ -2675,14 +3080,21 @@ export default function BillingPage() {
                   </div>
 
                   <div>
+
                     <p className="text-xs font-bold text-[#4f4a46]">
-                      Your workspace stays intact
+                      Your workspace stays
+                      intact
                     </p>
 
                     <p className="mt-1 text-[11px] leading-5 text-[#69645f]">
-                      Your existing clients, projects, files, settings and
-                      business data stay exactly where they are.
+                      Your existing
+                      clients, projects,
+                      files, settings and
+                      business data stay
+                      exactly where they
+                      are.
                     </p>
+
                   </div>
 
                 </div>
@@ -2701,36 +3113,44 @@ export default function BillingPage() {
         <section className="mt-10 grid gap-4 border-t border-[#4f4a46]/10 pt-8 md:grid-cols-3">
 
           <div>
+
             <p className="text-xs font-bold text-[#4f4a46]">
               Change as you grow
             </p>
 
             <p className="mt-2 text-xs leading-6 text-[#69645f]">
-              Add or remove modules as the needs of your business
+              Add or remove modules as
+              the needs of your business
               change.
             </p>
+
           </div>
 
           <div>
+
             <p className="text-xs font-bold text-[#4f4a46]">
-              Clear monthly pricing
+              Clear bundle pricing
             </p>
 
             <p className="mt-2 text-xs leading-6 text-[#69645f]">
-              Bundle savings are automatically applied when your setup
-              qualifies.
+              1 module £29, 2 £55, 3
+              £79, 4 £99 and 5 £119.
             </p>
+
           </div>
 
           <div>
+
             <p className="text-xs font-bold text-[#4f4a46]">
-              Complete never exceeds £199
+              Complete for £139
             </p>
 
             <p className="mt-2 text-xs leading-6 text-[#69645f]">
-              If your configuration reaches £199, TOTS-OS Complete
-              becomes the better-value membership automatically.
+              All six modules plus
+              Clarity AI Starter in one
+              Complete membership.
             </p>
+
           </div>
 
         </section>

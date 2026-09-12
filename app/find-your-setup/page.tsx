@@ -46,40 +46,38 @@ const LOGO_SRC = "/icon.png";
 
 const HOME_URL = "/";
 
-const SIGNUP_URL =
-  "https://tots-os.co.uk/login";
+const BILLING_URL =
+  "/billing";
 
-const COMPLETE_PRICE = 199;
+const COMPLETE_PRICE = 139;
+
+const MODULE_PRICE = 29;
+
+const MODULE_BUNDLE_PRICES: Record<number, number> = {
+  0: 0,
+  1: 29,
+  2: 55,
+  3: 79,
+  4: 99,
+  5: 119,
+  6: 139,
+};
 
 /* ============================================================
    PRICING
 
    MAIN MODULES
 
-   Core                £39
-   Store               £39
-   Email Marketing     £39
-   Finance             £49
-   Clients & Projects  £49
-   Social Studio       £49
+   Every main module is £29/month individually.
 
-   DISCOUNTS
+   FIXED MODULE BUNDLES
 
-   1–2 modules:
-   normal module price
-
-   3–4 modules:
-   10% off
-
-   5 modules:
-   20% off
-
-   All 6 modules:
-   TOTS-OS Complete £199
-
-   IMPORTANT:
-   If any recommended modular configuration reaches
-   £199/month or more, recommend Complete instead.
+   1 module   £29
+   2 modules  £55
+   3 modules  £79
+   4 modules  £99
+   5 modules  £119
+   6 modules  TOTS-OS Complete £139
 
    CLARITY AI
 
@@ -87,11 +85,11 @@ const COMPLETE_PRICE = 199;
    Plus     £39
    Pro      £69
 
-   Complete includes Clarity AI Starter ONLY.
+   Complete includes Clarity AI Starter.
 
-   If the quiz thinks somebody may need Plus or Pro
-   but Complete is recommended, we still show £199
-   and advise them to start with included Starter.
+   IMPORTANT:
+   A 1–5 module setup remains modular even if adding AI makes
+   the total exceed £139. Complete represents all six modules.
 ============================================================ */
 
 /* ============================================================
@@ -251,7 +249,7 @@ const MODULE_INFO: Record<
 
     shortTitle: "Core",
 
-    price: 39,
+    price: MODULE_PRICE,
 
     description:
       "Your central business workspace for dashboards, contacts, tasks, calendar, notes and everyday organisation.",
@@ -268,7 +266,7 @@ const MODULE_INFO: Record<
     shortTitle:
       "Clients & Projects",
 
-    price: 49,
+    price: MODULE_PRICE,
 
     description:
       "Manage client relationships, projects, tasks, deadlines, notes, files and delivery from one connected workspace.",
@@ -283,7 +281,7 @@ const MODULE_INFO: Record<
 
     shortTitle: "Finance",
 
-    price: 49,
+    price: MODULE_PRICE,
 
     description:
       "Bring invoices, quotes, expenses and financial visibility closer to the rest of your business.",
@@ -300,7 +298,7 @@ const MODULE_INFO: Record<
     shortTitle:
       "Social Studio",
 
-    price: 49,
+    price: MODULE_PRICE,
 
     description:
       "Plan, organise and publish content without separating social media from the rest of your workflow.",
@@ -317,7 +315,7 @@ const MODULE_INFO: Record<
     shortTitle:
       "Email Marketing",
 
-    price: 39,
+    price: MODULE_PRICE,
 
     description:
       "Manage audiences, subscriber lists, campaigns, scheduling and customer email activity.",
@@ -333,7 +331,7 @@ const MODULE_INFO: Record<
 
     shortTitle: "Store",
 
-    price: 39,
+    price: MODULE_PRICE,
 
     description:
       "Manage products, customers and orders without running your online store as another disconnected system.",
@@ -363,7 +361,6 @@ const AI_TIERS = {
 
     price: 0,
 
-    allowance: "",
 
     description:
       "You can add Clarity AI later whenever it becomes useful.",
@@ -375,8 +372,6 @@ const AI_TIERS = {
 
     price: 19,
 
-    allowance:
-      "100 AI actions per month",
 
     description:
       "For occasional summaries, ideas, recommendations and quick business assistance.",
@@ -388,8 +383,6 @@ const AI_TIERS = {
 
     price: 39,
 
-    allowance:
-      "500 AI actions per month",
 
     description:
       "For regular use across different areas of your business throughout the week.",
@@ -401,8 +394,6 @@ const AI_TIERS = {
 
     price: 69,
 
-    allowance:
-      "1,500 AI actions per month",
 
     description:
       "For businesses making Clarity AI part of their everyday operating workflow.",
@@ -414,7 +405,6 @@ const AI_TIERS = {
 
     price: number;
 
-    allowance: string;
 
     description: string;
   }
@@ -1247,7 +1237,7 @@ const QUESTIONS: Question[] = [
       "How often would you realistically use AI inside your business system?",
 
     helper:
-      "We'll recommend a sensible starting allowance rather than pushing you into a larger AI plan.",
+      "We'll recommend a sensible starting AI tier rather than pushing you into a larger AI plan.",
 
     icon:
       BrainCircuit,
@@ -1695,96 +1685,56 @@ function getAiTier(
   );
 }
 
+function uniqueModules(
+  modules: ModuleKey[],
+): ModuleKey[] {
+  return Array.from(
+    new Set(
+      modules,
+    ),
+  );
+}
+
 function calculateBundle(
   modules: ModuleKey[],
   requestedAiTier: AiTierKey,
 ): BundleResult {
-  const moduleCount =
-    modules.length;
-
-  const undiscountedModuleTotal =
-    modules.reduce(
-      (sum, key) =>
-        sum +
-        MODULE_INFO[key]
-          .price,
-      0,
+  const cleanModules =
+    uniqueModules(
+      modules,
     );
 
-  let discountedModuleTotal =
-    undiscountedModuleTotal;
+  const moduleCount =
+    cleanModules.length;
 
-  let discountPercent =
-    0;
-
-  let discountLabel =
-    "Standard module pricing";
-
-  if (
-    moduleCount === 5
-  ) {
-    discountPercent =
-      20;
-
-    discountLabel =
-      "20% bundle saving";
-
-    discountedModuleTotal =
-      Math.round(
-        undiscountedModuleTotal *
-          0.8,
-      );
-  } else if (
-    moduleCount === 3 ||
-    moduleCount === 4
-  ) {
-    discountPercent =
-      10;
-
-    discountLabel =
-      "10% bundle saving";
-
-    discountedModuleTotal =
-      Math.round(
-        undiscountedModuleTotal *
-          0.9,
-      );
-  }
-
-  const moduleSaving =
-    undiscountedModuleTotal -
-    discountedModuleTotal;
+  const undiscountedModuleTotal =
+    moduleCount *
+    MODULE_PRICE;
 
   const requestedAiPrice =
     AI_TIERS[
       requestedAiTier
     ].price;
 
-  const modularTotal =
-    discountedModuleTotal +
-    requestedAiPrice;
-
   /*
     COMPLETE RULE
 
-    Complete is recommended when:
-    - all 6 modules are needed
-    - OR the recommended modular
-      setup would reach £199+
+    Complete is used ONLY when all six modules are recommended.
+
+    We intentionally do not switch 1–5 module setups to Complete
+    just because an AI add-on takes the total above £139.
   */
 
   const shouldRecommendComplete =
     moduleCount ===
-      MODULE_ORDER.length ||
-    modularTotal >=
-      COMPLETE_PRICE;
+    MODULE_ORDER.length;
 
   if (
     shouldRecommendComplete
   ) {
     return {
       recommendedModules:
-        modules,
+        cleanModules,
 
       displayedModules:
         MODULE_ORDER,
@@ -1794,27 +1744,31 @@ function calculateBundle(
 
       undiscountedModuleTotal,
 
-      discountedModuleTotal,
+      discountedModuleTotal:
+        COMPLETE_PRICE,
 
       requestedAiTier,
 
       requestedAiPrice,
 
-      modularTotal,
+      modularTotal:
+        COMPLETE_PRICE,
 
       totalMonthly:
         COMPLETE_PRICE,
 
-      moduleSaving,
-
-      completeSaving:
+      moduleSaving:
         Math.max(
           0,
-          modularTotal -
+          undiscountedModuleTotal -
             COMPLETE_PRICE,
         ),
 
-      discountPercent: 0,
+      completeSaving:
+        0,
+
+      discountPercent:
+        0,
 
       discountLabel:
         "Complete fixed price",
@@ -1822,7 +1776,8 @@ function calculateBundle(
       bundleName:
         "TOTS-OS Complete",
 
-      isComplete: true,
+      isComplete:
+        true,
 
       includedAiTier:
         "starter",
@@ -1835,12 +1790,29 @@ function calculateBundle(
     };
   }
 
+  const discountedModuleTotal =
+    MODULE_BUNDLE_PRICES[
+      moduleCount
+    ] ??
+    0;
+
+  const moduleSaving =
+    Math.max(
+      0,
+      undiscountedModuleTotal -
+        discountedModuleTotal,
+    );
+
+  const modularTotal =
+    discountedModuleTotal +
+    requestedAiPrice;
+
   return {
     recommendedModules:
-      modules,
+      cleanModules,
 
     displayedModules:
-      modules,
+      cleanModules,
 
     moduleCount,
 
@@ -1859,23 +1831,29 @@ function calculateBundle(
 
     moduleSaving,
 
-    completeSaving: 0,
+    completeSaving:
+      0,
 
-    discountPercent,
+    discountPercent:
+      0,
 
-    discountLabel,
+    discountLabel:
+      moduleCount === 1
+        ? "Single module"
+        : `${moduleCount}-module fixed bundle`,
 
     bundleName:
       moduleCount === 1
         ? `${
             MODULE_INFO[
-              modules[0]
+              cleanModules[0]
             ]?.shortTitle ??
             "TOTS-OS"
           } setup`
         : `${moduleCount}-module setup`,
 
-    isComplete: false,
+    isComplete:
+      false,
 
     includedAiTier:
       requestedAiTier,
@@ -1894,10 +1872,10 @@ function getSetupProfile(
         "Complete setup",
 
       title:
-        "It makes more sense to give you everything.",
+        "Your business would benefit from the full setup.",
 
       description:
-        "Your recommended configuration reaches the Complete price, so rather than charging you more for individual modules, we'd give you every main TOTS-OS workspace plus Clarity AI Starter for one fixed £199 monthly price.",
+        "Your answers point to value across all six main TOTS-OS modules, so Complete gives you the full connected workspace plus Clarity AI Starter for one fixed £139 monthly price.",
     };
   }
 
@@ -1993,7 +1971,7 @@ function getModuleReasons(
   );
 }
 
-function buildSignupUrl(
+function buildBillingUrl(
   bundle: BundleResult,
 ) {
   const params =
@@ -2030,6 +2008,11 @@ function buildSignupUrl(
     }
   } else {
     params.set(
+      "package",
+      "modular",
+    );
+
+    params.set(
       "modules",
       bundle.recommendedModules.join(
         ",",
@@ -2047,7 +2030,7 @@ function buildSignupUrl(
     }
   }
 
-  return `${SIGNUP_URL}?${params.toString()}`;
+  return `${BILLING_URL}?${params.toString()}`;
 }
 
 /* ============================================================
@@ -2279,7 +2262,7 @@ export default function FindYourSetupPage() {
   const signupUrl =
     useMemo(
       () =>
-        buildSignupUrl(
+        buildBillingUrl(
           bundle,
         ),
       [bundle],
@@ -5899,7 +5882,7 @@ export default function FindYourSetupPage() {
                         LayoutDashboard
                       }
                       label="Core"
-                      meta="£39 / month"
+                      meta="£29 / month"
                     />
 
                     <PreviewItem
@@ -5907,7 +5890,7 @@ export default function FindYourSetupPage() {
                         FolderKanban
                       }
                       label="Clients & Projects"
-                      meta="£49 / month"
+                      meta="£29 / month"
                     />
 
                     <PreviewItem
@@ -5915,13 +5898,13 @@ export default function FindYourSetupPage() {
                         Megaphone
                       }
                       label="Social Studio"
-                      meta="£49 / month"
+                      meta="£29 / month"
                     />
 
                     <PreviewItem
                       icon={Store}
                       label="Store"
-                      meta="£39 / month"
+                      meta="£29 / month"
                     />
                   </div>
 
@@ -5937,8 +5920,8 @@ export default function FindYourSetupPage() {
                         aria-hidden="true"
                       />
 
-                      Never more
-                      than £199
+                      Complete from
+                      £139
                       /month.
                     </div>
                   </div>
@@ -6541,13 +6524,13 @@ export default function FindYourSetupPage() {
 
                   <p className="package-copy">
                     {bundle.isComplete
-                      ? "Your recommended configuration reaches the Complete price, so rather than charging you more for individual modules, we'd give you every main TOTS-OS module plus Clarity AI Starter for one fixed £199 monthly price."
+                      ? "Your answers recommend all six main modules, so TOTS-OS Complete gives you the full workspace plus Clarity AI Starter for one fixed £139 monthly price."
                       : bundle.moduleCount ===
                           5
-                        ? "Your setup includes five main modules, so your 20% bundle saving has been applied automatically."
+                        ? "Your five-module bundle is £119/month, applied automatically."
                         : bundle.moduleCount >=
                             3
-                          ? "Your setup includes three or more main modules, so your 10% bundle saving has been applied automatically."
+                          ? "Your fixed module bundle price has been applied automatically."
                           : "You're starting with a focused setup, so you're only paying for the modules we'd recommend using now."}
                   </p>
 
@@ -6627,7 +6610,7 @@ export default function FindYourSetupPage() {
                         aria-hidden="true"
                       />
 
-                      £199 maximum
+                      Complete · £139/month
                     </div>
                   ) : bundle.moduleSaving >
                     0 ? (
@@ -6656,25 +6639,11 @@ export default function FindYourSetupPage() {
 
                   <div>
                     <strong>
-                      We've switched
-                      you to Complete
-                      automatically.
+                      All six modules
+                      means Complete.
                     </strong>{" "}
 
-                    Your recommended
-                    combination would
-                    otherwise reach
-                    £
-                    {
-                      bundle.modularTotal
-                    }
-                    /month. Complete
-                    gives you every
-                    main TOTS-OS
-                    module and
-                    Clarity AI
-                    Starter for
-                    £199/month.
+                    Your answers recommend all six main TOTS-OS modules. Complete gives you the full workspace plus Clarity AI Starter for £139/month.
                   </div>
                 </div>
               )}
@@ -6708,13 +6677,9 @@ export default function FindYourSetupPage() {
 
                   <p className="ai-copy">
                     {bundle.isComplete
-                      ? "Every TOTS-OS Complete workspace includes Clarity AI Starter as standard, with 100 AI actions per month."
+                      ? "Every TOTS-OS Complete workspace includes Clarity AI Starter as standard."
                       : displayedAi.description}
 
-                    {!bundle.isComplete &&
-                    displayedAi.allowance
-                      ? ` ${displayedAi.allowance}.`
-                      : ""}
                   </p>
 
                   {bundle.aiUpgradeSuggested && (
@@ -6741,8 +6706,7 @@ export default function FindYourSetupPage() {
                         start you on
                         the included
                         Starter
-                        allowance and
-                        only upgrade
+                        and only upgrade
                         if you
                         actually need
                         more.
@@ -6759,7 +6723,7 @@ export default function FindYourSetupPage() {
                       </strong>
 
                       <span>
-                        in £199
+                        in £139
                         Complete
                       </span>
                     </>
@@ -6898,10 +6862,7 @@ export default function FindYourSetupPage() {
                   14-day free
                   trial · no card
                   details required
-                  · your
-                  recommended
-                  price will never
-                  exceed £199/month
+                  · Complete is £139/month
                   · add or remove
                   modules as your
                   business changes

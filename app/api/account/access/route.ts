@@ -14,6 +14,10 @@ import {
   cookies,
 } from "next/headers";
 
+// ============================================================
+// RUNTIME
+// ============================================================
+
 export const runtime =
   "nodejs";
 
@@ -21,35 +25,342 @@ export const dynamic =
   "force-dynamic";
 
 // ============================================================
+// ENVIRONMENT
+// ============================================================
+
+const supabaseUrl =
+  process.env
+    .NEXT_PUBLIC_SUPABASE_URL;
+
+const supabaseAnonKey =
+  process.env
+    .NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+const supabaseServiceRoleKey =
+  process.env
+    .SUPABASE_SERVICE_ROLE_KEY;
+
+// ============================================================
+// ENV VALIDATION
+// ============================================================
+
+if (
+  !supabaseUrl
+) {
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_URL is missing.",
+  );
+}
+
+if (
+  !supabaseAnonKey
+) {
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.",
+  );
+}
+
+if (
+  !supabaseServiceRoleKey
+) {
+  throw new Error(
+    "SUPABASE_SERVICE_ROLE_KEY is missing.",
+  );
+}
+
+// ============================================================
 // TYPES
 // ============================================================
 
-type PaidTier =
+type LegacyPaidTier =
   | "standard"
   | "professional"
   | "elite";
+
+type BillingModel =
+  | "legacy_tier"
+  | "modular"
+  | "unknown";
+
+type BillingPackage =
+  | "legacy"
+  | "modular"
+  | "complete";
+
+type ModuleKey =
+  | "core"
+  | "clientsProjects"
+  | "finance"
+  | "social"
+  | "email"
+  | "store";
+
+type AiTierKey =
+  | "none"
+  | "starter"
+  | "plus"
+  | "pro";
+
+// ============================================================
+// CONSTANTS
+// ============================================================
+
+const MODULE_KEYS:
+  ModuleKey[] = [
+    "core",
+    "clientsProjects",
+    "finance",
+    "social",
+    "email",
+    "store",
+  ];
 
 // ============================================================
 // HELPERS
 // ============================================================
 
-function isPaidTier(
-  value: unknown
-): value is PaidTier {
-  const tier =
-    String(
-      value ?? ""
-    )
-      .trim()
-      .toLowerCase();
+function cleanString(
+  value:
+    unknown,
+) {
+  if (
+    typeof value !==
+    "string"
+  ) {
+    return "";
+  }
 
-  return (
+  return value.trim();
+}
+
+// ============================================================
+// LEGACY PAID TIER
+// ============================================================
+
+function normaliseLegacyTier(
+  value:
+    unknown,
+):
+  | LegacyPaidTier
+  | null {
+  const tier =
+    cleanString(
+      value,
+    ).toLowerCase();
+
+  if (
     tier ===
-      "standard" ||
+    "standard"
+  ) {
+    return "standard";
+  }
+
+  if (
     tier ===
       "professional" ||
     tier ===
-      "elite"
+      "premium"
+  ) {
+    return "professional";
+  }
+
+  if (
+    tier ===
+    "elite"
+  ) {
+    return "elite";
+  }
+
+  return null;
+}
+
+// ============================================================
+// BILLING MODEL
+// ============================================================
+
+function resolveBillingModel(
+  rawBillingModel:
+    unknown,
+
+  legacyTier:
+    LegacyPaidTier |
+    null,
+): BillingModel {
+  const billingModel =
+    cleanString(
+      rawBillingModel,
+    ).toLowerCase();
+
+  if (
+    billingModel ===
+    "modular"
+  ) {
+    return "modular";
+  }
+
+  if (
+    billingModel ===
+    "legacy_tier"
+  ) {
+    return "legacy_tier";
+  }
+
+  /*
+   * Old organisations may not yet have billing_model
+   * populated.
+   *
+   * If they still have a recognised legacy tier, treat
+   * them as a grandfathered legacy customer.
+   */
+  if (
+    legacyTier
+  ) {
+    return "legacy_tier";
+  }
+
+  return "unknown";
+}
+
+// ============================================================
+// BILLING PACKAGE
+// ============================================================
+
+function resolveBillingPackage(
+  value:
+    unknown,
+
+  billingModel:
+    BillingModel,
+): BillingPackage {
+  if (
+    billingModel ===
+    "legacy_tier"
+  ) {
+    return "legacy";
+  }
+
+  const packageName =
+    cleanString(
+      value,
+    ).toLowerCase();
+
+  if (
+    packageName ===
+    "complete"
+  ) {
+    return "complete";
+  }
+
+  return "modular";
+}
+
+// ============================================================
+// AI TIER
+// ============================================================
+
+function normaliseAiTier(
+  value:
+    unknown,
+): AiTierKey {
+  const tier =
+    cleanString(
+      value,
+    ).toLowerCase();
+
+  if (
+    tier ===
+      "starter" ||
+    tier ===
+      "plus" ||
+    tier ===
+      "pro"
+  ) {
+    return tier;
+  }
+
+  return "none";
+}
+
+// ============================================================
+// MODULE KEY
+// ============================================================
+
+function isModuleKey(
+  value:
+    unknown,
+): value is ModuleKey {
+  return (
+    typeof value ===
+      "string" &&
+    MODULE_KEYS.includes(
+      value as ModuleKey,
+    )
+  );
+}
+
+// ============================================================
+// DATE CHECK
+// ============================================================
+
+function isFutureDate(
+  value:
+    unknown,
+) {
+  const raw =
+    cleanString(
+      value,
+    );
+
+  if (
+    !raw
+  ) {
+    return false;
+  }
+
+  const timestamp =
+    new Date(
+      raw,
+    ).getTime();
+
+  if (
+    Number.isNaN(
+      timestamp,
+    )
+  ) {
+    return false;
+  }
+
+  return (
+    timestamp >
+    Date.now()
+  );
+}
+
+// ============================================================
+// SUBSCRIPTION STATUS
+// ============================================================
+
+function isPaidSubscriptionStatus(
+  status:
+    unknown,
+) {
+  const value =
+    cleanString(
+      status,
+    ).toLowerCase();
+
+  /*
+   * "active" is what the existing TOTS webhook currently
+   * writes into organisations.subscription_status.
+   *
+   * "trialing" is also accepted so the access endpoint remains
+   * compatible if Stripe status syncing becomes more exact.
+   */
+  return (
+    value ===
+      "active" ||
+    value ===
+      "trialing"
   );
 }
 
@@ -68,24 +379,28 @@ export async function GET() {
 
     const supabase =
       createServerClient(
-        process.env
-          .NEXT_PUBLIC_SUPABASE_URL!,
-        process.env
-          .NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        supabaseUrl!,
+        supabaseAnonKey!,
         {
           cookies: {
             getAll() {
-              return cookieStore.getAll();
+              return cookieStore
+                .getAll();
             },
 
             setAll(
               cookiesToSet: {
-                name: string;
-                value: string;
-                options?: Parameters<
-                  typeof cookieStore.set
-                >[2];
-              }[]
+                name:
+                  string;
+
+                value:
+                  string;
+
+                options?:
+                  Parameters<
+                    typeof cookieStore.set
+                  >[2];
+              }[],
             ) {
               try {
                 cookiesToSet.forEach(
@@ -97,16 +412,16 @@ export async function GET() {
                     cookieStore.set(
                       name,
                       value,
-                      options
+                      options,
                     );
-                  }
+                  },
                 );
               } catch {
                 // Cookies cannot always be mutated here.
               }
             },
           },
-        }
+        },
       );
 
     // ========================================================
@@ -117,10 +432,13 @@ export async function GET() {
       data: {
         user,
       },
+
       error:
         userError,
     } =
-      await supabase.auth.getUser();
+      await supabase
+        .auth
+        .getUser();
 
     if (
       userError ||
@@ -137,7 +455,7 @@ export async function GET() {
         {
           status:
             401,
-        }
+        },
       );
     }
 
@@ -147,10 +465,8 @@ export async function GET() {
 
     const admin =
       createClient(
-        process.env
-          .NEXT_PUBLIC_SUPABASE_URL!,
-        process.env
-          .SUPABASE_SERVICE_ROLE_KEY!,
+        supabaseUrl!,
+        supabaseServiceRoleKey!,
         {
           auth: {
             persistSession:
@@ -159,7 +475,7 @@ export async function GET() {
             autoRefreshToken:
               false,
           },
-        }
+        },
       );
 
     // ========================================================
@@ -167,7 +483,8 @@ export async function GET() {
     // ========================================================
 
     let organisationId:
-      string | null =
+      string |
+      null =
       null;
 
     // ========================================================
@@ -178,23 +495,24 @@ export async function GET() {
     const {
       data:
         profile,
+
       error:
         profileError,
     } =
       await admin
         .from(
-          "profiles"
+          "profiles",
         )
         .select(
           `
             organisation_id,
             subscription_tier,
             is_subscribed
-          `
+          `,
         )
         .eq(
           "id",
-          user.id
+          user.id,
         )
         .maybeSingle();
 
@@ -203,7 +521,7 @@ export async function GET() {
     ) {
       console.error(
         "Access profile lookup failed:",
-        profileError
+        profileError,
       );
     }
 
@@ -212,8 +530,10 @@ export async function GET() {
         ?.organisation_id
     ) {
       organisationId =
-        profile
-          .organisation_id;
+        String(
+          profile
+            .organisation_id,
+        );
     }
 
     // ========================================================
@@ -227,22 +547,23 @@ export async function GET() {
       const {
         data:
           membership,
+
         error:
           membershipError,
       } =
         await admin
           .from(
-            "organisation_members"
+            "organisation_members",
           )
           .select(
-            "organisation_id"
+            "organisation_id",
           )
           .eq(
             "user_id",
-            user.id
+            user.id,
           )
           .limit(
-            1
+            1,
           )
           .maybeSingle();
 
@@ -251,7 +572,7 @@ export async function GET() {
       ) {
         console.error(
           "Access organisation_members lookup failed:",
-          membershipError
+          membershipError,
         );
       }
 
@@ -260,8 +581,10 @@ export async function GET() {
           ?.organisation_id
       ) {
         organisationId =
-          membership
-            .organisation_id;
+          String(
+            membership
+              .organisation_id,
+          );
       }
     }
 
@@ -276,22 +599,23 @@ export async function GET() {
       const {
         data:
           userOrganisation,
+
         error:
           userOrganisationError,
       } =
         await admin
           .from(
-            "user_organisations"
+            "user_organisations",
           )
           .select(
-            "organisation_id"
+            "organisation_id",
           )
           .eq(
             "user_id",
-            user.id
+            user.id,
           )
           .limit(
-            1
+            1,
           )
           .maybeSingle();
 
@@ -300,7 +624,7 @@ export async function GET() {
       ) {
         console.error(
           "Access user_organisations lookup failed:",
-          userOrganisationError
+          userOrganisationError,
         );
       }
 
@@ -309,8 +633,10 @@ export async function GET() {
           ?.organisation_id
       ) {
         organisationId =
-          userOrganisation
-            .organisation_id;
+          String(
+            userOrganisation
+              .organisation_id,
+          );
       }
     }
 
@@ -325,22 +651,23 @@ export async function GET() {
       const {
         data:
           createdOrganisation,
+
         error:
           createdOrganisationError,
       } =
         await admin
           .from(
-            "organisations"
+            "organisations",
           )
           .select(
-            "id"
+            "id",
           )
           .eq(
             "created_by",
-            user.id
+            user.id,
           )
           .limit(
-            1
+            1,
           )
           .maybeSingle();
 
@@ -349,7 +676,7 @@ export async function GET() {
       ) {
         console.error(
           "Access legacy organisation lookup failed:",
-          createdOrganisationError
+          createdOrganisationError,
         );
       }
 
@@ -358,8 +685,10 @@ export async function GET() {
           ?.id
       ) {
         organisationId =
-          createdOrganisation
-            .id;
+          String(
+            createdOrganisation
+              .id,
+          );
       }
     }
 
@@ -381,7 +710,7 @@ export async function GET() {
         {
           status:
             403,
-        }
+        },
       );
     }
 
@@ -392,12 +721,13 @@ export async function GET() {
     const {
       data:
         organisation,
+
       error:
         organisationError,
     } =
       await admin
         .from(
-          "organisations"
+          "organisations",
         )
         .select(
           `
@@ -406,13 +736,18 @@ export async function GET() {
             subscription_tier,
             subscription_status,
             access_status,
+            billing_model,
+            billing_package,
+            clarity_ai_tier,
+            billing_version,
+            store_enabled,
             beta_grace_ends_at,
             retention_trial_ends_at
-          `
+          `,
         )
         .eq(
           "id",
-          organisationId
+          organisationId,
         )
         .maybeSingle();
 
@@ -421,7 +756,7 @@ export async function GET() {
     ) {
       console.error(
         "Access organisation lookup failed:",
-        organisationError
+        organisationError,
       );
 
       return NextResponse.json(
@@ -435,13 +770,9 @@ export async function GET() {
         {
           status:
             500,
-        }
+        },
       );
     }
-
-    // ========================================================
-    // ORGANISATION RECORD DOESN'T EXIST
-    // ========================================================
 
     if (
       !organisation
@@ -457,81 +788,216 @@ export async function GET() {
         {
           status:
             403,
-        }
+        },
       );
     }
 
     // ========================================================
-    // CALCULATE ACCESS
+    // BILLING MODEL
     // ========================================================
 
-    const now =
-      Date.now();
-
-    // --------------------------------------------------------
-    // PAID SUBSCRIPTION
-    // --------------------------------------------------------
-
-    const paidActive =
-      isPaidTier(
+    const organisationLegacyTier =
+      normaliseLegacyTier(
         organisation
-          .subscription_tier
+          .subscription_tier,
+      );
+
+    const profileLegacyTier =
+      normaliseLegacyTier(
+        profile
+          ?.subscription_tier,
+      );
+
+    const billingModel =
+      resolveBillingModel(
+        organisation
+          .billing_model,
+        organisationLegacyTier ||
+          profileLegacyTier,
+      );
+
+    const billingPackage =
+      resolveBillingPackage(
+        organisation
+          .billing_package,
+        billingModel,
+      );
+
+    const clarityAiTier =
+      normaliseAiTier(
+        organisation
+          .clarity_ai_tier,
+      );
+
+    const billingVersion =
+      cleanString(
+        organisation
+          .billing_version,
+      ) ||
+      (
+        billingModel ===
+        "modular"
+          ? "v2"
+          : "legacy"
+      );
+
+    // ========================================================
+    // ACTIVE MODULES
+    // ========================================================
+
+    let activeModules:
+      ModuleKey[] =
+      [];
+
+    if (
+      billingModel ===
+      "modular"
+    ) {
+      const {
+        data:
+          moduleRows,
+
+        error:
+          moduleError,
+      } =
+        await admin
+          .from(
+            "organisation_modules",
+          )
+          .select(
+            `
+              module_key,
+              status
+            `,
+          )
+          .eq(
+            "organisation_id",
+            organisation.id,
+          )
+          .eq(
+            "status",
+            "active",
+          );
+
+      if (
+        moduleError
+      ) {
+        console.error(
+          "Access module entitlement lookup failed:",
+          moduleError,
+        );
+
+        /*
+         * Fail closed for modular entitlements.
+         *
+         * The organisation can still have account access,
+         * but no paid module will be reported as available
+         * unless its entitlement can be verified.
+         */
+        activeModules =
+          [];
+      } else {
+        activeModules =
+          Array.from(
+            new Set(
+              (
+                moduleRows ||
+                []
+              )
+                .map(
+                  (
+                    row,
+                  ) =>
+                    row
+                      .module_key,
+                )
+                .filter(
+                  isModuleKey,
+                ),
+            ),
+          );
+      }
+    }
+
+    // ========================================================
+    // ACCESS CALCULATION
+    // ========================================================
+
+    // --------------------------------------------------------
+    // LEGACY PAID SUBSCRIPTION
+    // --------------------------------------------------------
+
+    const legacyPaidActive =
+      billingModel ===
+        "legacy_tier" &&
+      Boolean(
+        organisationLegacyTier ||
+          profileLegacyTier,
       ) &&
-      organisation
-        .subscription_status ===
-        "active";
+      isPaidSubscriptionStatus(
+        organisation
+          .subscription_status,
+      );
+
+    // --------------------------------------------------------
+    // MODULAR PAID SUBSCRIPTION
+    // --------------------------------------------------------
+
+    const modularPaidActive =
+      billingModel ===
+        "modular" &&
+      isPaidSubscriptionStatus(
+        organisation
+          .subscription_status,
+      );
+
+    // --------------------------------------------------------
+    // PROFILE FALLBACK
+    //
+    // Legacy only.
+    //
+    // The new modular system intentionally does NOT use
+    // profiles.subscription_tier as an entitlement source.
+    // --------------------------------------------------------
+
+    const legacyProfilePaidActive =
+      billingModel ===
+        "legacy_tier" &&
+      profile
+        ?.is_subscribed ===
+        true &&
+      Boolean(
+        profileLegacyTier,
+      );
 
     // --------------------------------------------------------
     // BETA GRACE PERIOD
     // --------------------------------------------------------
 
     const betaGraceActive =
-      organisation
-        .subscription_status ===
+      cleanString(
+        organisation
+          .subscription_status,
+      ).toLowerCase() ===
         "beta" &&
-      Boolean(
+      isFutureDate(
         organisation
-          .beta_grace_ends_at
-      ) &&
-      new Date(
-        organisation
-          .beta_grace_ends_at
-      ).getTime() >
-        now;
+          .beta_grace_ends_at,
+      );
 
     // --------------------------------------------------------
     // RETENTION TRIAL
     // --------------------------------------------------------
 
     const retentionTrialActive =
-      organisation
-        .subscription_status ===
+      cleanString(
+        organisation
+          .subscription_status,
+      ).toLowerCase() ===
         "trial" &&
-      Boolean(
+      isFutureDate(
         organisation
-          .retention_trial_ends_at
-      ) &&
-      new Date(
-        organisation
-          .retention_trial_ends_at
-      ).getTime() >
-        now;
-
-    // --------------------------------------------------------
-    // PROFILE FALLBACK
-    //
-    // If Stripe verification has already synced the profile,
-    // do not lock a genuinely paid customer out simply because
-    // an organisation field is temporarily out of sync.
-    // --------------------------------------------------------
-
-    const profilePaidActive =
-      profile
-        ?.is_subscribed ===
-        true &&
-      isPaidTier(
-        profile
-          ?.subscription_tier
+          .retention_trial_ends_at,
       );
 
     // ========================================================
@@ -540,11 +1006,46 @@ export async function GET() {
 
     const allowed =
       Boolean(
-        paidActive ||
-          profilePaidActive ||
+        legacyPaidActive ||
+          modularPaidActive ||
+          legacyProfilePaidActive ||
           betaGraceActive ||
-          retentionTrialActive
+          retentionTrialActive,
       );
+
+    // ========================================================
+    // ACCESS REASON
+    // ========================================================
+
+    let accessReason =
+      "access_expired";
+
+    if (
+      modularPaidActive
+    ) {
+      accessReason =
+        "modular_subscription_active";
+    } else if (
+      legacyPaidActive
+    ) {
+      accessReason =
+        "legacy_subscription_active";
+    } else if (
+      legacyProfilePaidActive
+    ) {
+      accessReason =
+        "legacy_profile_subscription_active";
+    } else if (
+      betaGraceActive
+    ) {
+      accessReason =
+        "beta_grace_active";
+    } else if (
+      retentionTrialActive
+    ) {
+      accessReason =
+        "retention_trial_active";
+    }
 
     // ========================================================
     // KEEP ACCESS_STATUS IN SYNC
@@ -566,7 +1067,7 @@ export async function GET() {
       } =
         await admin
           .from(
-            "organisations"
+            "organisations",
           )
           .update({
             access_status:
@@ -574,7 +1075,7 @@ export async function GET() {
           })
           .eq(
             "id",
-            organisation.id
+            organisation.id,
           );
 
       if (
@@ -582,7 +1083,7 @@ export async function GET() {
       ) {
         console.error(
           "Unable to sync organisation access status:",
-          updateError
+          updateError,
         );
       }
     }
@@ -600,6 +1101,10 @@ export async function GET() {
         organisationId:
           organisation.id,
 
+        billingModel,
+
+        billingPackage,
+
         organisationTier:
           organisation
             .subscription_tier,
@@ -616,16 +1121,24 @@ export async function GET() {
           profile
             ?.is_subscribed,
 
-        paidActive,
+        activeModules,
 
-        profilePaidActive,
+        clarityAiTier,
+
+        legacyPaidActive,
+
+        modularPaidActive,
+
+        legacyProfilePaidActive,
 
         betaGraceActive,
 
         retentionTrialActive,
 
         allowed,
-      }
+
+        accessReason,
+      },
     );
 
     // ========================================================
@@ -637,9 +1150,18 @@ export async function GET() {
         allowed,
 
         reason:
-          allowed
-            ? "access_granted"
-            : "access_expired",
+          accessReason,
+
+        // ====================================================
+        // USER
+        // ====================================================
+
+        userId:
+          user.id,
+
+        // ====================================================
+        // ORGANISATION
+        // ====================================================
 
         organisationId:
           organisation.id,
@@ -647,9 +1169,18 @@ export async function GET() {
         organisationName:
           organisation.name,
 
+        // ====================================================
+        // BILLING
+        // ====================================================
+
+        billingModel,
+
+        billingPackage,
+
+        billingVersion,
+
         subscriptionTier:
-          organisation
-            .subscription_tier,
+          organisationLegacyTier,
 
         subscriptionStatus:
           organisation
@@ -658,17 +1189,78 @@ export async function GET() {
         accessStatus:
           desiredAccessStatus,
 
+        // ====================================================
+        // MODULE ENTITLEMENTS
+        // ====================================================
+
+        modules:
+          activeModules,
+
+        // Alias so either naming convention can be used.
+        activeModules,
+
+        hasCore:
+          activeModules.includes(
+            "core",
+          ),
+
+        hasClientsProjects:
+          activeModules.includes(
+            "clientsProjects",
+          ),
+
+        hasFinance:
+          activeModules.includes(
+            "finance",
+          ),
+
+        hasSocial:
+          activeModules.includes(
+            "social",
+          ),
+
+        hasEmail:
+          activeModules.includes(
+            "email",
+          ),
+
+        hasStore:
+          activeModules.includes(
+            "store",
+          ),
+
+        // ====================================================
+        // CLARITY AI
+        // ====================================================
+
+        clarityAiTier,
+
+        hasClarityAi:
+          clarityAiTier !==
+          "none",
+
+        // ====================================================
+        // LEGACY PROFILE COMPATIBILITY
+        // ====================================================
+
         profileSubscriptionTier:
-          profile
-            ?.subscription_tier ??
-          null,
+          profileLegacyTier,
 
         profileSubscribed:
           profile
             ?.is_subscribed ??
           false,
 
-        paidActive,
+        // ====================================================
+        // ACCESS BREAKDOWN
+        // ====================================================
+
+        legacyPaidActive,
+
+        modularPaidActive,
+
+        profilePaidActive:
+          legacyProfilePaidActive,
 
         betaGraceActive,
 
@@ -681,20 +1273,31 @@ export async function GET() {
         retentionTrialEndsAt:
           organisation
             .retention_trial_ends_at,
+
+        // ====================================================
+        // COMPATIBILITY
+        // ====================================================
+
+        storeEnabled:
+          Boolean(
+            organisation
+              .store_enabled,
+          ),
       },
       {
         status:
           allowed
             ? 200
             : 403,
-      }
+      },
     );
   } catch (
-    error
+    error:
+      unknown
   ) {
     console.error(
       "Account access check failed:",
-      error
+      error,
     );
 
     return NextResponse.json(
@@ -708,7 +1311,7 @@ export async function GET() {
       {
         status:
           500,
-      }
+      },
     );
   }
 }

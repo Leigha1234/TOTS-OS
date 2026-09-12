@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -21,12 +22,14 @@ import {
 import {
   Briefcase,
   Calendar,
+  CircleDollarSign,
   Globe,
   LayoutDashboard,
   Megaphone,
   Menu,
   Settings,
   StickyNote,
+  Store,
   Users,
   X,
   type LucideIcon,
@@ -48,22 +51,96 @@ import {
 import ClarityTourOverlay from "./claritytour/ClarityTourOverlay";
 
 // ============================================================
+// PRIVATE TOTS ADMIN
+// ============================================================
+
+const TOTS_ADMIN_USER_ID =
+  "f0524a73-0559-467f-9465-095e43c3952e";
+
+// ============================================================
 // TYPES
 // ============================================================
 
 type DashboardLayoutProps = {
-  children: ReactNode;
+  children:
+    ReactNode;
 };
 
+type ModuleKey =
+  | "core"
+  | "clientsProjects"
+  | "finance"
+  | "social"
+  | "email"
+  | "store";
+
+type BillingMode =
+  | "loading"
+  | "legacy"
+  | "modular"
+  | "unknown";
+
 type DashboardLink = {
-  href: string;
-  label: string;
-  icon: LucideIcon;
+  href:
+    string;
+
+  label:
+    string;
+
+  icon:
+    LucideIcon;
+
+  requiredModule?:
+    ModuleKey;
 };
 
 type MobileNavSection = {
-  title?: string;
-  links: DashboardLink[];
+  title?:
+    string;
+
+  links:
+    DashboardLink[];
+};
+
+type AccountAccessResponse = {
+  allowed?:
+    boolean;
+
+  reason?:
+    string;
+
+  userId?:
+    string | null;
+
+  organisationId?:
+    string | null;
+
+  organisationName?:
+    string | null;
+
+  billingModel?:
+    string | null;
+
+  billingPackage?:
+    string | null;
+
+  billingVersion?:
+    string | null;
+
+  modules?:
+    string[];
+
+  activeModules?:
+    string[];
+
+  clarityAiTier?:
+    string | null;
+
+  subscriptionStatus?:
+    string | null;
+
+  accessStatus?:
+    string | null;
 };
 
 // ============================================================
@@ -75,6 +152,137 @@ const FALLBACK_MOBILE_NAV = [
   "/projects",
   "/calendar",
 ];
+
+// ============================================================
+// MODULE KEYS
+// ============================================================
+
+const MODULE_KEYS:
+  ModuleKey[] = [
+    "core",
+    "clientsProjects",
+    "finance",
+    "social",
+    "email",
+    "store",
+  ];
+
+// ============================================================
+// ROUTE → MODULE MAPPING
+// ============================================================
+
+const MODULE_ROUTE_RULES: {
+  prefix:
+    string;
+
+  module:
+    ModuleKey;
+}[] = [
+  {
+    prefix:
+      "/crm",
+
+    module:
+      "core",
+  },
+
+  {
+    prefix:
+      "/notes",
+
+    module:
+      "core",
+  },
+
+  {
+    prefix:
+      "/calendar",
+
+    module:
+      "core",
+  },
+
+  {
+    prefix:
+      "/campaigns",
+
+    module:
+      "email",
+  },
+
+  {
+    prefix:
+      "/social",
+
+    module:
+      "social",
+  },
+
+  {
+    prefix:
+      "/payments",
+
+    module:
+      "finance",
+  },
+
+  {
+    prefix:
+      "/projects",
+
+    module:
+      "clientsProjects",
+  },
+
+  {
+    prefix:
+      "/store",
+
+    module:
+      "store",
+  },
+];
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function isModuleKey(
+  value:
+    unknown,
+): value is ModuleKey {
+  return (
+    typeof value ===
+      "string" &&
+    MODULE_KEYS.includes(
+      value as ModuleKey,
+    )
+  );
+}
+
+function getRequiredModuleForPath(
+  pathname:
+    string,
+):
+  | ModuleKey
+  | null {
+  const rule =
+    MODULE_ROUTE_RULES.find(
+      (
+        item,
+      ) =>
+        pathname ===
+          item.prefix ||
+        pathname.startsWith(
+          `${item.prefix}/`,
+        ),
+    );
+
+  return (
+    rule?.module ||
+    null
+  );
+}
 
 // ============================================================
 // DASHBOARD LAYOUT
@@ -99,15 +307,68 @@ export default function DashboardLayout({
 function DashboardLayoutInner({
   children,
 }: DashboardLayoutProps) {
+  // ==========================================================
+  // STATE
+  // ==========================================================
+
   const [
     mobileMenuOpen,
     setMobileMenuOpen,
-  ] = useState(false);
+  ] =
+    useState(
+      false,
+    );
+
+  const [
+    accessLoading,
+    setAccessLoading,
+  ] =
+    useState(
+      true,
+    );
 
   const [
     accessChecked,
     setAccessChecked,
-  ] = useState(false);
+  ] =
+    useState(
+      false,
+    );
+
+  const [
+    currentUserId,
+    setCurrentUserId,
+  ] =
+    useState<
+      string |
+      null
+    >(
+      null,
+    );
+
+  const [
+    billingMode,
+    setBillingMode,
+  ] =
+    useState<
+      BillingMode
+    >(
+      "loading",
+    );
+
+  const [
+    activeModules,
+    setActiveModules,
+  ] =
+    useState<
+      ModuleKey[]
+    >(
+      [],
+    );
+
+  // ==========================================================
+  // ROUTER
+  // ==========================================================
 
   const pathname =
     usePathname();
@@ -122,110 +383,223 @@ function DashboardLayoutInner({
     useSettings();
 
   // ==========================================================
+  // ADMIN
+  // ==========================================================
+
+  const isTotsAdmin =
+    currentUserId ===
+    TOTS_ADMIN_USER_ID;
+
+  // ==========================================================
+  // MODULE ACCESS HELPER
+  // ==========================================================
+
+  const hasModule =
+    (
+      moduleKey:
+        ModuleKey,
+    ) => {
+      // ======================================================
+      // PRIVATE TOTS ADMIN
+      // ======================================================
+
+      if (
+        isTotsAdmin
+      ) {
+        return true;
+      }
+
+      // ======================================================
+      // GRANDFATHERED LEGACY ACCOUNT
+      // ======================================================
+
+      if (
+        billingMode ===
+        "legacy"
+      ) {
+        return true;
+      }
+
+      // ======================================================
+      // MODULAR ACCOUNT
+      // ======================================================
+
+      if (
+        billingMode ===
+        "modular"
+      ) {
+        return activeModules.includes(
+          moduleKey,
+        );
+      }
+
+      return false;
+    };
+
+  // ==========================================================
   // ALL LINKS
   // ==========================================================
 
   const allLinks:
-    DashboardLink[] = [
-      {
-        href:
-          "/dashboard",
+    DashboardLink[] =
+    useMemo(
+      () => [
+        {
+          href:
+            "/dashboard",
 
-        label:
-          "Home",
+          label:
+            "Home",
 
-        icon:
-          LayoutDashboard,
-      },
+          icon:
+            LayoutDashboard,
+        },
 
-      {
-        href:
-          "/calendar",
+        {
+          href:
+            "/calendar",
 
-        label:
-          "Calendar",
+          label:
+            "Calendar",
 
-        icon:
-          Calendar,
-      },
+          icon:
+            Calendar,
 
-      {
-        href:
-          "/crm",
+          requiredModule:
+            "core",
+        },
 
-        label:
-          "Contacts",
+        {
+          href:
+            "/crm",
 
-        icon:
-          Users,
-      },
+          label:
+            "Contacts",
 
-      {
-        href:
-          "/notes",
+          icon:
+            Users,
 
-        label:
-          "Notes",
+          requiredModule:
+            "core",
+        },
 
-        icon:
-          StickyNote,
-      },
+        {
+          href:
+            "/notes",
 
-      {
-        href:
-          "/campaigns",
+          label:
+            "Notes",
 
-        label:
-          "Campaigns",
+          icon:
+            StickyNote,
 
-        icon:
-          Megaphone,
-      },
+          requiredModule:
+            "core",
+        },
 
-      {
-        href:
-          "/projects",
+        {
+          href:
+            "/campaigns",
 
-        label:
-          "Projects",
+          label:
+            "Email Marketing",
 
-        icon:
-          Briefcase,
-      },
+          icon:
+            Megaphone,
 
-      {
-        href:
-          "/social",
+          requiredModule:
+            "email",
+        },
 
-        label:
-          "Social",
+        {
+          href:
+            "/projects",
 
-        icon:
-          Globe,
-      },
+          label:
+            "Projects",
 
-      {
-        href:
-          "/payments",
+          icon:
+            Briefcase,
 
-        label:
-          "Finance",
+          requiredModule:
+            "clientsProjects",
+        },
 
-        icon:
-          Briefcase,
-      },
+        {
+          href:
+            "/social",
 
-      {
-        href:
-          "/settings",
+          label:
+            "Social Studio",
 
-        label:
-          "Settings",
+          icon:
+            Globe,
 
-        icon:
-          Settings,
-      },
-    ];
+          requiredModule:
+            "social",
+        },
+
+        {
+          href:
+            "/payments",
+
+          label:
+            "Finance",
+
+          icon:
+            CircleDollarSign,
+
+          requiredModule:
+            "finance",
+        },
+
+        {
+          href:
+            "/store",
+
+          label:
+            "Store",
+
+          icon:
+            Store,
+
+          requiredModule:
+            "store",
+        },
+
+        {
+          href:
+            "/settings",
+
+          label:
+            "Settings",
+
+          icon:
+            Settings,
+        },
+      ],
+      [],
+    );
+
+  // ==========================================================
+  // LINK ACCESS
+  // ==========================================================
+
+  const canAccessLink =
+    (
+      link:
+        DashboardLink,
+    ) => {
+      if (
+        !link.requiredModule
+      ) {
+        return true;
+      }
+
+      return hasModule(
+        link.requiredModule,
+      );
+    };
 
   // ==========================================================
   // MOBILE SECTIONS
@@ -250,7 +624,7 @@ function DashboardLayoutInner({
 
       {
         title:
-          "My Business",
+          "Core",
 
         links: [
           {
@@ -262,39 +636,9 @@ function DashboardLayoutInner({
 
             icon:
               Users,
-          },
 
-          {
-            href:
-              "/campaigns",
-
-            label:
-              "Campaigns",
-
-            icon:
-              Megaphone,
-          },
-
-          {
-            href:
-              "/social",
-
-            label:
-              "Social",
-
-            icon:
-              Globe,
-          },
-
-          {
-            href:
-              "/payments",
-
-            label:
-              "Finance",
-
-            icon:
-              Briefcase,
+            requiredModule:
+              "core",
           },
 
           {
@@ -306,6 +650,100 @@ function DashboardLayoutInner({
 
             icon:
               StickyNote,
+
+            requiredModule:
+              "core",
+          },
+
+          {
+            href:
+              "/calendar",
+
+            label:
+              "Calendar",
+
+            icon:
+              Calendar,
+
+            requiredModule:
+              "core",
+          },
+        ],
+      },
+
+      {
+        title:
+          "Marketing",
+
+        links: [
+          {
+            href:
+              "/campaigns",
+
+            label:
+              "Email Marketing",
+
+            icon:
+              Megaphone,
+
+            requiredModule:
+              "email",
+          },
+
+          {
+            href:
+              "/social",
+
+            label:
+              "Social Studio",
+
+            icon:
+              Globe,
+
+            requiredModule:
+              "social",
+          },
+        ],
+      },
+
+      {
+        title:
+          "Finance",
+
+        links: [
+          {
+            href:
+              "/payments",
+
+            label:
+              "Finance",
+
+            icon:
+              CircleDollarSign,
+
+            requiredModule:
+              "finance",
+          },
+        ],
+      },
+
+      {
+        title:
+          "Commerce",
+
+        links: [
+          {
+            href:
+              "/store",
+
+            label:
+              "Store",
+
+            icon:
+              Store,
+
+            requiredModule:
+              "store",
           },
         ],
       },
@@ -324,24 +762,9 @@ function DashboardLayoutInner({
 
             icon:
               Briefcase,
-          },
-        ],
-      },
 
-      {
-        title:
-          "Planning",
-
-        links: [
-          {
-            href:
-              "/calendar",
-
-            label:
-              "Calendar",
-
-            icon:
-              Calendar,
+            requiredModule:
+              "clientsProjects",
           },
         ],
       },
@@ -366,7 +789,7 @@ function DashboardLayoutInner({
     ];
 
   // ==========================================================
-  // CHECK ACCOUNT ACCESS
+  // LOAD AUTHORITATIVE ACCOUNT ACCESS
   // ==========================================================
 
   useEffect(
@@ -374,8 +797,28 @@ function DashboardLayoutInner({
       let cancelled =
         false;
 
-      async function checkAccess() {
+      async function loadAccess() {
         try {
+          setAccessLoading(
+            true,
+          );
+
+          setAccessChecked(
+            false,
+          );
+
+          setBillingMode(
+            "loading",
+          );
+
+          setActiveModules(
+            [],
+          );
+
+          // ==================================================
+          // SINGLE AUTHORITATIVE ACCESS REQUEST
+          // ==================================================
+
           const response =
             await fetch(
               "/api/account/access",
@@ -385,15 +828,17 @@ function DashboardLayoutInner({
 
                 cache:
                   "no-store",
-              }
+              },
             );
 
           const data =
-            await response
-              .json()
-              .catch(
-                () => ({})
-              );
+            (
+              await response
+                .json()
+                .catch(
+                  () => ({}),
+                )
+            ) as AccountAccessResponse;
 
           if (
             cancelled
@@ -401,51 +846,211 @@ function DashboardLayoutInner({
             return;
           }
 
+          // ==================================================
+          // NOT SIGNED IN
+          // ==================================================
+
           if (
             response.status ===
             401
           ) {
             router.replace(
-              "/login"
+              "/login",
             );
 
             return;
           }
+
+          // ==================================================
+          // ACCOUNT ACCESS ENDED
+          // ==================================================
 
           if (
             !response.ok ||
             data.allowed !==
               true
           ) {
+            console.warn(
+              "Dashboard access denied:",
+              {
+                status:
+                  response.status,
+
+                reason:
+                  data.reason,
+              },
+            );
+
             router.replace(
-              "/access-ended"
+              "/access-ended",
             );
 
             return;
           }
 
+          // ==================================================
+          // USER
+          // ==================================================
+
+          setCurrentUserId(
+            typeof data.userId ===
+              "string"
+              ? data.userId
+              : null,
+          );
+
+          // ==================================================
+          // TOTS ADMIN
+          // ==================================================
+
+          if (
+            data.userId ===
+            TOTS_ADMIN_USER_ID
+          ) {
+            setBillingMode(
+              "legacy",
+            );
+
+            setActiveModules(
+              [...MODULE_KEYS],
+            );
+
+            setAccessChecked(
+              true,
+            );
+
+            return;
+          }
+
+          // ==================================================
+          // BILLING MODEL
+          // ==================================================
+
+          const rawBillingModel =
+            String(
+              data.billingModel ||
+                "",
+            )
+              .trim()
+              .toLowerCase();
+
+          // ==================================================
+          // LEGACY
+          // ==================================================
+
+          if (
+            rawBillingModel ===
+            "legacy_tier"
+          ) {
+            setBillingMode(
+              "legacy",
+            );
+
+            /*
+             * Grandfathered users currently retain
+             * access to the existing platform.
+             */
+            setActiveModules(
+              [...MODULE_KEYS],
+            );
+
+            setAccessChecked(
+              true,
+            );
+
+            return;
+          }
+
+          // ==================================================
+          // MODULAR
+          // ==================================================
+
+          if (
+            rawBillingModel ===
+            "modular"
+          ) {
+            const rawModules =
+              Array.isArray(
+                data.modules,
+              )
+                ? data.modules
+                : Array.isArray(
+                    data.activeModules,
+                  )
+                  ? data.activeModules
+                  : [];
+
+            const modules =
+              rawModules.filter(
+                isModuleKey,
+              );
+
+            setBillingMode(
+              "modular",
+            );
+
+            setActiveModules(
+              Array.from(
+                new Set(
+                  modules,
+                ),
+              ),
+            );
+
+            setAccessChecked(
+              true,
+            );
+
+            return;
+          }
+
+          // ==================================================
+          // UNKNOWN BILLING STATE
+          // ==================================================
+
+          console.error(
+            "Dashboard received unknown billing model:",
+            data.billingModel,
+          );
+
+          setBillingMode(
+            "unknown",
+          );
+
+          setActiveModules(
+            [],
+          );
+
           setAccessChecked(
-            true
+            true,
           );
         } catch (
           error
         ) {
           console.error(
             "Unable to check account access:",
-            error
+            error,
           );
 
           if (
             !cancelled
           ) {
             router.replace(
-              "/access-ended"
+              "/access-ended",
+            );
+          }
+        } finally {
+          if (
+            !cancelled
+          ) {
+            setAccessLoading(
+              false,
             );
           }
         }
       }
 
-      void checkAccess();
+      void loadAccess();
 
       return () => {
         cancelled =
@@ -454,113 +1059,259 @@ function DashboardLayoutInner({
     },
     [
       router,
-    ]
+    ],
   );
 
   // ==========================================================
+  // DIRECT ROUTE GUARD
+  // ==========================================================
+
+  useEffect(
+    () => {
+      if (
+        !accessChecked
+      ) {
+        return;
+      }
+
+      // ======================================================
+      // ADMIN
+      // ======================================================
+
+      if (
+        isTotsAdmin
+      ) {
+        return;
+      }
+
+      const requiredModule =
+        getRequiredModuleForPath(
+          pathname,
+        );
+
+      // ======================================================
+      // UNRESTRICTED ROUTE
+      // ======================================================
+
+      if (
+        !requiredModule
+      ) {
+        return;
+      }
+
+      // ======================================================
+      // LEGACY CUSTOMER
+      // ======================================================
+
+      if (
+        billingMode ===
+        "legacy"
+      ) {
+        return;
+      }
+
+      // ======================================================
+      // MODULAR CUSTOMER WITH MODULE
+      // ======================================================
+
+      if (
+        billingMode ===
+          "modular" &&
+        activeModules.includes(
+          requiredModule,
+        )
+      ) {
+        return;
+      }
+
+      // ======================================================
+      // MODULE NOT PURCHASED
+      // ======================================================
+
+      const params =
+        new URLSearchParams();
+
+      params.set(
+        "existing",
+        "true",
+      );
+
+      params.set(
+        "requiredModule",
+        requiredModule,
+      );
+
+      params.set(
+        "from",
+        pathname,
+      );
+
+      router.replace(
+        `/billing?${params.toString()}`,
+      );
+    },
+    [
+      accessChecked,
+      isTotsAdmin,
+      billingMode,
+      activeModules,
+      pathname,
+      router,
+    ],
+  );
+
+  // ==========================================================
+  // AVAILABLE LINKS
+  // ==========================================================
+
+  const availableLinks =
+    allLinks.filter(
+      canAccessLink,
+    );
+
+  // ==========================================================
   // RESOLVE MOBILE NAV
-  //
-  // IMPORTANT:
-  // Map through mobileNav first rather than filtering allLinks.
-  //
-  // That means:
-  //
-  // ["/calendar", "/dashboard", "/projects"]
-  //
-  // actually renders:
-  //
-  // Calendar → Home → Projects
-  //
-  // instead of reverting to allLinks order.
   // ==========================================================
 
   const requestedMobileNav =
     Array.isArray(
-      mobileNav
+      mobileNav,
     ) &&
     mobileNav.length ===
       3
       ? mobileNav
       : FALLBACK_MOBILE_NAV;
 
-  const pinnedMobileLinks =
+  // ==========================================================
+  // USER'S PINNED LINKS
+  // ==========================================================
+
+  const selectedPinnedLinks =
     requestedMobileNav
       .map(
         (
-          href
+          href,
         ) =>
-          allLinks.find(
+          availableLinks.find(
             (
-              link
+              link,
             ) =>
               link.href ===
-              href
-          )
+              href,
+          ),
       )
       .filter(
         (
-          link
+          link,
         ): link is DashboardLink =>
           Boolean(
-            link
-          )
-      )
-      .slice(
-        0,
-        3
+            link,
+          ),
       );
 
   // ==========================================================
-  // SAFE FALLBACK
+  // ACCESSIBLE FALLBACKS
   // ==========================================================
 
-  const fallbackMobileLinks =
+  const accessibleFallbackLinks =
     FALLBACK_MOBILE_NAV
       .map(
         (
-          href
+          href,
         ) =>
-          allLinks.find(
+          availableLinks.find(
             (
-              link
+              link,
             ) =>
               link.href ===
-              href
-          )
+              href,
+          ),
       )
       .filter(
         (
-          link
+          link,
         ): link is DashboardLink =>
           Boolean(
-            link
-          )
+            link,
+          ),
       );
 
+  // ==========================================================
+  // FINAL 3 MOBILE LINKS
+  // ==========================================================
+
   const finalPinnedMobileLinks =
-    pinnedMobileLinks.length ===
-    3
-      ? pinnedMobileLinks
-      : fallbackMobileLinks;
+    Array.from(
+      new Map(
+        [
+          ...selectedPinnedLinks,
+          ...accessibleFallbackLinks,
+          ...availableLinks,
+        ].map(
+          (
+            link,
+          ) => [
+            link.href,
+            link,
+          ],
+        ),
+      ).values(),
+    )
+      .filter(
+        (
+          link,
+        ) =>
+          link.href !==
+          "/settings",
+      )
+      .slice(
+        0,
+        3,
+      );
 
   // ==========================================================
   // MORE ACTIVE STATE
-  //
-  // More becomes active whenever the current page isn't one
-  // of the user's three pinned shortcuts.
   // ==========================================================
 
   const isMoreActive =
     !finalPinnedMobileLinks.some(
       (
-        link
+        link,
       ) =>
         pathname ===
           link.href ||
         pathname.startsWith(
-          `${link.href}/`
-        )
+          `${link.href}/`,
+        ),
     );
+
+  // ==========================================================
+  // FILTER MOBILE SECTIONS
+  // ==========================================================
+
+  const visibleMobileSections =
+    mobileSections
+      .map(
+        (
+          section,
+        ) => ({
+          ...section,
+
+          links:
+            section
+              .links
+              .filter(
+                canAccessLink,
+              ),
+        }),
+      )
+      .filter(
+        (
+          section,
+        ) =>
+          section.links.length >
+          0,
+      );
 
   // ==========================================================
   // LOCK BODY WHEN MOBILE MENU IS OPEN
@@ -575,30 +1326,46 @@ function DashboardLayoutInner({
       }
 
       const previousOverflow =
-        document.body.style
+        document
+          .body
+          .style
           .overflow;
 
       const previousOverscroll =
-        document.body.style
+        document
+          .body
+          .style
           .overscrollBehavior;
 
-      document.body.style.overflow =
+      document
+        .body
+        .style
+        .overflow =
         "hidden";
 
-      document.body.style.overscrollBehavior =
+      document
+        .body
+        .style
+        .overscrollBehavior =
         "none";
 
       return () => {
-        document.body.style.overflow =
+        document
+          .body
+          .style
+          .overflow =
           previousOverflow;
 
-        document.body.style.overscrollBehavior =
+        document
+          .body
+          .style
+          .overscrollBehavior =
           previousOverscroll;
       };
     },
     [
       mobileMenuOpen,
-    ]
+    ],
   );
 
   // ==========================================================
@@ -616,40 +1383,41 @@ function DashboardLayoutInner({
       const handleKeyDown =
         (
           event:
-            KeyboardEvent
+            KeyboardEvent,
         ) => {
           if (
             event.key ===
             "Escape"
           ) {
             setMobileMenuOpen(
-              false
+              false,
             );
           }
         };
 
       window.addEventListener(
         "keydown",
-        handleKeyDown
+        handleKeyDown,
       );
 
       return () => {
         window.removeEventListener(
           "keydown",
-          handleKeyDown
+          handleKeyDown,
         );
       };
     },
     [
       mobileMenuOpen,
-    ]
+    ],
   );
 
   // ==========================================================
-  // ACCESS LOADING STATE
+  // LOADING
   // ==========================================================
 
   if (
+    accessLoading ||
     !accessChecked
   ) {
     return (
@@ -664,7 +1432,6 @@ function DashboardLayoutInner({
         "
       >
         <div className="text-center">
-
           <div
             className="
               mx-auto
@@ -681,7 +1448,68 @@ function DashboardLayoutInner({
           <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
             Loading your workspace
           </p>
+        </div>
+      </div>
+    );
+  }
 
+  // ==========================================================
+  // CURRENT ROUTE ACCESS
+  // ==========================================================
+
+  const requiredModule =
+    getRequiredModuleForPath(
+      pathname,
+    );
+
+  const routeAllowed =
+    !requiredModule ||
+    isTotsAdmin ||
+    billingMode ===
+      "legacy" ||
+    (
+      billingMode ===
+        "modular" &&
+      activeModules.includes(
+        requiredModule,
+      )
+    );
+
+  // ==========================================================
+  // DON'T RENDER PAGE WHILE REDIRECTING
+  // ==========================================================
+
+  if (
+    !routeAllowed
+  ) {
+    return (
+      <div
+        className="
+          flex
+          h-screen
+          w-full
+          items-center
+          justify-center
+          bg-[#fcfaf7]
+        "
+      >
+        <div className="text-center">
+          <div
+            className="
+              mx-auto
+              h-8
+              w-8
+              animate-spin
+              rounded-full
+              border-2
+              border-stone-200
+              border-t-[#829473]
+            "
+          />
+
+          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
+            Opening membership options
+          </p>
         </div>
       </div>
     );
@@ -722,7 +1550,7 @@ function DashboardLayoutInner({
       </aside>
 
       {/* ======================================================
-          MAIN CONTENT AREA
+          MAIN CONTENT
       ====================================================== */}
 
       <main
@@ -761,35 +1589,23 @@ function DashboardLayoutInner({
             md:top-8
           "
         >
-          {/* ================================================
-              CLARITY
-          ================================================ */}
+          {/* CLARITY */}
 
-          <div
-            className="
-              pointer-events-auto
-            "
-          >
+          <div className="pointer-events-auto">
             <Clarity />
           </div>
 
-          {/* ================================================
-              NOTIFICATIONS
-          ================================================ */}
+          {/* NOTIFICATIONS */}
 
           {!mobileMenuOpen && (
-            <div
-              className="
-                pointer-events-auto
-              "
-            >
+            <div className="pointer-events-auto">
               <NotificationBell />
             </div>
           )}
         </div>
 
         {/* ====================================================
-            SCROLLABLE PAGE CONTENT
+            PAGE CONTENT
         ==================================================== */}
 
         <div
@@ -854,7 +1670,7 @@ function DashboardLayoutInner({
           >
             {finalPinnedMobileLinks.map(
               (
-                link
+                link,
               ) => (
                 <MobileNavItem
                   key={
@@ -873,22 +1689,20 @@ function DashboardLayoutInner({
                     pathname ===
                       link.href ||
                     pathname.startsWith(
-                      `${link.href}/`
+                      `${link.href}/`,
                     )
                   }
                 />
-              )
+              ),
             )}
 
-            {/* ================================================
-                MORE BUTTON
-            ================================================ */}
+            {/* MORE */}
 
             <button
               type="button"
               onClick={() =>
                 setMobileMenuOpen(
-                  true
+                  true,
                 )
               }
               className={`
@@ -938,9 +1752,7 @@ function DashboardLayoutInner({
               <span
                 className="
                   max-w-full
-
                   truncate
-
                   px-1
 
                   text-[9px]
@@ -956,13 +1768,13 @@ function DashboardLayoutInner({
         )}
 
         {/* ====================================================
-            CLARITY PRODUCT TOUR
+            CLARITY TOUR
         ==================================================== */}
 
         <ClarityTourOverlay />
 
         {/* ====================================================
-            MOBILE FULL-SCREEN MENU
+            MOBILE FULL MENU
         ==================================================== */}
 
         <AnimatePresence>
@@ -1022,7 +1834,7 @@ function DashboardLayoutInner({
                 "
               >
                 {/* ============================================
-                    MOBILE MENU HEADER
+                    HEADER
                 ============================================ */}
 
                 <div
@@ -1037,10 +1849,6 @@ function DashboardLayoutInner({
                     justify-between
                   "
                 >
-                  {/* ==========================================
-                      LOGO
-                  ========================================== */}
-
                   <div
                     className="
                       flex
@@ -1078,10 +1886,6 @@ function DashboardLayoutInner({
                     </span>
                   </div>
 
-                  {/* ==========================================
-                      MOBILE HEADER ACTIONS
-                  ========================================== */}
-
                   <div
                     className="
                       relative
@@ -1092,10 +1896,6 @@ function DashboardLayoutInner({
                       gap-2
                     "
                   >
-                    {/* ========================================
-                        MOBILE NOTIFICATION BELL
-                    ======================================== */}
-
                     <div
                       className="
                         relative
@@ -1111,15 +1911,11 @@ function DashboardLayoutInner({
                       <NotificationBell />
                     </div>
 
-                    {/* ========================================
-                        CLOSE MOBILE MENU
-                    ======================================== */}
-
                     <button
                       type="button"
                       onClick={() =>
                         setMobileMenuOpen(
-                          false
+                          false,
                         )
                       }
                       className="
@@ -1163,7 +1959,7 @@ function DashboardLayoutInner({
                 </div>
 
                 {/* ============================================
-                    MENU INTRO
+                    INTRO
                 ============================================ */}
 
                 <div
@@ -1194,11 +1990,7 @@ function DashboardLayoutInner({
                       gap-4
                     "
                   >
-                    <div
-                      className="
-                        min-w-0
-                      "
-                    >
+                    <div className="min-w-0">
                       <p
                         className="
                           text-[9px]
@@ -1223,7 +2015,8 @@ function DashboardLayoutInner({
                           text-stone-700
                         "
                       >
-                        Access every area of TOTS-OS from here.
+                        Your TOTS-OS modules,
+                        all in one place.
                       </p>
                     </div>
 
@@ -1243,7 +2036,7 @@ function DashboardLayoutInner({
                 </div>
 
                 {/* ============================================
-                    MOBILE MENU LINKS
+                    MENU LINKS
                 ============================================ */}
 
                 <div
@@ -1255,10 +2048,10 @@ function DashboardLayoutInner({
                     space-y-5
                   "
                 >
-                  {mobileSections.map(
+                  {visibleMobileSections.map(
                     (
                       section,
-                      index
+                      index,
                     ) => (
                       <div
                         key={
@@ -1295,25 +2088,25 @@ function DashboardLayoutInner({
                         >
                           {section.links.map(
                             (
-                              link
+                              link,
                             ) => {
                               const Icon =
                                 link.icon;
 
-                              const isActive =
+                              const linkIsActive =
                                 pathname ===
                                   link.href ||
                                 pathname.startsWith(
-                                  `${link.href}/`
+                                  `${link.href}/`,
                                 );
 
                               const isPinned =
                                 finalPinnedMobileLinks.some(
                                   (
-                                    pinned
+                                    pinned,
                                   ) =>
                                     pinned.href ===
-                                    link.href
+                                    link.href,
                                 );
 
                               return (
@@ -1326,14 +2119,14 @@ function DashboardLayoutInner({
                                   }
                                   onClick={() =>
                                     setMobileMenuOpen(
-                                      false
+                                      false,
                                     )
                                   }
                                   data-tour={`nav-${link.label
                                     .toLowerCase()
                                     .replaceAll(
                                       " ",
-                                      "-"
+                                      "-",
                                     )}`}
                                   className={`
                                     relative
@@ -1357,14 +2150,12 @@ function DashboardLayoutInner({
                                     active:scale-[0.98]
 
                                     ${
-                                      isActive
+                                      linkIsActive
                                         ? "border-[#a9b897]/60 bg-white shadow-md"
                                         : "border-stone-100 bg-white/60 hover:border-stone-200 hover:bg-white"
                                     }
                                   `}
                                 >
-                                  {/* PINNED DOT */}
-
                                   {isPinned && (
                                     <span
                                       className="
@@ -1386,7 +2177,7 @@ function DashboardLayoutInner({
                                   <div
                                     style={{
                                       color:
-                                        isActive
+                                        linkIsActive
                                           ? "var(--brand-primary, #829473)"
                                           : "#a8a29e",
                                     }}
@@ -1396,7 +2187,7 @@ function DashboardLayoutInner({
                                         19
                                       }
                                       strokeWidth={
-                                        isActive
+                                        linkIsActive
                                           ? 2
                                           : 1.5
                                       }
@@ -1411,7 +2202,7 @@ function DashboardLayoutInner({
                                       tracking-[0.14em]
 
                                       ${
-                                        isActive
+                                        linkIsActive
                                           ? "text-stone-900"
                                           : "text-stone-500"
                                       }
@@ -1423,11 +2214,11 @@ function DashboardLayoutInner({
                                   </span>
                                 </Link>
                               );
-                            }
+                            },
                           )}
                         </div>
                       </div>
-                    )
+                    ),
                   )}
                 </div>
               </div>
@@ -1445,9 +2236,12 @@ function DashboardLayoutInner({
 
 function MobileNavItem({
   href,
+
   icon:
     Icon,
+
   label,
+
   isActive,
 }: {
   href:
@@ -1471,7 +2265,7 @@ function MobileNavItem({
         .toLowerCase()
         .replaceAll(
           " ",
-          "-"
+          "-",
         )}`}
       className={`
         relative

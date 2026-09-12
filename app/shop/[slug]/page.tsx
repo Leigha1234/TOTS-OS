@@ -133,12 +133,75 @@ type Product = {
   created_at?: string | null;
   updated_at?: string | null;
 
+  purchase_type?:
+    | "one_off"
+    | "subscription"
+    | string
+    | null;
+
+  billing_interval?:
+    | "week"
+    | "month"
+    | "year"
+    | string
+    | null;
+
+  external_system?:
+    | string
+    | null;
+
+  external_plan_code?:
+    | string
+    | null;
+
+  beneficiary_mode?:
+    | "none"
+    | "single_adult"
+    | "couple"
+    | "child"
+    | "child_plus_adult"
+    | string
+    | null;
+
   [key: string]: unknown;
 };
 
 type CartLine = {
   product: Product;
   quantity: number;
+};
+
+type BeneficiaryType =
+  | "adult"
+  | "child";
+
+type BeneficiaryMode =
+  | "none"
+  | "single_adult"
+  | "couple"
+  | "child"
+  | "child_plus_adult";
+
+type BeneficiaryDraft = {
+  productId: string;
+  slotKey: string;
+  beneficiaryType: BeneficiaryType;
+  isPrimary: boolean;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  relationshipToPayer: string;
+};
+
+type BeneficiarySpec = {
+  key: string;
+  beneficiaryType: BeneficiaryType;
+  isPrimary: boolean;
+  title: string;
+  description: string;
+  relationshipToPayer: string;
+  emailRequired: boolean;
 };
 
 type StorefrontApiResponse = {
@@ -223,6 +286,209 @@ function normaliseDiscountCode(
     .trim()
     .toUpperCase()
     .replace(/\s+/g, "");
+}
+
+function normaliseBeneficiaryMode(
+  value: unknown
+): BeneficiaryMode {
+  switch (value) {
+    case "single_adult":
+    case "couple":
+    case "child":
+    case "child_plus_adult":
+      return value;
+
+    default:
+      return "none";
+  }
+}
+
+function isMembershipProduct(
+  product: Product
+) {
+  return (
+    String(
+      product.purchase_type ||
+        ""
+    ).toLowerCase() ===
+      "subscription" &&
+    String(
+      product.external_system ||
+        ""
+    ).toLowerCase() ===
+      "mtc" &&
+    normaliseBeneficiaryMode(
+      product.beneficiary_mode
+    ) !== "none"
+  );
+}
+
+function getBeneficiarySpecs(
+  line: CartLine
+): BeneficiarySpec[] {
+  if (
+    !isMembershipProduct(
+      line.product
+    )
+  ) {
+    return [];
+  }
+
+  const mode =
+    normaliseBeneficiaryMode(
+      line.product
+        .beneficiary_mode
+    );
+
+  const specs:
+    BeneficiarySpec[] = [];
+
+  const quantity =
+    Math.max(
+      1,
+      Math.floor(
+        Number(
+          line.quantity ||
+            1
+        )
+      )
+    );
+
+  for (
+    let purchaseIndex = 0;
+    purchaseIndex <
+    quantity;
+    purchaseIndex += 1
+  ) {
+    const purchaseSuffix =
+      quantity > 1
+        ? ` — membership ${purchaseIndex + 1}`
+        : "";
+
+    if (
+      mode ===
+      "single_adult"
+    ) {
+      specs.push({
+        key:
+          `${line.product.id}:${purchaseIndex}:adult:1`,
+        beneficiaryType:
+          "adult",
+        isPrimary:
+          true,
+        title:
+          `Member${purchaseSuffix}`,
+        description:
+          "Enter the adult who will use this membership.",
+        relationshipToPayer:
+          "self",
+        emailRequired:
+          true,
+      });
+    }
+
+    if (
+      mode === "couple"
+    ) {
+      specs.push(
+        {
+          key:
+            `${line.product.id}:${purchaseIndex}:adult:1`,
+          beneficiaryType:
+            "adult",
+          isPrimary:
+            true,
+          title:
+            `Adult 1${purchaseSuffix}`,
+          description:
+            "First adult covered by the couples membership.",
+          relationshipToPayer:
+            "self",
+          emailRequired:
+            true,
+        },
+        {
+          key:
+            `${line.product.id}:${purchaseIndex}:adult:2`,
+          beneficiaryType:
+            "adult",
+          isPrimary:
+            false,
+          title:
+            `Adult 2${purchaseSuffix}`,
+          description:
+            "Second adult covered by the couples membership.",
+          relationshipToPayer:
+            "partner",
+          emailRequired:
+            true,
+        }
+      );
+    }
+
+    if (
+      mode === "child"
+    ) {
+      specs.push({
+        key:
+          `${line.product.id}:${purchaseIndex}:child:1`,
+        beneficiaryType:
+          "child",
+        isPrimary:
+          true,
+        title:
+          `Child${purchaseSuffix}`,
+        description:
+          "Enter the child who will use this membership.",
+        relationshipToPayer:
+          "child",
+        emailRequired:
+          false,
+      });
+    }
+
+    if (
+      mode ===
+      "child_plus_adult"
+    ) {
+      specs.push(
+        {
+          key:
+            `${line.product.id}:${purchaseIndex}:adult:1`,
+          beneficiaryType:
+            "adult",
+          isPrimary:
+            true,
+          title:
+            `Adult / parent${purchaseSuffix}`,
+          description:
+            "This adult receives the Open Gym entitlement.",
+          relationshipToPayer:
+            "self",
+          emailRequired:
+            true,
+        },
+        {
+          key:
+            `${line.product.id}:${purchaseIndex}:child:1`,
+          beneficiaryType:
+            "child",
+          isPrimary:
+            false,
+          title:
+            `Child${purchaseSuffix}`,
+          description:
+            "This child receives the kids class entitlement.",
+          relationshipToPayer:
+            "child",
+          emailRequired:
+            false,
+        }
+      );
+    }
+  }
+
+  return specs;
 }
 
 function getProductImage(
@@ -856,6 +1122,17 @@ export default function ShopFrontPage() {
     useState<string | null>(
       null
     );
+
+  const [
+    beneficiaryDrafts,
+    setBeneficiaryDrafts,
+  ] =
+    useState<
+      Record<
+        string,
+        BeneficiaryDraft
+      >
+    >({});
 
   // ==========================================================
   // DISCOUNTS
@@ -1648,6 +1925,54 @@ export default function ShopFrontPage() {
       ]
     );
 
+  const membershipLines =
+    useMemo(
+      () =>
+        cartLines.filter(
+          (
+            line
+          ) =>
+            isMembershipProduct(
+              line.product
+            )
+        ),
+      [
+        cartLines,
+      ]
+    );
+
+  const requiredBeneficiarySpecs =
+    useMemo(
+      () =>
+        membershipLines.flatMap(
+          (
+            line
+          ) =>
+            getBeneficiarySpecs(
+              line
+            ).map(
+              (
+                spec
+              ) => ({
+                ...spec,
+                productId:
+                  line.product.id,
+                productName:
+                  line.product.name,
+                planCode:
+                  String(
+                    line.product
+                      .external_plan_code ||
+                      ""
+                  ).trim(),
+              })
+            )
+        ),
+      [
+        membershipLines,
+      ]
+    );
+
   // ==========================================================
   // CART ACTIONS
   // ==========================================================
@@ -1840,6 +2165,182 @@ export default function ShopFrontPage() {
   }
 
   // ==========================================================
+  // MEMBERSHIP BENEFICIARIES
+  // ==========================================================
+
+  function updateBeneficiaryDraft(
+    spec: BeneficiarySpec & {
+      productId: string;
+    },
+    field:
+      | "firstName"
+      | "lastName"
+      | "email"
+      | "phone",
+    value: string
+  ) {
+    setCheckoutError(
+      null
+    );
+
+    setBeneficiaryDrafts(
+      (
+        previous
+      ) => {
+        const existing =
+          previous[
+            spec.key
+          ];
+
+        const base:
+          BeneficiaryDraft =
+          existing || {
+            productId:
+              spec.productId,
+            slotKey:
+              spec.key,
+            beneficiaryType:
+              spec.beneficiaryType,
+            isPrimary:
+              spec.isPrimary,
+            firstName:
+              "",
+            lastName:
+              "",
+            email:
+              "",
+            phone:
+              "",
+            relationshipToPayer:
+              spec.relationshipToPayer,
+          };
+
+        return {
+          ...previous,
+
+          [spec.key]: {
+            ...base,
+            [field]:
+              value,
+          },
+        };
+      }
+    );
+  }
+
+  function buildCheckoutBeneficiaries() {
+    const payload:
+      Array<{
+        productId: string;
+        slotKey: string;
+        beneficiaryType: BeneficiaryType;
+        isPrimary: boolean;
+        firstName: string;
+        lastName: string;
+        email: string | null;
+        phone: string | null;
+        relationshipToPayer: string | null;
+      }> = [];
+
+    for (
+      const spec of
+      requiredBeneficiarySpecs
+    ) {
+      const draft =
+        beneficiaryDrafts[
+          spec.key
+        ];
+
+      const firstName =
+        String(
+          draft?.firstName ||
+            ""
+        ).trim();
+
+      const lastName =
+        String(
+          draft?.lastName ||
+            ""
+        ).trim();
+
+      const email =
+        String(
+          draft?.email ||
+            ""
+        )
+          .trim()
+          .toLowerCase();
+
+      const phone =
+        String(
+          draft?.phone ||
+            ""
+        ).trim();
+
+      if (
+        !firstName ||
+        !lastName
+      ) {
+        throw new Error(
+          `Enter the first and last name for ${spec.title} on ${spec.productName}.`
+        );
+      }
+
+      if (
+        spec.emailRequired &&
+        !email
+      ) {
+        throw new Error(
+          `Enter an email address for ${spec.title} on ${spec.productName}.`
+        );
+      }
+
+      if (
+        email &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+          email
+        )
+      ) {
+        throw new Error(
+          `Enter a valid email address for ${spec.title} on ${spec.productName}.`
+        );
+      }
+
+      payload.push({
+        productId:
+          spec.productId,
+
+        slotKey:
+          spec.key,
+
+        beneficiaryType:
+          spec.beneficiaryType,
+
+        isPrimary:
+          spec.isPrimary,
+
+        firstName,
+
+        lastName,
+
+        email:
+          email ||
+          null,
+
+        phone:
+          phone ||
+          null,
+
+        relationshipToPayer:
+          spec.relationshipToPayer ||
+          null,
+      });
+    }
+
+    return payload;
+  }
+
+  // ==========================================================
   // DISCOUNT
   // ==========================================================
 
@@ -1924,6 +2425,9 @@ export default function ShopFrontPage() {
             appliedDiscountCode
         );
 
+      const beneficiaries =
+        buildCheckoutBeneficiaries();
+
       const response =
         await fetch(
           "/api/store-checkout",
@@ -1952,6 +2456,12 @@ export default function ShopFrontPage() {
                 discountCode:
                   resolvedDiscountCode ||
                   undefined,
+
+                beneficiaries:
+                  beneficiaries.length >
+                  0
+                    ? beneficiaries
+                    : undefined,
               }),
           }
         );
@@ -3916,6 +4426,204 @@ export default function ShopFrontPage() {
             {cartLines.length >
               0 && (
               <div className="border-t border-stone-100 bg-white px-5 pb-5 pt-5 sm:px-6">
+
+                {/* MEMBERSHIP DETAILS */}
+
+                {requiredBeneficiarySpecs.length >
+                  0 && (
+                  <div className="mb-4 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+
+                    <div className="flex items-start gap-3">
+
+                      <div
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white"
+                        style={{
+                          background:
+                            primary,
+                        }}
+                      >
+                        <ShieldCheck
+                          size={14}
+                        />
+                      </div>
+
+                      <div>
+
+                        <p className="text-[9px] font-black uppercase tracking-[0.15em] text-stone-700">
+                          Membership details
+                        </p>
+
+                        <p className="mt-1 text-[10px] leading-5 text-stone-500">
+                          Tell us who will use the membership. Payment details are entered securely with Stripe next.
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    <div className="mt-4 space-y-4">
+
+                      {requiredBeneficiarySpecs.map(
+                        (
+                          spec
+                        ) => {
+                          const draft =
+                            beneficiaryDrafts[
+                              spec.key
+                            ];
+
+                          return (
+                            <div
+                              key={
+                                spec.key
+                              }
+                              className="rounded-2xl border border-stone-200 bg-white p-4"
+                            >
+
+                              <div className="flex items-start justify-between gap-3">
+
+                                <div>
+
+                                  <p className="text-[10px] font-black text-stone-800">
+                                    {
+                                      spec.title
+                                    }
+                                  </p>
+
+                                  <p className="mt-1 text-[9px] leading-4 text-stone-400">
+                                    {
+                                      spec.productName
+                                    }
+                                    {spec.planCode
+                                      ? ` · ${spec.planCode}`
+                                      : ""}
+                                  </p>
+
+                                  <p className="mt-1 text-[9px] leading-4 text-stone-400">
+                                    {
+                                      spec.description
+                                    }
+                                  </p>
+
+                                </div>
+
+                                <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-stone-500">
+                                  {
+                                    spec.beneficiaryType
+                                  }
+                                </span>
+
+                              </div>
+
+                              <div className="mt-3 grid grid-cols-2 gap-2">
+
+                                <input
+                                  type="text"
+                                  value={
+                                    draft?.firstName ||
+                                    ""
+                                  }
+                                  disabled={
+                                    checkingOut
+                                  }
+                                  onChange={(
+                                    event
+                                  ) =>
+                                    updateBeneficiaryDraft(
+                                      spec,
+                                      "firstName",
+                                      event.target.value
+                                    )
+                                  }
+                                  placeholder="First name *"
+                                  autoComplete="given-name"
+                                  className="rounded-xl border border-stone-200 bg-white px-3 py-3 text-[10px] font-semibold text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
+                                />
+
+                                <input
+                                  type="text"
+                                  value={
+                                    draft?.lastName ||
+                                    ""
+                                  }
+                                  disabled={
+                                    checkingOut
+                                  }
+                                  onChange={(
+                                    event
+                                  ) =>
+                                    updateBeneficiaryDraft(
+                                      spec,
+                                      "lastName",
+                                      event.target.value
+                                    )
+                                  }
+                                  placeholder="Last name *"
+                                  autoComplete="family-name"
+                                  className="rounded-xl border border-stone-200 bg-white px-3 py-3 text-[10px] font-semibold text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
+                                />
+
+                                <input
+                                  type="email"
+                                  value={
+                                    draft?.email ||
+                                    ""
+                                  }
+                                  disabled={
+                                    checkingOut
+                                  }
+                                  onChange={(
+                                    event
+                                  ) =>
+                                    updateBeneficiaryDraft(
+                                      spec,
+                                      "email",
+                                      event.target.value
+                                    )
+                                  }
+                                  placeholder={
+                                    spec.emailRequired
+                                      ? "Email *"
+                                      : "Email (optional)"
+                                  }
+                                  autoComplete="email"
+                                  className="col-span-2 rounded-xl border border-stone-200 bg-white px-3 py-3 text-[10px] font-semibold text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
+                                />
+
+                                <input
+                                  type="tel"
+                                  value={
+                                    draft?.phone ||
+                                    ""
+                                  }
+                                  disabled={
+                                    checkingOut
+                                  }
+                                  onChange={(
+                                    event
+                                  ) =>
+                                    updateBeneficiaryDraft(
+                                      spec,
+                                      "phone",
+                                      event.target.value
+                                    )
+                                  }
+                                  placeholder="Phone (optional)"
+                                  autoComplete="tel"
+                                  className="col-span-2 rounded-xl border border-stone-200 bg-white px-3 py-3 text-[10px] font-semibold text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
+                                />
+
+                              </div>
+
+                            </div>
+                          );
+                        }
+                      )}
+
+                    </div>
+
+                  </div>
+                )}
 
                 {/* DISCOUNT */}
 

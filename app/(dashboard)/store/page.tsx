@@ -59,6 +59,7 @@ type StoreTab =
   | "Overview"
   | "Products"
   | "Orders"
+  | "Subscriptions"
   | "Payments"
   | "Inventory"
   | "Discounts"
@@ -68,6 +69,22 @@ type ProductStatus =
   | "active"
   | "draft"
   | "archived";
+
+type PurchaseType =
+  | "one_off"
+  | "subscription";
+
+type BillingInterval =
+  | "week"
+  | "month"
+  | "year";
+
+type BeneficiaryMode =
+  | "none"
+  | "single_adult"
+  | "couple"
+  | "child"
+  | "child_plus_adult";
 
 type SellingModel =
   | "physical"
@@ -115,6 +132,31 @@ type Product = {
   category: string;
 
   selling_model: SellingModel;
+
+  purchase_type: PurchaseType;
+
+  billing_interval:
+    | BillingInterval
+    | null;
+
+  stripe_product_id:
+    | string
+    | null;
+
+  stripe_price_id:
+    | string
+    | null;
+
+  external_system:
+    | string
+    | null;
+
+  external_plan_code:
+    | string
+    | null;
+
+  beneficiary_mode:
+    BeneficiaryMode;
 
   description: string;
 
@@ -193,6 +235,78 @@ type Order = {
     >;
 };
 
+type StoreSubscription = {
+  id: string;
+
+  organisation_id: string;
+
+  order_id:
+    | string
+    | null;
+
+  product_id:
+    | string
+    | null;
+
+  customer_name:
+    | string
+    | null;
+
+  customer_email:
+    | string
+    | null;
+
+  customer_phone:
+    | string
+    | null;
+
+  stripe_account_id: string;
+
+  stripe_customer_id:
+    | string
+    | null;
+
+  stripe_subscription_id: string;
+
+  stripe_price_id:
+    | string
+    | null;
+
+  status: string;
+
+  quantity: number;
+
+  currency: string;
+
+  unit_amount_pence:
+    | number
+    | null;
+
+  billing_interval:
+    | BillingInterval
+    | null;
+
+  current_period_start:
+    | string
+    | null;
+
+  current_period_end:
+    | string
+    | null;
+
+  cancel_at_period_end: boolean;
+
+  cancelled_at:
+    | string
+    | null;
+
+  metadata: Record<string, unknown>;
+
+  created_at: string;
+
+  updated_at: string;
+};
+
 type StoreSettingsRow = {
   id: string;
 
@@ -249,6 +363,16 @@ type ProductForm = {
   id?: string;
 
   sellingModel: SellingModel;
+
+  purchaseType: PurchaseType;
+
+  billingInterval: BillingInterval;
+
+  externalSystem: string;
+
+  externalPlanCode: string;
+
+  beneficiaryMode: BeneficiaryMode;
 
   name: string;
 
@@ -399,6 +523,11 @@ type RefundFormState = {
 
 const EMPTY_PRODUCT_FORM: ProductForm = {
   sellingModel: "physical",
+  purchaseType: "one_off",
+  billingInterval: "month",
+  externalSystem: "",
+  externalPlanCode: "",
+  beneficiaryMode: "none",
   name: "",
   slug: "",
   sku: "",
@@ -575,6 +704,99 @@ function normaliseSellingModel(
 
   return fallback;
 }
+
+function normalisePurchaseType(
+  value: unknown,
+  fallback: PurchaseType = "one_off"
+): PurchaseType {
+  return value === "subscription"
+    ? "subscription"
+    : fallback;
+}
+
+function normaliseBillingInterval(
+  value: unknown,
+  fallback: BillingInterval = "month"
+): BillingInterval {
+  if (
+    value === "week" ||
+    value === "month" ||
+    value === "year"
+  ) {
+    return value;
+  }
+
+  return fallback;
+}
+
+function normaliseBeneficiaryMode(
+  value: unknown,
+  fallback: BeneficiaryMode = "none"
+): BeneficiaryMode {
+  if (
+    value === "single_adult" ||
+    value === "couple" ||
+    value === "child" ||
+    value === "child_plus_adult"
+  ) {
+    return value;
+  }
+
+  return fallback;
+}
+
+const MTC_MEMBERSHIP_PLANS = [
+  {
+    code: "ADULT_3PW",
+    label: "3 Per Week",
+    beneficiaryMode: "single_adult" as const,
+  },
+  {
+    code: "ADULT_UNLIMITED",
+    label: "Unlimited",
+    beneficiaryMode: "single_adult" as const,
+  },
+  {
+    code: "COUPLE_3PW",
+    label: "Couples - 3 Per Week",
+    beneficiaryMode: "couple" as const,
+  },
+  {
+    code: "COUPLE_UNLIMITED",
+    label: "Couples - Unlimited",
+    beneficiaryMode: "couple" as const,
+  },
+  {
+    code: "KID_1PW",
+    label: "Kids - 1 Per Week",
+    beneficiaryMode: "child" as const,
+  },
+  {
+    code: "KID_1PW_OPEN_GYM",
+    label: "Kids - 1 Per Week + Open Gym",
+    beneficiaryMode: "child_plus_adult" as const,
+  },
+  {
+    code: "KID_2PW",
+    label: "Kids - 2 Per Week",
+    beneficiaryMode: "child" as const,
+  },
+  {
+    code: "KID_2PW_OPEN_GYM",
+    label: "Kids - 2 Per Week + Open Gym",
+    beneficiaryMode: "child_plus_adult" as const,
+  },
+  {
+    code: "KID_3PW",
+    label: "Kids - 3 Per Week",
+    beneficiaryMode: "child" as const,
+  },
+  {
+    code: "KID_3PW_OPEN_GYM",
+    label: "Kids - 3 Per Week + Open Gym",
+    beneficiaryMode: "child_plus_adult" as const,
+  },
+] as const;
 
 // ============================================================
 
@@ -1402,6 +1624,28 @@ export default function StorePage() {
     );
 
   // ==========================================================
+  // SUBSCRIPTIONS
+  // ==========================================================
+
+  const [
+    subscriptions,
+    setSubscriptions,
+  ] =
+    useState<
+      StoreSubscription[]
+    >(
+      []
+    );
+
+  const [
+    subscriptionSearch,
+    setSubscriptionSearch,
+  ] =
+    useState(
+      ""
+    );
+
+  // ==========================================================
   // DISCOUNTS
   // ==========================================================
 
@@ -1798,6 +2042,195 @@ if (orderError) {
   throw orderError;
 }
           // ===================================================
+          // SUBSCRIPTIONS
+          // ===================================================
+
+          const {
+            data:
+              subscriptionRows,
+            error:
+              subscriptionError,
+          } =
+            await supabase
+              .from(
+                "store_subscriptions"
+              )
+              .select("*")
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .order(
+                "created_at",
+                {
+                  ascending:
+                    false,
+                }
+              );
+
+          if (
+            subscriptionError
+          ) {
+            throw subscriptionError;
+          }
+
+          setSubscriptions(
+            (
+              subscriptionRows ||
+              []
+            ).map(
+              (
+                row:
+                  Record<
+                    string,
+                    unknown
+                  >
+              ) => ({
+                id:
+                  String(
+                    row.id
+                  ),
+
+                organisation_id:
+                  String(
+                    row.organisation_id ||
+                      orgId
+                  ),
+
+                order_id:
+                  firstString(
+                    row.order_id
+                  ),
+
+                product_id:
+                  firstString(
+                    row.product_id
+                  ),
+
+                customer_name:
+                  firstString(
+                    row.customer_name
+                  ),
+
+                customer_email:
+                  firstString(
+                    row.customer_email
+                  ),
+
+                customer_phone:
+                  firstString(
+                    row.customer_phone
+                  ),
+
+                stripe_account_id:
+                  firstString(
+                    row.stripe_account_id
+                  ) ||
+                  "",
+
+                stripe_customer_id:
+                  firstString(
+                    row.stripe_customer_id
+                  ),
+
+                stripe_subscription_id:
+                  firstString(
+                    row.stripe_subscription_id
+                  ) ||
+                  "",
+
+                stripe_price_id:
+                  firstString(
+                    row.stripe_price_id
+                  ),
+
+                status:
+                  firstString(
+                    row.status
+                  ) ||
+                  "incomplete",
+
+                quantity:
+                  firstNumber(
+                    row.quantity,
+                    1
+                  ),
+
+                currency:
+                  firstString(
+                    row.currency
+                  ) ||
+                  "gbp",
+
+                unit_amount_pence:
+                  row.unit_amount_pence ===
+                    null ||
+                  row.unit_amount_pence ===
+                    undefined
+                    ? null
+                    : firstNumber(
+                        row.unit_amount_pence
+                      ),
+
+                billing_interval:
+                  row.billing_interval
+                    ? normaliseBillingInterval(
+                        row.billing_interval
+                      )
+                    : null,
+
+                current_period_start:
+                  firstString(
+                    row.current_period_start
+                  ),
+
+                current_period_end:
+                  firstString(
+                    row.current_period_end
+                  ),
+
+                cancel_at_period_end:
+                  safeBoolean(
+                    row.cancel_at_period_end,
+                    false
+                  ),
+
+                cancelled_at:
+                  firstString(
+                    row.cancelled_at
+                  ),
+
+                metadata:
+                  row.metadata &&
+                  typeof row.metadata ===
+                    "object" &&
+                  !Array.isArray(
+                    row.metadata
+                  )
+                    ? (
+                        row.metadata as Record<
+                          string,
+                          unknown
+                        >
+                      )
+                    : {},
+
+                created_at:
+                  firstString(
+                    row.created_at
+                  ) ||
+                  "",
+
+                updated_at:
+                  firstString(
+                    row.updated_at
+                  ) ||
+                  "",
+              })
+            )
+          );
+
+          // ===================================================
           // ORDER ITEMS
           // ===================================================
 
@@ -2074,6 +2507,43 @@ if (orderError) {
                       )
                         ? "physical"
                         : "service"
+                    ),
+
+                  purchase_type:
+                    normalisePurchaseType(
+                      row.purchase_type
+                    ),
+
+                  billing_interval:
+                    row.billing_interval
+                      ? normaliseBillingInterval(
+                          row.billing_interval
+                        )
+                      : null,
+
+                  stripe_product_id:
+                    firstString(
+                      row.stripe_product_id
+                    ),
+
+                  stripe_price_id:
+                    firstString(
+                      row.stripe_price_id
+                    ),
+
+                  external_system:
+                    firstString(
+                      row.external_system
+                    ),
+
+                  external_plan_code:
+                    firstString(
+                      row.external_plan_code
+                    ),
+
+                  beneficiary_mode:
+                    normaliseBeneficiaryMode(
+                      row.beneficiary_mode
                     ),
 
                   description:
@@ -3352,6 +3822,65 @@ if (orderError) {
       ]
     );
 
+  const filteredSubscriptions =
+    useMemo(
+      () => {
+        const value =
+          subscriptionSearch
+            .trim()
+            .toLowerCase();
+
+        if (
+          !value
+        ) {
+          return subscriptions;
+        }
+
+        return subscriptions.filter(
+          (
+            subscription
+          ) => {
+            const product =
+              products.find(
+                (
+                  item
+                ) =>
+                  item.id ===
+                  subscription.product_id
+              );
+
+            return [
+              subscription.customer_name,
+              subscription.customer_email,
+              subscription.stripe_subscription_id,
+              subscription.status,
+              product?.name,
+            ]
+              .filter(
+                Boolean
+              )
+              .some(
+                (
+                  item
+                ) =>
+                  String(
+                    item
+                  )
+                    .toLowerCase()
+                    .includes(
+                      value
+                    )
+              );
+          }
+        );
+      },
+      [
+        subscriptions,
+        subscriptionSearch,
+        products,
+      ]
+    );
+
   const filteredDiscounts =
     useMemo(
       () => {
@@ -3708,6 +4237,29 @@ if (orderError) {
           )
         ),
 
+      purchaseType:
+        normalisePurchaseType(
+          product.purchase_type
+        ),
+
+      billingInterval:
+        normaliseBillingInterval(
+          product.billing_interval
+        ),
+
+      externalSystem:
+        product.external_system ||
+        "",
+
+      externalPlanCode:
+        product.external_plan_code ||
+        "",
+
+      beneficiaryMode:
+        normaliseBeneficiaryMode(
+          product.beneficiary_mode
+        ),
+
       name:
         product.name,
 
@@ -3832,6 +4384,36 @@ if (orderError) {
     ) {
       alert(
         "Enter a valid price."
+      );
+
+      return;
+    }
+
+    if (
+      productForm.purchaseType ===
+        "subscription" &&
+      ![
+        "week",
+        "month",
+        "year",
+      ].includes(
+        productForm.billingInterval
+      )
+    ) {
+      alert(
+        "Choose a valid billing interval."
+      );
+
+      return;
+    }
+
+    if (
+      productForm.externalSystem ===
+        "mtc" &&
+      !productForm.externalPlanCode
+    ) {
+      alert(
+        "Choose which MTC membership plan this product represents."
       );
 
       return;
@@ -3977,6 +4559,30 @@ if (orderError) {
 
         selling_model:
           productForm.sellingModel,
+
+        purchase_type:
+          productForm.purchaseType,
+
+        billing_interval:
+          productForm.purchaseType ===
+          "subscription"
+            ? productForm.billingInterval
+            : null,
+
+        external_system:
+          productForm.externalSystem ||
+          null,
+
+        external_plan_code:
+          productForm.externalSystem
+            ? productForm.externalPlanCode ||
+              null
+            : null,
+
+        beneficiary_mode:
+          productForm.externalSystem
+            ? productForm.beneficiaryMode
+            : "none",
 
         description:
           productForm.description.trim() ||
@@ -5398,6 +6004,14 @@ if (orderError) {
 
     {
       label:
+        "Subscriptions",
+
+      icon:
+        CreditCard,
+    },
+
+    {
+      label:
         "Payments",
 
       icon:
@@ -6692,6 +7306,337 @@ if (orderError) {
                           </div>
                         </div>
                       )
+                    )}
+                  </div>
+                )}
+              </Panel>
+            </motion.div>
+          )}
+
+          {/* ==================================================
+              SUBSCRIPTIONS
+          ================================================== */}
+
+          {activeTab ===
+            "Subscriptions" && (
+            <motion.div
+              key="subscriptions"
+              initial={{
+                opacity:
+                  0,
+              }}
+              animate={{
+                opacity:
+                  1,
+              }}
+              className="space-y-6"
+            >
+              <Panel>
+                <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <SectionEyebrow>
+                      Recurring revenue
+                    </SectionEyebrow>
+
+                    <h2 className="mt-1 font-serif text-3xl italic">
+                      Subscriptions
+                    </h2>
+
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-500">
+                      Stripe remains the payment source of truth. This view mirrors the latest subscription status, renewal period and customer details inside TOTS-OS.
+                    </p>
+                  </div>
+
+                  <div className="relative">
+                    <Search
+                      size={14}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+                    />
+
+                    <input
+                      value={
+                        subscriptionSearch
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setSubscriptionSearch(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Search subscriptions..."
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 py-3 pl-10 pr-4 text-xs outline-none sm:w-72"
+                    />
+                  </div>
+                </div>
+              </Panel>
+
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Panel>
+                  <SectionEyebrow>
+                    Active
+                  </SectionEyebrow>
+
+                  <p className="mt-3 font-serif text-5xl italic">
+                    {subscriptions.filter(
+                      (subscription) =>
+                        [
+                          "active",
+                          "trialing",
+                        ].includes(
+                          subscription.status
+                        )
+                    ).length}
+                  </p>
+                </Panel>
+
+                <Panel>
+                  <SectionEyebrow>
+                    Past due
+                  </SectionEyebrow>
+
+                  <p className="mt-3 font-serif text-5xl italic">
+                    {subscriptions.filter(
+                      (subscription) =>
+                        subscription.status ===
+                        "past_due"
+                    ).length}
+                  </p>
+                </Panel>
+
+                <Panel>
+                  <SectionEyebrow>
+                    Cancelling
+                  </SectionEyebrow>
+
+                  <p className="mt-3 font-serif text-5xl italic">
+                    {subscriptions.filter(
+                      (subscription) =>
+                        subscription.cancel_at_period_end
+                    ).length}
+                  </p>
+                </Panel>
+
+                <Panel>
+                  <SectionEyebrow>
+                    Monthly value
+                  </SectionEyebrow>
+
+                  <p className="mt-3 font-serif text-4xl italic">
+                    {money(
+                      subscriptions
+                        .filter(
+                          (subscription) =>
+                            [
+                              "active",
+                              "trialing",
+                            ].includes(
+                              subscription.status
+                            )
+                        )
+                        .reduce(
+                          (
+                            total,
+                            subscription
+                          ) => {
+                            const amount =
+                              ((
+                                subscription.unit_amount_pence ||
+                                0
+                              ) /
+                                100) *
+                              Math.max(
+                                1,
+                                subscription.quantity
+                              );
+
+                            if (
+                              subscription.billing_interval ===
+                              "week"
+                            ) {
+                              return (
+                                total +
+                                amount *
+                                  52 /
+                                  12
+                              );
+                            }
+
+                            if (
+                              subscription.billing_interval ===
+                              "year"
+                            ) {
+                              return (
+                                total +
+                                amount /
+                                  12
+                              );
+                            }
+
+                            return (
+                              total +
+                              amount
+                            );
+                          },
+                          0
+                        )
+                    )}
+                  </p>
+                </Panel>
+              </div>
+
+              <Panel>
+                {!filteredSubscriptions.length ? (
+                  <EmptyState
+                    icon={
+                      CreditCard
+                    }
+                    title="No subscriptions yet"
+                    text="Recurring purchases will appear here after Stripe creates the subscription and the store webhook syncs it into TOTS-OS."
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {filteredSubscriptions.map(
+                      (
+                        subscription
+                      ) => {
+                        const product =
+                          products.find(
+                            (
+                              item
+                            ) =>
+                              item.id ===
+                              subscription.product_id
+                          );
+
+                        const amount =
+                          ((
+                            subscription.unit_amount_pence ||
+                            0
+                          ) /
+                            100) *
+                          Math.max(
+                            1,
+                            subscription.quantity
+                          );
+
+                        const statusLabel =
+                          subscription.status
+                            .replace(
+                              /_/g,
+                              " "
+                            )
+                            .replace(
+                              /\b\w/g,
+                              (letter) =>
+                                letter.toUpperCase()
+                            );
+
+                        return (
+                          <div
+                            key={
+                              subscription.id
+                            }
+                            className="rounded-2xl border border-stone-100 bg-stone-50 p-5"
+                          >
+                            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-semibold text-stone-800">
+                                    {subscription.customer_name ||
+                                      subscription.customer_email ||
+                                      "Store customer"}
+                                  </p>
+
+                                  <span className={`rounded-full px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] ${
+                                    [
+                                      "active",
+                                      "trialing",
+                                    ].includes(
+                                      subscription.status
+                                    )
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : subscription.status ===
+                                          "past_due"
+                                        ? "bg-amber-100 text-amber-700"
+                                        : "bg-stone-200 text-stone-600"
+                                  }`}>
+                                    {statusLabel}
+                                  </span>
+
+                                  {subscription.cancel_at_period_end && (
+                                    <span className="rounded-full bg-rose-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-rose-700">
+                                      Cancels at period end
+                                    </span>
+                                  )}
+                                </div>
+
+                                <p className="mt-2 text-xs font-medium text-stone-600">
+                                  {product?.name ||
+                                    "Subscription product"}
+                                </p>
+
+                                <p className="mt-1 truncate text-[10px] text-stone-400">
+                                  {subscription.customer_email ||
+                                    "No email"}
+                                  {subscription.customer_phone
+                                    ? ` · ${subscription.customer_phone}`
+                                    : ""}
+                                </p>
+                              </div>
+
+                              <div className="grid gap-4 sm:grid-cols-3 xl:min-w-[560px]">
+                                <div>
+                                  <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                                    Price
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-stone-700">
+                                    {money(
+                                      amount
+                                    )}
+                                    <span className="ml-1 text-[9px] font-medium text-stone-400">
+                                      /{subscription.billing_interval ||
+                                        "period"}
+                                    </span>
+                                  </p>
+                                </div>
+
+                                <div>
+                                  <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                                    Next renewal
+                                  </p>
+
+                                  <p className="mt-1 text-sm font-bold text-stone-700">
+                                    {subscription.cancel_at_period_end
+                                      ? "Ends "
+                                      : ""}
+                                    {formatDate(
+                                      subscription.current_period_end
+                                    )}
+                                  </p>
+                                </div>
+
+                                <div className="min-w-0">
+                                  <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                                    Stripe subscription
+                                  </p>
+
+                                  <p
+                                    title={
+                                      subscription.stripe_subscription_id
+                                    }
+                                    className="mt-1 truncate font-mono text-[10px] font-semibold text-stone-500"
+                                  >
+                                    {subscription.stripe_subscription_id ||
+                                      "—"}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
                     )}
                   </div>
                 )}
@@ -8597,6 +9542,363 @@ if (orderError) {
                   TOTS-OS adapts the product setup to the way you sell. Use stocked products for traditional retail, turn inventory off for unlimited digital or service offers, or use collection, custom and request-led presets for businesses that do not fit a standard ecommerce model.
                 </div>
               </Field>
+
+              <Field
+                label="How is this paid for?"
+                className="md:col-span-2"
+              >
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {[
+                    {
+                      value: "one_off" as const,
+                      label: "One-off payment",
+                      description:
+                        "The customer pays once for this product or service.",
+                    },
+                    {
+                      value: "subscription" as const,
+                      label: "Subscription",
+                      description:
+                        "The customer is billed automatically on a recurring schedule.",
+                    },
+                  ].map((option) => {
+                    const selected =
+                      productForm.purchaseType ===
+                      option.value;
+
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() =>
+                          setProductForm(
+                            (previous) => ({
+                              ...previous,
+                              purchaseType:
+                                option.value,
+                            })
+                          )
+                        }
+                        className={`rounded-2xl border p-4 text-left transition ${
+                          selected
+                            ? "border-[#a9b897] bg-[#a9b897]/10 ring-1 ring-[#a9b897]/30"
+                            : "border-stone-200 bg-stone-50 hover:border-stone-300 hover:bg-white"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-black text-stone-800">
+                              {option.label}
+                            </p>
+                            <p className="mt-1 text-[10px] leading-4 text-stone-500">
+                              {option.description}
+                            </p>
+                          </div>
+                          <span
+                            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                              selected
+                                ? "border-[#829473] bg-[#829473] text-white"
+                                : "border-stone-300 bg-white text-transparent"
+                            }`}
+                          >
+                            <Check size={11} />
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
+
+              {productForm.purchaseType ===
+                "subscription" && (
+                <Field
+                  label="Billing interval"
+                  className="md:col-span-2"
+                >
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      {
+                        value: "week" as const,
+                        label: "Weekly",
+                      },
+                      {
+                        value: "month" as const,
+                        label: "Monthly",
+                      },
+                      {
+                        value: "year" as const,
+                        label: "Yearly",
+                      },
+                    ].map((option) => {
+                      const selected =
+                        productForm.billingInterval ===
+                        option.value;
+
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() =>
+                            setProductForm(
+                              (previous) => ({
+                                ...previous,
+                                billingInterval:
+                                  option.value,
+                              })
+                            )
+                          }
+                          className={`rounded-xl border px-4 py-3 text-xs font-black transition ${
+                            selected
+                              ? "border-[#a9b897] bg-[#a9b897]/10 text-stone-900"
+                              : "border-stone-200 bg-stone-50 text-stone-500 hover:bg-white"
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <p className="mt-2 text-[10px] leading-4 text-stone-500">
+                    This saves the recurring billing setup on the Store product. Stripe subscription creation is the next step.
+                  </p>
+                </Field>
+              )}
+
+              {productForm.purchaseType ===
+                "subscription" && (
+                <Field
+                  label="Membership integration"
+                  className="md:col-span-2"
+                >
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {[
+                      {
+                        value: "",
+                        label: "No membership integration",
+                        description:
+                          "Use this for normal recurring products that do not control access in another system.",
+                      },
+                      {
+                        value: "mtc",
+                        label: "Moray Training Club",
+                        description:
+                          "Connect this subscription product to an MTC membership plan.",
+                      },
+                    ].map((option) => {
+                      const selected =
+                        productForm.externalSystem ===
+                        option.value;
+
+                      return (
+                        <button
+                          key={
+                            option.value ||
+                            "none"
+                          }
+                          type="button"
+                          onClick={() =>
+                            setProductForm(
+                              (previous) => ({
+                                ...previous,
+                                externalSystem:
+                                  option.value,
+                                externalPlanCode:
+                                  option.value ===
+                                  "mtc"
+                                    ? previous.externalPlanCode
+                                    : "",
+                                beneficiaryMode:
+                                  option.value ===
+                                  "mtc"
+                                    ? previous.beneficiaryMode
+                                    : "none",
+                              })
+                            )
+                          }
+                          className={`rounded-2xl border p-4 text-left transition ${
+                            selected
+                              ? "border-[#a9b897] bg-[#a9b897]/10 ring-1 ring-[#a9b897]/30"
+                              : "border-stone-200 bg-stone-50 hover:border-stone-300 hover:bg-white"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-black text-stone-800">
+                                {option.label}
+                              </p>
+                              <p className="mt-1 text-[10px] leading-4 text-stone-500">
+                                {option.description}
+                              </p>
+                            </div>
+                            <span
+                              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                                selected
+                                  ? "border-[#829473] bg-[#829473] text-white"
+                                  : "border-stone-300 bg-white text-transparent"
+                              }`}
+                            >
+                              <Check size={11} />
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+              )}
+
+              {productForm.purchaseType ===
+                "subscription" &&
+                productForm.externalSystem ===
+                  "mtc" && (
+                  <>
+                    <Field
+                      label="MTC membership plan"
+                      className="md:col-span-2"
+                    >
+                      <select
+                        value={
+                          productForm.externalPlanCode
+                        }
+                        onChange={(event) => {
+                          const code =
+                            event.target.value;
+
+                          const selectedPlan =
+                            MTC_MEMBERSHIP_PLANS.find(
+                              (plan) =>
+                                plan.code ===
+                                code
+                            );
+
+                          setProductForm(
+                            (previous) => ({
+                              ...previous,
+                              externalPlanCode:
+                                code,
+                              beneficiaryMode:
+                                selectedPlan
+                                  ?.beneficiaryMode ||
+                                previous.beneficiaryMode,
+                            })
+                          );
+                        }}
+                        className="w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm font-semibold text-stone-800 outline-none transition focus:border-[#a9b897] focus:bg-white"
+                      >
+                        <option value="">
+                          Choose an MTC membership...
+                        </option>
+
+                        {MTC_MEMBERSHIP_PLANS.map(
+                          (plan) => (
+                            <option
+                              key={
+                                plan.code
+                              }
+                              value={
+                                plan.code
+                              }
+                            >
+                              {
+                                plan.label
+                              }
+                            </option>
+                          )
+                        )}
+                      </select>
+
+                      <p className="mt-2 text-[10px] leading-4 text-stone-500">
+                        TOTS-OS stores the MTC plan code. MTC remains responsible for class limits and access rules.
+                      </p>
+                    </Field>
+
+                    <Field
+                      label="Who does this membership cover?"
+                      className="md:col-span-2"
+                    >
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                        {[
+                          {
+                            value:
+                              "single_adult" as const,
+                            label:
+                              "One adult",
+                            description:
+                              "One adult beneficiary.",
+                          },
+                          {
+                            value:
+                              "couple" as const,
+                            label:
+                              "Two adults",
+                            description:
+                              "One payer with two adult beneficiaries.",
+                          },
+                          {
+                            value:
+                              "child" as const,
+                            label:
+                              "Child",
+                            description:
+                              "Parent or guardian pays; child receives access.",
+                          },
+                          {
+                            value:
+                              "child_plus_adult" as const,
+                            label:
+                              "Child + adult",
+                            description:
+                              "Child receives kids access and linked adult receives Open Gym access.",
+                          },
+                        ].map((option) => {
+                          const selected =
+                            productForm.beneficiaryMode ===
+                            option.value;
+
+                          return (
+                            <button
+                              key={
+                                option.value
+                              }
+                              type="button"
+                              onClick={() =>
+                                setProductForm(
+                                  (previous) => ({
+                                    ...previous,
+                                    beneficiaryMode:
+                                      option.value,
+                                  })
+                                )
+                              }
+                              className={`rounded-xl border px-4 py-3 text-left transition ${
+                                selected
+                                  ? "border-[#a9b897] bg-[#a9b897]/10"
+                                  : "border-stone-200 bg-stone-50 hover:bg-white"
+                              }`}
+                            >
+                              <p className="text-xs font-black text-stone-800">
+                                {
+                                  option.label
+                                }
+                              </p>
+                              <p className="mt-1 text-[10px] leading-4 text-stone-500">
+                                {
+                                  option.description
+                                }
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <p className="mt-2 text-[10px] leading-4 text-stone-500">
+                        Choosing an MTC plan sets the recommended coverage automatically, but you can change it here if needed.
+                      </p>
+                    </Field>
+                  </>
+                )}
 
               <Field
                 label="Product Name"

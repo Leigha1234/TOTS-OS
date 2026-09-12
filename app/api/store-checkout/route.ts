@@ -74,9 +74,55 @@ type SellingModel =
   | "request_to_order"
   | "service";
 
+type PurchaseType =
+  | "one_off"
+  | "subscription";
+
+type BillingInterval =
+  | "week"
+  | "month"
+  | "year";
+
+type BeneficiaryMode =
+  | "none"
+  | "single_adult"
+  | "couple"
+  | "child"
+  | "child_plus_adult";
+
+type BeneficiaryType =
+  | "adult"
+  | "child";
+
 type CheckoutCartItem = {
   productId: string;
   quantity: number;
+};
+
+type CheckoutBeneficiary = {
+  productId?: string;
+  slotKey?: string;
+
+  beneficiaryType?:
+    | BeneficiaryType
+    | string;
+
+  isPrimary?: boolean;
+
+  firstName?: string;
+  lastName?: string;
+
+  email?:
+    | string
+    | null;
+
+  phone?:
+    | string
+    | null;
+
+  relationshipToPayer?:
+    | string
+    | null;
 };
 
 type CheckoutRequest = {
@@ -91,6 +137,9 @@ type CheckoutRequest = {
     email?: string;
     phone?: string;
   };
+
+  beneficiaries?:
+    CheckoutBeneficiary[];
 };
 
 type StoreSettingsRow = {
@@ -158,6 +207,37 @@ type StoreProductRow = {
 
   selling_model:
     | SellingModel
+    | string
+    | null;
+
+  purchase_type:
+    | PurchaseType
+    | string
+    | null;
+
+  billing_interval:
+    | BillingInterval
+    | string
+    | null;
+
+  external_system:
+    | string
+    | null;
+
+  external_plan_code:
+    | string
+    | null;
+
+  beneficiary_mode:
+    | BeneficiaryMode
+    | string
+    | null;
+
+  stripe_product_id:
+    | string
+    | null;
+
+  stripe_price_id:
     | string
     | null;
 
@@ -253,6 +333,57 @@ type ValidatedDiscount = {
   amount: number;
 };
 
+type BeneficiarySpec = {
+  productId: string;
+
+  slotKey: string;
+
+  beneficiaryType:
+    BeneficiaryType;
+
+  isPrimary: boolean;
+
+  relationshipToPayer:
+    string;
+
+  title: string;
+
+  emailRequired: boolean;
+};
+
+type ValidatedBeneficiary = {
+  organisation_id: string;
+
+  order_id: string;
+
+  product_id: string;
+
+  slot_key: string;
+
+  beneficiary_type:
+    BeneficiaryType;
+
+  first_name: string;
+
+  last_name: string;
+
+  email:
+    | string
+    | null;
+
+  phone:
+    | string
+    | null;
+
+  relationship_to_payer:
+    | string
+    | null;
+
+  is_primary: boolean;
+
+  updated_at: string;
+};
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -272,12 +403,36 @@ function cleanString(
 
 // ============================================================
 
+function cleanLimitedString(
+  value: unknown,
+  maxLength: number
+) {
+  return cleanString(
+    value
+  ).slice(
+    0,
+    maxLength
+  );
+}
+
+// ============================================================
+
 function cleanEmail(
   value: unknown
 ) {
   return cleanString(
     value
   ).toLowerCase();
+}
+
+// ============================================================
+
+function isValidEmail(
+  value: string
+) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    value
+  );
 }
 
 // ============================================================
@@ -395,12 +550,6 @@ function getSellingModel(
     return value as SellingModel;
   }
 
-  /*
-   * Safe legacy fallback:
-   * products created before selling_model existed are treated
-   * as physical. The database default should already cover
-   * normal rows, but this protects older / malformed data.
-   */
   return "physical";
 }
 
@@ -423,19 +572,562 @@ function blocksDirectCheckout(
       product
     );
 
-  /*
-   * These two models need customer-entered details / approval
-   * before a payment can safely be created.
-   *
-   * The storefront should route these products through its
-   * customisation / request flow instead of /api/store-checkout.
-   */
   return (
     model ===
       "customisable" ||
     model ===
       "request_to_order"
   );
+}
+
+// ============================================================
+// PURCHASE TYPE
+// ============================================================
+
+function getPurchaseType(
+  product: StoreProductRow
+): PurchaseType {
+  return (
+    cleanString(
+      product.purchase_type
+    ).toLowerCase() ===
+    "subscription"
+      ? "subscription"
+      : "one_off"
+  );
+}
+
+function isSubscriptionProduct(
+  product: StoreProductRow
+) {
+  return (
+    getPurchaseType(
+      product
+    ) ===
+    "subscription"
+  );
+}
+
+// ============================================================
+// BILLING INTERVAL
+// ============================================================
+
+function getBillingInterval(
+  product: StoreProductRow
+): BillingInterval | null {
+  const value =
+    cleanString(
+      product.billing_interval
+    ).toLowerCase();
+
+  if (
+    value === "week" ||
+    value === "month" ||
+    value === "year"
+  ) {
+    return value;
+  }
+
+  return null;
+}
+
+// ============================================================
+// BENEFICIARY MODE
+// ============================================================
+
+function getBeneficiaryMode(
+  product: StoreProductRow
+): BeneficiaryMode {
+  const value =
+    cleanString(
+      product.beneficiary_mode
+    ).toLowerCase();
+
+  if (
+    value === "single_adult" ||
+    value === "couple" ||
+    value === "child" ||
+    value === "child_plus_adult"
+  ) {
+    return value;
+  }
+
+  return "none";
+}
+
+// ============================================================
+// MTC MEMBERSHIP
+// ============================================================
+
+function isMtcMembershipProduct(
+  product: StoreProductRow
+) {
+  return (
+    isSubscriptionProduct(
+      product
+    ) &&
+    cleanString(
+      product.external_system
+    ).toLowerCase() ===
+      "mtc" &&
+    Boolean(
+      cleanString(
+        product.external_plan_code
+      )
+    ) &&
+    getBeneficiaryMode(
+      product
+    ) !== "none"
+  );
+}
+
+// ============================================================
+// BENEFICIARY SPECS
+// ============================================================
+
+function buildBeneficiarySpecs(
+  line: ValidatedLine
+): BeneficiarySpec[] {
+  const product =
+    line.product;
+
+  if (
+    !isMtcMembershipProduct(
+      product
+    )
+  ) {
+    return [];
+  }
+
+  const mode =
+    getBeneficiaryMode(
+      product
+    );
+
+  const specs:
+    BeneficiarySpec[] =
+    [];
+
+  for (
+    let index = 0;
+    index <
+    line.quantity;
+    index += 1
+  ) {
+    if (
+      mode ===
+      "single_adult"
+    ) {
+      specs.push({
+        productId:
+          product.id,
+
+        slotKey:
+          `${product.id}:${index}:adult:1`,
+
+        beneficiaryType:
+          "adult",
+
+        isPrimary:
+          true,
+
+        relationshipToPayer:
+          "self",
+
+        title:
+          line.quantity >
+          1
+            ? `${product.name} membership ${index + 1}`
+            : product.name,
+
+        emailRequired:
+          true,
+      });
+    }
+
+    if (
+      mode ===
+      "couple"
+    ) {
+      specs.push(
+        {
+          productId:
+            product.id,
+
+          slotKey:
+            `${product.id}:${index}:adult:1`,
+
+          beneficiaryType:
+            "adult",
+
+          isPrimary:
+            true,
+
+          relationshipToPayer:
+            "self",
+
+          title:
+            `${product.name} — Adult 1`,
+
+          emailRequired:
+            true,
+        },
+        {
+          productId:
+            product.id,
+
+          slotKey:
+            `${product.id}:${index}:adult:2`,
+
+          beneficiaryType:
+            "adult",
+
+          isPrimary:
+            false,
+
+          relationshipToPayer:
+            "partner",
+
+          title:
+            `${product.name} — Adult 2`,
+
+          emailRequired:
+            true,
+        }
+      );
+    }
+
+    if (
+      mode ===
+      "child"
+    ) {
+      specs.push({
+        productId:
+          product.id,
+
+        slotKey:
+          `${product.id}:${index}:child:1`,
+
+        beneficiaryType:
+          "child",
+
+        isPrimary:
+          true,
+
+        relationshipToPayer:
+          "child",
+
+        title:
+          `${product.name} — Child`,
+
+        emailRequired:
+          false,
+      });
+    }
+
+    if (
+      mode ===
+      "child_plus_adult"
+    ) {
+      specs.push(
+        {
+          productId:
+            product.id,
+
+          slotKey:
+            `${product.id}:${index}:adult:1`,
+
+          beneficiaryType:
+            "adult",
+
+          isPrimary:
+            true,
+
+          relationshipToPayer:
+            "self",
+
+          title:
+            `${product.name} — Adult`,
+
+          emailRequired:
+            true,
+        },
+        {
+          productId:
+            product.id,
+
+          slotKey:
+            `${product.id}:${index}:child:1`,
+
+          beneficiaryType:
+            "child",
+
+          isPrimary:
+            false,
+
+          relationshipToPayer:
+            "child",
+
+          title:
+            `${product.name} — Child`,
+
+          emailRequired:
+            false,
+        }
+      );
+    }
+  }
+
+  return specs;
+}
+
+// ============================================================
+// VALIDATE BENEFICIARIES
+// ============================================================
+
+function validateBeneficiaries({
+  requestedBeneficiaries,
+  validatedLines,
+  organisationId,
+  orderId,
+}: {
+  requestedBeneficiaries:
+    CheckoutBeneficiary[];
+
+  validatedLines:
+    ValidatedLine[];
+
+  organisationId:
+    string;
+
+  orderId:
+    string;
+}): ValidatedBeneficiary[] {
+  const expectedSpecs =
+    validatedLines.flatMap(
+      (
+        line
+      ) =>
+        buildBeneficiarySpecs(
+          line
+        )
+    );
+
+  if (
+    expectedSpecs.length ===
+    0
+  ) {
+    if (
+      requestedBeneficiaries.length >
+      0
+    ) {
+      throw new Error(
+        "Membership details were supplied for an order that does not require them."
+      );
+    }
+
+    return [];
+  }
+
+  if (
+    requestedBeneficiaries.length !==
+    expectedSpecs.length
+  ) {
+    throw new Error(
+      "The membership details supplied do not match the membership being purchased."
+    );
+  }
+
+  const bySlot =
+    new Map<
+      string,
+      CheckoutBeneficiary
+    >();
+
+  for (
+    const requested of
+    requestedBeneficiaries
+  ) {
+    const slotKey =
+      cleanString(
+        requested?.slotKey
+      );
+
+    const productId =
+      cleanString(
+        requested?.productId
+      );
+
+    if (
+      !slotKey ||
+      !productId
+    ) {
+      throw new Error(
+        "One of the membership members is missing its product reference."
+      );
+    }
+
+    if (
+      bySlot.has(
+        slotKey
+      )
+    ) {
+      throw new Error(
+        "Duplicate membership member details were submitted."
+      );
+    }
+
+    bySlot.set(
+      slotKey,
+      requested
+    );
+  }
+
+  const validated:
+    ValidatedBeneficiary[] =
+    [];
+
+  for (
+    const spec of
+    expectedSpecs
+  ) {
+    const requested =
+      bySlot.get(
+        spec.slotKey
+      );
+
+    if (
+      !requested
+    ) {
+      throw new Error(
+        `Membership details are missing for ${spec.title}.`
+      );
+    }
+
+    if (
+      cleanString(
+        requested.productId
+      ) !==
+      spec.productId
+    ) {
+      throw new Error(
+        "The submitted membership member does not match the selected product."
+      );
+    }
+
+    const firstName =
+      cleanLimitedString(
+        requested.firstName,
+        100
+      );
+
+    const lastName =
+      cleanLimitedString(
+        requested.lastName,
+        100
+      );
+
+    const email =
+      cleanEmail(
+        requested.email
+      ).slice(
+        0,
+        320
+      );
+
+    const phone =
+      cleanLimitedString(
+        requested.phone,
+        50
+      );
+
+    if (
+      !firstName ||
+      !lastName
+    ) {
+      throw new Error(
+        `Enter the first and last name for ${spec.title}.`
+      );
+    }
+
+    if (
+      spec.emailRequired &&
+      !email
+    ) {
+      throw new Error(
+        `Enter an email address for ${spec.title}.`
+      );
+    }
+
+    if (
+      email &&
+      !isValidEmail(
+        email
+      )
+    ) {
+      throw new Error(
+        `Enter a valid email address for ${spec.title}.`
+      );
+    }
+
+    /*
+     * IMPORTANT:
+     *
+     * We intentionally DO NOT trust:
+     *
+     * requested.beneficiaryType
+     * requested.isPrimary
+     * requested.relationshipToPayer
+     *
+     * Those values come from the browser.
+     *
+     * The authoritative values are rebuilt from the
+     * Store product's beneficiary_mode above.
+     */
+
+    validated.push({
+      organisation_id:
+        organisationId,
+
+      order_id:
+        orderId,
+
+      product_id:
+        spec.productId,
+
+      slot_key:
+        spec.slotKey,
+
+      beneficiary_type:
+        spec.beneficiaryType,
+
+      first_name:
+        firstName,
+
+      last_name:
+        lastName,
+
+      email:
+        email ||
+        null,
+
+      phone:
+        phone ||
+        null,
+
+      relationship_to_payer:
+        spec.relationshipToPayer,
+
+      is_primary:
+        spec.isPrimary,
+
+      updated_at:
+        new Date()
+          .toISOString(),
+    });
+  }
+
+  return validated;
 }
 
 // ============================================================
@@ -546,8 +1238,6 @@ function isPercentageDiscount(
     type
   );
 }
-
-// ============================================================
 
 function isFixedDiscount(
   value: string
@@ -797,11 +1487,6 @@ async function validateDiscount({
     discountAmount =
       value;
   } else {
-    console.error(
-      "[TOTS STORE] Unknown discount type:",
-      discount.discount_type
-    );
-
     throw new Error(
       "This discount code has an unsupported discount type."
     );
@@ -849,14 +1534,13 @@ async function validateDiscount({
 
   return {
     discount,
-
     amount:
       discountAmount,
   };
 }
 
 // ============================================================
-// LOAD CONNECTED STRIPE ACCOUNT
+// CONNECTED STRIPE ACCOUNT
 // ============================================================
 
 async function getConnectedStripeAccount(
@@ -1106,32 +1790,6 @@ async function validateConnectedStripeAccount(
   if (
     !chargesEnabled
   ) {
-    const reason =
-      account
-        .requirements
-        ?.disabled_reason;
-
-    console.warn(
-      "[TOTS STORE] Stripe charges disabled:",
-      {
-        accountId,
-
-        reason,
-
-        currentlyDue:
-          account
-            .requirements
-            ?.currently_due ||
-          [],
-
-        pastDue:
-          account
-            .requirements
-            ?.past_due ||
-          [],
-      }
-    );
-
     throw new Error(
       "This store cannot currently accept Stripe payments. The business needs to check its Stripe account requirements."
     );
@@ -1141,7 +1799,341 @@ async function validateConnectedStripeAccount(
 }
 
 // ============================================================
-// DELETE CONNECTED ACCOUNT COUPON
+// ENSURE RECURRING STRIPE PRICE
+// ============================================================
+
+async function ensureRecurringStripePrice({
+  product,
+  stripeAccountId,
+  currency,
+}: {
+  product: StoreProductRow;
+  stripeAccountId: string;
+  currency: string;
+}) {
+  const interval =
+    getBillingInterval(
+      product
+    );
+
+  if (
+    !interval
+  ) {
+    throw new Error(
+      `${product.name} is a subscription but does not have a billing interval.`
+    );
+  }
+
+  const unitAmount =
+    priceToPence(
+      Number(
+        product.price
+      )
+    );
+
+  if (
+    unitAmount <=
+    0
+  ) {
+    throw new Error(
+      `${product.name} does not have a valid subscription price.`
+    );
+  }
+
+  const savedPriceId =
+    cleanString(
+      product.stripe_price_id
+    );
+
+  if (
+    savedPriceId
+  ) {
+    try {
+      const savedPrice =
+        await stripe.prices.retrieve(
+          savedPriceId,
+          {
+            stripeAccount:
+              stripeAccountId,
+          }
+        );
+
+      const matches =
+        savedPrice.active ===
+          true &&
+        savedPrice.currency.toLowerCase() ===
+          currency.toLowerCase() &&
+        savedPrice.unit_amount ===
+          unitAmount &&
+        savedPrice.recurring?.interval ===
+          interval;
+
+      if (
+        matches
+      ) {
+        return savedPrice.id;
+      }
+    } catch (
+      error
+    ) {
+      console.warn(
+        "[TOTS STORE] Saved recurring Stripe price could not be reused:",
+        {
+          productId:
+            product.id,
+          stripePriceId:
+            savedPriceId,
+          error,
+        }
+      );
+    }
+  }
+
+  let stripeProductId =
+    cleanString(
+      product.stripe_product_id
+    );
+
+  if (
+    stripeProductId
+  ) {
+    try {
+      const stripeProduct =
+        await stripe.products.retrieve(
+          stripeProductId,
+          {
+            stripeAccount:
+              stripeAccountId,
+          }
+        );
+
+      if (
+        "deleted" in
+          stripeProduct &&
+        stripeProduct.deleted
+      ) {
+        stripeProductId =
+          "";
+      }
+    } catch {
+      stripeProductId =
+        "";
+    }
+  }
+
+  if (
+    !stripeProductId
+  ) {
+    const stripeProduct =
+      await stripe.products.create(
+        {
+          name:
+            product.name,
+
+          description:
+            product.description ||
+            undefined,
+
+          metadata: {
+            tots_product_id:
+              product.id,
+
+            organisation_id:
+              product.organisation_id,
+
+            purchase_type:
+              "subscription",
+
+            billing_interval:
+              interval,
+
+            external_system:
+              cleanString(
+                product.external_system
+              ),
+
+            external_plan_code:
+              cleanString(
+                product.external_plan_code
+              ),
+
+            beneficiary_mode:
+              getBeneficiaryMode(
+                product
+              ),
+
+            tots_source:
+              "store",
+          },
+        },
+        {
+          stripeAccount:
+            stripeAccountId,
+        }
+      );
+
+    stripeProductId =
+      stripeProduct.id;
+  } else {
+    try {
+      await stripe.products.update(
+        stripeProductId,
+        {
+          name:
+            product.name,
+
+          description:
+            product.description ||
+            undefined,
+
+          metadata: {
+            tots_product_id:
+              product.id,
+
+            organisation_id:
+              product.organisation_id,
+
+            purchase_type:
+              "subscription",
+
+            billing_interval:
+              interval,
+
+            external_system:
+              cleanString(
+                product.external_system
+              ),
+
+            external_plan_code:
+              cleanString(
+                product.external_plan_code
+              ),
+
+            beneficiary_mode:
+              getBeneficiaryMode(
+                product
+              ),
+
+            tots_source:
+              "store",
+          },
+        },
+        {
+          stripeAccount:
+            stripeAccountId,
+        }
+      );
+    } catch (
+      error
+    ) {
+      console.warn(
+        "[TOTS STORE] Existing Stripe product metadata could not be refreshed:",
+        error
+      );
+    }
+  }
+
+  const stripePrice =
+    await stripe.prices.create(
+      {
+        product:
+          stripeProductId,
+
+        currency,
+
+        unit_amount:
+          unitAmount,
+
+        recurring: {
+          interval,
+        },
+
+        metadata: {
+          tots_product_id:
+            product.id,
+
+          organisation_id:
+            product.organisation_id,
+
+          purchase_type:
+            "subscription",
+
+          billing_interval:
+            interval,
+
+          external_system:
+            cleanString(
+              product.external_system
+            ),
+
+          external_plan_code:
+            cleanString(
+              product.external_plan_code
+            ),
+
+          beneficiary_mode:
+            getBeneficiaryMode(
+              product
+            ),
+
+          tots_source:
+            "store",
+        },
+      },
+      {
+        stripeAccount:
+          stripeAccountId,
+      }
+    );
+
+  const {
+    error:
+      saveError,
+  } =
+    await supabaseAdmin
+      .from(
+        "store_products"
+      )
+      .update({
+        stripe_product_id:
+          stripeProductId,
+
+        stripe_price_id:
+          stripePrice.id,
+      })
+      .eq(
+        "id",
+        product.id
+      )
+      .eq(
+        "organisation_id",
+        product.organisation_id
+      );
+
+  if (
+    saveError
+  ) {
+    console.error(
+      "[TOTS STORE] Recurring Stripe IDs could not be saved:",
+      saveError
+    );
+
+    throw new Error(
+      `Stripe created the recurring price for ${product.name}, but TOTS-OS could not save the Stripe references.`
+    );
+  }
+
+  product.stripe_product_id =
+    stripeProductId;
+
+  product.stripe_price_id =
+    stripePrice.id;
+
+  return stripePrice.id;
+}
+
+// ============================================================
+// COUPON CLEANUP
 // ============================================================
 
 async function deleteConnectedCoupon(
@@ -1279,6 +2271,13 @@ export async function POST(
         ? body.items
         : [];
 
+    const requestedBeneficiaries =
+      Array.isArray(
+        body.beneficiaries
+      )
+        ? body.beneficiaries
+        : [];
+
     if (
       !storeSlug
     ) {
@@ -1309,6 +2308,10 @@ export async function POST(
         }
       );
     }
+
+    // ========================================================
+    // LOAD STORE
+    // ========================================================
 
     const {
       data:
@@ -1394,6 +2397,10 @@ export async function POST(
     const organisationId =
       store.organisation_id;
 
+    // ========================================================
+    // STRIPE CONNECTION
+    // ========================================================
+
     const stripeConnection =
       await getConnectedStripeAccount(
         organisationId
@@ -1468,19 +2475,16 @@ export async function POST(
       );
     }
 
-    const currency =
+    const checkoutCurrency =
       cleanString(
         connectedAccount
           .default_currency
       ).toLowerCase() ||
-      cleanString(
-        stripeConnection
-          .default_currency
-      ).toLowerCase() ||
       "gbp";
 
-    const checkoutCurrency =
-      "gbp";
+    // ========================================================
+    // NORMALISE CART
+    // ========================================================
 
     const quantityByProduct =
       new Map<
@@ -1543,6 +2547,10 @@ export async function POST(
       );
     }
 
+    // ========================================================
+    // LOAD PRODUCTS
+    // ========================================================
+
     const {
       data:
         productRows,
@@ -1564,6 +2572,13 @@ export async function POST(
             sku,
             category,
             selling_model,
+            purchase_type,
+            billing_interval,
+            external_system,
+            external_plan_code,
+            beneficiary_mode,
+            stripe_product_id,
+            stripe_price_id,
             price,
             compare_at_price,
             stock,
@@ -1613,6 +2628,10 @@ export async function POST(
       ValidatedLine[] =
       [];
 
+    // ========================================================
+    // VALIDATE PRODUCTS
+    // ========================================================
+
     for (
       const productId of
       productIds
@@ -1642,22 +2661,6 @@ export async function POST(
       }
 
       if (
-        product.organisation_id !==
-        organisationId
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "Invalid product.",
-          },
-          {
-            status:
-              400,
-          }
-        );
-      }
-
-      if (
         product.is_active ===
           false ||
         product.status !==
@@ -1675,12 +2678,6 @@ export async function POST(
         );
       }
 
-      /*
-       * Server-side enforcement.
-       *
-       * Do not allow a customer to bypass the storefront UI
-       * and force a custom/request product directly into Stripe.
-       */
       if (
         blocksDirectCheckout(
           product
@@ -1698,9 +2695,66 @@ export async function POST(
               "customisable"
                 ? `${product.name} needs customisation details before it can be ordered.`
                 : `${product.name} must be requested from the business before payment.`,
+
             sellingModel,
+
             requiresRequest:
               true,
+          },
+          {
+            status:
+              400,
+          }
+        );
+      }
+
+      if (
+        isSubscriptionProduct(
+          product
+        ) &&
+        !getBillingInterval(
+          product
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              `${product.name} is missing its subscription billing interval.`,
+          },
+          {
+            status:
+              400,
+          }
+        );
+      }
+
+      const externalSystem =
+        cleanString(
+          product.external_system
+        ).toLowerCase();
+
+      const externalPlanCode =
+        cleanString(
+          product.external_plan_code
+        );
+
+      if (
+        externalSystem ===
+          "mtc" &&
+        isSubscriptionProduct(
+          product
+        ) &&
+        (
+          !externalPlanCode ||
+          getBeneficiaryMode(
+            product
+          ) === "none"
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              `${product.name} is missing its membership integration setup.`,
           },
           {
             status:
@@ -1715,13 +2769,6 @@ export async function POST(
         ) ||
         0;
 
-      if (
-        quantity <=
-        0
-      ) {
-        continue;
-      }
-
       const available =
         getAvailableQuantity(
           product
@@ -1733,31 +2780,13 @@ export async function POST(
         available <
           quantity
       ) {
-        if (
-          available <=
-          0
-        ) {
-          return NextResponse.json(
-            {
-              error:
-                `${product.name} is sold out.`,
-            },
-            {
-              status:
-                400,
-            }
-          );
-        }
-
         return NextResponse.json(
           {
             error:
-              `Only ${available} of ${product.name} ${
-                available ===
-                1
-                  ? "is"
-                  : "are"
-              } currently available.`,
+              available <=
+              0
+                ? `${product.name} is sold out.`
+                : `Only ${available} of ${product.name} are currently available.`,
           },
           {
             status:
@@ -1790,12 +2819,6 @@ export async function POST(
         );
       }
 
-      const lineTotal =
-        moneyRound(
-          unitPrice *
-            quantity
-        );
-
       validatedLines.push(
         {
           product,
@@ -1805,7 +2828,10 @@ export async function POST(
           unitPrice,
 
           total:
-            lineTotal,
+            moneyRound(
+              unitPrice *
+                quantity
+            ),
         }
       );
     }
@@ -1825,6 +2851,99 @@ export async function POST(
         }
       );
     }
+
+    // ========================================================
+    // DETERMINE CHECKOUT TYPE
+    // ========================================================
+
+    const subscriptionLines =
+      validatedLines.filter(
+        (
+          line
+        ) =>
+          isSubscriptionProduct(
+            line.product
+          )
+      );
+
+    const oneOffLines =
+      validatedLines.filter(
+        (
+          line
+        ) =>
+          !isSubscriptionProduct(
+            line.product
+          )
+      );
+
+    if (
+      subscriptionLines.length >
+        0 &&
+      oneOffLines.length >
+        0
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Subscription products and one-off products currently need to be purchased separately.",
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
+
+    const isSubscriptionCheckout =
+      subscriptionLines.length >
+      0;
+
+    /*
+     * A TOTS store_subscriptions row represents one Stripe
+     * subscription / primary membership product.
+     *
+     * Keep membership checkout to one subscription product
+     * per checkout for now. Couples/children are represented
+     * by beneficiaries, not product quantity.
+     */
+    if (
+      isSubscriptionCheckout &&
+      subscriptionLines.length >
+        1
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Please purchase one subscription membership at a time.",
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
+
+    if (
+      isSubscriptionCheckout &&
+      subscriptionLines[0] &&
+      subscriptionLines[0]
+        .quantity !== 1
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Please purchase one subscription membership at a time.",
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
+
+    // ========================================================
+    // TOTALS
+    // ========================================================
 
     const subtotal =
       moneyRound(
@@ -1885,13 +3004,6 @@ export async function POST(
       }
     }
 
-    /*
-     * Shipping fees are currently £0 in your existing Store.
-     *
-     * The important change here is that the checkout now knows
-     * exactly whether shipping is required from selling_model,
-     * rather than guessing from category / inventory settings.
-     */
     const requiresShipping =
       validatedLines.some(
         (
@@ -1931,23 +3043,54 @@ export async function POST(
       );
     }
 
-    const customerName =
-      cleanString(
-        body.customer?.name
+    // ========================================================
+    // CUSTOMER
+    // ========================================================
+
+    let customerName =
+      cleanLimitedString(
+        body.customer?.name,
+        200
       ) ||
       null;
 
-    const customerEmail =
+    let customerEmail =
       cleanEmail(
         body.customer?.email
+      ).slice(
+        0,
+        320
       ) ||
       null;
 
-    const customerPhone =
-      cleanString(
-        body.customer?.phone
+    let customerPhone =
+      cleanLimitedString(
+        body.customer?.phone,
+        50
       ) ||
       null;
+
+    if (
+      customerEmail &&
+      !isValidEmail(
+        customerEmail
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Enter a valid customer email address.",
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
+
+    // ========================================================
+    // ORDER
+    // ========================================================
 
     const orderNumber =
       generateOrderNumber();
@@ -2077,6 +3220,144 @@ export async function POST(
     createdOrderId =
       orderData.id;
 
+    // ========================================================
+    // VALIDATE MEMBERSHIP BENEFICIARIES
+    // ========================================================
+
+    let validatedBeneficiaries:
+      ValidatedBeneficiary[];
+
+    try {
+      validatedBeneficiaries =
+        validateBeneficiaries({
+          requestedBeneficiaries,
+
+          validatedLines,
+
+          organisationId,
+
+          orderId:
+            orderData.id,
+        });
+    } catch (
+      beneficiaryError
+    ) {
+      await deletePendingOrder(
+        orderData.id
+      );
+
+      createdOrderId =
+        null;
+
+      return NextResponse.json(
+        {
+          error:
+            beneficiaryError instanceof
+              Error
+              ? beneficiaryError.message
+              : "The membership details could not be validated.",
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
+
+    // ========================================================
+    // DERIVE PAYER DETAILS FROM PRIMARY ADULT WHEN NEEDED
+    // ========================================================
+
+    const primaryAdult =
+      validatedBeneficiaries.find(
+        (
+          beneficiary
+        ) =>
+          beneficiary
+            .beneficiary_type ===
+            "adult" &&
+          beneficiary
+            .is_primary ===
+            true
+      );
+
+    if (
+      primaryAdult
+    ) {
+      if (
+        !customerName
+      ) {
+        customerName =
+          `${primaryAdult.first_name} ${primaryAdult.last_name}`.trim();
+      }
+
+      if (
+        !customerEmail &&
+        primaryAdult.email
+      ) {
+        customerEmail =
+          primaryAdult.email;
+      }
+
+      if (
+        !customerPhone &&
+        primaryAdult.phone
+      ) {
+        customerPhone =
+          primaryAdult.phone;
+      }
+    }
+
+    if (
+      customerName ||
+      customerEmail ||
+      customerPhone
+    ) {
+      const {
+        error:
+          customerUpdateError,
+      } =
+        await supabaseAdmin
+          .from(
+            "store_orders"
+          )
+          .update({
+            customer_name:
+              customerName,
+
+            customer_email:
+              customerEmail,
+
+            customer_phone:
+              customerPhone,
+
+            updated_at:
+              new Date()
+                .toISOString(),
+          })
+          .eq(
+            "id",
+            orderData.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          );
+
+      if (
+        customerUpdateError
+      ) {
+        console.warn(
+          "[TOTS STORE] Derived order customer details could not be saved:",
+          customerUpdateError
+        );
+      }
+    }
+
+    // ========================================================
+    // ORDER ITEMS
+    // ========================================================
+
     const orderItems =
       validatedLines.map(
         (
@@ -2120,11 +3401,6 @@ export async function POST(
     if (
       orderItemsError
     ) {
-      console.error(
-        "[TOTS STORE] Order item creation failed:",
-        orderItemsError
-      );
-
       await deletePendingOrder(
         orderData.id
       );
@@ -2144,59 +3420,144 @@ export async function POST(
       );
     }
 
+    // ========================================================
+    // SAVE ORDER BENEFICIARIES
+    // ========================================================
+
+    if (
+      validatedBeneficiaries.length >
+      0
+    ) {
+      const {
+        error:
+          beneficiaryInsertError,
+      } =
+        await supabaseAdmin
+          .from(
+            "store_order_beneficiaries"
+          )
+          .insert(
+            validatedBeneficiaries
+          );
+
+      if (
+        beneficiaryInsertError
+      ) {
+        console.error(
+          "[TOTS STORE] Order beneficiary creation failed:",
+          beneficiaryInsertError
+        );
+
+        await deletePendingOrder(
+          orderData.id
+        );
+
+        createdOrderId =
+          null;
+
+        return NextResponse.json(
+          {
+            error:
+              "The membership member details could not be saved.",
+          },
+          {
+            status:
+              500,
+          }
+        );
+      }
+    }
+
+    // ========================================================
+    // STRIPE LINE ITEMS
+    // ========================================================
+
     const stripeLineItems:
       Stripe.Checkout.SessionCreateParams.LineItem[] =
-      validatedLines.map(
-        (
-          line
-        ) => {
-          const productData:
-            Stripe.Checkout.SessionCreateParams.LineItem.PriceData.ProductData =
-            {
-              name:
-                line.product.name,
-            };
+      [];
 
-          if (
-            line.product.description
-          ) {
-            productData.description =
-              line.product.description.slice(
-                0,
-                500
-              );
-          }
+    for (
+      const line of
+      validatedLines
+    ) {
+      if (
+        isSubscriptionProduct(
+          line.product
+        )
+      ) {
+        const recurringPriceId =
+          await ensureRecurringStripePrice({
+            product:
+              line.product,
 
-          if (
-            line.product.image_url?.startsWith(
-              "https://"
-            )
-          ) {
-            productData.images =
-              [
-                line.product.image_url,
-              ];
-          }
+            stripeAccountId:
+              connectedStripeAccountId,
 
-          return {
-            quantity:
-              line.quantity,
+            currency:
+              checkoutCurrency,
+          });
 
-            price_data: {
-              currency:
-                checkoutCurrency,
+        stripeLineItems.push({
+          quantity:
+            line.quantity,
 
-              unit_amount:
-                priceToPence(
-                  line.unitPrice
-                ),
+          price:
+            recurringPriceId,
+        });
 
-              product_data:
-                productData,
-            },
-          };
-        }
-      );
+        continue;
+      }
+
+      const productData:
+        Stripe.Checkout.SessionCreateParams.LineItem.PriceData.ProductData =
+        {
+          name:
+            line.product.name,
+        };
+
+      if (
+        line.product.description
+      ) {
+        productData.description =
+          line.product.description.slice(
+            0,
+            500
+          );
+      }
+
+      if (
+        line.product.image_url?.startsWith(
+          "https://"
+        )
+      ) {
+        productData.images =
+          [
+            line.product.image_url,
+          ];
+      }
+
+      stripeLineItems.push({
+        quantity:
+          line.quantity,
+
+        price_data: {
+          currency:
+            checkoutCurrency,
+
+          unit_amount:
+            priceToPence(
+              line.unitPrice
+            ),
+
+          product_data:
+            productData,
+        },
+      });
+    }
+
+    // ========================================================
+    // URLS
+    // ========================================================
 
     const baseUrl =
       getBaseUrl(
@@ -2218,11 +3579,123 @@ export async function POST(
         ","
       );
 
+    const subscriptionProductIds =
+      subscriptionLines
+        .map(
+          (
+            line
+          ) =>
+            line.product.id
+        )
+        .join(
+          ","
+        );
+
+    const subscriptionPlanCodes =
+      subscriptionLines
+        .map(
+          (
+            line
+          ) =>
+            cleanString(
+              line.product
+                .external_plan_code
+            )
+        )
+        .filter(
+          Boolean
+        )
+        .join(
+          ","
+        );
+
+    /*
+     * IMPORTANT:
+     *
+     * No beneficiary names, emails, phone numbers or child
+     * details are stored in Stripe metadata.
+     *
+     * Stripe only receives non-sensitive references.
+     */
+    const metadata:
+      Record<
+        string,
+        string
+      > =
+      {
+        order_id:
+          orderData.id,
+
+        order_number:
+          orderData.order_number,
+
+        organisation_id:
+          organisationId,
+
+        stripe_account_id:
+          connectedStripeAccountId,
+
+        store_slug:
+          storeSlug,
+
+        selling_models:
+          modelMetadata,
+
+        requires_shipping:
+          requiresShipping
+            ? "true"
+            : "false",
+
+        discount_id:
+          appliedDiscount?.id ||
+          "",
+
+        discount_code:
+          appliedDiscount?.code ||
+          "",
+
+        discount_amount:
+          discountAmount.toFixed(
+            2
+          ),
+
+        purchase_type:
+          isSubscriptionCheckout
+            ? "subscription"
+            : "one_off",
+
+        subscription_product_ids:
+          subscriptionProductIds,
+
+        external_plan_codes:
+          subscriptionPlanCodes,
+
+        has_beneficiaries:
+          validatedBeneficiaries.length >
+          0
+            ? "true"
+            : "false",
+
+        beneficiary_count:
+          String(
+            validatedBeneficiaries.length
+          ),
+
+        tots_source:
+          "store",
+      };
+
+    // ========================================================
+    // CHECKOUT SESSION
+    // ========================================================
+
     const sessionParams:
       Stripe.Checkout.SessionCreateParams =
       {
         mode:
-          "payment",
+          isSubscriptionCheckout
+            ? "subscription"
+            : "payment",
 
         line_items:
           stripeLineItems,
@@ -2233,89 +3706,7 @@ export async function POST(
         cancel_url:
           cancelUrl,
 
-        metadata: {
-          order_id:
-            orderData.id,
-
-          order_number:
-            orderData.order_number,
-
-          organisation_id:
-            organisationId,
-
-          stripe_account_id:
-            connectedStripeAccountId,
-
-          store_slug:
-            storeSlug,
-
-          selling_models:
-            modelMetadata,
-
-          requires_shipping:
-            requiresShipping
-              ? "true"
-              : "false",
-
-          discount_id:
-            appliedDiscount?.id ||
-            "",
-
-          discount_code:
-            appliedDiscount?.code ||
-            "",
-
-          discount_amount:
-            discountAmount.toFixed(
-              2
-            ),
-
-          tots_source:
-            "store",
-        },
-
-        payment_intent_data: {
-          metadata: {
-            order_id:
-              orderData.id,
-
-            order_number:
-              orderData.order_number,
-
-            organisation_id:
-              organisationId,
-
-            stripe_account_id:
-              connectedStripeAccountId,
-
-            store_slug:
-              storeSlug,
-
-            selling_models:
-              modelMetadata,
-
-            requires_shipping:
-              requiresShipping
-                ? "true"
-                : "false",
-
-            discount_id:
-              appliedDiscount?.id ||
-              "",
-
-            discount_code:
-              appliedDiscount?.code ||
-              "",
-
-            discount_amount:
-              discountAmount.toFixed(
-                2
-              ),
-
-            tots_source:
-              "store",
-          },
-        },
+        metadata,
 
         billing_address_collection:
           "auto",
@@ -2333,15 +3724,6 @@ export async function POST(
         customerEmail;
     }
 
-    /*
-     * Only physical products trigger Stripe's shipping-address
-     * collection.
-     *
-     * Digital downloads, digital delivery, collection orders,
-     * and services do not ask the buyer for a shipping address.
-     *
-     * Mixed baskets containing at least one physical item do.
-     */
     if (
       requiresShipping
     ) {
@@ -2353,6 +3735,28 @@ export async function POST(
           ],
         };
     }
+
+    // ========================================================
+    // PAYMENT / SUBSCRIPTION METADATA
+    // ========================================================
+
+    if (
+      isSubscriptionCheckout
+    ) {
+      sessionParams.subscription_data =
+        {
+          metadata,
+        };
+    } else {
+      sessionParams.payment_intent_data =
+        {
+          metadata,
+        };
+    }
+
+    // ========================================================
+    // DISCOUNT
+    // ========================================================
 
     if (
       appliedDiscount &&
@@ -2372,6 +3776,10 @@ export async function POST(
               currency:
                 checkoutCurrency,
 
+              /*
+               * For a subscription checkout this makes the
+               * fixed discount apply to the first invoice only.
+               */
               duration:
                 "once",
 
@@ -2412,6 +3820,10 @@ export async function POST(
           },
         ];
     }
+
+    // ========================================================
+    // CREATE STRIPE CHECKOUT
+    // ========================================================
 
     let session:
       Stripe.Checkout.Session;
@@ -2460,15 +3872,14 @@ export async function POST(
     if (
       !session.url
     ) {
-      console.error(
-        "[TOTS STORE] Stripe created a checkout session without a URL:",
-        session.id
-      );
-
       throw new Error(
         "Stripe created the checkout but did not return a checkout URL."
       );
     }
+
+    // ========================================================
+    // STRIPE REFERENCES
+    // ========================================================
 
     const initialPaymentIntentId =
       typeof session
@@ -2484,6 +3895,14 @@ export async function POST(
       "string"
         ? session
             .customer
+        : null;
+
+    const initialSubscriptionId =
+      typeof session
+        .subscription ===
+      "string"
+        ? session
+            .subscription
         : null;
 
     const {
@@ -2538,10 +3957,6 @@ export async function POST(
         "[TOTS STORE] Stripe references could not be saved:",
         stripeReferenceError
       );
-
-      console.warn(
-        "[TOTS STORE] Continuing checkout because Stripe metadata can recover the order relationship."
-      );
     }
 
     console.log(
@@ -2558,25 +3973,33 @@ export async function POST(
         paymentIntentId:
           initialPaymentIntentId,
 
+        subscriptionId:
+          initialSubscriptionId,
+
         orderId:
           orderData.id,
 
         orderNumber:
           orderData.order_number,
 
-        sellingModels,
+        purchaseType:
+          isSubscriptionCheckout
+            ? "subscription"
+            : "one_off",
 
-        requiresShipping,
+        beneficiaryCount:
+          validatedBeneficiaries.length,
 
         total,
 
         currency:
           checkoutCurrency,
-
-        connectedAccountCurrency:
-          currency,
       }
     );
+
+    // ========================================================
+    // RESPONSE
+    // ========================================================
 
     return NextResponse.json(
       {
@@ -2592,6 +4015,9 @@ export async function POST(
         paymentIntentId:
           initialPaymentIntentId,
 
+        subscriptionId:
+          initialSubscriptionId,
+
         stripeAccountId:
           connectedStripeAccountId,
 
@@ -2600,6 +4026,11 @@ export async function POST(
 
         orderNumber:
           orderData.order_number,
+
+        purchaseType:
+          isSubscriptionCheckout
+            ? "subscription"
+            : "one_off",
 
         sellingModels,
 
@@ -2619,6 +4050,9 @@ export async function POST(
 
         currency:
           checkoutCurrency,
+
+        beneficiaryCount:
+          validatedBeneficiaries.length,
 
         stripeReferencesSaved:
           !stripeReferenceError,

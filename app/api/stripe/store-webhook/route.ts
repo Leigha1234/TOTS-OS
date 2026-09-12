@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
+import {
+  syncStoreSubscription,
+  syncStoreSubscriptionFromCheckout,
+  syncStoreSubscriptionFromInvoice,
+} from "@/lib/storeSubscriptions";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -1035,10 +1041,6 @@ async function getOrganisationNotificationRecipients(
   const recipientIds =
     new Set<string>();
 
-  // ==========================================================
-  // TEAM MEMBERS
-  // ==========================================================
-
   const {
     data:
       teamMembers,
@@ -1087,10 +1089,6 @@ async function getOrganisationNotificationRecipients(
       }
     }
   }
-
-  // ==========================================================
-  // PROFILE FALLBACK
-  // ==========================================================
 
   const {
     data:
@@ -1363,11 +1361,6 @@ async function createOrderNotifications({
   } catch (
     notificationError
   ) {
-    /*
-     * Notification failures must not make Stripe retry a
-     * successfully-processed payment.
-     */
-
     console.error(
       `[TOTS NOTIFICATIONS] Unable to notify organisation about ${order.order_number}:`,
       notificationError
@@ -1718,10 +1711,6 @@ async function createCustomer({
         client_type:
           "store_customer",
 
-        /*
-         * Purchasing from a store does not automatically mean
-         * the customer consented to marketing.
-         */
         on_mailing_list:
           false,
 
@@ -2515,11 +2504,6 @@ async function syncOrderToCrm({
 
 // ============================================================
 // CLAIM PAYMENT FOR PROCESSING
-//
-// This stops two simultaneous Stripe webhook deliveries from
-// both reducing inventory.
-//
-// pending -> processing
 // ============================================================
 
 async function claimOrderForPaymentProcessing(
@@ -3065,10 +3049,6 @@ async function completeStoreOrder({
   eventStripeAccountId:
     string | null;
 }) {
-  // ==========================================================
-  // ORDER ID
-  // ==========================================================
-
   const orderId =
     asString(
       session
@@ -3086,10 +3066,6 @@ async function completeStoreOrder({
     return;
   }
 
-  // ==========================================================
-  // ORDER
-  // ==========================================================
-
   let order =
     await getOrder(
       orderId
@@ -3105,10 +3081,6 @@ async function completeStoreOrder({
 
     return;
   }
-
-  // ==========================================================
-  // ORGANISATION METADATA
-  // ==========================================================
 
   const metadataOrganisationId =
     asString(
@@ -3127,19 +3099,11 @@ async function completeStoreOrder({
     );
   }
 
-  // ==========================================================
-  // CONNECTED ACCOUNT
-  // ==========================================================
-
   await verifyOrderStripeAccount({
     order,
 
     eventStripeAccountId,
   });
-
-  // ==========================================================
-  // SAVE REFERENCES
-  // ==========================================================
 
   await saveStripeReferences({
     order,
@@ -3149,10 +3113,6 @@ async function completeStoreOrder({
     eventStripeAccountId,
   });
 
-  // ==========================================================
-  // RELOAD AFTER REFERENCE UPDATE
-  // ==========================================================
-
   order =
     (
       await getOrder(
@@ -3160,10 +3120,6 @@ async function completeStoreOrder({
       )
     ) ||
     order;
-
-  // ==========================================================
-  // CUSTOMER
-  // ==========================================================
 
   const customerName =
     getCustomerName(
@@ -3196,10 +3152,6 @@ async function completeStoreOrder({
       session
     );
 
-  // ==========================================================
-  // TOTAL
-  // ==========================================================
-
   const stripeTotal =
     typeof session.amount_total ===
       "number"
@@ -3209,12 +3161,6 @@ async function completeStoreOrder({
           order.total,
           0
         );
-
-  // ==========================================================
-  // ALREADY PAID
-  //
-  // Repair CRM / notification state without touching inventory.
-  // ==========================================================
 
   if (
     order.payment_status ===
@@ -3262,10 +3208,6 @@ async function completeStoreOrder({
     return;
   }
 
-  // ==========================================================
-  // PAYMENT MUST ACTUALLY BE PAID
-  // ==========================================================
-
   if (
     session.payment_status !==
     "paid"
@@ -3277,13 +3219,6 @@ async function completeStoreOrder({
     return;
   }
 
-  // ==========================================================
-  // PROCESSING STATE
-  //
-  // Another webhook delivery may currently be processing this
-  // exact order.
-  // ==========================================================
-
   if (
     order.payment_status ===
     "processing"
@@ -3294,10 +3229,6 @@ async function completeStoreOrder({
 
     return;
   }
-
-  // ==========================================================
-  // CLAIM ORDER
-  // ==========================================================
 
   const claimed =
     await claimOrderForPaymentProcessing(
@@ -3335,10 +3266,6 @@ async function completeStoreOrder({
     return;
   }
 
-  // ==========================================================
-  // INVENTORY
-  // ==========================================================
-
   try {
     await reduceOrderStock(
       order
@@ -3351,19 +3278,12 @@ async function completeStoreOrder({
       inventoryError
     );
 
-    /*
-     * Release processing so Stripe can retry this event.
-     */
     await releasePaymentProcessingClaim(
       order
     );
 
     throw inventoryError;
   }
-
-  // ==========================================================
-  // DISCOUNT USAGE
-  // ==========================================================
 
   try {
     await incrementDiscountUsage({
@@ -3375,20 +3295,11 @@ async function completeStoreOrder({
   } catch (
     discountError
   ) {
-    /*
-     * Do not fail a paid order because discount analytics
-     * couldn't increment.
-     */
-
     console.error(
       `[TOTS STORE] Discount usage update failed for ${order.order_number}:`,
       discountError
     );
   }
-
-  // ==========================================================
-  // FINALISE ORDER
-  // ==========================================================
 
   try {
     await finaliseOrderPaid({
@@ -3411,15 +3322,6 @@ async function completeStoreOrder({
   } catch (
     finaliseError
   ) {
-    /*
-     * Do NOT reset to pending here.
-     *
-     * Stock has already been reduced.
-     *
-     * Resetting and retrying the whole operation would risk
-     * reducing stock twice.
-     */
-
     console.error(
       `[TOTS STORE] Final paid status failed for ${order.order_number}:`,
       finaliseError
@@ -3432,10 +3334,6 @@ async function completeStoreOrder({
     `[TOTS STORE] ${order.order_number} marked paid.`
   );
 
-  // ==========================================================
-  // UPDATED ORDER
-  // ==========================================================
-
   const updatedOrder =
     await getOrder(
       order.id
@@ -3446,10 +3344,6 @@ async function completeStoreOrder({
   ) {
     return;
   }
-
-  // ==========================================================
-  // CRM
-  // ==========================================================
 
   try {
     await syncOrderToCrm({
@@ -3467,19 +3361,11 @@ async function completeStoreOrder({
   } catch (
     crmError
   ) {
-    /*
-     * CRM sync is deliberately non-fatal.
-     */
-
     console.error(
       `[TOTS CRM] CRM sync failed for ${updatedOrder.order_number}:`,
       crmError
     );
   }
-
-  // ==========================================================
-  // NOTIFICATION
-  // ==========================================================
 
   await createOrderNotifications({
     order:
@@ -3710,7 +3596,7 @@ async function syncChargeRefundStatus({
       : charge.payment_intent?.id ||
         null;
 
-  let orderId =
+  const orderId =
     asString(
       charge
         .metadata
@@ -3831,9 +3717,6 @@ async function syncChargeRefundStatus({
 
 // ============================================================
 // REFUND CREATED
-//
-// This gives us the amount of THIS refund rather than the
-// cumulative refunded amount on charge.refunded.
 // ============================================================
 
 async function handleRefundCreated({
@@ -3900,14 +3783,6 @@ async function handleRefundCreated({
     eventStripeAccountId,
   });
 
-  /*
-   * We use charge.refunded for authoritative full/partial
-   * status synchronisation.
-   *
-   * refund.created is ideal for notifying the business of the
-   * exact amount refunded.
-   */
-
   await createRefundNotifications({
     order,
 
@@ -3921,16 +3796,51 @@ async function handleRefundCreated({
 }
 
 // ============================================================
+// SYNC CHECKOUT SUBSCRIPTION
+// ============================================================
+
+async function syncCheckoutSubscriptionIfNeeded({
+  session,
+  eventStripeAccountId,
+}: {
+  session:
+    Stripe.Checkout.Session;
+
+  eventStripeAccountId:
+    string | null;
+}) {
+  if (
+    session.mode !==
+    "subscription"
+  ) {
+    return;
+  }
+
+  if (
+    !eventStripeAccountId
+  ) {
+    console.warn(
+      `[TOTS STORE SUBSCRIPTIONS] Checkout ${session.id} is subscription mode but no connected Stripe account was supplied.`
+    );
+
+    return;
+  }
+
+  await syncStoreSubscriptionFromCheckout({
+    session,
+
+    stripeAccountId:
+      eventStripeAccountId,
+  });
+}
+
+// ============================================================
 // POST
 // ============================================================
 
 export async function POST(
   req: Request
 ) {
-  // ==========================================================
-  // WEBHOOK SECRET
-  // ==========================================================
-
   const stripeWebhookSecret =
     process.env
       .STRIPE_STORE_WEBHOOK_SECRET
@@ -3960,10 +3870,6 @@ export async function POST(
     );
   }
 
-  // ==========================================================
-  // SIGNATURE
-  // ==========================================================
-
   const signature =
     req.headers.get(
       "stripe-signature"
@@ -3992,12 +3898,6 @@ export async function POST(
       }
     );
   }
-
-  // ==========================================================
-  // RAW BODY
-  //
-  // Stripe signature validation requires the untouched body.
-  // ==========================================================
 
   let body:
     string;
@@ -4030,10 +3930,6 @@ export async function POST(
       }
     );
   }
-
-  // ==========================================================
-  // VERIFY WEBHOOK
-  // ==========================================================
 
   let event:
     Stripe.Event;
@@ -4074,12 +3970,6 @@ export async function POST(
     );
   }
 
-  // ==========================================================
-  // CONNECTED STRIPE ACCOUNT
-  //
-  // For connected-account events Stripe supplies event.account.
-  // ==========================================================
-
   const eventStripeAccountId =
     getEventStripeAccountId(
       event
@@ -4091,10 +3981,6 @@ export async function POST(
       "platform"
     }`
   );
-
-  // ==========================================================
-  // PROCESS EVENT
-  // ==========================================================
 
   try {
     switch (
@@ -4110,6 +3996,12 @@ export async function POST(
             Stripe.Checkout.Session;
 
         await completeStoreOrder({
+          session,
+
+          eventStripeAccountId,
+        });
+
+        await syncCheckoutSubscriptionIfNeeded({
           session,
 
           eventStripeAccountId,
@@ -4133,6 +4025,12 @@ export async function POST(
           eventStripeAccountId,
         });
 
+        await syncCheckoutSubscriptionIfNeeded({
+          session,
+
+          eventStripeAccountId,
+        });
+
         break;
       }
 
@@ -4149,6 +4047,162 @@ export async function POST(
           session,
 
           eventStripeAccountId,
+        });
+
+        /*
+         * Stripe may already have transitioned the subscription
+         * into incomplete / past_due / another relevant status.
+         * If a subscription exists, refresh it too.
+         */
+        await syncCheckoutSubscriptionIfNeeded({
+          session,
+
+          eventStripeAccountId,
+        });
+
+        break;
+      }
+
+      // ======================================================
+      // SUBSCRIPTION CREATED
+      // ======================================================
+
+      case "customer.subscription.created": {
+        const subscription =
+          event.data.object as
+            Stripe.Subscription;
+
+        if (
+          !eventStripeAccountId
+        ) {
+          console.warn(
+            `[TOTS STORE SUBSCRIPTIONS] Ignoring ${event.type} because it did not come from a connected Stripe account.`
+          );
+
+          break;
+        }
+
+        await syncStoreSubscription({
+          subscription,
+
+          stripeAccountId:
+            eventStripeAccountId,
+        });
+
+        break;
+      }
+
+      // ======================================================
+      // SUBSCRIPTION UPDATED
+      // ======================================================
+
+      case "customer.subscription.updated": {
+        const subscription =
+          event.data.object as
+            Stripe.Subscription;
+
+        if (
+          !eventStripeAccountId
+        ) {
+          console.warn(
+            `[TOTS STORE SUBSCRIPTIONS] Ignoring ${event.type} because it did not come from a connected Stripe account.`
+          );
+
+          break;
+        }
+
+        await syncStoreSubscription({
+          subscription,
+
+          stripeAccountId:
+            eventStripeAccountId,
+        });
+
+        break;
+      }
+
+      // ======================================================
+      // SUBSCRIPTION DELETED / CANCELLED
+      // ======================================================
+
+      case "customer.subscription.deleted": {
+        const subscription =
+          event.data.object as
+            Stripe.Subscription;
+
+        if (
+          !eventStripeAccountId
+        ) {
+          console.warn(
+            `[TOTS STORE SUBSCRIPTIONS] Ignoring ${event.type} because it did not come from a connected Stripe account.`
+          );
+
+          break;
+        }
+
+        await syncStoreSubscription({
+          subscription,
+
+          stripeAccountId:
+            eventStripeAccountId,
+        });
+
+        break;
+      }
+
+      // ======================================================
+      // RECURRING INVOICE PAID
+      // ======================================================
+
+      case "invoice.paid": {
+        const invoice =
+          event.data.object as
+            Stripe.Invoice;
+
+        if (
+          !eventStripeAccountId
+        ) {
+          console.warn(
+            `[TOTS STORE SUBSCRIPTIONS] Ignoring ${event.type} because it did not come from a connected Stripe account.`
+          );
+
+          break;
+        }
+
+        await syncStoreSubscriptionFromInvoice({
+          invoice,
+
+          stripeAccountId:
+            eventStripeAccountId,
+        });
+
+        break;
+      }
+
+      // ======================================================
+      // RECURRING INVOICE PAYMENT FAILED
+      // ======================================================
+
+      case "invoice.payment_failed": {
+        const invoice =
+          event.data.object as
+            Stripe.Invoice;
+
+        if (
+          !eventStripeAccountId
+        ) {
+          console.warn(
+            `[TOTS STORE SUBSCRIPTIONS] Ignoring ${event.type} because it did not come from a connected Stripe account.`
+          );
+
+          break;
+        }
+
+        await syncStoreSubscriptionFromInvoice({
+          invoice,
+
+          stripeAccountId:
+            eventStripeAccountId,
         });
 
         break;
@@ -4192,9 +4246,6 @@ export async function POST(
 
       // ======================================================
       // CHARGE REFUNDED
-      //
-      // Stripe Charge contains the cumulative refunded amount,
-      // so this is used for authoritative order status.
       // ======================================================
 
       case "charge.refunded": {
@@ -4223,10 +4274,6 @@ export async function POST(
         break;
       }
     }
-
-    // ========================================================
-    // SUCCESS
-    // ========================================================
 
     return NextResponse.json(
       {
@@ -4260,11 +4307,6 @@ export async function POST(
       `[TOTS STORE WEBHOOK] Processing failed for ${event.type} (${event.id}):`,
       error
     );
-
-    /*
-     * 500 intentionally tells Stripe that processing failed and
-     * that it should retry the webhook.
-     */
 
     return NextResponse.json(
       {

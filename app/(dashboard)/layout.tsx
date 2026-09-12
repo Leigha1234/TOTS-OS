@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import Link from "next/link";
+import Image from "next/image";
 
 import {
   usePathname,
@@ -20,7 +21,7 @@ import {
 } from "framer-motion";
 
 import {
-  Briefcase,
+  Building2,
   Calendar,
   CircleDollarSign,
   Globe,
@@ -28,6 +29,7 @@ import {
   Megaphone,
   Menu,
   Settings,
+  ShieldCheck,
   StickyNote,
   Store,
   Users,
@@ -62,8 +64,7 @@ const TOTS_ADMIN_USER_ID =
 // ============================================================
 
 type DashboardLayoutProps = {
-  children:
-    ReactNode;
+  children: ReactNode;
 };
 
 type ModuleKey =
@@ -81,66 +82,32 @@ type BillingMode =
   | "unknown";
 
 type DashboardLink = {
-  href:
-    string;
-
-  label:
-    string;
-
-  icon:
-    LucideIcon;
-
-  requiredModule?:
-    ModuleKey;
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  requiredModule?: ModuleKey;
+  adminOnly?: boolean;
 };
 
 type MobileNavSection = {
-  title?:
-    string;
-
-  links:
-    DashboardLink[];
+  title?: string;
+  links: DashboardLink[];
 };
 
 type AccountAccessResponse = {
-  allowed?:
-    boolean;
-
-  reason?:
-    string;
-
-  userId?:
-    string | null;
-
-  organisationId?:
-    string | null;
-
-  organisationName?:
-    string | null;
-
-  billingModel?:
-    string | null;
-
-  billingPackage?:
-    string | null;
-
-  billingVersion?:
-    string | null;
-
-  modules?:
-    string[];
-
-  activeModules?:
-    string[];
-
-  clarityAiTier?:
-    string | null;
-
-  subscriptionStatus?:
-    string | null;
-
-  accessStatus?:
-    string | null;
+  allowed?: boolean;
+  reason?: string;
+  userId?: string | null;
+  organisationId?: string | null;
+  organisationName?: string | null;
+  billingModel?: string | null;
+  billingPackage?: string | null;
+  billingVersion?: string | null;
+  modules?: string[];
+  activeModules?: string[];
+  clarityAiTier?: string | null;
+  subscriptionStatus?: string | null;
+  accessStatus?: string | null;
 };
 
 // ============================================================
@@ -157,89 +124,54 @@ const FALLBACK_MOBILE_NAV = [
 // MODULE KEYS
 // ============================================================
 
-const MODULE_KEYS:
-  ModuleKey[] = [
-    "core",
-    "clientsProjects",
-    "finance",
-    "social",
-    "email",
-    "store",
-  ];
+const MODULE_KEYS: ModuleKey[] = [
+  "core",
+  "clientsProjects",
+  "finance",
+  "social",
+  "email",
+  "store",
+];
 
 // ============================================================
 // ROUTE → MODULE MAPPING
 // ============================================================
 
 const MODULE_ROUTE_RULES: {
-  prefix:
-    string;
-
-  module:
-    ModuleKey;
+  prefix: string;
+  module: ModuleKey;
 }[] = [
   {
-    prefix:
-      "/crm",
-
-    module:
-      "core",
+    prefix: "/crm",
+    module: "core",
   },
-
   {
-    prefix:
-      "/notes",
-
-    module:
-      "core",
+    prefix: "/notes",
+    module: "core",
   },
-
   {
-    prefix:
-      "/calendar",
-
-    module:
-      "core",
+    prefix: "/calendar",
+    module: "core",
   },
-
   {
-    prefix:
-      "/campaigns",
-
-    module:
-      "email",
+    prefix: "/campaigns",
+    module: "email",
   },
-
   {
-    prefix:
-      "/social",
-
-    module:
-      "social",
+    prefix: "/social",
+    module: "social",
   },
-
   {
-    prefix:
-      "/payments",
-
-    module:
-      "finance",
+    prefix: "/payments",
+    module: "finance",
   },
-
   {
-    prefix:
-      "/projects",
-
-    module:
-      "clientsProjects",
+    prefix: "/projects",
+    module: "clientsProjects",
   },
-
   {
-    prefix:
-      "/store",
-
-    module:
-      "store",
+    prefix: "/store",
+    module: "store",
   },
 ];
 
@@ -248,12 +180,10 @@ const MODULE_ROUTE_RULES: {
 // ============================================================
 
 function isModuleKey(
-  value:
-    unknown,
+  value: unknown,
 ): value is ModuleKey {
   return (
-    typeof value ===
-      "string" &&
+    typeof value === "string" &&
     MODULE_KEYS.includes(
       value as ModuleKey,
     )
@@ -261,26 +191,33 @@ function isModuleKey(
 }
 
 function getRequiredModuleForPath(
-  pathname:
-    string,
-):
-  | ModuleKey
-  | null {
+  pathname: string,
+): ModuleKey | null {
   const rule =
     MODULE_ROUTE_RULES.find(
-      (
-        item,
-      ) =>
-        pathname ===
-          item.prefix ||
+      (item) =>
+        pathname === item.prefix ||
         pathname.startsWith(
           `${item.prefix}/`,
         ),
     );
 
+  return rule?.module || null;
+}
+
+function routeIsActive(
+  pathname: string,
+  href: string,
+) {
+  if (href === "/dashboard") {
+    return pathname === "/dashboard";
+  }
+
   return (
-    rule?.module ||
-    null
+    pathname === href ||
+    pathname.startsWith(
+      `${href}/`,
+    )
   );
 }
 
@@ -314,57 +251,38 @@ function DashboardLayoutInner({
   const [
     mobileMenuOpen,
     setMobileMenuOpen,
-  ] =
-    useState(
-      false,
-    );
+  ] = useState(false);
 
   const [
     accessLoading,
     setAccessLoading,
-  ] =
-    useState(
-      true,
-    );
+  ] = useState(true);
 
   const [
     accessChecked,
     setAccessChecked,
-  ] =
-    useState(
-      false,
-    );
+  ] = useState(false);
 
   const [
     currentUserId,
     setCurrentUserId,
-  ] =
-    useState<
-      string |
-      null
-    >(
-      null,
-    );
+  ] = useState<string | null>(
+    null,
+  );
 
   const [
     billingMode,
     setBillingMode,
-  ] =
-    useState<
-      BillingMode
-    >(
-      "loading",
-    );
+  ] = useState<BillingMode>(
+    "loading",
+  );
 
   const [
     activeModules,
     setActiveModules,
-  ] =
-    useState<
-      ModuleKey[]
-    >(
-      [],
-    );
+  ] = useState<ModuleKey[]>(
+    [],
+  );
 
   // ==========================================================
   // ROUTER
@@ -376,11 +294,23 @@ function DashboardLayoutInner({
   const router =
     useRouter();
 
+  const settingsContext =
+    useSettings();
+
   const {
     mobileNav,
     fontFamily,
-  } =
-    useSettings();
+  } = settingsContext;
+
+  // ==========================================================
+  // BRAND COLOUR
+  // ==========================================================
+
+  const brandColor =
+    settingsContext
+      ?.settings
+      ?.brandColor ||
+    "#a9b897";
 
   // ==========================================================
   // ADMIN
@@ -391,50 +321,34 @@ function DashboardLayoutInner({
     TOTS_ADMIN_USER_ID;
 
   // ==========================================================
-  // MODULE ACCESS HELPER
+  // MODULE ACCESS
   // ==========================================================
 
-  const hasModule =
-    (
-      moduleKey:
-        ModuleKey,
-    ) => {
-      // ======================================================
-      // PRIVATE TOTS ADMIN
-      // ======================================================
+  const hasModule = (
+    moduleKey: ModuleKey,
+  ) => {
+    if (isTotsAdmin) {
+      return true;
+    }
 
-      if (
-        isTotsAdmin
-      ) {
-        return true;
-      }
+    if (
+      billingMode ===
+      "legacy"
+    ) {
+      return true;
+    }
 
-      // ======================================================
-      // GRANDFATHERED LEGACY ACCOUNT
-      // ======================================================
+    if (
+      billingMode ===
+      "modular"
+    ) {
+      return activeModules.includes(
+        moduleKey,
+      );
+    }
 
-      if (
-        billingMode ===
-        "legacy"
-      ) {
-        return true;
-      }
-
-      // ======================================================
-      // MODULAR ACCOUNT
-      // ======================================================
-
-      if (
-        billingMode ===
-        "modular"
-      ) {
-        return activeModules.includes(
-          moduleKey,
-        );
-      }
-
-      return false;
-    };
+    return false;
+  };
 
   // ==========================================================
   // ALL LINKS
@@ -445,137 +359,69 @@ function DashboardLayoutInner({
     useMemo(
       () => [
         {
-          href:
-            "/dashboard",
-
-          label:
-            "Home",
-
-          icon:
-            LayoutDashboard,
+          href: "/dashboard",
+          label: "Home",
+          icon: LayoutDashboard,
         },
-
         {
-          href:
-            "/calendar",
-
-          label:
-            "Calendar",
-
-          icon:
-            Calendar,
-
-          requiredModule:
-            "core",
+          href: "/calendar",
+          label: "Calendar",
+          icon: Calendar,
+          requiredModule: "core",
         },
-
         {
-          href:
-            "/crm",
-
-          label:
-            "Contacts",
-
-          icon:
-            Users,
-
-          requiredModule:
-            "core",
+          href: "/crm",
+          label: "Contacts",
+          icon: Users,
+          requiredModule: "core",
         },
-
         {
-          href:
-            "/notes",
-
-          label:
-            "Notes",
-
-          icon:
-            StickyNote,
-
-          requiredModule:
-            "core",
+          href: "/notes",
+          label: "Notes",
+          icon: StickyNote,
+          requiredModule: "core",
         },
-
         {
-          href:
-            "/campaigns",
-
-          label:
-            "Email Marketing",
-
-          icon:
-            Megaphone,
-
-          requiredModule:
-            "email",
+          href: "/campaigns",
+          label: "Email Marketing",
+          icon: Megaphone,
+          requiredModule: "email",
         },
-
         {
-          href:
-            "/projects",
-
-          label:
-            "Projects",
-
-          icon:
-            Briefcase,
-
+          href: "/projects",
+          label: "Clients & Projects",
+          icon: Building2,
           requiredModule:
             "clientsProjects",
         },
-
         {
-          href:
-            "/social",
-
-          label:
-            "Social Studio",
-
-          icon:
-            Globe,
-
-          requiredModule:
-            "social",
+          href: "/social",
+          label: "Social Studio",
+          icon: Globe,
+          requiredModule: "social",
         },
-
         {
-          href:
-            "/payments",
-
-          label:
-            "Finance",
-
-          icon:
-            CircleDollarSign,
-
-          requiredModule:
-            "finance",
+          href: "/payments",
+          label: "Finance",
+          icon: CircleDollarSign,
+          requiredModule: "finance",
         },
-
         {
-          href:
-            "/store",
-
-          label:
-            "Store",
-
-          icon:
-            Store,
-
-          requiredModule:
-            "store",
+          href: "/store",
+          label: "Store",
+          icon: Store,
+          requiredModule: "store",
         },
-
         {
-          href:
-            "/settings",
-
-          label:
-            "Settings",
-
-          icon:
-            Settings,
+          href: "/tots-admin",
+          label: "TOTS Admin",
+          icon: ShieldCheck,
+          adminOnly: true,
+        },
+        {
+          href: "/settings",
+          label: "Settings",
+          icon: Settings,
         },
       ],
       [],
@@ -585,21 +431,25 @@ function DashboardLayoutInner({
   // LINK ACCESS
   // ==========================================================
 
-  const canAccessLink =
-    (
-      link:
-        DashboardLink,
-    ) => {
-      if (
-        !link.requiredModule
-      ) {
-        return true;
-      }
+  const canAccessLink = (
+    link: DashboardLink,
+  ) => {
+    if (
+      link.adminOnly
+    ) {
+      return isTotsAdmin;
+    }
 
-      return hasModule(
-        link.requiredModule,
-      );
-    };
+    if (
+      !link.requiredModule
+    ) {
+      return true;
+    }
+
+    return hasModule(
+      link.requiredModule,
+    );
+  };
 
   // ==========================================================
   // MOBILE SECTIONS
@@ -610,140 +460,79 @@ function DashboardLayoutInner({
       {
         links: [
           {
-            href:
-              "/dashboard",
-
-            label:
-              "Home",
-
-            icon:
-              LayoutDashboard,
+            href: "/dashboard",
+            label: "Home",
+            icon: LayoutDashboard,
           },
         ],
       },
 
       {
-        title:
-          "Core",
+        title: "Core",
 
         links: [
           {
-            href:
-              "/crm",
-
-            label:
-              "Contacts",
-
-            icon:
-              Users,
-
-            requiredModule:
-              "core",
+            href: "/crm",
+            label: "Contacts",
+            icon: Users,
+            requiredModule: "core",
           },
-
           {
-            href:
-              "/notes",
-
-            label:
-              "Notes",
-
-            icon:
-              StickyNote,
-
-            requiredModule:
-              "core",
+            href: "/notes",
+            label: "Notes",
+            icon: StickyNote,
+            requiredModule: "core",
           },
-
           {
-            href:
-              "/calendar",
-
-            label:
-              "Calendar",
-
-            icon:
-              Calendar,
-
-            requiredModule:
-              "core",
+            href: "/calendar",
+            label: "Calendar",
+            icon: Calendar,
+            requiredModule: "core",
           },
         ],
       },
 
       {
-        title:
-          "Marketing",
+        title: "Marketing",
 
         links: [
           {
-            href:
-              "/campaigns",
-
-            label:
-              "Email Marketing",
-
-            icon:
-              Megaphone,
-
-            requiredModule:
-              "email",
+            href: "/campaigns",
+            label: "Email Marketing",
+            icon: Megaphone,
+            requiredModule: "email",
           },
-
           {
-            href:
-              "/social",
-
-            label:
-              "Social Studio",
-
-            icon:
-              Globe,
-
-            requiredModule:
-              "social",
+            href: "/social",
+            label: "Social Studio",
+            icon: Globe,
+            requiredModule: "social",
           },
         ],
       },
 
       {
-        title:
-          "Finance",
+        title: "Finance",
 
         links: [
           {
-            href:
-              "/payments",
-
-            label:
-              "Finance",
-
-            icon:
-              CircleDollarSign,
-
-            requiredModule:
-              "finance",
+            href: "/payments",
+            label: "Finance",
+            icon: CircleDollarSign,
+            requiredModule: "finance",
           },
         ],
       },
 
       {
-        title:
-          "Commerce",
+        title: "Commerce",
 
         links: [
           {
-            href:
-              "/store",
-
-            label:
-              "Store",
-
-            icon:
-              Store,
-
-            requiredModule:
-              "store",
+            href: "/store",
+            label: "Store",
+            icon: Store,
+            requiredModule: "store",
           },
         ],
       },
@@ -754,15 +543,9 @@ function DashboardLayoutInner({
 
         links: [
           {
-            href:
-              "/projects",
-
-            label:
-              "Workspace",
-
-            icon:
-              Briefcase,
-
+            href: "/projects",
+            label: "Workspace",
+            icon: Building2,
             requiredModule:
               "clientsProjects",
           },
@@ -770,19 +553,14 @@ function DashboardLayoutInner({
       },
 
       {
-        title:
-          "Settings",
+        title: "TOTS Platform",
 
         links: [
           {
-            href:
-              "/settings",
-
-            label:
-              "Settings",
-
-            icon:
-              Settings,
+            href: "/tots-admin",
+            label: "TOTS Admin",
+            icon: ShieldCheck,
+            adminOnly: true,
           },
         ],
       },
@@ -815,19 +593,12 @@ function DashboardLayoutInner({
             [],
           );
 
-          // ==================================================
-          // SINGLE AUTHORITATIVE ACCESS REQUEST
-          // ==================================================
-
           const response =
             await fetch(
               "/api/account/access",
               {
-                method:
-                  "GET",
-
-                cache:
-                  "no-store",
+                method: "GET",
+                cache: "no-store",
               },
             );
 
@@ -840,15 +611,9 @@ function DashboardLayoutInner({
                 )
             ) as AccountAccessResponse;
 
-          if (
-            cancelled
-          ) {
+          if (cancelled) {
             return;
           }
-
-          // ==================================================
-          // NOT SIGNED IN
-          // ==================================================
 
           if (
             response.status ===
@@ -861,21 +626,15 @@ function DashboardLayoutInner({
             return;
           }
 
-          // ==================================================
-          // ACCOUNT ACCESS ENDED
-          // ==================================================
-
           if (
             !response.ok ||
-            data.allowed !==
-              true
+            data.allowed !== true
           ) {
             console.warn(
               "Dashboard access denied:",
               {
                 status:
                   response.status,
-
                 reason:
                   data.reason,
               },
@@ -888,20 +647,12 @@ function DashboardLayoutInner({
             return;
           }
 
-          // ==================================================
-          // USER
-          // ==================================================
-
           setCurrentUserId(
             typeof data.userId ===
               "string"
               ? data.userId
               : null,
           );
-
-          // ==================================================
-          // TOTS ADMIN
-          // ==================================================
 
           if (
             data.userId ===
@@ -922,10 +673,6 @@ function DashboardLayoutInner({
             return;
           }
 
-          // ==================================================
-          // BILLING MODEL
-          // ==================================================
-
           const rawBillingModel =
             String(
               data.billingModel ||
@@ -933,10 +680,6 @@ function DashboardLayoutInner({
             )
               .trim()
               .toLowerCase();
-
-          // ==================================================
-          // LEGACY
-          // ==================================================
 
           if (
             rawBillingModel ===
@@ -946,10 +689,6 @@ function DashboardLayoutInner({
               "legacy",
             );
 
-            /*
-             * Grandfathered users currently retain
-             * access to the existing platform.
-             */
             setActiveModules(
               [...MODULE_KEYS],
             );
@@ -961,10 +700,6 @@ function DashboardLayoutInner({
             return;
           }
 
-          // ==================================================
-          // MODULAR
-          // ==================================================
-
           if (
             rawBillingModel ===
             "modular"
@@ -975,8 +710,8 @@ function DashboardLayoutInner({
               )
                 ? data.modules
                 : Array.isArray(
-                    data.activeModules,
-                  )
+                      data.activeModules,
+                    )
                   ? data.activeModules
                   : [];
 
@@ -1004,10 +739,6 @@ function DashboardLayoutInner({
             return;
           }
 
-          // ==================================================
-          // UNKNOWN BILLING STATE
-          // ==================================================
-
           console.error(
             "Dashboard received unknown billing model:",
             data.billingModel,
@@ -1024,25 +755,19 @@ function DashboardLayoutInner({
           setAccessChecked(
             true,
           );
-        } catch (
-          error
-        ) {
+        } catch (error) {
           console.error(
             "Unable to check account access:",
             error,
           );
 
-          if (
-            !cancelled
-          ) {
+          if (!cancelled) {
             router.replace(
               "/access-ended",
             );
           }
         } finally {
-          if (
-            !cancelled
-          ) {
+          if (!cancelled) {
             setAccessLoading(
               false,
             );
@@ -1053,13 +778,10 @@ function DashboardLayoutInner({
       void loadAccess();
 
       return () => {
-        cancelled =
-          true;
+        cancelled = true;
       };
     },
-    [
-      router,
-    ],
+    [router],
   );
 
   // ==========================================================
@@ -1068,19 +790,11 @@ function DashboardLayoutInner({
 
   useEffect(
     () => {
-      if (
-        !accessChecked
-      ) {
+      if (!accessChecked) {
         return;
       }
 
-      // ======================================================
-      // ADMIN
-      // ======================================================
-
-      if (
-        isTotsAdmin
-      ) {
+      if (isTotsAdmin) {
         return;
       }
 
@@ -1089,19 +803,9 @@ function DashboardLayoutInner({
           pathname,
         );
 
-      // ======================================================
-      // UNRESTRICTED ROUTE
-      // ======================================================
-
-      if (
-        !requiredModule
-      ) {
+      if (!requiredModule) {
         return;
       }
-
-      // ======================================================
-      // LEGACY CUSTOMER
-      // ======================================================
 
       if (
         billingMode ===
@@ -1109,10 +813,6 @@ function DashboardLayoutInner({
       ) {
         return;
       }
-
-      // ======================================================
-      // MODULAR CUSTOMER WITH MODULE
-      // ======================================================
 
       if (
         billingMode ===
@@ -1123,10 +823,6 @@ function DashboardLayoutInner({
       ) {
         return;
       }
-
-      // ======================================================
-      // MODULE NOT PURCHASED
-      // ======================================================
 
       const params =
         new URLSearchParams();
@@ -1161,6 +857,19 @@ function DashboardLayoutInner({
   );
 
   // ==========================================================
+  // CLOSE DRAWER AFTER ROUTE CHANGE
+  // ==========================================================
+
+  useEffect(
+    () => {
+      setMobileMenuOpen(
+        false,
+      );
+    },
+    [pathname],
+  );
+
+  // ==========================================================
   // AVAILABLE LINKS
   // ==========================================================
 
@@ -1177,67 +886,50 @@ function DashboardLayoutInner({
     Array.isArray(
       mobileNav,
     ) &&
-    mobileNav.length ===
-      3
+    mobileNav.length === 3
       ? mobileNav
       : FALLBACK_MOBILE_NAV;
 
   // ==========================================================
-  // USER'S PINNED LINKS
+  // USER PINNED LINKS
   // ==========================================================
 
   const selectedPinnedLinks =
     requestedMobileNav
-      .map(
-        (
-          href,
-        ) =>
-          availableLinks.find(
-            (
-              link,
-            ) =>
-              link.href ===
-              href,
-          ),
+      .map((href) =>
+        availableLinks.find(
+          (link) =>
+            link.href === href,
+        ),
       )
       .filter(
         (
           link,
         ): link is DashboardLink =>
-          Boolean(
-            link,
-          ),
+          Boolean(link),
       );
 
   // ==========================================================
-  // ACCESSIBLE FALLBACKS
+  // FALLBACK LINKS
   // ==========================================================
 
   const accessibleFallbackLinks =
     FALLBACK_MOBILE_NAV
-      .map(
-        (
-          href,
-        ) =>
-          availableLinks.find(
-            (
-              link,
-            ) =>
-              link.href ===
-              href,
-          ),
+      .map((href) =>
+        availableLinks.find(
+          (link) =>
+            link.href === href,
+        ),
       )
       .filter(
         (
           link,
         ): link is DashboardLink =>
-          Boolean(
-            link,
-          ),
+          Boolean(link),
       );
 
   // ==========================================================
-  // FINAL 3 MOBILE LINKS
+  // FINAL MOBILE LINKS
   // ==========================================================
 
   const finalPinnedMobileLinks =
@@ -1247,153 +939,113 @@ function DashboardLayoutInner({
           ...selectedPinnedLinks,
           ...accessibleFallbackLinks,
           ...availableLinks,
-        ].map(
-          (
-            link,
-          ) => [
-            link.href,
-            link,
-          ],
-        ),
+        ].map((link) => [
+          link.href,
+          link,
+        ]),
       ).values(),
     )
       .filter(
-        (
-          link,
-        ) =>
+        (link) =>
           link.href !==
-          "/settings",
+            "/settings" &&
+          link.href !==
+            "/tots-admin",
       )
-      .slice(
-        0,
-        3,
-      );
+      .slice(0, 3);
 
   // ==========================================================
-  // MORE ACTIVE STATE
+  // MORE ACTIVE
   // ==========================================================
 
   const isMoreActive =
     !finalPinnedMobileLinks.some(
-      (
-        link,
-      ) =>
-        pathname ===
-          link.href ||
-        pathname.startsWith(
-          `${link.href}/`,
+      (link) =>
+        routeIsActive(
+          pathname,
+          link.href,
         ),
     );
 
   // ==========================================================
-  // FILTER MOBILE SECTIONS
+  // VISIBLE MOBILE SECTIONS
   // ==========================================================
 
   const visibleMobileSections =
     mobileSections
-      .map(
-        (
-          section,
-        ) => ({
-          ...section,
+      .map((section) => ({
+        ...section,
 
-          links:
-            section
-              .links
-              .filter(
-                canAccessLink,
-              ),
-        }),
-      )
+        links:
+          section.links.filter(
+            canAccessLink,
+          ),
+      }))
       .filter(
-        (
-          section,
-        ) =>
+        (section) =>
           section.links.length >
           0,
       );
 
   // ==========================================================
-  // LOCK BODY WHEN MOBILE MENU IS OPEN
+  // BODY LOCK
   // ==========================================================
 
   useEffect(
     () => {
-      if (
-        !mobileMenuOpen
-      ) {
+      if (!mobileMenuOpen) {
         return;
       }
 
       const previousOverflow =
-        document
-          .body
-          .style
+        document.body.style
           .overflow;
 
       const previousOverscroll =
-        document
-          .body
-          .style
+        document.body.style
           .overscrollBehavior;
 
-      document
-        .body
-        .style
-        .overflow =
+      document.body.style.overflow =
         "hidden";
 
-      document
-        .body
-        .style
+      document.body.style
         .overscrollBehavior =
         "none";
 
       return () => {
-        document
-          .body
-          .style
-          .overflow =
+        document.body.style.overflow =
           previousOverflow;
 
-        document
-          .body
-          .style
+        document.body.style
           .overscrollBehavior =
           previousOverscroll;
       };
     },
-    [
-      mobileMenuOpen,
-    ],
+    [mobileMenuOpen],
   );
 
   // ==========================================================
-  // ESCAPE CLOSE MOBILE MENU
+  // ESCAPE CLOSE
   // ==========================================================
 
   useEffect(
     () => {
-      if (
-        !mobileMenuOpen
-      ) {
+      if (!mobileMenuOpen) {
         return;
       }
 
-      const handleKeyDown =
-        (
-          event:
-            KeyboardEvent,
-        ) => {
-          if (
-            event.key ===
-            "Escape"
-          ) {
-            setMobileMenuOpen(
-              false,
-            );
-          }
-        };
+      const handleKeyDown = (
+        event: KeyboardEvent,
+      ) => {
+        if (
+          event.key ===
+          "Escape"
+        ) {
+          setMobileMenuOpen(
+            false,
+          );
+        }
+      };
 
       window.addEventListener(
         "keydown",
@@ -1407,9 +1059,7 @@ function DashboardLayoutInner({
         );
       };
     },
-    [
-      mobileMenuOpen,
-    ],
+    [mobileMenuOpen],
   );
 
   // ==========================================================
@@ -1421,29 +1071,9 @@ function DashboardLayoutInner({
     !accessChecked
   ) {
     return (
-      <div
-        className="
-          flex
-          h-screen
-          w-full
-          items-center
-          justify-center
-          bg-[#fcfaf7]
-        "
-      >
+      <div className="flex h-screen w-full items-center justify-center bg-[#fcfaf7]">
         <div className="text-center">
-          <div
-            className="
-              mx-auto
-              h-8
-              w-8
-              animate-spin
-              rounded-full
-              border-2
-              border-stone-200
-              border-t-[#829473]
-            "
-          />
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-[#829473]" />
 
           <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
             Loading your workspace
@@ -1465,8 +1095,7 @@ function DashboardLayoutInner({
   const routeAllowed =
     !requiredModule ||
     isTotsAdmin ||
-    billingMode ===
-      "legacy" ||
+    billingMode === "legacy" ||
     (
       billingMode ===
         "modular" &&
@@ -1476,36 +1105,14 @@ function DashboardLayoutInner({
     );
 
   // ==========================================================
-  // DON'T RENDER PAGE WHILE REDIRECTING
+  // REDIRECTING
   // ==========================================================
 
-  if (
-    !routeAllowed
-  ) {
+  if (!routeAllowed) {
     return (
-      <div
-        className="
-          flex
-          h-screen
-          w-full
-          items-center
-          justify-center
-          bg-[#fcfaf7]
-        "
-      >
+      <div className="flex h-screen w-full items-center justify-center bg-[#fcfaf7]">
         <div className="text-center">
-          <div
-            className="
-              mx-auto
-              h-8
-              w-8
-              animate-spin
-              rounded-full
-              border-2
-              border-stone-200
-              border-t-[#829473]
-            "
-          />
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-[#829473]" />
 
           <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
             Opening membership options
@@ -1570,32 +1177,22 @@ function DashboardLayoutInner({
         <div
           className="
             pointer-events-none
-
             fixed
-
             right-4
             top-[calc(1rem+env(safe-area-inset-top))]
-
             z-[500]
-
             flex
             items-center
             gap-3
-
             sm:right-5
             sm:top-5
-
             md:right-8
             md:top-8
           "
         >
-          {/* CLARITY */}
-
           <div className="pointer-events-auto">
             <Clarity />
           </div>
-
-          {/* NOTIFICATIONS */}
 
           {!mobileMenuOpen && (
             <div className="pointer-events-auto">
@@ -1612,14 +1209,10 @@ function DashboardLayoutInner({
           data-tour="dashboard-content"
           className="
             flex-1
-
             overflow-x-hidden
             overflow-y-auto
-
             p-4
-
             pb-[calc(7.5rem+env(safe-area-inset-bottom))]
-
             md:p-12
             md:pb-12
           "
@@ -1639,64 +1232,41 @@ function DashboardLayoutInner({
             aria-label="Mobile navigation"
             className="
               fixed
-
               bottom-[calc(0.65rem+env(safe-area-inset-bottom))]
               left-3
               right-3
-
               z-[900]
-
               grid
+              min-h-[70px]
               grid-cols-4
               items-center
-
-              min-h-[72px]
-
-              rounded-[1.65rem]
-
+              rounded-[1.35rem]
               border
-              border-stone-200/80
-
-              bg-white/95
-
+              border-stone-200
+              bg-stone-50/95
               p-1.5
-
-              shadow-[0_12px_40px_rgba(28,25,23,0.10)]
-
-              backdrop-blur-2xl
-
+              shadow-[0_12px_35px_rgba(28,25,23,0.10)]
+              backdrop-blur-xl
               md:hidden
             "
           >
             {finalPinnedMobileLinks.map(
-              (
-                link,
-              ) => (
+              (link) => (
                 <MobileNavItem
-                  key={
-                    link.href
-                  }
-                  href={
-                    link.href
-                  }
-                  icon={
-                    link.icon
-                  }
-                  label={
-                    link.label
-                  }
-                  isActive={
-                    pathname ===
-                      link.href ||
-                    pathname.startsWith(
-                      `${link.href}/`,
-                    )
+                  key={link.href}
+                  href={link.href}
+                  icon={link.icon}
+                  label={link.label}
+                  isActive={routeIsActive(
+                    pathname,
+                    link.href,
+                  )}
+                  brandColor={
+                    brandColor
                   }
                 />
               ),
             )}
-
-            {/* MORE */}
 
             <button
               type="button"
@@ -1705,62 +1275,47 @@ function DashboardLayoutInner({
                   true,
                 )
               }
+              style={{
+                backgroundColor:
+                  isMoreActive
+                    ? brandColor
+                    : "transparent",
+              }}
               className={`
                 relative
-
                 flex
-
-                h-[58px]
-
+                h-[56px]
                 min-w-0
-
                 flex-col
                 items-center
                 justify-center
-
                 gap-1.5
-
-                rounded-[1.25rem]
-
+                rounded-xl
                 transition-all
                 duration-200
-
                 active:scale-[0.96]
 
                 ${
                   isMoreActive
-                    ? "bg-[#a9b897] text-white shadow-sm"
-                    : "bg-transparent text-stone-400 hover:bg-stone-50"
+                    ? "text-white shadow-sm"
+                    : "text-stone-500 hover:bg-stone-100"
                 }
               `}
-              aria-label="Open full navigation menu"
+              aria-label="Open navigation"
               aria-expanded={
                 mobileMenuOpen
               }
             >
               <Menu
-                size={
-                  22
-                }
+                size={21}
                 strokeWidth={
                   isMoreActive
-                    ? 2
-                    : 1.7
+                    ? 2.2
+                    : 1.8
                 }
               />
 
-              <span
-                className="
-                  max-w-full
-                  truncate
-                  px-1
-
-                  text-[9px]
-                  font-bold
-                  uppercase
-                  tracking-[0.04em]
-                "
-              >
+              <span className="max-w-full truncate px-1 text-[9px] font-semibold">
                 More
               </span>
             </button>
@@ -1774,63 +1329,85 @@ function DashboardLayoutInner({
         <ClarityTourOverlay />
 
         {/* ====================================================
-            MOBILE FULL MENU
+            MOBILE DRAWER
         ==================================================== */}
 
         <AnimatePresence>
           {mobileMenuOpen && (
-            <motion.div
-              initial={{
-                y:
-                  "100%",
-              }}
-              animate={{
-                y:
-                  0,
-              }}
-              exit={{
-                y:
-                  "100%",
-              }}
-              transition={{
-                type:
-                  "spring",
+            <>
+              {/* ==============================================
+                  BACKDROP
+              ============================================== */}
 
-                damping:
-                  30,
-
-                stiffness:
-                  300,
-              }}
-              className="
-                fixed
-                inset-0
-
-                z-[5000]
-
-                h-[100dvh]
-
-                overflow-y-auto
-                overscroll-contain
-
-                bg-[#fcfaf7]
-
-                pt-[env(safe-area-inset-top)]
-                pb-[env(safe-area-inset-bottom)]
-
-                [-webkit-overflow-scrolling:touch]
-
-                md:hidden
-              "
-            >
-              <div
+              <motion.button
+                type="button"
+                aria-label="Close navigation"
+                initial={{
+                  opacity: 0,
+                }}
+                animate={{
+                  opacity: 1,
+                }}
+                exit={{
+                  opacity: 0,
+                }}
+                transition={{
+                  duration: 0.2,
+                }}
+                onClick={() =>
+                  setMobileMenuOpen(
+                    false,
+                  )
+                }
                 className="
-                  relative
+                  fixed
+                  inset-0
+                  z-[4999]
+                  bg-stone-950/25
+                  backdrop-blur-[2px]
+                  md:hidden
+                "
+              />
 
-                  min-h-full
+              {/* ==============================================
+                  DRAWER
+              ============================================== */}
 
-                  p-5
-                  pb-24
+              <motion.aside
+                initial={{
+                  x: "-100%",
+                }}
+                animate={{
+                  x: 0,
+                }}
+                exit={{
+                  x: "-100%",
+                }}
+                transition={{
+                  type: "spring",
+                  damping: 30,
+                  stiffness: 320,
+                  mass: 0.85,
+                }}
+                role="dialog"
+                aria-modal="true"
+                aria-label="TOTS-OS navigation"
+                className="
+                  fixed
+                  bottom-0
+                  left-0
+                  top-0
+                  z-[5000]
+                  flex
+                  h-[100dvh]
+                  w-[min(86vw,340px)]
+                  flex-col
+                  border-r
+                  border-stone-200
+                  bg-stone-50
+                  pt-[env(safe-area-inset-top)]
+                  shadow-[20px_0_60px_rgba(28,25,23,0.16)]
+                  md:hidden
                 "
               >
                 {/* ============================================
@@ -1839,155 +1416,305 @@ function DashboardLayoutInner({
 
                 <div
                   className="
-                    relative
-                    z-[6000]
-
-                    mb-6
-
                     flex
+                    min-h-[84px]
+                    shrink-0
                     items-center
                     justify-between
+                    border-b
+                    border-stone-200/70
+                    px-4
                   "
                 >
-                  <div
+                  <Link
+                    href="/dashboard"
+                    onClick={() =>
+                      setMobileMenuOpen(
+                        false,
+                      )
+                    }
                     className="
                       flex
+                      min-w-0
                       items-center
                       gap-3
                     "
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-
-                    <img
-                      src="/icon.png"
-                      alt="TOTS-OS"
-                      className="
-                        h-9
-                        w-9
-
-                        rounded-xl
-
-                        object-contain
-                      "
-                    />
-
-                    <span
-                      className="
-                        font-serif
-
-                        text-2xl
-                        italic
-                        tracking-tighter
-
-                        text-stone-900
-                      "
-                    >
-                      TOTS-OS
-                    </span>
-                  </div>
-
-                  <div
-                    className="
-                      relative
-                      z-[7000]
-
-                      flex
-                      items-center
-                      gap-2
-                    "
-                  >
                     <div
                       className="
-                        relative
-                        z-[8000]
-
                         flex
                         h-11
                         w-11
+                        shrink-0
                         items-center
                         justify-center
+                        rounded-xl
+                        bg-white
+                        shadow-sm
+                        ring-1
+                        ring-stone-200/70
                       "
                     >
-                      <NotificationBell />
+                      <Image
+                        src="/icon.png"
+                        alt="TOTS-OS"
+                        width={34}
+                        height={34}
+                        priority
+                        className="object-contain"
+                      />
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setMobileMenuOpen(
-                          false,
-                        )
-                      }
-                      className="
-                        flex
+                    <div className="min-w-0">
+                      <p
+                        className="
+                          truncate
+                          text-[10px]
+                          font-black
+                          uppercase
+                          tracking-[0.22em]
+                          text-stone-400
+                        "
+                      >
+                        TOTS-OS
+                      </p>
 
-                        h-11
-                        w-11
+                      <p
+                        className="
+                          mt-0.5
+                          truncate
+                          text-sm
+                          font-semibold
+                          text-stone-800
+                        "
+                      >
+                        Your workspace
+                      </p>
+                    </div>
+                  </Link>
 
-                        shrink-0
-
-                        items-center
-                        justify-center
-
-                        rounded-[1.25rem]
-
-                        border
-                        border-stone-200
-
-                        bg-white
-
-                        text-stone-900
-
-                        shadow-sm
-
-                        transition-all
-                        duration-200
-
-                        hover:border-stone-300
-
-                        active:scale-95
-                      "
-                      aria-label="Close menu"
-                    >
-                      <X
-                        size={
-                          20
-                        }
-                      />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMobileMenuOpen(
+                        false,
+                      )
+                    }
+                    className="
+                      flex
+                      h-10
+                      w-10
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-xl
+                      text-stone-400
+                      transition
+                      hover:bg-white
+                      hover:text-stone-900
+                      hover:shadow-sm
+                      active:scale-95
+                    "
+                    aria-label="Close menu"
+                  >
+                    <X
+                      size={19}
+                      strokeWidth={1.8}
+                    />
+                  </button>
                 </div>
 
                 {/* ============================================
-                    INTRO
+                    NAVIGATION
+                ============================================ */}
+
+                <nav
+                  data-tour="mobile-system-menu"
+                  className="
+                    min-h-0
+                    flex-1
+                    overflow-y-auto
+                    overscroll-contain
+                    px-3
+                    py-4
+                    [-webkit-overflow-scrolling:touch]
+                  "
+                >
+                  <div className="space-y-5">
+                    {visibleMobileSections.map(
+                      (
+                        section,
+                        index,
+                      ) => (
+                        <div
+                          key={
+                            section.title ||
+                            `mobile-section-${index}`
+                          }
+                        >
+                          {section.title && (
+                            <p
+                              className="
+                                mb-1.5
+                                px-3
+                                text-[9px]
+                                font-semibold
+                                uppercase
+                                tracking-[0.16em]
+                                text-stone-400
+                              "
+                            >
+                              {
+                                section.title
+                              }
+                            </p>
+                          )}
+
+                          <div className="space-y-1">
+                            {section.links.map(
+                              (link) => {
+                                const Icon =
+                                  link.icon;
+
+                                const active =
+                                  routeIsActive(
+                                    pathname,
+                                    link.href,
+                                  );
+
+                                return (
+                                  <Link
+                                    key={
+                                      link.href
+                                    }
+                                    href={
+                                      link.href
+                                    }
+                                    onClick={() =>
+                                      setMobileMenuOpen(
+                                        false,
+                                      )
+                                    }
+                                    data-tour={`nav-${link.label
+                                      .toLowerCase()
+                                      .replaceAll(
+                                        " ",
+                                        "-",
+                                      )}`}
+                                    style={{
+                                      backgroundColor:
+                                        active
+                                          ? brandColor
+                                          : "transparent",
+                                    }}
+                                    className={`
+                                      group
+                                      flex
+                                      min-h-[46px]
+                                      items-center
+                                      gap-3
+                                      rounded-xl
+                                      px-3
+                                      py-2.5
+                                      text-[13px]
+                                      font-medium
+                                      transition-all
+                                      duration-200
+                                      active:scale-[0.98]
+
+                                      ${
+                                        active
+                                          ? "text-white shadow-sm"
+                                          : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+                                      }
+                                    `}
+                                  >
+                                    <div
+                                      className={`
+                                        flex
+                                        h-8
+                                        w-8
+                                        shrink-0
+                                        items-center
+                                        justify-center
+                                        rounded-lg
+                                        transition
+
+                                        ${
+                                          active
+                                            ? "bg-white/15"
+                                            : "bg-white text-stone-500 shadow-sm ring-1 ring-stone-200/70 group-hover:text-stone-800"
+                                        }
+                                      `}
+                                    >
+                                      <Icon
+                                        size={
+                                          17
+                                        }
+                                        strokeWidth={
+                                          active
+                                            ? 2.2
+                                            : 1.8
+                                        }
+                                      />
+                                    </div>
+
+                                    <span className="min-w-0 flex-1 truncate">
+                                      {
+                                        link.label
+                                      }
+                                    </span>
+
+                                    {active && (
+                                      <span
+                                        className="
+                                          h-1.5
+                                          w-1.5
+                                          shrink-0
+                                          rounded-full
+                                          bg-white/80
+                                        "
+                                      />
+                                    )}
+                                  </Link>
+                                );
+                              },
+                            )}
+                          </div>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </nav>
+
+                {/* ============================================
+                    BOTTOM ACTIONS
                 ============================================ */}
 
                 <div
                   className="
-                    relative
-                    z-[100]
-
-                    mb-6
-
-                    rounded-[1.5rem]
-
-                    border
+                    shrink-0
+                    border-t
                     border-stone-200
-
-                    bg-white
-
-                    px-4
-                    py-4
-
-                    shadow-sm
+                    bg-stone-50
+                    px-3
+                    pb-[calc(0.75rem+env(safe-area-inset-bottom))]
+                    pt-3
                   "
                 >
                   <div
                     className="
+                      mb-2
                       flex
                       items-center
                       justify-between
-                      gap-4
+                      rounded-xl
+                      border
+                      border-stone-200
+                      bg-white
+                      px-3
+                      py-2
+                      shadow-sm
                     "
                   >
                     <div className="min-w-0">
@@ -1996,233 +1723,105 @@ function DashboardLayoutInner({
                           text-[9px]
                           font-black
                           uppercase
-                          tracking-[0.2em]
-
-                          text-[#829473]
+                          tracking-[0.16em]
+                          text-stone-400
                         "
                       >
-                        Your workspace
+                        Workspace
                       </p>
 
                       <p
                         className="
-                          mt-1
-
-                          text-xs
+                          mt-0.5
+                          truncate
+                          text-[11px]
                           font-semibold
-                          leading-5
-
                           text-stone-700
                         "
                       >
-                        Your TOTS-OS modules,
-                        all in one place.
+                        {billingMode ===
+                        "modular"
+                          ? `${activeModules.length} active ${
+                              activeModules.length ===
+                              1
+                                ? "module"
+                                : "modules"
+                            }`
+                          : billingMode ===
+                              "legacy"
+                            ? "Full platform access"
+                            : "TOTS-OS"}
                       </p>
                     </div>
 
                     <div
                       className="
-                        h-2
-                        w-2
-
+                        flex
+                        h-8
+                        w-8
                         shrink-0
-
+                        items-center
+                        justify-center
                         rounded-full
-
-                        bg-[#a9b897]
+                        bg-stone-50
                       "
-                    />
+                    >
+                      <NotificationBell />
+                    </div>
                   </div>
+
+                  <Link
+                    href="/settings"
+                    onClick={() =>
+                      setMobileMenuOpen(
+                        false,
+                      )
+                    }
+                    style={{
+                      backgroundColor:
+                        routeIsActive(
+                          pathname,
+                          "/settings",
+                        )
+                          ? brandColor
+                          : "transparent",
+                    }}
+                    className={`
+                      flex
+                      min-h-[46px]
+                      items-center
+                      gap-3
+                      rounded-xl
+                      px-3
+                      py-2.5
+                      text-[13px]
+                      font-medium
+                      transition-all
+                      duration-200
+                      active:scale-[0.98]
+
+                      ${
+                        routeIsActive(
+                          pathname,
+                          "/settings",
+                        )
+                          ? "text-white shadow-sm"
+                          : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+                      }
+                    `}
+                  >
+                    <Settings
+                      size={18}
+                      strokeWidth={1.8}
+                    />
+
+                    <span>
+                      Settings
+                    </span>
+                  </Link>
                 </div>
-
-                {/* ============================================
-                    MENU LINKS
-                ============================================ */}
-
-                <div
-                  data-tour="mobile-system-menu"
-                  className="
-                    relative
-                    z-[50]
-
-                    space-y-5
-                  "
-                >
-                  {visibleMobileSections.map(
-                    (
-                      section,
-                      index,
-                    ) => (
-                      <div
-                        key={
-                          section.title ||
-                          `mobile-section-${index}`
-                        }
-                      >
-                        {section.title && (
-                          <p
-                            className="
-                              mb-2
-                              px-1
-
-                              text-[9px]
-                              font-black
-                              uppercase
-                              tracking-[0.2em]
-
-                              text-stone-400
-                            "
-                          >
-                            {
-                              section.title
-                            }
-                          </p>
-                        )}
-
-                        <div
-                          className="
-                            grid
-                            grid-cols-2
-                            gap-2.5
-                          "
-                        >
-                          {section.links.map(
-                            (
-                              link,
-                            ) => {
-                              const Icon =
-                                link.icon;
-
-                              const linkIsActive =
-                                pathname ===
-                                  link.href ||
-                                pathname.startsWith(
-                                  `${link.href}/`,
-                                );
-
-                              const isPinned =
-                                finalPinnedMobileLinks.some(
-                                  (
-                                    pinned,
-                                  ) =>
-                                    pinned.href ===
-                                    link.href,
-                                );
-
-                              return (
-                                <Link
-                                  key={
-                                    link.href
-                                  }
-                                  href={
-                                    link.href
-                                  }
-                                  onClick={() =>
-                                    setMobileMenuOpen(
-                                      false,
-                                    )
-                                  }
-                                  data-tour={`nav-${link.label
-                                    .toLowerCase()
-                                    .replaceAll(
-                                      " ",
-                                      "-",
-                                    )}`}
-                                  className={`
-                                    relative
-
-                                    flex
-
-                                    h-20
-
-                                    flex-col
-                                    justify-between
-
-                                    rounded-[1.4rem]
-
-                                    border
-
-                                    p-3
-
-                                    transition-all
-                                    duration-300
-
-                                    active:scale-[0.98]
-
-                                    ${
-                                      linkIsActive
-                                        ? "border-[#a9b897]/60 bg-white shadow-md"
-                                        : "border-stone-100 bg-white/60 hover:border-stone-200 hover:bg-white"
-                                    }
-                                  `}
-                                >
-                                  {isPinned && (
-                                    <span
-                                      className="
-                                        absolute
-
-                                        right-3
-                                        top-3
-
-                                        h-1.5
-                                        w-1.5
-
-                                        rounded-full
-
-                                        bg-[#a9b897]
-                                      "
-                                    />
-                                  )}
-
-                                  <div
-                                    style={{
-                                      color:
-                                        linkIsActive
-                                          ? "var(--brand-primary, #829473)"
-                                          : "#a8a29e",
-                                    }}
-                                  >
-                                    <Icon
-                                      size={
-                                        19
-                                      }
-                                      strokeWidth={
-                                        linkIsActive
-                                          ? 2
-                                          : 1.5
-                                      }
-                                    />
-                                  </div>
-
-                                  <span
-                                    className={`
-                                      text-[8px]
-                                      font-black
-                                      uppercase
-                                      tracking-[0.14em]
-
-                                      ${
-                                        linkIsActive
-                                          ? "text-stone-900"
-                                          : "text-stone-500"
-                                      }
-                                    `}
-                                  >
-                                    {
-                                      link.label
-                                    }
-                                  </span>
-                                </Link>
-                              );
-                            },
-                          )}
-                        </div>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-            </motion.div>
+              </motion.aside>
+            </>
           )}
         </AnimatePresence>
       </main>
@@ -2236,94 +1835,72 @@ function DashboardLayoutInner({
 
 function MobileNavItem({
   href,
-
-  icon:
-    Icon,
-
+  icon: Icon,
   label,
-
   isActive,
+  brandColor,
 }: {
-  href:
-    string;
-
-  icon:
-    LucideIcon;
-
-  label:
-    string;
-
-  isActive:
-    boolean;
+  href: string;
+  icon: LucideIcon;
+  label: string;
+  isActive: boolean;
+  brandColor: string;
 }) {
   return (
     <Link
-      href={
-        href
-      }
+      href={href}
       data-tour={`mobile-nav-${label
         .toLowerCase()
         .replaceAll(
           " ",
           "-",
         )}`}
+      style={{
+        backgroundColor:
+          isActive
+            ? brandColor
+            : "transparent",
+      }}
       className={`
         relative
-
         flex
-
-        h-[58px]
-
+        h-[56px]
         min-w-0
-
         flex-col
         items-center
         justify-center
-
         gap-1.5
-
-        rounded-[1.25rem]
-
+        rounded-xl
         transition-all
         duration-200
-
         active:scale-[0.96]
 
         ${
           isActive
-            ? "bg-[#a9b897] text-white shadow-sm"
-            : "bg-transparent text-stone-400 hover:bg-stone-50"
+            ? "text-white shadow-sm"
+            : "text-stone-500 hover:bg-stone-100"
         }
       `}
     >
       <Icon
-        size={
-          22
-        }
+        size={21}
         strokeWidth={
           isActive
-            ? 2
-            : 1.7
+            ? 2.2
+            : 1.8
         }
       />
 
       <span
         className="
           max-w-full
-
           truncate
-
           px-1
-
           text-[9px]
-          font-bold
-          uppercase
-          tracking-[0.04em]
+          font-semibold
         "
       >
-        {
-          label
-        }
+        {label}
       </span>
     </Link>
   );

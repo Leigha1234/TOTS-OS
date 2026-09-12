@@ -33,6 +33,7 @@ import {
   Check,
   CheckCircle2,
   Clock3,
+  Download,
   FileUp,
   Globe,
   LayoutDashboard,
@@ -42,6 +43,7 @@ import {
   Save,
   Settings as SettingsIcon,
   ShieldCheck,
+  Share2,
   Smartphone,
   StickyNote,
   Users,
@@ -84,6 +86,14 @@ import {
 // ============================================================
 // TYPES
 // ============================================================
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{
+    outcome: "accepted" | "dismissed";
+    platform: string;
+  }>;
+};
 
 type MobileNavOption = {
   href: string;
@@ -502,6 +512,34 @@ function normaliseNotificationPreferences(
 }
 
 // ============================================================
+// APP INSTALL HELPERS
+// ============================================================
+
+function isRunningAsInstalledApp() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const navigatorWithStandalone = navigator as Navigator & {
+    standalone?: boolean;
+  };
+
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    navigatorWithStandalone.standalone === true
+  );
+}
+
+function isAppleMobileDevice() {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+// ============================================================
 // SETTINGS INNER
 // ============================================================
 
@@ -517,6 +555,120 @@ function SettingsInner() {
 
   const socialRefreshInProgressRef =
     useRef(false);
+
+  // ==========================================================
+  // INSTALL TOTS-OS AS AN APP
+  // ==========================================================
+
+  const [
+    installPrompt,
+    setInstallPrompt,
+  ] =
+    useState<BeforeInstallPromptEvent | null>(null);
+
+  const [
+    appInstalled,
+    setAppInstalled,
+  ] =
+    useState(false);
+
+  const [
+    appleMobile,
+    setAppleMobile,
+  ] =
+    useState(false);
+
+  const [
+    showAppleInstallHelp,
+    setShowAppleInstallHelp,
+  ] =
+    useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    setAppInstalled(isRunningAsInstalledApp());
+    setAppleMobile(isAppleMobileDevice());
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+
+    const handleAppInstalled = () => {
+      setInstallPrompt(null);
+      setAppInstalled(true);
+      setShowAppleInstallHelp(false);
+      toast.success("TOTS-OS has been added to your device");
+    };
+
+    window.addEventListener(
+      "beforeinstallprompt",
+      handleBeforeInstallPrompt
+    );
+
+    window.addEventListener(
+      "appinstalled",
+      handleAppInstalled
+    );
+
+    return () => {
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt
+      );
+
+      window.removeEventListener(
+        "appinstalled",
+        handleAppInstalled
+      );
+    };
+  }, []);
+
+  const installTotsOs =
+    useCallback(async () => {
+      if (appInstalled) {
+        toast.success("TOTS-OS is already installed on this device");
+        return;
+      }
+
+      if (installPrompt) {
+        try {
+          await installPrompt.prompt();
+          const choice = await installPrompt.userChoice;
+
+          if (choice.outcome === "accepted") {
+            setInstallPrompt(null);
+          }
+        } catch (error) {
+          console.error(
+            "[TOTS PWA] Install prompt failed:",
+            error
+          );
+
+          toast.error(
+            "TOTS-OS could not open the install prompt on this device."
+          );
+        }
+
+        return;
+      }
+
+      if (appleMobile) {
+        setShowAppleInstallHelp(true);
+        return;
+      }
+
+      toast.info(
+        "Use your browser menu and choose Install app or Add to Home Screen."
+      );
+    }, [
+      appInstalled,
+      installPrompt,
+      appleMobile,
+    ]);
 
   // ==========================================================
   // GLOBAL SETTINGS CONTEXT
@@ -2313,6 +2465,109 @@ function SettingsInner() {
               </div>
 
               {/* ==================================================
+                  INSTALL TOTS-OS
+              ================================================== */}
+
+              <div className="border-t border-stone-100 pt-10">
+                <div className="overflow-hidden rounded-[2rem] border border-stone-200 bg-stone-900 text-white shadow-[0_18px_55px_rgba(0,0,0,0.10)]">
+                  <div className="relative p-5 sm:p-6">
+                    <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-[#a9b897]/20 blur-3xl" />
+
+                    <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex min-w-0 items-start gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.25rem] bg-[#a9b897] text-stone-900 shadow-sm">
+                          <Smartphone
+                            size={23}
+                            strokeWidth={1.8}
+                          />
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#cbd6c1]">
+                              TOTS-OS mobile app
+                            </p>
+
+                            {appInstalled && (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-[#dfe8d8]">
+                                <CheckCircle2 size={9} />
+                                Installed
+                              </span>
+                            )}
+                          </div>
+
+                          <h2 className="mt-2 font-serif text-2xl italic text-white">
+                            Use TOTS-OS like an app
+                          </h2>
+
+                          <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-300">
+                            Add TOTS-OS to your Home Screen for a cleaner,
+                            app-style experience with its own icon, quicker
+                            access and no need to search for it in your browser.
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void installTotsOs()}
+                        disabled={appInstalled}
+                        className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#a9b897] px-5 text-[9px] font-black uppercase tracking-[0.12em] text-stone-900 transition hover:bg-[#b8c6a9] disabled:cursor-default disabled:bg-white/10 disabled:text-stone-400"
+                      >
+                        {appInstalled ? (
+                          <CheckCircle2 size={14} />
+                        ) : (
+                          <Download size={14} />
+                        )}
+
+                        {appInstalled
+                          ? "Installed on this device"
+                          : "Use me like an app"}
+                      </button>
+                    </div>
+
+                    <div className="relative mt-5 grid gap-2 border-t border-white/10 pt-4 sm:grid-cols-3">
+                      <AppInstallBenefit>
+                        Home Screen icon
+                      </AppInstallBenefit>
+
+                      <AppInstallBenefit>
+                        Standalone app view
+                      </AppInstallBenefit>
+
+                      <AppInstallBenefit>
+                        Faster everyday access
+                      </AppInstallBenefit>
+                    </div>
+                  </div>
+
+                  {showAppleInstallHelp && !appInstalled && (
+                    <div className="border-t border-white/10 bg-white/[0.06] p-5 sm:p-6">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-[#cbd6c1]">
+                          <Share2 size={17} />
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold text-white">
+                            Add TOTS-OS on iPhone or iPad
+                          </p>
+
+                          <p className="mt-1.5 text-[10px] leading-5 text-stone-300">
+                            Tap the Share button in your browser, choose
+                            <span className="font-bold text-white"> Add to Home Screen</span>,
+                            then tap
+                            <span className="font-bold text-white"> Add</span>.
+                            Apple requires you to confirm this step yourself.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ==================================================
                   MOBILE NAVIGATION
               ================================================== */}
 
@@ -3222,6 +3477,27 @@ function SettingsInner() {
           );
         }}
       />
+    </div>
+  );
+}
+
+// ============================================================
+// APP INSTALL BENEFIT
+// ============================================================
+
+function AppInstallBenefit({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2 text-[8px] font-bold text-stone-300">
+      <Check
+        size={11}
+        className="shrink-0 text-[#a9b897]"
+      />
+
+      <span>{children}</span>
     </div>
   );
 }

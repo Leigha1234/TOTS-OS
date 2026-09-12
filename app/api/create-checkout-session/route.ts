@@ -11,6 +11,11 @@ import {
 
 import crypto from "crypto";
 
+import {
+  BILLING_PRODUCTS,
+  type BillingProductKey,
+} from "@/lib/billing-config";
+
 export const runtime =
   "nodejs";
 
@@ -25,7 +30,7 @@ const stripe =
     {
       apiVersion:
         "2025-02-24.acacia",
-    }
+    },
   );
 
 // ======================================================
@@ -37,7 +42,7 @@ const supabase =
     process.env
       .NEXT_PUBLIC_SUPABASE_URL!,
     process.env
-      .SUPABASE_SERVICE_ROLE_KEY!
+      .SUPABASE_SERVICE_ROLE_KEY!,
   );
 
 // ======================================================
@@ -53,7 +58,7 @@ if (
   !registrationEncryptionKey
 ) {
   throw new Error(
-    "REGISTRATION_ENCRYPTION_KEY is missing"
+    "REGISTRATION_ENCRYPTION_KEY is missing",
   );
 }
 
@@ -61,10 +66,97 @@ if (
 // TYPES
 // ======================================================
 
-type SubscriptionTier =
+type LegacySubscriptionTier =
   | "standard"
   | "professional"
   | "elite";
+
+type ModuleKey =
+  | "core"
+  | "clientsProjects"
+  | "finance"
+  | "social"
+  | "email"
+  | "store";
+
+type AiTierKey =
+  | "none"
+  | "starter"
+  | "plus"
+  | "pro";
+
+type PriceVariant =
+  | "standard"
+  | "bundle_10"
+  | "bundle_20";
+
+type PackageType =
+  | "modular"
+  | "complete";
+
+type BillingSelection =
+  | {
+      billingModel:
+        "legacy_tier";
+
+      subscriptionTier:
+        LegacySubscriptionTier;
+
+      packageType:
+        "legacy";
+
+      modules:
+        [];
+
+      requestedAiTier:
+        "none";
+
+      effectiveAiTier:
+        "none";
+
+      aiUpgradeSuggested:
+        false;
+
+      lineItems:
+        Stripe.Checkout.SessionCreateParams.LineItem[];
+
+      monthlyTotal:
+        number;
+
+      bundleVariant:
+        "legacy";
+    }
+  | {
+      billingModel:
+        "modular";
+
+      subscriptionTier:
+        "modular" | "complete";
+
+      packageType:
+        PackageType;
+
+      modules:
+        ModuleKey[];
+
+      requestedAiTier:
+        AiTierKey;
+
+      effectiveAiTier:
+        AiTierKey;
+
+      aiUpgradeSuggested:
+        boolean;
+
+      lineItems:
+        Stripe.Checkout.SessionCreateParams.LineItem[];
+
+      monthlyTotal:
+        number;
+
+      bundleVariant:
+        PriceVariant | "complete";
+    };
 
 // ======================================================
 // TRIAL
@@ -74,25 +166,352 @@ const TRIAL_DAYS =
   14;
 
 // ======================================================
-// STRIPE PLAN MAPPING
+// MAIN MODULES
 // ======================================================
 
-function resolvePlan(
-  rawTier: unknown
-): {
-  tier: SubscriptionTier;
-  priceId: string;
-} {
-  const tier =
+const MAIN_MODULE_KEYS:
+  ModuleKey[] = [
+    "core",
+    "clientsProjects",
+    "finance",
+    "social",
+    "email",
+    "store",
+  ];
+
+// ======================================================
+// COMPLETE PRICE
+// ======================================================
+
+const COMPLETE_PRICE =
+  BILLING_PRODUCTS
+    .complete
+    .amount;
+
+// ======================================================
+// AI KEY MAPPING
+// ======================================================
+
+const AI_PRODUCT_KEYS: Record<
+  Exclude<
+    AiTierKey,
+    "none"
+  >,
+  BillingProductKey
+> = {
+  starter:
+    "aiStarter",
+
+  plus:
+    "aiPlus",
+
+  pro:
+    "aiPro",
+};
+
+// ======================================================
+// NORMALISE EMAIL
+// ======================================================
+
+function normaliseEmail(
+  value: unknown,
+) {
+  return String(
+    value || "",
+  )
+    .trim()
+    .toLowerCase();
+}
+
+// ======================================================
+// PASSWORD ENCRYPTION
+// ======================================================
+
+function encryptPassword(
+  password: string,
+) {
+  const iv =
+    crypto.randomBytes(
+      16,
+    );
+
+  const key =
+    crypto
+      .createHash(
+        "sha256",
+      )
+      .update(
+        registrationEncryptionKey,
+      )
+      .digest();
+
+  const cipher =
+    crypto.createCipheriv(
+      "aes-256-cbc",
+      key,
+      iv,
+    );
+
+  const encrypted =
+    Buffer.concat([
+      cipher.update(
+        password,
+        "utf8",
+      ),
+
+      cipher.final(),
+    ]);
+
+  return `${iv.toString(
+    "hex",
+  )}:${encrypted.toString(
+    "hex",
+  )}`;
+}
+
+// ======================================================
+// MODULE VALIDATION
+// ======================================================
+
+function normaliseModules(
+  value: unknown,
+): ModuleKey[] {
+  if (
+    !Array.isArray(
+      value,
+    )
+  ) {
+    return [];
+  }
+
+  const valid =
+    value
+      .map(
+        (item) =>
+          String(
+            item || "",
+          ).trim(),
+      )
+      .filter(
+        (
+          item,
+        ): item is ModuleKey =>
+          MAIN_MODULE_KEYS.includes(
+            item as ModuleKey,
+          ),
+      );
+
+  return Array.from(
+    new Set(
+      valid,
+    ),
+  );
+}
+
+// ======================================================
+// AI VALIDATION
+// ======================================================
+
+function normaliseAiTier(
+  value: unknown,
+): AiTierKey {
+  const aiTier =
     String(
-      rawTier || ""
+      value || "none",
     )
       .trim()
       .toLowerCase();
 
-  // ==================================================
-  // STANDARD
-  // ==================================================
+  if (
+    aiTier ===
+      "starter" ||
+    aiTier ===
+      "plus" ||
+    aiTier ===
+      "pro"
+  ) {
+    return aiTier;
+  }
+
+  return "none";
+}
+
+// ======================================================
+// PACKAGE VALIDATION
+// ======================================================
+
+function normalisePackage(
+  value: unknown,
+): PackageType {
+  const packageType =
+    String(
+      value || "modular",
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    packageType ===
+    "complete"
+  ) {
+    return "complete";
+  }
+
+  return "modular";
+}
+
+// ======================================================
+// BUILD STRIPE LOOKUP KEY
+// ======================================================
+
+function buildLookupKey(
+  billingKey: string,
+  variant: PriceVariant,
+) {
+  return `tots_${billingKey}_monthly_${variant}`;
+}
+
+// ======================================================
+// GET STRIPE PRICE FROM LOOKUP KEY
+// ======================================================
+
+async function getStripePrice(
+  billingKey: BillingProductKey,
+  variant: PriceVariant =
+    "standard",
+) {
+  const lookupKey =
+    buildLookupKey(
+      billingKey,
+      variant,
+    );
+
+  const prices =
+    await stripe.prices.list(
+      {
+        lookup_keys: [
+          lookupKey,
+        ],
+
+        active:
+          true,
+
+        limit:
+          10,
+      },
+    );
+
+  const price =
+    prices.data[0];
+
+  if (!price) {
+    throw new Error(
+      `Stripe price not found for ${billingKey} (${variant}). Run the Stripe billing sync first.`,
+    );
+  }
+
+  return price;
+}
+
+// ======================================================
+// BUNDLE VARIANT
+// ======================================================
+
+function getBundleVariant(
+  moduleCount: number,
+): PriceVariant {
+  if (
+    moduleCount === 5
+  ) {
+    return "bundle_20";
+  }
+
+  if (
+    moduleCount === 3 ||
+    moduleCount === 4
+  ) {
+    return "bundle_10";
+  }
+
+  return "standard";
+}
+
+// ======================================================
+// DISCOUNTED MODULE AMOUNT
+// ======================================================
+
+function getModuleAmount(
+  moduleKey: ModuleKey,
+  variant: PriceVariant,
+) {
+  const standardAmount =
+    BILLING_PRODUCTS[
+      moduleKey
+    ].amount;
+
+  if (
+    variant ===
+    "bundle_10"
+  ) {
+    return Math.round(
+      standardAmount *
+        0.9,
+    );
+  }
+
+  if (
+    variant ===
+    "bundle_20"
+  ) {
+    return Math.round(
+      standardAmount *
+        0.8,
+    );
+  }
+
+  return standardAmount;
+}
+
+// ======================================================
+// AI AMOUNT
+// ======================================================
+
+function getAiAmount(
+  aiTier: AiTierKey,
+) {
+  if (
+    aiTier ===
+    "none"
+  ) {
+    return 0;
+  }
+
+  const key =
+    AI_PRODUCT_KEYS[
+      aiTier
+    ];
+
+  return BILLING_PRODUCTS[
+    key
+  ].amount;
+}
+
+// ======================================================
+// LEGACY PLAN RESOLUTION
+// ======================================================
+
+function resolveLegacyPlan(
+  rawTier: unknown,
+): {
+  tier: LegacySubscriptionTier;
+  priceId: string;
+} {
+  const tier =
+    String(
+      rawTier || "",
+    )
+      .trim()
+      .toLowerCase();
 
   if (
     tier ===
@@ -106,7 +525,7 @@ function resolvePlan(
       !priceId
     ) {
       throw new Error(
-        "STRIPE_PRICE_STANDARD is missing."
+        "STRIPE_PRICE_STANDARD is missing.",
       );
     }
 
@@ -117,10 +536,6 @@ function resolvePlan(
       priceId,
     };
   }
-
-  // ==================================================
-  // PROFESSIONAL
-  // ==================================================
 
   if (
     tier ===
@@ -134,7 +549,7 @@ function resolvePlan(
       !priceId
     ) {
       throw new Error(
-        "STRIPE_PRICE_PROFESSIONAL is missing."
+        "STRIPE_PRICE_PROFESSIONAL is missing.",
       );
     }
 
@@ -145,10 +560,6 @@ function resolvePlan(
       priceId,
     };
   }
-
-  // ==================================================
-  // ELITE
-  // ==================================================
 
   if (
     tier ===
@@ -162,7 +573,7 @@ function resolvePlan(
       !priceId
     ) {
       throw new Error(
-        "STRIPE_PRICE_ELITE is missing."
+        "STRIPE_PRICE_ELITE is missing.",
       );
     }
 
@@ -175,68 +586,428 @@ function resolvePlan(
   }
 
   throw new Error(
-    "Invalid subscription tier."
+    "Invalid legacy subscription tier.",
   );
 }
 
 // ======================================================
-// PASSWORD ENCRYPTION
+// CHECK IF REQUEST IS LEGACY
 // ======================================================
 
-function encryptPassword(
-  password: string
+function isLegacyRequest(
+  body: Record<
+    string,
+    unknown
+  >,
 ) {
-  const iv =
-    crypto.randomBytes(
-      16
-    );
+  const rawTier =
+    String(
+      body.tier || "",
+    )
+      .trim()
+      .toLowerCase();
 
-  const key =
-    crypto
-      .createHash(
-        "sha256"
-      )
-      .update(
-        registrationEncryptionKey
-      )
-      .digest();
+  const isLegacyTier =
+    rawTier ===
+      "standard" ||
+    rawTier ===
+      "professional" ||
+    rawTier ===
+      "elite";
 
-  const cipher =
-    crypto.createCipheriv(
-      "aes-256-cbc",
-      key,
-      iv
-    );
+  const hasModularSelection =
+    Array.isArray(
+      body.modules,
+    ) ||
+    body.package != null ||
+    body.aiTier != null ||
+    body.billingModel ===
+      "modular";
 
-  const encrypted =
-    Buffer.concat([
-      cipher.update(
-        password,
-        "utf8"
-      ),
-
-      cipher.final(),
-    ]);
-
-  return `${iv.toString(
-    "hex"
-  )}:${encrypted.toString(
-    "hex"
-  )}`;
+  return (
+    isLegacyTier &&
+    !hasModularSelection
+  );
 }
 
 // ======================================================
-// EMAIL NORMALISATION
+// RESOLVE LEGACY SELECTION
 // ======================================================
 
-function normaliseEmail(
-  value: unknown
-) {
-  return String(
-    value || ""
-  )
-    .trim()
-    .toLowerCase();
+async function resolveLegacySelection(
+  body: Record<
+    string,
+    unknown
+  >,
+): Promise<BillingSelection> {
+  const {
+    tier,
+    priceId,
+  } =
+    resolveLegacyPlan(
+      body.tier,
+    );
+
+  const price =
+    await stripe.prices.retrieve(
+      priceId,
+    );
+
+  return {
+    billingModel:
+      "legacy_tier",
+
+    subscriptionTier:
+      tier,
+
+    packageType:
+      "legacy",
+
+    modules:
+      [],
+
+    requestedAiTier:
+      "none",
+
+    effectiveAiTier:
+      "none",
+
+    aiUpgradeSuggested:
+      false,
+
+    lineItems: [
+      {
+        price:
+          priceId,
+
+        quantity:
+          1,
+      },
+    ],
+
+    monthlyTotal:
+      price.unit_amount ??
+      0,
+
+    bundleVariant:
+      "legacy",
+  };
+}
+
+// ======================================================
+// RESOLVE MODULAR SELECTION
+// ======================================================
+
+async function resolveModularSelection(
+  body: Record<
+    string,
+    unknown
+  >,
+): Promise<BillingSelection> {
+  const requestedModules =
+    normaliseModules(
+      body.modules,
+    );
+
+  const requestedAiTier =
+    normaliseAiTier(
+      body.aiTier ??
+        body.ai,
+    );
+
+  const requestedPackage =
+    normalisePackage(
+      body.package,
+    );
+
+  // ==================================================
+  // COMPLETE WAS EXPLICITLY SELECTED
+  // ==================================================
+
+  if (
+    requestedPackage ===
+    "complete"
+  ) {
+    const completePrice =
+      await getStripePrice(
+        "complete",
+        "standard",
+      );
+
+    return {
+      billingModel:
+        "modular",
+
+      subscriptionTier:
+        "complete",
+
+      packageType:
+        "complete",
+
+      modules:
+        [...MAIN_MODULE_KEYS],
+
+      requestedAiTier,
+
+      effectiveAiTier:
+        "starter",
+
+      aiUpgradeSuggested:
+        requestedAiTier ===
+          "plus" ||
+        requestedAiTier ===
+          "pro",
+
+      lineItems: [
+        {
+          price:
+            completePrice.id,
+
+          quantity:
+            1,
+        },
+      ],
+
+      monthlyTotal:
+        COMPLETE_PRICE,
+
+      bundleVariant:
+        "complete",
+    };
+  }
+
+  // ==================================================
+  // MUST HAVE AT LEAST ONE MAIN MODULE
+  // ==================================================
+
+  if (
+    requestedModules.length ===
+    0
+  ) {
+    throw new Error(
+      "Please select at least one TOTS-OS module.",
+    );
+  }
+
+  const moduleCount =
+    requestedModules.length;
+
+  const bundleVariant =
+    getBundleVariant(
+      moduleCount,
+    );
+
+  // ==================================================
+  // CALCULATE MODULE TOTAL
+  // ==================================================
+
+  const discountedModuleTotal =
+    requestedModules.reduce(
+      (
+        total,
+        moduleKey,
+      ) =>
+        total +
+        getModuleAmount(
+          moduleKey,
+          bundleVariant,
+        ),
+      0,
+    );
+
+  // ==================================================
+  // CALCULATE AI TOTAL
+  // ==================================================
+
+  const requestedAiAmount =
+    getAiAmount(
+      requestedAiTier,
+    );
+
+  const modularTotal =
+    discountedModuleTotal +
+    requestedAiAmount;
+
+  // ==================================================
+  // COMPLETE RULE
+  //
+  // Complete is used when:
+  //
+  // - all 6 modules are selected
+  // - OR modular selection reaches £199
+  // ==================================================
+
+  const shouldUseComplete =
+    moduleCount ===
+      MAIN_MODULE_KEYS.length ||
+    modularTotal >=
+      COMPLETE_PRICE;
+
+  if (
+    shouldUseComplete
+  ) {
+    const completePrice =
+      await getStripePrice(
+        "complete",
+        "standard",
+      );
+
+    return {
+      billingModel:
+        "modular",
+
+      subscriptionTier:
+        "complete",
+
+      packageType:
+        "complete",
+
+      modules:
+        [...MAIN_MODULE_KEYS],
+
+      requestedAiTier,
+
+      effectiveAiTier:
+        "starter",
+
+      aiUpgradeSuggested:
+        requestedAiTier ===
+          "plus" ||
+        requestedAiTier ===
+          "pro",
+
+      lineItems: [
+        {
+          price:
+            completePrice.id,
+
+          quantity:
+            1,
+        },
+      ],
+
+      monthlyTotal:
+        COMPLETE_PRICE,
+
+      bundleVariant:
+        "complete",
+    };
+  }
+
+  // ==================================================
+  // BUILD MODULE LINE ITEMS
+  // ==================================================
+
+  const moduleLineItems:
+    Stripe.Checkout.SessionCreateParams.LineItem[] =
+    [];
+
+  for (
+    const moduleKey of requestedModules
+  ) {
+    const price =
+      await getStripePrice(
+        moduleKey,
+        bundleVariant,
+      );
+
+    moduleLineItems.push(
+      {
+        price:
+          price.id,
+
+        quantity:
+          1,
+      },
+    );
+  }
+
+  // ==================================================
+  // ADD AI LINE ITEM
+  // ==================================================
+
+  const lineItems =
+    [...moduleLineItems];
+
+  if (
+    requestedAiTier !==
+    "none"
+  ) {
+    const aiProductKey =
+      AI_PRODUCT_KEYS[
+        requestedAiTier
+      ];
+
+    const aiPrice =
+      await getStripePrice(
+        aiProductKey,
+        "standard",
+      );
+
+    lineItems.push(
+      {
+        price:
+          aiPrice.id,
+
+        quantity:
+          1,
+      },
+    );
+  }
+
+  return {
+    billingModel:
+      "modular",
+
+    subscriptionTier:
+      "modular",
+
+    packageType:
+      "modular",
+
+    modules:
+      requestedModules,
+
+    requestedAiTier,
+
+    effectiveAiTier:
+      requestedAiTier,
+
+    aiUpgradeSuggested:
+      false,
+
+    lineItems,
+
+    monthlyTotal:
+      modularTotal,
+
+    bundleVariant,
+  };
+}
+
+// ======================================================
+// RESOLVE BILLING SELECTION
+// ======================================================
+
+async function resolveBillingSelection(
+  body: Record<
+    string,
+    unknown
+  >,
+): Promise<BillingSelection> {
+  if (
+    isLegacyRequest(
+      body,
+    )
+  ) {
+    return resolveLegacySelection(
+      body,
+    );
+  }
+
+  return resolveModularSelection(
+    body,
+  );
 }
 
 // ======================================================
@@ -244,7 +1015,7 @@ function normaliseEmail(
 // ======================================================
 
 export async function POST(
-  request: NextRequest
+  request: NextRequest,
 ) {
   try {
     // ==================================================
@@ -252,63 +1023,42 @@ export async function POST(
     // ==================================================
 
     const body =
-      await request.json();
+      (
+        await request.json()
+      ) as Record<
+        string,
+        unknown
+      >;
 
     const email =
       normaliseEmail(
-        body.email
+        body.email,
       );
 
     const password =
       String(
         body.password ||
-          ""
+          "",
       );
 
     const fullName =
       String(
         body.fullName ||
-          ""
+          "",
       ).trim();
 
     const companyName =
       String(
         body.companyName ||
-          ""
+          "",
       ).trim();
 
     const jobTitle =
       body.jobTitle
         ? String(
-            body.jobTitle
+            body.jobTitle,
           ).trim()
         : null;
-
-    /*
-     * IMPORTANT
-     *
-     * Never accept a Stripe
-     * price ID directly from
-     * the browser.
-     *
-     * The browser sends:
-     *
-     * Standard
-     * Professional
-     * Elite
-     *
-     * The server maps that
-     * to the trusted Stripe
-     * Price ID.
-     */
-
-    const {
-      tier,
-      priceId,
-    } =
-      resolvePlan(
-        body.tier
-      );
 
     // ==================================================
     // VALIDATE REQUIRED FIELDS
@@ -328,7 +1078,7 @@ export async function POST(
         {
           status:
             400,
-        }
+        },
       );
     }
 
@@ -338,7 +1088,7 @@ export async function POST(
 
     const emailIsValid =
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        email
+        email,
       );
 
     if (
@@ -352,7 +1102,7 @@ export async function POST(
         {
           status:
             400,
-        }
+        },
       );
     }
 
@@ -372,9 +1122,37 @@ export async function POST(
         {
           status:
             400,
-        }
+        },
       );
     }
+
+    // ==================================================
+    // RESOLVE TRUSTED SERVER-SIDE BILLING
+    // ==================================================
+
+    /*
+     * IMPORTANT:
+     *
+     * The browser NEVER sends a trusted Stripe Price ID.
+     *
+     * It only sends:
+     *
+     * package
+     * modules
+     * aiTier
+     *
+     * The server decides:
+     *
+     * - bundle discount
+     * - Complete threshold
+     * - Stripe lookup keys
+     * - actual Stripe Price IDs
+     */
+
+    const selection =
+      await resolveBillingSelection(
+        body,
+      );
 
     // ==================================================
     // REMOVE OLD INCOMPLETE REGISTRATION
@@ -389,18 +1167,18 @@ export async function POST(
     } =
       await supabase
         .from(
-          "pending_registrations"
+          "pending_registrations",
         )
         .select(
-          "id"
+          "id",
         )
         .eq(
           "email",
-          email
+          email,
         )
         .eq(
           "completed",
-          false
+          false,
         )
         .maybeSingle();
 
@@ -409,7 +1187,7 @@ export async function POST(
     ) {
       console.error(
         "Pending registration lookup error:",
-        existingPendingError
+        existingPendingError,
       );
 
       return NextResponse.json(
@@ -420,7 +1198,7 @@ export async function POST(
         {
           status:
             500,
-        }
+        },
       );
     }
 
@@ -437,12 +1215,12 @@ export async function POST(
       } =
         await supabase
           .from(
-            "pending_registrations"
+            "pending_registrations",
           )
           .delete()
           .eq(
             "id",
-            existingPending.id
+            existingPending.id,
           );
 
       if (
@@ -450,7 +1228,7 @@ export async function POST(
       ) {
         console.error(
           "Could not remove previous pending registration:",
-          deletePendingError
+          deletePendingError,
         );
 
         return NextResponse.json(
@@ -461,7 +1239,7 @@ export async function POST(
           {
             status:
               500,
-          }
+          },
         );
       }
     }
@@ -472,12 +1250,31 @@ export async function POST(
 
     const encryptedPassword =
       encryptPassword(
-        password
+        password,
       );
 
     // ==================================================
     // CREATE PENDING REGISTRATION
     // ==================================================
+
+    /*
+     * We keep using subscription_tier for compatibility
+     * with your existing database for now.
+     *
+     * New registrations will contain:
+     *
+     * modular
+     * complete
+     *
+     * Legacy registrations can still contain:
+     *
+     * standard
+     * professional
+     * elite
+     *
+     * The actual module selection is also placed into
+     * Stripe Checkout + Subscription metadata below.
+     */
 
     const {
       data:
@@ -488,7 +1285,7 @@ export async function POST(
     } =
       await supabase
         .from(
-          "pending_registrations"
+          "pending_registrations",
         )
         .insert({
           email,
@@ -505,19 +1302,15 @@ export async function POST(
           job_title:
             jobTitle,
 
-          /*
-           * Store selected
-           * subscription tier.
-           */
-
           subscription_tier:
-            tier,
+            selection
+              .subscriptionTier,
 
           completed:
             false,
         })
         .select(
-          "id"
+          "id",
         )
         .single();
 
@@ -527,7 +1320,7 @@ export async function POST(
     ) {
       console.error(
         "Pending registration error:",
-        registrationError
+        registrationError,
       );
 
       return NextResponse.json(
@@ -540,7 +1333,7 @@ export async function POST(
         {
           status:
             500,
-        }
+        },
       );
     }
 
@@ -556,9 +1349,76 @@ export async function POST(
       !appUrl
     ) {
       throw new Error(
-        "NEXT_PUBLIC_APP_URL is missing."
+        "NEXT_PUBLIC_APP_URL is missing.",
       );
     }
+
+    // ==================================================
+    // METADATA
+    // ==================================================
+
+    const modulesMetadata =
+      selection.modules.length >
+      0
+        ? selection.modules.join(
+            ",",
+          )
+        : "";
+
+    const metadata: Record<
+      string,
+      string
+    > = {
+      registration_id:
+        pendingRegistration.id,
+
+      subscription_tier:
+        selection
+          .subscriptionTier,
+
+      billing_model:
+        selection
+          .billingModel,
+
+      billing_package:
+        selection
+          .packageType,
+
+      modules:
+        modulesMetadata,
+
+      requested_ai_tier:
+        selection
+          .requestedAiTier,
+
+      effective_ai_tier:
+        selection
+          .effectiveAiTier,
+
+      ai_upgrade_suggested:
+        String(
+          selection
+            .aiUpgradeSuggested,
+        ),
+
+      bundle_variant:
+        selection
+          .bundleVariant,
+
+      monthly_total_pence:
+        String(
+          selection
+            .monthlyTotal,
+        ),
+
+      trial_days:
+        String(
+          TRIAL_DAYS,
+        ),
+
+      registration_type:
+        "free_trial",
+    };
 
     // ==================================================
     // CREATE STRIPE CHECKOUT SESSION
@@ -584,35 +1444,19 @@ export async function POST(
             true,
 
           // ============================================
-          // IMPORTANT:
           // NO CARD REQUIRED TO START TRIAL
           // ============================================
-          //
-          // Stripe will only ask for
-          // payment details when they
-          // are required.
-          //
-          // Because the subscription
-          // begins with a 14-day trial,
-          // £0 is due today.
-          //
 
           payment_method_collection:
             "if_required",
 
           // ============================================
-          // PLAN
+          // TRUSTED SERVER-GENERATED LINE ITEMS
           // ============================================
 
-          line_items: [
-            {
-              price:
-                priceId,
-
-              quantity:
-                1,
-            },
-          ],
+          line_items:
+            selection
+              .lineItems,
 
           // ============================================
           // CUSTOMER
@@ -620,15 +1464,6 @@ export async function POST(
 
           customer_email:
             email,
-
-          /*
-           * Keep this if you want
-           * the customer's billing
-           * address saved.
-           *
-           * It does NOT force them
-           * to enter card details.
-           */
 
           billing_address_collection:
             "required",
@@ -647,21 +1482,7 @@ export async function POST(
           // CHECKOUT METADATA
           // ============================================
 
-          metadata: {
-            registration_id:
-              pendingRegistration.id,
-
-            subscription_tier:
-              tier,
-
-            trial_days:
-              String(
-                TRIAL_DAYS
-              ),
-
-            registration_type:
-              "free_trial",
-          },
+          metadata,
 
           // ============================================
           // SUBSCRIPTION CONFIG
@@ -669,27 +1490,15 @@ export async function POST(
 
           subscription_data: {
             // ==========================================
-            // 14 DAY FREE TRIAL
+            // 14-DAY FREE TRIAL
             // ==========================================
 
             trial_period_days:
               TRIAL_DAYS,
 
             // ==========================================
-            // WHAT HAPPENS IF NO CARD
-            // IS ADDED BY DAY 14
+            // IF NO CARD IS ADDED BY DAY 14
             // ==========================================
-            //
-            // Pause the subscription.
-            //
-            // This means:
-            //
-            // - they are NOT unexpectedly charged
-            // - Stripe does not keep producing failed
-            //   payments
-            // - you can ask them to add a card before
-            //   continuing
-            //
 
             trial_settings: {
               end_behavior: {
@@ -699,24 +1508,10 @@ export async function POST(
             },
 
             // ==========================================
-            // COPY METADATA TO SUBSCRIPTION
+            // COPY BILLING METADATA TO SUBSCRIPTION
             // ==========================================
 
-            metadata: {
-              registration_id:
-                pendingRegistration.id,
-
-              subscription_tier:
-                tier,
-
-              trial_days:
-                String(
-                  TRIAL_DAYS
-                ),
-
-              registration_type:
-                "free_trial",
-            },
+            metadata,
           },
         });
 
@@ -728,7 +1523,7 @@ export async function POST(
       !session.url
     ) {
       throw new Error(
-        "Stripe did not return a checkout URL."
+        "Stripe did not return a checkout URL.",
       );
     }
 
@@ -742,7 +1537,7 @@ export async function POST(
     } =
       await supabase
         .from(
-          "pending_registrations"
+          "pending_registrations",
         )
         .update({
           stripe_session_id:
@@ -753,7 +1548,7 @@ export async function POST(
         })
         .eq(
           "id",
-          pendingRegistration.id
+          pendingRegistration.id,
         );
 
     if (
@@ -761,7 +1556,7 @@ export async function POST(
     ) {
       console.error(
         "Failed to save Stripe session:",
-        sessionUpdateError
+        sessionUpdateError,
       );
 
       return NextResponse.json(
@@ -772,7 +1567,7 @@ export async function POST(
         {
           status:
             500,
-        }
+        },
       );
     }
 
@@ -789,16 +1584,43 @@ export async function POST(
         registrationId:
           pendingRegistration.id,
 
-        tier,
+        billingModel:
+          selection
+            .billingModel,
 
-        priceId,
+        packageType:
+          selection
+            .packageType,
+
+        subscriptionTier:
+          selection
+            .subscriptionTier,
+
+        modules:
+          selection.modules,
+
+        requestedAiTier:
+          selection
+            .requestedAiTier,
+
+        effectiveAiTier:
+          selection
+            .effectiveAiTier,
+
+        bundleVariant:
+          selection
+            .bundleVariant,
+
+        monthlyTotal:
+          selection
+            .monthlyTotal,
 
         trialDays:
           TRIAL_DAYS,
 
         paymentRequiredToday:
           false,
-      }
+      },
     );
 
     // ==================================================
@@ -810,37 +1632,80 @@ export async function POST(
         url:
           session.url,
 
-        tier,
-
         sessionId:
           session.id,
+
+        billingModel:
+          selection
+            .billingModel,
+
+        package:
+          selection
+            .packageType,
+
+        subscriptionTier:
+          selection
+            .subscriptionTier,
+
+        modules:
+          selection.modules,
+
+        requestedAiTier:
+          selection
+            .requestedAiTier,
+
+        effectiveAiTier:
+          selection
+            .effectiveAiTier,
+
+        aiUpgradeSuggested:
+          selection
+            .aiUpgradeSuggested,
+
+        bundleVariant:
+          selection
+            .bundleVariant,
+
+        monthlyTotal:
+          selection
+            .monthlyTotal,
+
+        monthlyTotalFormatted:
+          `£${(
+            selection
+              .monthlyTotal /
+            100
+          ).toFixed(
+            2,
+          )}`,
 
         trialDays:
           TRIAL_DAYS,
 
         paymentRequiredToday:
           false,
-      }
+      },
     );
   } catch (
     error
   ) {
     console.error(
       "Checkout session error:",
-      error
+      error,
     );
 
     return NextResponse.json(
       {
         error:
-          error instanceof Error
+          error instanceof
+            Error
             ? error.message
             : "Unable to create checkout session.",
       },
       {
         status:
           500,
-      }
+      },
     );
   }
 }

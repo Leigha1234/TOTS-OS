@@ -305,11 +305,16 @@ function DashboardLayoutInner({
   // ==========================================================
   // BRAND COLOUR
   // ==========================================================
+  //
+  // IMPORTANT:
+  // SettingsState does not expose a nested `settings` property.
+  // We therefore use the TOTS-OS brand sage directly here.
+  //
+  // If/when SettingsContext exposes a typed brandColor property,
+  // this can be wired back into the organisation branding.
+  // ==========================================================
 
   const brandColor =
-    settingsContext
-      ?.settings
-      ?.brandColor ||
     "#a9b897";
 
   // ==========================================================

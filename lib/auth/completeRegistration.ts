@@ -1,7 +1,4 @@
-import {
-  createClient,
-} from "@supabase/supabase-js";
-
+import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 // ============================================================
@@ -9,60 +6,46 @@ import crypto from "crypto";
 // ============================================================
 
 const supabaseUrl =
-  process.env
-    .NEXT_PUBLIC_SUPABASE_URL;
+  process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 const supabaseServiceRoleKey =
-  process.env
-    .SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const rawEncryptionKey =
-  process.env
-    .REGISTRATION_ENCRYPTION_KEY
-    ?.trim();
+  process.env.REGISTRATION_ENCRYPTION_KEY?.trim();
 
-if (
-  !rawEncryptionKey
-) {
+if (!rawEncryptionKey) {
   throw new Error(
-    "REGISTRATION_ENCRYPTION_KEY is missing"
+    "REGISTRATION_ENCRYPTION_KEY is missing",
   );
 }
 
-const encryptionKey:
-  string =
+const encryptionKey: string =
   rawEncryptionKey;
 
 const resendApiKey =
-  process.env
-    .RESEND_API_KEY;
+  process.env.RESEND_API_KEY;
 
 const signupNotificationEmail =
-  process.env
-    .SIGNUP_NOTIFICATION_EMAIL ||
+  process.env.SIGNUP_NOTIFICATION_EMAIL ||
   "theorganisedtypes@gmail.com";
 
 const resendFromEmail =
-  process.env
-    .RESEND_FROM_EMAIL;
+  process.env.RESEND_FROM_EMAIL;
 
 // ============================================================
-// VALIDATE CRITICAL ENVIRONMENT
+// VALIDATE ENVIRONMENT
 // ============================================================
 
-if (
-  !supabaseUrl
-) {
+if (!supabaseUrl) {
   throw new Error(
-    "NEXT_PUBLIC_SUPABASE_URL is missing"
+    "NEXT_PUBLIC_SUPABASE_URL is missing",
   );
 }
 
-if (
-  !supabaseServiceRoleKey
-) {
+if (!supabaseServiceRoleKey) {
   throw new Error(
-    "SUPABASE_SERVICE_ROLE_KEY is missing"
+    "SUPABASE_SERVICE_ROLE_KEY is missing",
   );
 }
 
@@ -76,22 +59,46 @@ const supabase =
     supabaseServiceRoleKey,
     {
       auth: {
-        autoRefreshToken:
-          false,
-
-        persistSession:
-          false,
+        autoRefreshToken: false,
+        persistSession: false,
       },
-    }
+    },
   );
 
 // ============================================================
 // TYPES
 // ============================================================
 
+type LegacySubscriptionTier =
+  | "standard"
+  | "professional"
+  | "elite";
+
+type ModuleKey =
+  | "core"
+  | "clientsProjects"
+  | "finance"
+  | "social"
+  | "email"
+  | "store";
+
+type AiTierKey =
+  | "none"
+  | "starter"
+  | "plus"
+  | "pro";
+
+type BillingModel =
+  | "legacy_tier"
+  | "modular";
+
+type BillingPackage =
+  | "legacy"
+  | "modular"
+  | "complete";
+
 type StripeRegistrationSession = {
-  stripe_session_id?:
-    string;
+  stripe_session_id?: string;
 
   stripe_customer_id?:
     string | null;
@@ -99,28 +106,40 @@ type StripeRegistrationSession = {
   stripe_subscription_id?:
     string | null;
 
-  customer_email?:
-    string;
+  customer_email?: string;
 
-  payment_status?:
-    string;
+  payment_status?: string;
+
+  billing_model?: string | null;
+
+  billing_package?: string | null;
+
+  modules?: string | null;
+
+  requested_ai_tier?:
+    string | null;
+
+  effective_ai_tier?:
+    string | null;
+
+  monthly_total_pence?:
+    string | number | null;
+
+  billing_version?:
+    string | null;
 };
 
 type SignupNotificationInput = {
-  registrationId:
-    string;
+  registrationId: string;
 
-  userId:
-    string;
+  userId: string;
 
-  organisationId:
-    string;
+  organisationId: string;
 
   fullName:
     string | null;
 
-  email:
-    string;
+  email: string;
 
   companyName:
     string | null;
@@ -130,6 +149,21 @@ type SignupNotificationInput = {
 
   subscriptionTier:
     string;
+
+  billingModel:
+    BillingModel;
+
+  billingPackage:
+    BillingPackage;
+
+  modules:
+    ModuleKey[];
+
+  aiTier:
+    AiTierKey;
+
+  monthlyTotalPence:
+    number | null;
 
   stripeCustomerId:
     string | null;
@@ -145,12 +179,24 @@ type SignupNotificationInput = {
 };
 
 // ============================================================
+// CONSTANTS
+// ============================================================
+
+const MAIN_MODULE_KEYS: ModuleKey[] = [
+  "core",
+  "clientsProjects",
+  "finance",
+  "social",
+  "email",
+  "store",
+];
+
+// ============================================================
 // HELPERS
 // ============================================================
 
 function cleanString(
-  value:
-    unknown
+  value: unknown,
 ) {
   if (
     typeof value !==
@@ -167,64 +213,147 @@ function cleanString(
 // ============================================================
 
 function escapeHtml(
-  value:
-    unknown
+  value: unknown,
 ) {
   return String(
-    value ??
-      ""
+    value ?? "",
   )
     .replace(
       /&/g,
-      "&amp;"
+      "&amp;",
     )
     .replace(
       /</g,
-      "&lt;"
+      "&lt;",
     )
     .replace(
       />/g,
-      "&gt;"
+      "&gt;",
     )
     .replace(
       /"/g,
-      "&quot;"
+      "&quot;",
     )
     .replace(
       /'/g,
-      "&#039;"
+      "&#039;",
     );
 }
 
 // ============================================================
-// FORMAT PLAN
+// FORMAT LEGACY PLAN
 // ============================================================
 
 function formatTier(
-  tier:
-    string
+  tier: string,
 ) {
   const value =
     cleanString(
-      tier
+      tier,
     );
 
-  if (
-    !value
-  ) {
+  if (!value) {
     return "Unknown";
   }
 
+  if (
+    value ===
+    "modular"
+  ) {
+    return "Modular";
+  }
+
+  if (
+    value ===
+    "complete"
+  ) {
+    return "Complete";
+  }
+
   return (
-    value.charAt(
-      0
-    ).toUpperCase() +
+    value.charAt(0).toUpperCase() +
     value
-      .slice(
-        1
-      )
+      .slice(1)
       .toLowerCase()
   );
+}
+
+// ============================================================
+// FORMAT MODULE
+// ============================================================
+
+function formatModule(
+  moduleKey: ModuleKey,
+) {
+  const names: Record<
+    ModuleKey,
+    string
+  > = {
+    core:
+      "Core",
+
+    clientsProjects:
+      "Clients & Projects",
+
+    finance:
+      "Finance",
+
+    social:
+      "Social Studio",
+
+    email:
+      "Email Marketing",
+
+    store:
+      "Store",
+  };
+
+  return names[
+    moduleKey
+  ];
+}
+
+// ============================================================
+// FORMAT AI
+// ============================================================
+
+function formatAiTier(
+  tier: AiTierKey,
+) {
+  if (
+    tier ===
+    "none"
+  ) {
+    return "None";
+  }
+
+  return (
+    `Clarity AI ${
+      tier
+        .charAt(0)
+        .toUpperCase() +
+      tier.slice(1)
+    }`
+  );
+}
+
+// ============================================================
+// FORMAT PRICE
+// ============================================================
+
+function formatPence(
+  amount:
+    number | null,
+) {
+  if (
+    amount == null
+  ) {
+    return "Not supplied";
+  }
+
+  return `£${(
+    amount / 100
+  ).toFixed(2)}/month`;
 }
 
 // ============================================================
@@ -244,10 +373,10 @@ function formatSignupDate() {
 
         timeZone:
           "Europe/London",
-      }
+      },
     )
     .format(
-      new Date()
+      new Date(),
     );
 }
 
@@ -256,15 +385,14 @@ function formatSignupDate() {
 // ============================================================
 
 function decryptPassword(
-  value:
-    string
+  value: string,
 ) {
   const [
     ivHex,
     encryptedHex,
   ] =
     value.split(
-      ":"
+      ":",
     );
 
   if (
@@ -272,17 +400,17 @@ function decryptPassword(
     !encryptedHex
   ) {
     throw new Error(
-      "Encrypted password is malformed."
+      "Encrypted password is malformed.",
     );
   }
 
   const key =
     crypto
       .createHash(
-        "sha256"
+        "sha256",
       )
       .update(
-        encryptionKey
+        encryptionKey,
       )
       .digest();
 
@@ -293,8 +421,8 @@ function decryptPassword(
         key,
         Buffer.from(
           ivHex,
-          "hex"
-        )
+          "hex",
+        ),
       );
 
   const decrypted =
@@ -302,8 +430,8 @@ function decryptPassword(
       decipher.update(
         Buffer.from(
           encryptedHex,
-          "hex"
-        )
+          "hex",
+        ),
       ),
 
       decipher.final(),
@@ -311,54 +439,232 @@ function decryptPassword(
 
   return decrypted
     .toString(
-      "utf8"
+      "utf8",
     );
 }
 
 // ============================================================
-// NORMALISE SUBSCRIPTION TIER
+// LEGACY TIER
 // ============================================================
 
-function normaliseTier(
+function normaliseLegacyTier(
   value:
     string |
     null |
-    undefined
-) {
+    undefined,
+): LegacySubscriptionTier | null {
   const tier =
     String(
-      value ||
-        ""
+      value || "",
     )
       .trim()
       .toLowerCase();
 
   if (
     tier ===
-    "standard"
-  ) {
-    return "standard";
-  }
-
-  if (
+    "standard" ||
     tier ===
-    "professional"
-  ) {
-    return "professional";
-  }
-
-  if (
+    "professional" ||
     tier ===
     "elite"
   ) {
-    return "elite";
+    return tier;
   }
 
-  throw new Error(
-    `Invalid subscription tier: ${
-      value ||
-      "missing"
-    }`
+  return null;
+}
+
+// ============================================================
+// BILLING MODEL
+// ============================================================
+
+function normaliseBillingModel(
+  value: unknown,
+  legacyTier:
+    LegacySubscriptionTier | null,
+): BillingModel {
+  const model =
+    cleanString(
+      value,
+    ).toLowerCase();
+
+  if (
+    model ===
+    "modular"
+  ) {
+    return "modular";
+  }
+
+  if (
+    model ===
+    "legacy_tier"
+  ) {
+    return "legacy_tier";
+  }
+
+  if (
+    legacyTier
+  ) {
+    return "legacy_tier";
+  }
+
+  return "modular";
+}
+
+// ============================================================
+// BILLING PACKAGE
+// ============================================================
+
+function normaliseBillingPackage(
+  value: unknown,
+  billingModel:
+    BillingModel,
+):
+  BillingPackage {
+  if (
+    billingModel ===
+    "legacy_tier"
+  ) {
+    return "legacy";
+  }
+
+  const packageValue =
+    cleanString(
+      value,
+    ).toLowerCase();
+
+  if (
+    packageValue ===
+    "complete"
+  ) {
+    return "complete";
+  }
+
+  return "modular";
+}
+
+// ============================================================
+// MODULES
+// ============================================================
+
+function normaliseModules(
+  value: unknown,
+): ModuleKey[] {
+  let values:
+    unknown[] = [];
+
+  if (
+    Array.isArray(
+      value,
+    )
+  ) {
+    values =
+      value;
+  } else if (
+    typeof value ===
+    "string"
+  ) {
+    values =
+      value
+        .split(",")
+        .map(
+          (item) =>
+            item.trim(),
+        );
+  }
+
+  const modules =
+    values
+      .map(
+        (item) =>
+          String(
+            item || "",
+          ).trim(),
+      )
+      .filter(
+        (
+          item,
+        ): item is ModuleKey =>
+          MAIN_MODULE_KEYS.includes(
+            item as ModuleKey,
+          ),
+      );
+
+  return Array.from(
+    new Set(
+      modules,
+    ),
+  );
+}
+
+// ============================================================
+// AI TIER
+// ============================================================
+
+function normaliseAiTier(
+  value: unknown,
+): AiTierKey {
+  const tier =
+    cleanString(
+      value,
+    ).toLowerCase();
+
+  if (
+    tier ===
+      "starter" ||
+    tier ===
+      "plus" ||
+    tier ===
+      "pro"
+  ) {
+    return tier;
+  }
+
+  return "none";
+}
+
+// ============================================================
+// MONTHLY TOTAL
+// ============================================================
+
+function normaliseMonthlyTotal(
+  value: unknown,
+) {
+  if (
+    typeof value ===
+    "number" &&
+    Number.isFinite(
+      value,
+    )
+  ) {
+    return Math.max(
+      0,
+      Math.round(
+        value,
+      ),
+    );
+  }
+
+  const parsed =
+    Number(
+      cleanString(
+        value,
+      ),
+    );
+
+  if (
+    !Number.isFinite(
+      parsed,
+    )
+  ) {
+    return null;
+  }
+
+  return Math.max(
+    0,
+    Math.round(
+      parsed,
+    ),
   );
 }
 
@@ -375,20 +681,21 @@ async function sendNewSignupNotification({
   companyName,
   jobTitle,
   subscriptionTier,
+  billingModel,
+  billingPackage,
+  modules,
+  aiTier,
+  monthlyTotalPence,
   stripeCustomerId,
   stripeSubscriptionId,
   stripeSessionId,
   paymentStatus,
 }: SignupNotificationInput) {
-  // ==========================================================
-  // RESEND CONFIGURATION
-  // ==========================================================
-
   if (
     !resendApiKey
   ) {
     console.warn(
-      "[SIGNUP NOTIFICATION] RESEND_API_KEY is missing. Admin signup email was not sent."
+      "[SIGNUP NOTIFICATION] RESEND_API_KEY is missing. Admin signup email was not sent.",
     );
 
     return;
@@ -398,52 +705,65 @@ async function sendNewSignupNotification({
     !resendFromEmail
   ) {
     console.warn(
-      "[SIGNUP NOTIFICATION] RESEND_FROM_EMAIL is missing. Admin signup email was not sent."
+      "[SIGNUP NOTIFICATION] RESEND_FROM_EMAIL is missing. Admin signup email was not sent.",
     );
 
     return;
   }
 
-  // ==========================================================
-  // DISPLAY VALUES
-  // ==========================================================
-
   const displayName =
     cleanString(
-      fullName
+      fullName,
     ) ||
     "Not provided";
 
   const displayBusiness =
     cleanString(
-      companyName
+      companyName,
     ) ||
     "Not provided";
 
   const displayJobTitle =
     cleanString(
-      jobTitle
+      jobTitle,
     ) ||
     "Not provided";
 
   const displayTier =
-    formatTier(
-      subscriptionTier
+    billingPackage ===
+    "complete"
+      ? "TOTS-OS Complete"
+      : billingModel ===
+        "modular"
+        ? "Custom modular setup"
+        : `${formatTier(
+            subscriptionTier,
+          )} plan`;
+
+  const displayModules =
+    modules.length
+      ? modules
+          .map(
+            formatModule,
+          )
+          .join(", ")
+      : "Legacy plan";
+
+  const displayAi =
+    formatAiTier(
+      aiTier,
+    );
+
+  const displayPrice =
+    formatPence(
+      monthlyTotalPence,
     );
 
   const signupDate =
     formatSignupDate();
 
-  // ==========================================================
-  // SUBJECT
-  // ==========================================================
-
   const subject =
     `🎉 New TOTS-OS signup — ${displayBusiness}`;
-
-  // ==========================================================
-  // TEXT VERSION
-  // ==========================================================
 
   const text =
     [
@@ -453,26 +773,37 @@ async function sendNewSignupNotification({
       `Email: ${email}`,
       `Business: ${displayBusiness}`,
       `Job title: ${displayJobTitle}`,
-      `Plan: ${displayTier}`,
+      `Setup: ${displayTier}`,
+      `Modules: ${displayModules}`,
+      `Clarity AI: ${displayAi}`,
+      `Monthly price: ${displayPrice}`,
       `Joined: ${signupDate}`,
       "",
       "Payment",
-      `Payment status: ${paymentStatus || "Not supplied"}`,
-      `Stripe customer: ${stripeCustomerId || "Not supplied"}`,
-      `Stripe subscription: ${stripeSubscriptionId || "Not supplied"}`,
-      `Stripe checkout session: ${stripeSessionId || "Not supplied"}`,
+      `Payment status: ${
+        paymentStatus ||
+        "Not supplied"
+      }`,
+      `Stripe customer: ${
+        stripeCustomerId ||
+        "Not supplied"
+      }`,
+      `Stripe subscription: ${
+        stripeSubscriptionId ||
+        "Not supplied"
+      }`,
+      `Stripe checkout session: ${
+        stripeSessionId ||
+        "Not supplied"
+      }`,
       "",
       "TOTS-OS",
       `User ID: ${userId}`,
       `Organisation ID: ${organisationId}`,
       `Registration ID: ${registrationId}`,
     ].join(
-      "\n"
+      "\n",
     );
-
-  // ==========================================================
-  // HTML VERSION
-  // ==========================================================
 
   const html =
     `
@@ -480,7 +811,6 @@ async function sendNewSignupNotification({
       <html>
         <head>
           <meta charset="utf-8" />
-
           <meta
             name="viewport"
             content="width=device-width, initial-scale=1"
@@ -489,48 +819,45 @@ async function sendNewSignupNotification({
 
         <body
           style="
-            margin: 0;
-            padding: 0;
-            background: #f5f5f4;
-            font-family:
-              Arial,
-              Helvetica,
-              sans-serif;
-            color: #292524;
+            margin:0;
+            padding:0;
+            background:#f5f5f4;
+            font-family:Arial,Helvetica,sans-serif;
+            color:#292524;
           "
         >
           <div
             style="
-              width: 100%;
-              padding: 32px 16px;
-              box-sizing: border-box;
+              width:100%;
+              padding:32px 16px;
+              box-sizing:border-box;
             "
           >
             <div
               style="
-                max-width: 620px;
-                margin: 0 auto;
-                background: #ffffff;
-                border: 1px solid #e7e5e4;
-                border-radius: 24px;
-                overflow: hidden;
+                max-width:620px;
+                margin:0 auto;
+                background:#ffffff;
+                border:1px solid #e7e5e4;
+                border-radius:24px;
+                overflow:hidden;
               "
             >
               <div
                 style="
-                  padding: 32px;
-                  background: #1c1917;
-                  color: #ffffff;
+                  padding:32px;
+                  background:#1c1917;
+                  color:#ffffff;
                 "
               >
                 <div
                   style="
-                    margin-bottom: 12px;
-                    font-size: 11px;
-                    font-weight: 700;
-                    letter-spacing: 2px;
-                    text-transform: uppercase;
-                    color: #a9b897;
+                    margin-bottom:12px;
+                    font-size:11px;
+                    font-weight:700;
+                    letter-spacing:2px;
+                    text-transform:uppercase;
+                    color:#a9b897;
                   "
                 >
                   TOTS-OS
@@ -538,9 +865,9 @@ async function sendNewSignupNotification({
 
                 <h1
                   style="
-                    margin: 0;
-                    font-size: 30px;
-                    line-height: 1.2;
+                    margin:0;
+                    font-size:30px;
+                    line-height:1.2;
                   "
                 >
                   🎉 New signup
@@ -548,9 +875,9 @@ async function sendNewSignupNotification({
 
                 <p
                   style="
-                    margin: 12px 0 0;
-                    color: #d6d3d1;
-                    line-height: 1.6;
+                    margin:12px 0 0;
+                    color:#d6d3d1;
+                    line-height:1.6;
                   "
                 >
                   A new business has joined TOTS-OS.
@@ -559,26 +886,26 @@ async function sendNewSignupNotification({
 
               <div
                 style="
-                  padding: 32px;
+                  padding:32px;
                 "
               >
                 <div
                   style="
-                    padding: 22px;
-                    background: #f7f8f5;
-                    border: 1px solid #e3e8df;
-                    border-radius: 18px;
-                    margin-bottom: 24px;
+                    padding:22px;
+                    background:#f7f8f5;
+                    border:1px solid #e3e8df;
+                    border-radius:18px;
+                    margin-bottom:24px;
                   "
                 >
                   <div
                     style="
-                      margin-bottom: 8px;
-                      font-size: 11px;
-                      font-weight: 700;
-                      letter-spacing: 1.5px;
-                      text-transform: uppercase;
-                      color: #829473;
+                      margin-bottom:8px;
+                      font-size:11px;
+                      font-weight:700;
+                      letter-spacing:1.5px;
+                      text-transform:uppercase;
+                      color:#829473;
                     "
                   >
                     New customer
@@ -586,26 +913,26 @@ async function sendNewSignupNotification({
 
                   <div
                     style="
-                      font-size: 24px;
-                      font-weight: 700;
-                      color: #292524;
+                      font-size:24px;
+                      font-weight:700;
+                      color:#292524;
                     "
                   >
                     ${escapeHtml(
-                      displayBusiness
+                      displayBusiness,
                     )}
                   </div>
 
                   <div
                     style="
-                      margin-top: 6px;
-                      font-size: 14px;
-                      color: #78716c;
+                      margin-top:6px;
+                      font-size:14px;
+                      color:#78716c;
                     "
                   >
                     ${escapeHtml(
-                      displayTier
-                    )} plan
+                      displayTier,
+                    )}
                   </div>
                 </div>
 
@@ -613,16 +940,14 @@ async function sendNewSignupNotification({
                   width="100%"
                   cellpadding="0"
                   cellspacing="0"
-                  style="
-                    border-collapse: collapse;
-                  "
+                  style="border-collapse:collapse;"
                 >
                   <tr>
                     <td
                       style="
-                        padding: 10px 0;
-                        color: #78716c;
-                        font-size: 13px;
+                        padding:10px 0;
+                        color:#78716c;
+                        font-size:13px;
                       "
                     >
                       Name
@@ -631,13 +956,13 @@ async function sendNewSignupNotification({
                     <td
                       align="right"
                       style="
-                        padding: 10px 0;
-                        font-size: 13px;
-                        font-weight: 600;
+                        padding:10px 0;
+                        font-size:13px;
+                        font-weight:600;
                       "
                     >
                       ${escapeHtml(
-                        displayName
+                        displayName,
                       )}
                     </td>
                   </tr>
@@ -645,9 +970,9 @@ async function sendNewSignupNotification({
                   <tr>
                     <td
                       style="
-                        padding: 10px 0;
-                        color: #78716c;
-                        font-size: 13px;
+                        padding:10px 0;
+                        color:#78716c;
+                        font-size:13px;
                       "
                     >
                       Email
@@ -656,13 +981,13 @@ async function sendNewSignupNotification({
                     <td
                       align="right"
                       style="
-                        padding: 10px 0;
-                        font-size: 13px;
-                        font-weight: 600;
+                        padding:10px 0;
+                        font-size:13px;
+                        font-weight:600;
                       "
                     >
                       ${escapeHtml(
-                        email
+                        email,
                       )}
                     </td>
                   </tr>
@@ -670,9 +995,9 @@ async function sendNewSignupNotification({
                   <tr>
                     <td
                       style="
-                        padding: 10px 0;
-                        color: #78716c;
-                        font-size: 13px;
+                        padding:10px 0;
+                        color:#78716c;
+                        font-size:13px;
                       "
                     >
                       Job title
@@ -681,13 +1006,13 @@ async function sendNewSignupNotification({
                     <td
                       align="right"
                       style="
-                        padding: 10px 0;
-                        font-size: 13px;
-                        font-weight: 600;
+                        padding:10px 0;
+                        font-size:13px;
+                        font-weight:600;
                       "
                     >
                       ${escapeHtml(
-                        displayJobTitle
+                        displayJobTitle,
                       )}
                     </td>
                   </tr>
@@ -695,25 +1020,25 @@ async function sendNewSignupNotification({
                   <tr>
                     <td
                       style="
-                        padding: 10px 0;
-                        color: #78716c;
-                        font-size: 13px;
+                        padding:10px 0;
+                        color:#78716c;
+                        font-size:13px;
                       "
                     >
-                      Plan
+                      Setup
                     </td>
 
                     <td
                       align="right"
                       style="
-                        padding: 10px 0;
-                        font-size: 13px;
-                        font-weight: 600;
-                        color: #829473;
+                        padding:10px 0;
+                        font-size:13px;
+                        font-weight:600;
+                        color:#829473;
                       "
                     >
                       ${escapeHtml(
-                        displayTier
+                        displayTier,
                       )}
                     </td>
                   </tr>
@@ -721,9 +1046,84 @@ async function sendNewSignupNotification({
                   <tr>
                     <td
                       style="
-                        padding: 10px 0;
-                        color: #78716c;
-                        font-size: 13px;
+                        padding:10px 0;
+                        color:#78716c;
+                        font-size:13px;
+                      "
+                    >
+                      Modules
+                    </td>
+
+                    <td
+                      align="right"
+                      style="
+                        padding:10px 0;
+                        font-size:13px;
+                        font-weight:600;
+                      "
+                    >
+                      ${escapeHtml(
+                        displayModules,
+                      )}
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td
+                      style="
+                        padding:10px 0;
+                        color:#78716c;
+                        font-size:13px;
+                      "
+                    >
+                      Clarity AI
+                    </td>
+
+                    <td
+                      align="right"
+                      style="
+                        padding:10px 0;
+                        font-size:13px;
+                        font-weight:600;
+                      "
+                    >
+                      ${escapeHtml(
+                        displayAi,
+                      )}
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td
+                      style="
+                        padding:10px 0;
+                        color:#78716c;
+                        font-size:13px;
+                      "
+                    >
+                      Monthly price
+                    </td>
+
+                    <td
+                      align="right"
+                      style="
+                        padding:10px 0;
+                        font-size:13px;
+                        font-weight:700;
+                      "
+                    >
+                      ${escapeHtml(
+                        displayPrice,
+                      )}
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td
+                      style="
+                        padding:10px 0;
+                        color:#78716c;
+                        font-size:13px;
                       "
                     >
                       Joined
@@ -732,13 +1132,13 @@ async function sendNewSignupNotification({
                     <td
                       align="right"
                       style="
-                        padding: 10px 0;
-                        font-size: 13px;
-                        font-weight: 600;
+                        padding:10px 0;
+                        font-size:13px;
+                        font-weight:600;
                       "
                     >
                       ${escapeHtml(
-                        signupDate
+                        signupDate,
                       )}
                     </td>
                   </tr>
@@ -746,20 +1146,20 @@ async function sendNewSignupNotification({
 
                 <div
                   style="
-                    height: 1px;
-                    background: #e7e5e4;
-                    margin: 24px 0;
+                    height:1px;
+                    background:#e7e5e4;
+                    margin:24px 0;
                   "
                 ></div>
 
                 <div
                   style="
-                    margin-bottom: 12px;
-                    font-size: 11px;
-                    font-weight: 700;
-                    letter-spacing: 1.5px;
-                    text-transform: uppercase;
-                    color: #a8a29e;
+                    margin-bottom:12px;
+                    font-size:11px;
+                    font-weight:700;
+                    letter-spacing:1.5px;
+                    text-transform:uppercase;
+                    color:#a8a29e;
                   "
                 >
                   Stripe
@@ -769,16 +1169,14 @@ async function sendNewSignupNotification({
                   width="100%"
                   cellpadding="0"
                   cellspacing="0"
-                  style="
-                    border-collapse: collapse;
-                  "
+                  style="border-collapse:collapse;"
                 >
                   <tr>
                     <td
                       style="
-                        padding: 7px 0;
-                        color: #78716c;
-                        font-size: 12px;
+                        padding:7px 0;
+                        color:#78716c;
+                        font-size:12px;
                       "
                     >
                       Payment status
@@ -787,13 +1185,13 @@ async function sendNewSignupNotification({
                     <td
                       align="right"
                       style="
-                        padding: 7px 0;
-                        font-size: 12px;
+                        padding:7px 0;
+                        font-size:12px;
                       "
                     >
                       ${escapeHtml(
                         paymentStatus ||
-                        "Not supplied"
+                        "Not supplied",
                       )}
                     </td>
                   </tr>
@@ -801,9 +1199,9 @@ async function sendNewSignupNotification({
                   <tr>
                     <td
                       style="
-                        padding: 7px 0;
-                        color: #78716c;
-                        font-size: 12px;
+                        padding:7px 0;
+                        color:#78716c;
+                        font-size:12px;
                       "
                     >
                       Customer ID
@@ -812,14 +1210,14 @@ async function sendNewSignupNotification({
                     <td
                       align="right"
                       style="
-                        padding: 7px 0;
-                        font-size: 11px;
-                        font-family: monospace;
+                        padding:7px 0;
+                        font-size:11px;
+                        font-family:monospace;
                       "
                     >
                       ${escapeHtml(
                         stripeCustomerId ||
-                        "—"
+                        "—",
                       )}
                     </td>
                   </tr>
@@ -827,9 +1225,9 @@ async function sendNewSignupNotification({
                   <tr>
                     <td
                       style="
-                        padding: 7px 0;
-                        color: #78716c;
-                        font-size: 12px;
+                        padding:7px 0;
+                        color:#78716c;
+                        font-size:12px;
                       "
                     >
                       Subscription ID
@@ -838,14 +1236,14 @@ async function sendNewSignupNotification({
                     <td
                       align="right"
                       style="
-                        padding: 7px 0;
-                        font-size: 11px;
-                        font-family: monospace;
+                        padding:7px 0;
+                        font-size:11px;
+                        font-family:monospace;
                       "
                     >
                       ${escapeHtml(
                         stripeSubscriptionId ||
-                        "—"
+                        "—",
                       )}
                     </td>
                   </tr>
@@ -853,20 +1251,20 @@ async function sendNewSignupNotification({
 
                 <div
                   style="
-                    height: 1px;
-                    background: #e7e5e4;
-                    margin: 24px 0;
+                    height:1px;
+                    background:#e7e5e4;
+                    margin:24px 0;
                   "
                 ></div>
 
                 <div
                   style="
-                    margin-bottom: 12px;
-                    font-size: 11px;
-                    font-weight: 700;
-                    letter-spacing: 1.5px;
-                    text-transform: uppercase;
-                    color: #a8a29e;
+                    margin-bottom:12px;
+                    font-size:11px;
+                    font-weight:700;
+                    letter-spacing:1.5px;
+                    text-transform:uppercase;
+                    color:#a8a29e;
                   "
                 >
                   Internal references
@@ -874,38 +1272,38 @@ async function sendNewSignupNotification({
 
                 <div
                   style="
-                    color: #78716c;
-                    font-family: monospace;
-                    font-size: 11px;
-                    line-height: 1.8;
-                    word-break: break-all;
+                    color:#78716c;
+                    font-family:monospace;
+                    font-size:11px;
+                    line-height:1.8;
+                    word-break:break-all;
                   "
                 >
                   User:
                   ${escapeHtml(
-                    userId
+                    userId,
                   )}
                   <br />
 
                   Organisation:
                   ${escapeHtml(
-                    organisationId
+                    organisationId,
                   )}
                   <br />
 
                   Registration:
                   ${escapeHtml(
-                    registrationId
+                    registrationId,
                   )}
                 </div>
               </div>
 
               <div
                 style="
-                  padding: 20px 32px;
-                  border-top: 1px solid #e7e5e4;
-                  color: #a8a29e;
-                  font-size: 11px;
+                  padding:20px 32px;
+                  border-top:1px solid #e7e5e4;
+                  color:#a8a29e;
+                  font-size:11px;
                 "
               >
                 Automatic notification from TOTS-OS
@@ -915,10 +1313,6 @@ async function sendNewSignupNotification({
         </body>
       </html>
     `;
-
-  // ==========================================================
-  // SEND USING RESEND
-  // ==========================================================
 
   try {
     const response =
@@ -951,7 +1345,7 @@ async function sendNewSignupNotification({
 
               html,
             }),
-        }
+        },
       );
 
     if (
@@ -961,8 +1355,7 @@ async function sendNewSignupNotification({
         await response
           .text()
           .catch(
-            () =>
-              ""
+            () => "",
           );
 
       console.error(
@@ -973,7 +1366,7 @@ async function sendNewSignupNotification({
 
           body:
             responseText,
-        }
+        },
       );
 
       return;
@@ -983,8 +1376,7 @@ async function sendNewSignupNotification({
       await response
         .json()
         .catch(
-          () =>
-            null
+          () => null,
         );
 
     console.log(
@@ -1003,14 +1395,14 @@ async function sendNewSignupNotification({
           responseData
             ?.id ||
           null,
-      }
+      },
     );
   } catch (
     error
   ) {
     console.error(
       "[SIGNUP NOTIFICATION] Failed to send new signup notification:",
-      error
+      error,
     );
   }
 }
@@ -1020,11 +1412,9 @@ async function sendNewSignupNotification({
 // ============================================================
 
 export async function completeRegistration(
-  registrationId:
-    string,
-
+  registrationId: string,
   session?:
-    StripeRegistrationSession
+    StripeRegistrationSession,
 ) {
   // ==========================================================
   // LOAD PENDING REGISTRATION
@@ -1039,14 +1429,14 @@ export async function completeRegistration(
   } =
     await supabase
       .from(
-        "pending_registrations"
+        "pending_registrations",
       )
       .select(
-        "*"
+        "*",
       )
       .eq(
         "id",
-        registrationId
+        registrationId,
       )
       .single();
 
@@ -1057,7 +1447,7 @@ export async function completeRegistration(
     throw new Error(
       registrationError
         ?.message ||
-      "Pending registration not found."
+      "Pending registration not found.",
     );
   }
 
@@ -1082,7 +1472,7 @@ export async function completeRegistration(
           registration
             .organisation_id ??
           null,
-      }
+      },
     );
 
     return {
@@ -1102,36 +1492,138 @@ export async function completeRegistration(
   }
 
   // ==========================================================
-  // SUBSCRIPTION TIER
+  // RESOLVE BILLING
   // ==========================================================
 
-  const subscriptionTier =
-    normaliseTier(
+  const legacyTier =
+    normaliseLegacyTier(
       registration
-        .subscription_tier
+        .subscription_tier,
+    );
+
+  const billingModel =
+    normaliseBillingModel(
+      session
+        ?.billing_model ??
+        registration
+          .billing_model,
+      legacyTier,
+    );
+
+  const billingPackage =
+    normaliseBillingPackage(
+      session
+        ?.billing_package ??
+        registration
+          .billing_package,
+      billingModel,
+    );
+
+  let modules =
+    normaliseModules(
+      session
+        ?.modules ??
+        registration
+          .selected_modules,
+    );
+
+  let effectiveAiTier =
+    normaliseAiTier(
+      session
+        ?.effective_ai_tier ??
+        registration
+          .effective_ai_tier,
+    );
+
+  const requestedAiTier =
+    normaliseAiTier(
+      session
+        ?.requested_ai_tier ??
+        registration
+          .requested_ai_tier,
+    );
+
+  const monthlyTotalPence =
+    normaliseMonthlyTotal(
+      session
+        ?.monthly_total_pence ??
+        registration
+          .monthly_total_pence,
+    );
+
+  const billingVersion =
+    cleanString(
+      session
+        ?.billing_version ??
+        registration
+          .billing_version,
+    ) ||
+    (
+      billingModel ===
+      "modular"
+        ? "v2"
+        : "legacy"
     );
 
   // ==========================================================
-  // EXISTING PARTIAL STATE
-  //
-  // This is critical for webhook recovery.
-  //
-  // If a previous webhook got as far as creating the user or
-  // organisation and then failed, we reuse those records.
-  //
-  // We NEVER blindly create a second account.
+  // COMPLETE ALWAYS MEANS ALL MODULES + STARTER
+  // ==========================================================
+
+  if (
+    billingModel ===
+      "modular" &&
+    billingPackage ===
+      "complete"
+  ) {
+    modules =
+      [...MAIN_MODULE_KEYS];
+
+    effectiveAiTier =
+      "starter";
+  }
+
+  // ==========================================================
+  // MODULAR MUST HAVE MODULES
+  // ==========================================================
+
+  if (
+    billingModel ===
+      "modular" &&
+    modules.length ===
+      0
+  ) {
+    throw new Error(
+      "Modular registration does not contain any module entitlements.",
+    );
+  }
+
+  // ==========================================================
+  // DISPLAY / COMPATIBILITY PLAN
+  // ==========================================================
+
+  const subscriptionTier =
+    legacyTier ??
+    (
+      billingPackage ===
+      "complete"
+        ? "complete"
+        : "modular"
+    );
+
+  // ==========================================================
+  // PARTIAL RECOVERY STATE
   // ==========================================================
 
   let userId =
     cleanString(
       registration
-        .user_id
+        .user_id,
     );
 
   let organisationId =
     cleanString(
       registration
-        .organisation_id
+        .organisation_id,
     );
 
   // ==========================================================
@@ -1152,7 +1644,7 @@ export async function completeRegistration(
         .auth
         .admin
         .getUserById(
-          userId
+          userId,
         );
 
     if (
@@ -1163,7 +1655,7 @@ export async function completeRegistration(
       throw new Error(
         existingAuthError
           ?.message ||
-        "Pending registration references an Auth user that no longer exists."
+        "Pending registration references an Auth user that no longer exists.",
       );
     }
 
@@ -1172,31 +1664,23 @@ export async function completeRegistration(
       {
         registrationId,
         userId,
-      }
+      },
     );
   } else {
-    // ========================================================
-    // PASSWORD REQUIRED ONLY FOR BRAND NEW AUTH USER
-    // ========================================================
-
     if (
       !registration
         .encrypted_password
     ) {
       throw new Error(
-        "Encrypted password missing from registration."
+        "Encrypted password missing from registration.",
       );
     }
 
     const password =
       decryptPassword(
         registration
-          .encrypted_password
+          .encrypted_password,
       );
-
-    // ========================================================
-    // CREATE AUTH USER
-    // ========================================================
 
     const {
       data:
@@ -1233,6 +1717,12 @@ export async function completeRegistration(
 
             subscription_tier:
               subscriptionTier,
+
+            billing_model:
+              billingModel,
+
+            billing_package:
+              billingPackage,
           },
         });
 
@@ -1243,7 +1733,7 @@ export async function completeRegistration(
       throw new Error(
         authError
           ?.message ||
-        "Failed to create Auth user."
+        "Failed to create Auth user.",
       );
     }
 
@@ -1252,19 +1742,13 @@ export async function completeRegistration(
         .user
         .id;
 
-    // ========================================================
-    // IMMEDIATELY LINK USER
-    //
-    // Makes retries recoverable even if the next step fails.
-    // ========================================================
-
     const {
       error:
         userLinkError,
     } =
       await supabase
         .from(
-          "pending_registrations"
+          "pending_registrations",
         )
         .update({
           user_id:
@@ -1272,14 +1756,14 @@ export async function completeRegistration(
         })
         .eq(
           "id",
-          registrationId
+          registrationId,
         );
 
     if (
       userLinkError
     ) {
       throw new Error(
-        `Auth user was created but pending registration could not be linked: ${userLinkError.message}`
+        `Auth user was created but pending registration could not be linked: ${userLinkError.message}`,
       );
     }
 
@@ -1288,8 +1772,72 @@ export async function completeRegistration(
       {
         registrationId,
         userId,
-      }
+      },
     );
+  }
+
+  // ==========================================================
+  // BUILD ORGANISATION BILLING PAYLOAD
+  // ==========================================================
+
+  const organisationBillingPayload:
+    Record<
+      string,
+      unknown
+    > = {
+      name:
+        registration
+          .company_name ||
+        "New Organisation",
+
+      created_by:
+        userId,
+
+      status:
+        "active",
+
+      email:
+        registration
+          .email,
+
+      subscription_status:
+        "active",
+
+      access_status:
+        "active",
+
+      billing_model:
+        billingModel,
+
+      billing_package:
+        billingPackage,
+
+      clarity_ai_tier:
+        effectiveAiTier,
+
+      billing_version:
+        billingVersion,
+
+      // Existing Store UI still uses this.
+      store_enabled:
+        billingModel ===
+          "modular"
+          ? modules.includes(
+              "store",
+            )
+          : false,
+    };
+
+  // ==========================================================
+  // ONLY WRITE OLD subscription_tier FOR LEGACY CUSTOMERS
+  // ==========================================================
+
+  if (
+    legacyTier
+  ) {
+    organisationBillingPayload
+      .subscription_tier =
+      legacyTier;
   }
 
   // ==========================================================
@@ -1299,10 +1847,6 @@ export async function completeRegistration(
   if (
     organisationId
   ) {
-    // ========================================================
-    // RECOVER EXISTING ORGANISATION
-    // ========================================================
-
     const {
       data:
         existingOrganisation,
@@ -1312,14 +1856,14 @@ export async function completeRegistration(
     } =
       await supabase
         .from(
-          "organisations"
+          "organisations",
         )
         .select(
-          "id"
+          "id",
         )
         .eq(
           "id",
-          organisationId
+          organisationId,
         )
         .maybeSingle();
 
@@ -1328,7 +1872,7 @@ export async function completeRegistration(
     ) {
       throw new Error(
         existingOrganisationError
-          .message
+          .message,
       );
     }
 
@@ -1336,19 +1880,9 @@ export async function completeRegistration(
       !existingOrganisation
     ) {
       throw new Error(
-        "Pending registration references an organisation that no longer exists."
+        "Pending registration references an organisation that no longer exists.",
       );
     }
-
-    // ========================================================
-    // IMPORTANT:
-    //
-    // Stripe has confirmed payment before this function runs.
-    // Therefore a paid organisation must be ACTIVE.
-    //
-    // This also repairs Cristian-style partial registrations
-    // that were incorrectly left restricted/beta.
-    // ========================================================
 
     const {
       error:
@@ -1356,36 +1890,14 @@ export async function completeRegistration(
     } =
       await supabase
         .from(
-          "organisations"
+          "organisations",
         )
-        .update({
-          name:
-            registration
-              .company_name ||
-            "New Organisation",
-
-          created_by:
-            userId,
-
-          status:
-            "active",
-
-          email:
-            registration
-              .email,
-
-          subscription_tier:
-            subscriptionTier,
-
-          subscription_status:
-            "active",
-
-          access_status:
-            "active",
-        })
+        .update(
+          organisationBillingPayload,
+        )
         .eq(
           "id",
-          organisationId
+          organisationId,
         );
 
     if (
@@ -1393,7 +1905,7 @@ export async function completeRegistration(
     ) {
       throw new Error(
         organisationRepairError
-          .message
+          .message,
       );
     }
 
@@ -1402,13 +1914,40 @@ export async function completeRegistration(
       {
         registrationId,
         organisationId,
-        subscriptionTier,
-      }
+        billingModel,
+        billingPackage,
+        modules,
+        effectiveAiTier,
+      },
     );
   } else {
-    // ========================================================
-    // CREATE NEW PAID ORGANISATION
-    // ========================================================
+    const newOrganisationPayload: Record<
+      string,
+      unknown
+    > = {
+      ...organisationBillingPayload,
+
+      available_seats:
+        1,
+
+      store_subscription_status:
+        null,
+
+      store_stripe_subscription_id:
+        null,
+
+      store_stripe_customer_id:
+        null,
+
+      store_price_id:
+        null,
+
+      store_current_period_end:
+        null,
+
+      store_cancel_at_period_end:
+        false,
+    };
 
     const {
       data:
@@ -1419,69 +1958,13 @@ export async function completeRegistration(
     } =
       await supabase
         .from(
-          "organisations"
+          "organisations",
         )
-        .insert({
-          name:
-            registration
-              .company_name ||
-            "New Organisation",
-
-          created_by:
-            userId,
-
-          available_seats:
-            1,
-
-          status:
-            "active",
-
-          email:
-            registration
-              .email,
-
-          // ==================================================
-          // MAIN TOTS-OS PLAN
-          //
-          // Payment has already been confirmed by Stripe.
-          // ==================================================
-
-          subscription_tier:
-            subscriptionTier,
-
-          subscription_status:
-            "active",
-
-          access_status:
-            "active",
-
-          // ==================================================
-          // STORE IS A SEPARATE ADD-ON
-          // ==================================================
-
-          store_enabled:
-            false,
-
-          store_subscription_status:
-            null,
-
-          store_stripe_subscription_id:
-            null,
-
-          store_stripe_customer_id:
-            null,
-
-          store_price_id:
-            null,
-
-          store_current_period_end:
-            null,
-
-          store_cancel_at_period_end:
-            false,
-        })
+        .insert(
+          newOrganisationPayload,
+        )
         .select(
-          "id"
+          "id",
         )
         .single();
 
@@ -1492,16 +1975,12 @@ export async function completeRegistration(
       throw new Error(
         organisationError
           ?.message ||
-        "Failed to create organisation."
+        "Failed to create organisation.",
       );
     }
 
     organisationId =
       organisation.id;
-
-    // ========================================================
-    // IMMEDIATELY LINK ORGANISATION
-    // ========================================================
 
     const {
       error:
@@ -1509,7 +1988,7 @@ export async function completeRegistration(
     } =
       await supabase
         .from(
-          "pending_registrations"
+          "pending_registrations",
         )
         .update({
           organisation_id:
@@ -1517,14 +1996,14 @@ export async function completeRegistration(
         })
         .eq(
           "id",
-          registrationId
+          registrationId,
         );
 
     if (
       organisationLinkError
     ) {
       throw new Error(
-        `Organisation was created but pending registration could not be linked: ${organisationLinkError.message}`
+        `Organisation was created but pending registration could not be linked: ${organisationLinkError.message}`,
       );
     }
 
@@ -1533,8 +2012,11 @@ export async function completeRegistration(
       {
         registrationId,
         organisationId,
-        subscriptionTier,
-      }
+        billingModel,
+        billingPackage,
+        modules,
+        effectiveAiTier,
+      },
     );
   }
 
@@ -1548,7 +2030,7 @@ export async function completeRegistration(
   } =
     await supabase
       .from(
-        "pending_registrations"
+        "pending_registrations",
       )
       .update({
         user_id:
@@ -1559,7 +2041,7 @@ export async function completeRegistration(
       })
       .eq(
         "id",
-        registrationId
+        registrationId,
       );
 
   if (
@@ -1567,7 +2049,7 @@ export async function completeRegistration(
   ) {
     throw new Error(
       finalLinkError
-        .message
+        .message,
     );
   }
 
@@ -1584,18 +2066,18 @@ export async function completeRegistration(
   } =
     await supabase
       .from(
-        "organisation_members"
+        "organisation_members",
       )
       .select(
-        "id, role"
+        "id, role",
       )
       .eq(
         "organisation_id",
-        organisationId
+        organisationId,
       )
       .eq(
         "user_id",
-        userId
+        userId,
       )
       .maybeSingle();
 
@@ -1604,17 +2086,13 @@ export async function completeRegistration(
   ) {
     throw new Error(
       membershipLookupError
-        .message
+        .message,
     );
   }
 
   if (
     existingMembership
   ) {
-    // ========================================================
-    // ENSURE EXISTING MEMBERSHIP IS OWNER
-    // ========================================================
-
     if (
       existingMembership
         .role !==
@@ -1626,7 +2104,7 @@ export async function completeRegistration(
       } =
         await supabase
           .from(
-            "organisation_members"
+            "organisation_members",
           )
           .update({
             role:
@@ -1635,7 +2113,7 @@ export async function completeRegistration(
           .eq(
             "id",
             existingMembership
-              .id
+              .id,
           );
 
       if (
@@ -1643,22 +2121,18 @@ export async function completeRegistration(
       ) {
         throw new Error(
           membershipUpdateError
-            .message
+            .message,
         );
       }
     }
   } else {
-    // ========================================================
-    // CREATE OWNER MEMBERSHIP
-    // ========================================================
-
     const {
       error:
         membershipCreateError,
     } =
       await supabase
         .from(
-          "organisation_members"
+          "organisation_members",
         )
         .insert({
           organisation_id:
@@ -1676,14 +2150,221 @@ export async function completeRegistration(
     ) {
       throw new Error(
         membershipCreateError
-          .message
+          .message,
       );
     }
   }
 
   // ==========================================================
+  // MODULE ENTITLEMENTS
+  // ==========================================================
+  //
+  // Legacy plans continue to use their existing entitlement
+  // behaviour.
+  //
+  // New modular plans use organisation_modules.
+  //
+  // ==========================================================
+
+  if (
+    billingModel ===
+    "modular"
+  ) {
+    // ========================================================
+    // CANCEL ANY MODULES THAT ARE NOT PART OF THIS SETUP
+    //
+    // Mostly relevant for webhook recovery / retries.
+    // ========================================================
+
+    const {
+      data:
+        currentModuleRows,
+
+      error:
+        currentModulesError,
+    } =
+      await supabase
+        .from(
+          "organisation_modules",
+        )
+        .select(
+          "id, module_key, status",
+        )
+        .eq(
+          "organisation_id",
+          organisationId,
+        );
+
+    if (
+      currentModulesError
+    ) {
+      throw new Error(
+        currentModulesError
+          .message,
+      );
+    }
+
+    const modulesToCancel =
+      (
+        currentModuleRows ||
+        []
+      )
+        .filter(
+          (row) =>
+            !modules.includes(
+              row
+                .module_key as ModuleKey,
+            ) &&
+            row.status !==
+              "cancelled",
+        )
+        .map(
+          (row) =>
+            row.id,
+        );
+
+    if (
+      modulesToCancel.length >
+      0
+    ) {
+      const {
+        error:
+          cancelModulesError,
+      } =
+        await supabase
+          .from(
+            "organisation_modules",
+          )
+          .update({
+            status:
+              "cancelled",
+
+            cancelled_at:
+              new Date()
+                .toISOString(),
+
+            updated_at:
+              new Date()
+                .toISOString(),
+          })
+          .in(
+            "id",
+            modulesToCancel,
+          );
+
+      if (
+        cancelModulesError
+      ) {
+        throw new Error(
+          cancelModulesError
+            .message,
+        );
+      }
+    }
+
+    // ========================================================
+    // ACTIVATE PURCHASED MODULES
+    // ========================================================
+
+    const now =
+      new Date()
+        .toISOString();
+
+    const moduleRows =
+      modules.map(
+        (moduleKey) => ({
+          organisation_id:
+            organisationId,
+
+          module_key:
+            moduleKey,
+
+          status:
+            "active",
+
+          activated_at:
+            now,
+
+          cancelled_at:
+            null,
+
+          updated_at:
+            now,
+        }),
+      );
+
+    const {
+      error:
+        moduleUpsertError,
+    } =
+      await supabase
+        .from(
+          "organisation_modules",
+        )
+        .upsert(
+          moduleRows,
+          {
+            onConflict:
+              "organisation_id,module_key",
+          },
+        );
+
+    if (
+      moduleUpsertError
+    ) {
+      throw new Error(
+        moduleUpsertError
+          .message,
+      );
+    }
+
+    console.log(
+      "[REGISTRATION] Module entitlements provisioned:",
+      {
+        organisationId,
+        modules,
+        effectiveAiTier,
+      },
+    );
+  }
+
+  // ==========================================================
   // PROFILE
   // ==========================================================
+
+  const profilePayload:
+    Record<
+      string,
+      unknown
+    > = {
+      email:
+        registration
+          .email,
+
+      full_name:
+        registration
+          .full_name,
+
+      job_title:
+        registration
+          .job_title,
+
+      organisation_id:
+        organisationId,
+
+      role:
+        "owner",
+    };
+
+  // Don't put "modular" / "complete" into a legacy constrained
+  // profile subscription_tier field.
+  if (
+    legacyTier
+  ) {
+    profilePayload
+      .subscription_tier =
+      legacyTier;
+  }
 
   const {
     error:
@@ -1691,33 +2372,14 @@ export async function completeRegistration(
   } =
     await supabase
       .from(
-        "profiles"
+        "profiles",
       )
-      .update({
-        email:
-          registration
-            .email,
-
-        full_name:
-          registration
-            .full_name,
-
-        job_title:
-          registration
-            .job_title,
-
-        organisation_id:
-          organisationId,
-
-        role:
-          "owner",
-
-        subscription_tier:
-          subscriptionTier,
-      })
+      .update(
+        profilePayload,
+      )
       .eq(
         "id",
-        userId
+        userId,
       );
 
   if (
@@ -1725,19 +2387,56 @@ export async function completeRegistration(
   ) {
     throw new Error(
       profileError
-        .message
+        .message,
     );
   }
 
   // ==========================================================
-  // RE-ASSERT PAID ORGANISATION ACCESS
-  //
-  // This deliberately happens again near the end.
-  //
-  // If an earlier piece of application logic changed the
-  // organisation while registration was being completed,
-  // successful Stripe registration wins.
+  // RE-ASSERT ORGANISATION ACCESS
   // ==========================================================
+
+  const finalOrganisationPayload:
+    Record<
+      string,
+      unknown
+    > = {
+      subscription_status:
+        "active",
+
+      access_status:
+        "active",
+
+      status:
+        "active",
+
+      billing_model:
+        billingModel,
+
+      billing_package:
+        billingPackage,
+
+      clarity_ai_tier:
+        effectiveAiTier,
+
+      billing_version:
+        billingVersion,
+
+      store_enabled:
+        billingModel ===
+          "modular"
+          ? modules.includes(
+              "store",
+            )
+          : false,
+    };
+
+  if (
+    legacyTier
+  ) {
+    finalOrganisationPayload
+      .subscription_tier =
+      legacyTier;
+  }
 
   const {
     error:
@@ -1745,24 +2444,14 @@ export async function completeRegistration(
   } =
     await supabase
       .from(
-        "organisations"
+        "organisations",
       )
-      .update({
-        subscription_tier:
-          subscriptionTier,
-
-        subscription_status:
-          "active",
-
-        access_status:
-          "active",
-
-        status:
-          "active",
-      })
+      .update(
+        finalOrganisationPayload,
+      )
       .eq(
         "id",
-        organisationId
+        organisationId,
       );
 
   if (
@@ -1770,18 +2459,12 @@ export async function completeRegistration(
   ) {
     throw new Error(
       paidAccessError
-        .message
+        .message,
     );
   }
 
   // ==========================================================
   // MAIN TOTS-OS SUBSCRIPTION
-  //
-  // This is separate from Store.
-  //
-  // IMPORTANT:
-  // Older/partial registrations may already have a row.
-  // Therefore UPDATE if one exists, otherwise INSERT.
   // ==========================================================
 
   const {
@@ -1793,17 +2476,17 @@ export async function completeRegistration(
   } =
     await supabase
       .from(
-        "subscriptions"
+        "subscriptions",
       )
       .select(
-        "id"
+        "id",
       )
       .eq(
         "organisation_id",
-        organisationId
+        organisationId,
       )
       .limit(
-        1
+        1,
       )
       .maybeSingle();
 
@@ -1812,21 +2495,21 @@ export async function completeRegistration(
   ) {
     throw new Error(
       subscriptionLookupError
-        .message
+        .message,
     );
   }
 
   const stripeCustomerId =
     cleanString(
       session
-        ?.stripe_customer_id
+        ?.stripe_customer_id,
     ) ||
     null;
 
   const stripeSubscriptionId =
     cleanString(
       session
-        ?.stripe_subscription_id
+        ?.stripe_subscription_id,
     ) ||
     null;
 
@@ -1844,10 +2527,6 @@ export async function completeRegistration(
         status:
           "active",
       };
-
-    // ========================================================
-    // DON'T DESTROY GOOD STRIPE REFERENCES WITH NULL
-    // ========================================================
 
     if (
       stripeCustomerId
@@ -1871,15 +2550,15 @@ export async function completeRegistration(
     } =
       await supabase
         .from(
-          "subscriptions"
+          "subscriptions",
         )
         .update(
-          subscriptionPayload
+          subscriptionPayload,
         )
         .eq(
           "id",
           existingSubscription
-            .id
+            .id,
         );
 
     if (
@@ -1887,7 +2566,7 @@ export async function completeRegistration(
     ) {
       throw new Error(
         subscriptionUpdateError
-          .message
+          .message,
       );
     }
   } else {
@@ -1897,7 +2576,7 @@ export async function completeRegistration(
     } =
       await supabase
         .from(
-          "subscriptions"
+          "subscriptions",
         )
         .insert({
           organisation_id:
@@ -1921,17 +2600,13 @@ export async function completeRegistration(
     ) {
       throw new Error(
         subscriptionCreateError
-          .message
+          .message,
       );
     }
   }
 
   // ==========================================================
   // MARK REGISTRATION COMPLETE
-  //
-  // This is intentionally the final critical database step.
-  //
-  // Once true, webhook retries become no-ops.
   // ==========================================================
 
   const {
@@ -1940,7 +2615,7 @@ export async function completeRegistration(
   } =
     await supabase
       .from(
-        "pending_registrations"
+        "pending_registrations",
       )
       .update({
         completed:
@@ -1954,10 +2629,34 @@ export async function completeRegistration(
 
         organisation_id:
           organisationId,
+
+        billing_model:
+          billingModel,
+
+        billing_package:
+          billingPackage,
+
+        selected_modules:
+          billingModel ===
+            "modular"
+            ? modules
+            : null,
+
+        requested_ai_tier:
+          requestedAiTier,
+
+        effective_ai_tier:
+          effectiveAiTier,
+
+        monthly_total_pence:
+          monthlyTotalPence,
+
+        billing_version:
+          billingVersion,
       })
       .eq(
         "id",
-        registrationId
+        registrationId,
       );
 
   if (
@@ -1965,7 +2664,7 @@ export async function completeRegistration(
   ) {
     throw new Error(
       completeError
-        .message
+        .message,
     );
   }
 
@@ -1984,6 +2683,20 @@ export async function completeRegistration(
 
       subscriptionTier,
 
+      billingModel,
+
+      billingPackage,
+
+      modules,
+
+      requestedAiTier,
+
+      effectiveAiTier,
+
+      monthlyTotalPence,
+
+      billingVersion,
+
       email:
         registration
           .email,
@@ -1995,13 +2708,11 @@ export async function completeRegistration(
       stripeCustomerId,
 
       stripeSubscriptionId,
-    }
+    },
   );
 
   // ==========================================================
   // ADMIN SIGNUP NOTIFICATION
-  //
-  // Notification failure NEVER rolls back customer access.
   // ==========================================================
 
   await sendNewSignupNotification({
@@ -2032,6 +2743,17 @@ export async function completeRegistration(
 
     subscriptionTier,
 
+    billingModel,
+
+    billingPackage,
+
+    modules,
+
+    aiTier:
+      effectiveAiTier,
+
+    monthlyTotalPence,
+
     stripeCustomerId,
 
     stripeSubscriptionId,
@@ -2039,14 +2761,14 @@ export async function completeRegistration(
     stripeSessionId:
       cleanString(
         session
-          ?.stripe_session_id
+          ?.stripe_session_id,
       ) ||
       null,
 
     paymentStatus:
       cleanString(
         session
-          ?.payment_status
+          ?.payment_status,
       ) ||
       null,
   });

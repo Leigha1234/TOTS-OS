@@ -13,6 +13,7 @@ import crypto from "crypto";
 
 import {
   BILLING_PRODUCTS,
+  MODULE_BUNDLE_PRICES,
   type BillingProductKey,
 } from "@/lib/billing-config";
 
@@ -23,10 +24,21 @@ export const runtime =
 // STRIPE
 // ======================================================
 
+const stripeSecretKey =
+  process.env
+    .STRIPE_SECRET_KEY;
+
+if (
+  !stripeSecretKey
+) {
+  throw new Error(
+    "STRIPE_SECRET_KEY is missing",
+  );
+}
+
 const stripe =
   new Stripe(
-    process.env
-      .STRIPE_SECRET_KEY!,
+    stripeSecretKey,
     {
       apiVersion:
         "2025-02-24.acacia",
@@ -37,12 +49,34 @@ const stripe =
 // SUPABASE ADMIN
 // ======================================================
 
+const supabaseUrl =
+  process.env
+    .NEXT_PUBLIC_SUPABASE_URL;
+
+const supabaseServiceRoleKey =
+  process.env
+    .SUPABASE_SERVICE_ROLE_KEY;
+
+if (
+  !supabaseUrl
+) {
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_URL is missing",
+  );
+}
+
+if (
+  !supabaseServiceRoleKey
+) {
+  throw new Error(
+    "SUPABASE_SERVICE_ROLE_KEY is missing",
+  );
+}
+
 const supabase =
   createClient(
-    process.env
-      .NEXT_PUBLIC_SUPABASE_URL!,
-    process.env
-      .SUPABASE_SERVICE_ROLE_KEY!,
+    supabaseUrl,
+    supabaseServiceRoleKey,
   );
 
 // ======================================================
@@ -85,13 +119,16 @@ type AiTierKey =
   | "plus"
   | "pro";
 
-type PriceVariant =
-  | "standard"
-  | "bundle_10"
-  | "bundle_20";
-
 type PackageType =
   | "modular"
+  | "complete";
+
+type ModularBundle =
+  | "single"
+  | "bundle_2"
+  | "bundle_3"
+  | "bundle_4"
+  | "bundle_5"
   | "complete";
 
 type BillingSelection =
@@ -125,6 +162,9 @@ type BillingSelection =
 
       bundleVariant:
         "legacy";
+
+      billingVersion:
+        "legacy";
     }
   | {
       billingModel:
@@ -155,7 +195,10 @@ type BillingSelection =
         number;
 
       bundleVariant:
-        PriceVariant | "complete";
+        ModularBundle;
+
+      billingVersion:
+        "v2";
     };
 
 // ======================================================
@@ -189,7 +232,7 @@ const COMPLETE_PRICE =
     .amount;
 
 // ======================================================
-// AI KEY MAPPING
+// AI PRODUCT MAPPING
 // ======================================================
 
 const AI_PRODUCT_KEYS: Record<
@@ -361,31 +404,28 @@ function normalisePackage(
 }
 
 // ======================================================
-// BUILD STRIPE LOOKUP KEY
+// V2 STRIPE LOOKUP KEYS
 // ======================================================
 
-function buildLookupKey(
+function buildProductLookupKey(
   billingKey: string,
-  variant: PriceVariant,
 ) {
-  return `tots_${billingKey}_monthly_${variant}`;
+  return `tots_v2_${billingKey}_monthly`;
+}
+
+function buildBundleLookupKey(
+  moduleCount: number,
+) {
+  return `tots_v2_bundle_${moduleCount}_monthly`;
 }
 
 // ======================================================
-// GET STRIPE PRICE FROM LOOKUP KEY
+// GET STRIPE PRICE
 // ======================================================
 
-async function getStripePrice(
-  billingKey: BillingProductKey,
-  variant: PriceVariant =
-    "standard",
+async function getStripePriceByLookupKey(
+  lookupKey: string,
 ) {
-  const lookupKey =
-    buildLookupKey(
-      billingKey,
-      variant,
-    );
-
   const prices =
     await stripe.prices.list(
       {
@@ -404,9 +444,11 @@ async function getStripePrice(
   const price =
     prices.data[0];
 
-  if (!price) {
+  if (
+    !price
+  ) {
     throw new Error(
-      `Stripe price not found for ${billingKey} (${variant}). Run the Stripe billing sync first.`,
+      `Stripe price not found for ${lookupKey}. Run the TOTS-OS v2 Stripe sync first.`,
     );
   }
 
@@ -414,62 +456,110 @@ async function getStripePrice(
 }
 
 // ======================================================
-// BUNDLE VARIANT
+// GET NORMAL PRODUCT PRICE
+// ======================================================
+
+async function getProductPrice(
+  billingKey:
+    BillingProductKey,
+) {
+  return getStripePriceByLookupKey(
+    buildProductLookupKey(
+      billingKey,
+    ),
+  );
+}
+
+// ======================================================
+// GET MODULE BUNDLE PRICE
+// ======================================================
+
+async function getModuleBundleStripePrice(
+  moduleCount: number,
+) {
+  if (
+    moduleCount < 2 ||
+    moduleCount > 5
+  ) {
+    throw new Error(
+      `Invalid module bundle size: ${moduleCount}`,
+    );
+  }
+
+  return getStripePriceByLookupKey(
+    buildBundleLookupKey(
+      moduleCount,
+    ),
+  );
+}
+
+// ======================================================
+// GET FIXED MODULE TOTAL
+// ======================================================
+
+function getModuleBundleAmount(
+  moduleCount: number,
+) {
+  if (
+    moduleCount <= 0
+  ) {
+    return 0;
+  }
+
+  if (
+    moduleCount >= 6
+  ) {
+    return COMPLETE_PRICE;
+  }
+
+  return MODULE_BUNDLE_PRICES[
+    moduleCount as
+      | 1
+      | 2
+      | 3
+      | 4
+      | 5
+  ];
+}
+
+// ======================================================
+// GET BUNDLE NAME
 // ======================================================
 
 function getBundleVariant(
   moduleCount: number,
-): PriceVariant {
+): ModularBundle {
+  if (
+    moduleCount >= 6
+  ) {
+    return "complete";
+  }
+
   if (
     moduleCount === 5
   ) {
-    return "bundle_20";
+    return "bundle_5";
   }
 
   if (
-    moduleCount === 3 ||
     moduleCount === 4
   ) {
-    return "bundle_10";
-  }
-
-  return "standard";
-}
-
-// ======================================================
-// DISCOUNTED MODULE AMOUNT
-// ======================================================
-
-function getModuleAmount(
-  moduleKey: ModuleKey,
-  variant: PriceVariant,
-) {
-  const standardAmount =
-    BILLING_PRODUCTS[
-      moduleKey
-    ].amount;
-
-  if (
-    variant ===
-    "bundle_10"
-  ) {
-    return Math.round(
-      standardAmount *
-        0.9,
-    );
+    return "bundle_4";
   }
 
   if (
-    variant ===
-    "bundle_20"
+    moduleCount === 3
   ) {
-    return Math.round(
-      standardAmount *
-        0.8,
-    );
+    return "bundle_3";
   }
 
-  return standardAmount;
+  if (
+    moduleCount === 2
+  ) {
+    return "bundle_2";
+  }
+
+  return "single";
 }
 
 // ======================================================
@@ -477,7 +567,8 @@ function getModuleAmount(
 // ======================================================
 
 function getAiAmount(
-  aiTier: AiTierKey,
+  aiTier:
+    AiTierKey,
 ) {
   if (
     aiTier ===
@@ -486,13 +577,13 @@ function getAiAmount(
     return 0;
   }
 
-  const key =
+  const productKey =
     AI_PRODUCT_KEYS[
       aiTier
     ];
 
   return BILLING_PRODUCTS[
-    key
+    productKey
   ].amount;
 }
 
@@ -503,8 +594,11 @@ function getAiAmount(
 function resolveLegacyPlan(
   rawTier: unknown,
 ): {
-  tier: LegacySubscriptionTier;
-  priceId: string;
+  tier:
+    LegacySubscriptionTier;
+
+  priceId:
+    string;
 } {
   const tier =
     String(
@@ -621,6 +715,7 @@ function isLegacyRequest(
     ) ||
     body.package != null ||
     body.aiTier != null ||
+    body.ai != null ||
     body.billingModel ===
       "modular";
 
@@ -691,6 +786,69 @@ async function resolveLegacySelection(
 
     bundleVariant:
       "legacy",
+
+    billingVersion:
+      "legacy",
+  };
+}
+
+// ======================================================
+// COMPLETE SELECTION
+// ======================================================
+
+async function resolveCompleteSelection(
+  requestedAiTier:
+    AiTierKey,
+): Promise<BillingSelection> {
+  const completePrice =
+    await getProductPrice(
+      "complete",
+    );
+
+  return {
+    billingModel:
+      "modular",
+
+    subscriptionTier:
+      "complete",
+
+    packageType:
+      "complete",
+
+    modules:
+      [...MAIN_MODULE_KEYS],
+
+    requestedAiTier,
+
+    // Complete includes Clarity AI Starter.
+    effectiveAiTier:
+      "starter",
+
+    // Plus or Pro can be offered as an upgrade later.
+    aiUpgradeSuggested:
+      requestedAiTier ===
+        "plus" ||
+      requestedAiTier ===
+        "pro",
+
+    lineItems: [
+      {
+        price:
+          completePrice.id,
+
+        quantity:
+          1,
+      },
+    ],
+
+    monthlyTotal:
+      COMPLETE_PRICE,
+
+    bundleVariant:
+      "complete",
+
+    billingVersion:
+      "v2",
   };
 }
 
@@ -721,63 +879,20 @@ async function resolveModularSelection(
     );
 
   // ==================================================
-  // COMPLETE WAS EXPLICITLY SELECTED
+  // EXPLICIT COMPLETE
   // ==================================================
 
   if (
     requestedPackage ===
     "complete"
   ) {
-    const completePrice =
-      await getStripePrice(
-        "complete",
-        "standard",
-      );
-
-    return {
-      billingModel:
-        "modular",
-
-      subscriptionTier:
-        "complete",
-
-      packageType:
-        "complete",
-
-      modules:
-        [...MAIN_MODULE_KEYS],
-
+    return resolveCompleteSelection(
       requestedAiTier,
-
-      effectiveAiTier:
-        "starter",
-
-      aiUpgradeSuggested:
-        requestedAiTier ===
-          "plus" ||
-        requestedAiTier ===
-          "pro",
-
-      lineItems: [
-        {
-          price:
-            completePrice.id,
-
-          quantity:
-            1,
-        },
-      ],
-
-      monthlyTotal:
-        COMPLETE_PRICE,
-
-      bundleVariant:
-        "complete",
-    };
+    );
   }
 
   // ==================================================
-  // MUST HAVE AT LEAST ONE MAIN MODULE
+  // MUST SELECT AT LEAST ONE MODULE
   // ==================================================
 
   if (
@@ -792,129 +907,77 @@ async function resolveModularSelection(
   const moduleCount =
     requestedModules.length;
 
-  const bundleVariant =
-    getBundleVariant(
+  // ==================================================
+  // SIX MODULES = COMPLETE
+  // ==================================================
+
+  if (
+    moduleCount ===
+    MAIN_MODULE_KEYS.length
+  ) {
+    return resolveCompleteSelection(
+      requestedAiTier,
+    );
+  }
+
+  // ==================================================
+  // FIXED MODULE BUNDLE TOTAL
+  // ==================================================
+
+  const moduleTotal =
+    getModuleBundleAmount(
       moduleCount,
     );
 
   // ==================================================
-  // CALCULATE MODULE TOTAL
+  // OPTIONAL AI ADD-ON
   // ==================================================
 
-  const discountedModuleTotal =
-    requestedModules.reduce(
-      (
-        total,
-        moduleKey,
-      ) =>
-        total +
-        getModuleAmount(
-          moduleKey,
-          bundleVariant,
-        ),
-      0,
-    );
-
-  // ==================================================
-  // CALCULATE AI TOTAL
-  // ==================================================
-
-  const requestedAiAmount =
+  const aiTotal =
     getAiAmount(
       requestedAiTier,
     );
 
-  const modularTotal =
-    discountedModuleTotal +
-    requestedAiAmount;
+  const monthlyTotal =
+    moduleTotal +
+    aiTotal;
 
   // ==================================================
-  // COMPLETE RULE
-  //
-  // Complete is used when:
-  //
-  // - all 6 modules are selected
-  // - OR modular selection reaches £199
-  // ==================================================
-
-  const shouldUseComplete =
-    moduleCount ===
-      MAIN_MODULE_KEYS.length ||
-    modularTotal >=
-      COMPLETE_PRICE;
-
-  if (
-    shouldUseComplete
-  ) {
-    const completePrice =
-      await getStripePrice(
-        "complete",
-        "standard",
-      );
-
-    return {
-      billingModel:
-        "modular",
-
-      subscriptionTier:
-        "complete",
-
-      packageType:
-        "complete",
-
-      modules:
-        [...MAIN_MODULE_KEYS],
-
-      requestedAiTier,
-
-      effectiveAiTier:
-        "starter",
-
-      aiUpgradeSuggested:
-        requestedAiTier ===
-          "plus" ||
-        requestedAiTier ===
-          "pro",
-
-      lineItems: [
-        {
-          price:
-            completePrice.id,
-
-          quantity:
-            1,
-        },
-      ],
-
-      monthlyTotal:
-        COMPLETE_PRICE,
-
-      bundleVariant:
-        "complete",
-    };
-  }
-
-  // ==================================================
-  // BUILD MODULE LINE ITEMS
+  // STRIPE MODULE LINE ITEM
   // ==================================================
 
   const moduleLineItems:
     Stripe.Checkout.SessionCreateParams.LineItem[] =
     [];
 
-  for (
-    const moduleKey of requestedModules
+  // ==================================================
+  // SINGLE MODULE
+  // ==================================================
+
+  if (
+    moduleCount ===
+    1
   ) {
-    const price =
-      await getStripePrice(
+    const moduleKey =
+      requestedModules[0];
+
+    if (
+      !moduleKey
+    ) {
+      throw new Error(
+        "Unable to resolve selected module.",
+      );
+    }
+
+    const modulePrice =
+      await getProductPrice(
         moduleKey,
-        bundleVariant,
       );
 
     moduleLineItems.push(
       {
         price:
-          price.id,
+          modulePrice.id,
 
         quantity:
           1,
@@ -923,7 +986,31 @@ async function resolveModularSelection(
   }
 
   // ==================================================
-  // ADD AI LINE ITEM
+  // 2–5 MODULE FIXED BUNDLE
+  // ==================================================
+
+  if (
+    moduleCount >= 2 &&
+    moduleCount <= 5
+  ) {
+    const bundlePrice =
+      await getModuleBundleStripePrice(
+        moduleCount,
+      );
+
+    moduleLineItems.push(
+      {
+        price:
+          bundlePrice.id,
+
+        quantity:
+          1,
+      },
+    );
+  }
+
+  // ==================================================
+  // AI LINE ITEM
   // ==================================================
 
   const lineItems =
@@ -939,9 +1026,8 @@ async function resolveModularSelection(
       ];
 
     const aiPrice =
-      await getStripePrice(
+      await getProductPrice(
         aiProductKey,
-        "standard",
       );
 
     lineItems.push(
@@ -978,10 +1064,15 @@ async function resolveModularSelection(
 
     lineItems,
 
-    monthlyTotal:
-      modularTotal,
+    monthlyTotal,
 
-    bundleVariant,
+    bundleVariant:
+      getBundleVariant(
+        moduleCount,
+      ),
+
+    billingVersion:
+      "v2",
   };
 }
 
@@ -1015,7 +1106,8 @@ async function resolveBillingSelection(
 // ======================================================
 
 export async function POST(
-  request: NextRequest,
+  request:
+    NextRequest,
 ) {
   try {
     // ==================================================
@@ -1061,7 +1153,7 @@ export async function POST(
         : null;
 
     // ==================================================
-    // VALIDATE REQUIRED FIELDS
+    // REQUIRED FIELDS
     // ==================================================
 
     if (
@@ -1083,7 +1175,7 @@ export async function POST(
     }
 
     // ==================================================
-    // VALIDATE EMAIL
+    // EMAIL VALIDATION
     // ==================================================
 
     const emailIsValid =
@@ -1107,7 +1199,7 @@ export async function POST(
     }
 
     // ==================================================
-    // VALIDATE PASSWORD
+    // PASSWORD VALIDATION
     // ==================================================
 
     if (
@@ -1127,27 +1219,8 @@ export async function POST(
     }
 
     // ==================================================
-    // RESOLVE TRUSTED SERVER-SIDE BILLING
+    // SERVER-SIDE BILLING RESOLUTION
     // ==================================================
-
-    /*
-     * IMPORTANT:
-     *
-     * The browser NEVER sends a trusted Stripe Price ID.
-     *
-     * It only sends:
-     *
-     * package
-     * modules
-     * aiTier
-     *
-     * The server decides:
-     *
-     * - bundle discount
-     * - Complete threshold
-     * - Stripe lookup keys
-     * - actual Stripe Price IDs
-     */
 
     const selection =
       await resolveBillingSelection(
@@ -1202,10 +1275,6 @@ export async function POST(
       );
     }
 
-    // ==================================================
-    // DELETE OLD PENDING REGISTRATION
-    // ==================================================
-
     if (
       existingPending
     ) {
@@ -1256,25 +1325,14 @@ export async function POST(
     // ==================================================
     // CREATE PENDING REGISTRATION
     // ==================================================
-
-    /*
-     * We keep using subscription_tier for compatibility
-     * with your existing database for now.
-     *
-     * New registrations will contain:
-     *
-     * modular
-     * complete
-     *
-     * Legacy registrations can still contain:
-     *
-     * standard
-     * professional
-     * elite
-     *
-     * The actual module selection is also placed into
-     * Stripe Checkout + Subscription metadata below.
-     */
+    //
+    // IMPORTANT:
+    //
+    // subscription_tier remains ONLY for legacy plans.
+    //
+    // Modular registrations use the new billing fields.
+    //
+    // ==================================================
 
     const {
       data:
@@ -1302,9 +1360,47 @@ export async function POST(
           job_title:
             jobTitle,
 
+          // ============================================
+          // LEGACY COMPATIBILITY
+          // ============================================
+
           subscription_tier:
+            selection.billingModel ===
+            "legacy_tier"
+              ? selection.subscriptionTier
+              : null,
+
+          // ============================================
+          // BILLING V2
+          // ============================================
+
+          billing_model:
             selection
-              .subscriptionTier,
+              .billingModel,
+
+          billing_package:
+            selection
+              .packageType,
+
+          selected_modules:
+            selection
+              .modules,
+
+          requested_ai_tier:
+            selection
+              .requestedAiTier,
+
+          effective_ai_tier:
+            selection
+              .effectiveAiTier,
+
+          monthly_total_pence:
+            selection
+              .monthlyTotal,
+
+          billing_version:
+            selection
+              .billingVersion,
 
           completed:
             false,
@@ -1372,6 +1468,9 @@ export async function POST(
       registration_id:
         pendingRegistration.id,
 
+      // Stripe metadata may safely use modular / complete.
+      // We simply avoid storing those values in the old
+      // database subscription_tier column.
       subscription_tier:
         selection
           .subscriptionTier,
@@ -1411,6 +1510,10 @@ export async function POST(
             .monthlyTotal,
         ),
 
+      billing_version:
+        selection
+          .billingVersion,
+
       trial_days:
         String(
           TRIAL_DAYS,
@@ -1429,29 +1532,21 @@ export async function POST(
         .checkout
         .sessions
         .create({
-          // ============================================
-          // SUBSCRIPTION
-          // ============================================
-
           mode:
             "subscription",
-
-          // ============================================
-          // PROMO CODES
-          // ============================================
 
           allow_promotion_codes:
             true,
 
           // ============================================
-          // NO CARD REQUIRED TO START TRIAL
+          // FREE TRIAL CAN START WITHOUT CARD
           // ============================================
 
           payment_method_collection:
             "if_required",
 
           // ============================================
-          // TRUSTED SERVER-GENERATED LINE ITEMS
+          // TRUSTED SERVER-GENERATED PRICES
           // ============================================
 
           line_items:
@@ -1485,20 +1580,12 @@ export async function POST(
           metadata,
 
           // ============================================
-          // SUBSCRIPTION CONFIG
+          // SUBSCRIPTION
           // ============================================
 
           subscription_data: {
-            // ==========================================
-            // 14-DAY FREE TRIAL
-            // ==========================================
-
             trial_period_days:
               TRIAL_DAYS,
-
-            // ==========================================
-            // IF NO CARD IS ADDED BY DAY 14
-            // ==========================================
 
             trial_settings: {
               end_behavior: {
@@ -1506,10 +1593,6 @@ export async function POST(
                   "pause",
               },
             },
-
-            // ==========================================
-            // COPY BILLING METADATA TO SUBSCRIPTION
-            // ==========================================
 
             metadata,
           },
@@ -1576,7 +1659,7 @@ export async function POST(
     // ==================================================
 
     console.log(
-      "Stripe trial checkout session created:",
+      "Stripe checkout session created:",
       {
         sessionId:
           session.id,
@@ -1587,6 +1670,10 @@ export async function POST(
         billingModel:
           selection
             .billingModel,
+
+        billingVersion:
+          selection
+            .billingVersion,
 
         packageType:
           selection
@@ -1638,6 +1725,10 @@ export async function POST(
         billingModel:
           selection
             .billingModel,
+
+        billingVersion:
+          selection
+            .billingVersion,
 
         package:
           selection

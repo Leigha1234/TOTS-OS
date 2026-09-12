@@ -22,15 +22,113 @@ const stripe =
     stripeSecretKey,
   );
 
+// ======================================================
+// TYPES
+// ======================================================
+
+type PriceVariant =
+  | "standard"
+  | "bundle_10"
+  | "bundle_20";
+
+type SyncedPrice = {
+  variant: PriceVariant;
+  priceId: string;
+  amount: number;
+  created: boolean;
+};
+
+// ======================================================
+// MAIN MODULES
+// ======================================================
+
+const MAIN_MODULE_KEYS: BillingProductKey[] = [
+  "core",
+  "clientsProjects",
+  "finance",
+  "social",
+  "email",
+  "store",
+];
+
+// ======================================================
+// PRICE HELPERS
+// ======================================================
+
+function getPriceVariants(
+  key: BillingProductKey,
+  standardAmount: number,
+): Array<{
+  variant: PriceVariant;
+  amount: number;
+}> {
+  // AI + Complete do NOT get module bundle discounts
+  if (
+    !MAIN_MODULE_KEYS.includes(
+      key,
+    )
+  ) {
+    return [
+      {
+        variant:
+          "standard",
+        amount:
+          standardAmount,
+      },
+    ];
+  }
+
+  return [
+    {
+      variant:
+        "standard",
+      amount:
+        standardAmount,
+    },
+    {
+      variant:
+        "bundle_10",
+      amount:
+        Math.round(
+          standardAmount *
+            0.9,
+        ),
+    },
+    {
+      variant:
+        "bundle_20",
+      amount:
+        Math.round(
+          standardAmount *
+            0.8,
+        ),
+    },
+  ];
+}
+
+// ======================================================
+// LOOKUP KEY
+// ======================================================
+
+function buildLookupKey(
+  billingKey: string,
+  variant: PriceVariant,
+) {
+  return `tots_${billingKey}_monthly_${variant}`;
+}
+
+// ======================================================
+// SYNC
+// ======================================================
+
 async function syncStripeProducts() {
   try {
     const results: Array<{
       key: BillingProductKey;
       name: string;
       productId: string;
-      priceId: string;
       createdProduct: boolean;
-      createdPrice: boolean;
+      prices: SyncedPrice[];
     }> = [];
 
     const productKeys =
@@ -38,9 +136,13 @@ async function syncStripeProducts() {
         BILLING_PRODUCTS,
       ) as BillingProductKey[];
 
-    for (const key of productKeys) {
+    for (
+      const key of productKeys
+    ) {
       const config =
-        BILLING_PRODUCTS[key];
+        BILLING_PRODUCTS[
+          key
+        ];
 
       let product:
         Stripe.Product | null =
@@ -49,11 +151,8 @@ async function syncStripeProducts() {
       let createdProduct =
         false;
 
-      let createdPrice =
-        false;
-
       // ============================================
-      // 1. LOOK FOR EXISTING PRODUCT
+      // 1. FIND EXISTING PRODUCT
       // ============================================
 
       const productSearch =
@@ -65,7 +164,8 @@ async function syncStripeProducts() {
         );
 
       product =
-        productSearch.data[0] ??
+        productSearch
+          .data[0] ??
         null;
 
       // ============================================
@@ -79,7 +179,8 @@ async function syncStripeProducts() {
               name:
                 config.name,
 
-              active: true,
+              active:
+                true,
 
               metadata: {
                 tots_billing_key:
@@ -99,10 +200,10 @@ async function syncStripeProducts() {
       }
 
       // ============================================
-      // 3. LOOK FOR MATCHING MONTHLY PRICE
+      // 3. GET ACTIVE PRICES
       // ============================================
 
-      const prices =
+      const existingPrices =
         await stripe.prices.list(
           {
             product:
@@ -116,85 +217,179 @@ async function syncStripeProducts() {
           },
         );
 
-      let matchingPrice =
-        prices.data.find(
-          (price) =>
-            price.currency ===
-              "gbp" &&
-            price.unit_amount ===
-              config.amount &&
-            price.recurring
-              ?.interval ===
-              "month",
+      const priceResults:
+        SyncedPrice[] =
+        [];
+
+      const variants =
+        getPriceVariants(
+          key,
+          config.amount,
         );
 
       // ============================================
-      // 4. CREATE PRICE IF MISSING
+      // 4. SYNC EACH PRICE VARIANT
       // ============================================
 
-      if (!matchingPrice) {
-        matchingPrice =
-          await stripe.prices.create(
+      for (
+        const variantConfig of variants
+      ) {
+        const {
+          variant,
+          amount,
+        } =
+          variantConfig;
+
+        const lookupKey =
+          buildLookupKey(
+            key,
+            variant,
+          );
+
+        // ==========================================
+        // TRY LOOKUP KEY FIRST
+        // ==========================================
+
+        const lookupPrices =
+          await stripe.prices.list(
             {
-              product:
-                product.id,
+              lookup_keys: [
+                lookupKey,
+              ],
 
-              currency:
-                "gbp",
+              active:
+                true,
 
-              unit_amount:
-                config.amount,
-
-              recurring: {
-                interval:
-                  "month",
-              },
-
-              metadata: {
-                tots_billing_key:
-                  key,
-
-                tots_billing_model:
-                  "modular",
-
-                tots_source:
-                  "tots-os",
-              },
+              limit:
+                10,
             },
           );
 
-        createdPrice =
-          true;
+        let matchingPrice =
+          lookupPrices
+            .data[0];
+
+        // ==========================================
+        // FALLBACK:
+        // MATCH EXISTING PRICE BY AMOUNT
+        // ==========================================
+
+        if (
+          !matchingPrice
+        ) {
+          matchingPrice =
+            existingPrices.data.find(
+              (
+                price,
+              ) =>
+                price.currency ===
+                  "gbp" &&
+                price.unit_amount ===
+                  amount &&
+                price.recurring
+                  ?.interval ===
+                  "month",
+            );
+        }
+
+        // ==========================================
+        // CREATE IF MISSING
+        // ==========================================
+
+        let created =
+          false;
+
+        if (
+          !matchingPrice
+        ) {
+          matchingPrice =
+            await stripe.prices.create(
+              {
+                product:
+                  product.id,
+
+                currency:
+                  "gbp",
+
+                unit_amount:
+                  amount,
+
+                recurring: {
+                  interval:
+                    "month",
+                },
+
+                lookup_key:
+                  lookupKey,
+
+                metadata: {
+                  tots_billing_key:
+                    key,
+
+                  tots_price_variant:
+                    variant,
+
+                  tots_billing_model:
+                    "modular",
+
+                  tots_source:
+                    "tots-os",
+                },
+              },
+            );
+
+          created =
+            true;
+        }
+
+        priceResults.push(
+          {
+            variant,
+
+            priceId:
+              matchingPrice.id,
+
+            amount,
+
+            created,
+          },
+        );
       }
 
       // ============================================
-      // 5. SAVE RESULT
+      // 5. SAVE PRODUCT RESULT
       // ============================================
 
       results.push({
         key,
+
         name:
           config.name,
+
         productId:
           product.id,
-        priceId:
-          matchingPrice.id,
+
         createdProduct,
-        createdPrice,
+
+        prices:
+          priceResults,
       });
     }
 
     return NextResponse.json(
       {
-        success: true,
+        success:
+          true,
 
         message:
-          "Stripe billing products synced successfully.",
+          "Stripe billing products and bundle prices synced successfully.",
 
         results,
       },
     );
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
       "[BILLING SYNC] Failed:",
       error,
@@ -202,26 +397,37 @@ async function syncStripeProducts() {
 
     return NextResponse.json(
       {
-        success: false,
+        success:
+          false,
 
         error:
-          error instanceof Error
+          error instanceof
+            Error
             ? error.message
             : "Unable to sync Stripe billing products.",
       },
       {
-        status: 500,
+        status:
+          500,
       },
     );
   }
 }
 
-// Lets Stripe sync be triggered normally
+// ======================================================
+// POST
+// ======================================================
+
 export async function POST() {
   return syncStripeProducts();
 }
 
-// TEMPORARY: lets you trigger it by opening the URL in Safari
+// ======================================================
+// TEMPORARY GET
+//
+// Remove this once setup is finished.
+// ======================================================
+
 export async function GET() {
   return syncStripeProducts();
 }

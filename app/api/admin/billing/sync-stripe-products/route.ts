@@ -6,6 +6,8 @@ import {
   type BillingProductKey,
 } from "@/lib/billing-config";
 
+export const runtime = "nodejs";
+
 const stripeSecretKey =
   process.env.STRIPE_SECRET_KEY;
 
@@ -20,7 +22,7 @@ const stripe =
     stripeSecretKey,
   );
 
-export async function POST() {
+async function syncStripeProducts() {
   try {
     const results: Array<{
       key: BillingProductKey;
@@ -36,13 +38,9 @@ export async function POST() {
         BILLING_PRODUCTS,
       ) as BillingProductKey[];
 
-    for (
-      const key of productKeys
-    ) {
+    for (const key of productKeys) {
       const config =
-        BILLING_PRODUCTS[
-          key
-        ];
+        BILLING_PRODUCTS[key];
 
       let product:
         Stripe.Product | null =
@@ -120,9 +118,7 @@ export async function POST() {
 
       let matchingPrice =
         prices.data.find(
-          (
-            price,
-          ) =>
+          (price) =>
             price.currency ===
               "gbp" &&
             price.unit_amount ===
@@ -136,9 +132,7 @@ export async function POST() {
       // 4. CREATE PRICE IF MISSING
       // ============================================
 
-      if (
-        !matchingPrice
-      ) {
+      if (!matchingPrice) {
         matchingPrice =
           await stripe.prices.create(
             {
@@ -179,26 +173,20 @@ export async function POST() {
 
       results.push({
         key,
-
         name:
           config.name,
-
         productId:
           product.id,
-
         priceId:
           matchingPrice.id,
-
         createdProduct,
-
         createdPrice,
       });
     }
 
     return NextResponse.json(
       {
-        success:
-          true,
+        success: true,
 
         message:
           "Stripe billing products synced successfully.",
@@ -206,9 +194,7 @@ export async function POST() {
         results,
       },
     );
-  } catch (
-    error
-  ) {
+  } catch (error) {
     console.error(
       "[BILLING SYNC] Failed:",
       error,
@@ -216,19 +202,26 @@ export async function POST() {
 
     return NextResponse.json(
       {
-        success:
-          false,
+        success: false,
 
         error:
-          error instanceof
-            Error
+          error instanceof Error
             ? error.message
             : "Unable to sync Stripe billing products.",
       },
       {
-        status:
-          500,
+        status: 500,
       },
     );
   }
+}
+
+// Lets Stripe sync be triggered normally
+export async function POST() {
+  return syncStripeProducts();
+}
+
+// TEMPORARY: lets you trigger it by opening the URL in Safari
+export async function GET() {
+  return syncStripeProducts();
 }

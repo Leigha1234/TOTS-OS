@@ -63,45 +63,31 @@ function getPriceVariants(
   amount: number;
 }> {
   // AI + Complete do NOT get module bundle discounts
-  if (
-    !MAIN_MODULE_KEYS.includes(
-      key,
-    )
-  ) {
+  if (!MAIN_MODULE_KEYS.includes(key)) {
     return [
       {
-        variant:
-          "standard",
-        amount:
-          standardAmount,
+        variant: "standard",
+        amount: standardAmount,
       },
     ];
   }
 
   return [
     {
-      variant:
-        "standard",
-      amount:
-        standardAmount,
+      variant: "standard",
+      amount: standardAmount,
     },
     {
-      variant:
-        "bundle_10",
-      amount:
-        Math.round(
-          standardAmount *
-            0.9,
-        ),
+      variant: "bundle_10",
+      amount: Math.round(
+        standardAmount * 0.9,
+      ),
     },
     {
-      variant:
-        "bundle_20",
-      amount:
-        Math.round(
-          standardAmount *
-            0.8,
-        ),
+      variant: "bundle_20",
+      amount: Math.round(
+        standardAmount * 0.8,
+      ),
     },
   ];
 }
@@ -136,13 +122,9 @@ async function syncStripeProducts() {
         BILLING_PRODUCTS,
       ) as BillingProductKey[];
 
-    for (
-      const key of productKeys
-    ) {
+    for (const key of productKeys) {
       const config =
-        BILLING_PRODUCTS[
-          key
-        ];
+        BILLING_PRODUCTS[key];
 
       let product:
         Stripe.Product | null =
@@ -164,8 +146,7 @@ async function syncStripeProducts() {
         );
 
       product =
-        productSearch
-          .data[0] ??
+        productSearch.data[0] ??
         null;
 
       // ============================================
@@ -200,7 +181,7 @@ async function syncStripeProducts() {
       }
 
       // ============================================
-      // 3. GET ACTIVE PRICES
+      // 3. GET ACTIVE PRICES FOR PRODUCT
       // ============================================
 
       const existingPrices =
@@ -231,9 +212,7 @@ async function syncStripeProducts() {
       // 4. SYNC EACH PRICE VARIANT
       // ============================================
 
-      for (
-        const variantConfig of variants
-      ) {
+      for (const variantConfig of variants) {
         const {
           variant,
           amount,
@@ -265,23 +244,19 @@ async function syncStripeProducts() {
             },
           );
 
-        let matchingPrice =
-          lookupPrices
-            .data[0];
+        let matchingPrice:
+          Stripe.Price | undefined =
+          lookupPrices.data[0];
 
         // ==========================================
         // FALLBACK:
-        // MATCH EXISTING PRICE BY AMOUNT
+        // MATCH EXISTING PRODUCT PRICE
         // ==========================================
 
-        if (
-          !matchingPrice
-        ) {
+        if (!matchingPrice) {
           matchingPrice =
             existingPrices.data.find(
-              (
-                price,
-              ) =>
+              (price) =>
                 price.currency ===
                   "gbp" &&
                 price.unit_amount ===
@@ -299,9 +274,7 @@ async function syncStripeProducts() {
         let created =
           false;
 
-        if (
-          !matchingPrice
-        ) {
+        if (!matchingPrice) {
           matchingPrice =
             await stripe.prices.create(
               {
@@ -342,6 +315,10 @@ async function syncStripeProducts() {
             true;
         }
 
+        // ==========================================
+        // SAVE PRICE RESULT
+        // ==========================================
+
         priceResults.push(
           {
             variant,
@@ -360,21 +337,27 @@ async function syncStripeProducts() {
       // 5. SAVE PRODUCT RESULT
       // ============================================
 
-      results.push({
-        key,
+      results.push(
+        {
+          key,
 
-        name:
-          config.name,
+          name:
+            config.name,
 
-        productId:
-          product.id,
+          productId:
+            product.id,
 
-        createdProduct,
+          createdProduct,
 
-        prices:
-          priceResults,
-      });
+          prices:
+            priceResults,
+        },
+      );
     }
+
+    // ==============================================
+    // SUCCESS
+    // ==============================================
 
     return NextResponse.json(
       {
@@ -387,9 +370,7 @@ async function syncStripeProducts() {
         results,
       },
     );
-  } catch (
-    error
-  ) {
+  } catch (error) {
     console.error(
       "[BILLING SYNC] Failed:",
       error,
@@ -401,8 +382,7 @@ async function syncStripeProducts() {
           false,
 
         error:
-          error instanceof
-            Error
+          error instanceof Error
             ? error.message
             : "Unable to sync Stripe billing products.",
       },
@@ -425,7 +405,10 @@ export async function POST() {
 // ======================================================
 // TEMPORARY GET
 //
-// Remove this once setup is finished.
+// This lets you run the sync by opening the URL
+// in your browser.
+//
+// REMOVE THIS once Stripe setup is finished.
 // ======================================================
 
 export async function GET() {

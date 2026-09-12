@@ -17,88 +17,52 @@ import {
   cookies,
 } from "next/headers";
 
-// ============================================================
-// RUNTIME
-// ============================================================
-
-export const runtime =
-  "nodejs";
-
-export const dynamic =
-  "force-dynamic";
-
-// ============================================================
-// ENVIRONMENT
-// ============================================================
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const stripeSecretKey =
-  process.env
-    .STRIPE_SECRET_KEY;
+  process.env.STRIPE_SECRET_KEY;
 
 const supabaseUrl =
-  process.env
-    .NEXT_PUBLIC_SUPABASE_URL;
+  process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 const supabaseAnonKey =
-  process.env
-    .NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const supabaseServiceRoleKey =
-  process.env
-    .SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// ============================================================
-// VALIDATE ENVIRONMENT
-// ============================================================
-
-if (
-  !stripeSecretKey
-) {
+if (!stripeSecretKey) {
   throw new Error(
     "STRIPE_SECRET_KEY is missing.",
   );
 }
 
-if (
-  !supabaseUrl
-) {
+if (!supabaseUrl) {
   throw new Error(
     "NEXT_PUBLIC_SUPABASE_URL is missing.",
   );
 }
 
-if (
-  !supabaseAnonKey
-) {
+if (!supabaseAnonKey) {
   throw new Error(
     "NEXT_PUBLIC_SUPABASE_ANON_KEY is missing.",
   );
 }
 
-if (
-  !supabaseServiceRoleKey
-) {
+if (!supabaseServiceRoleKey) {
   throw new Error(
     "SUPABASE_SERVICE_ROLE_KEY is missing.",
   );
 }
 
-// ============================================================
-// STRIPE
-// ============================================================
-
-const stripe =
-  new Stripe(
-    stripeSecretKey,
-    {
-      apiVersion:
-        "2025-02-24.acacia",
-    },
-  );
-
-// ============================================================
-// TYPES
-// ============================================================
+const stripe = new Stripe(
+  stripeSecretKey,
+  {
+    apiVersion:
+      "2025-02-24.acacia",
+  },
+);
 
 type LegacySubscriptionTier =
   | "standard"
@@ -128,45 +92,25 @@ type BillingPackage =
   | "modular"
   | "complete";
 
-// ============================================================
-// CONSTANTS
-// ============================================================
-
-const MAIN_MODULE_KEYS:
-  ModuleKey[] = [
-    "core",
-    "clientsProjects",
-    "finance",
-    "social",
-    "email",
-    "store",
-  ];
-
-// ============================================================
-// HELPERS
-// ============================================================
+const MAIN_MODULE_KEYS: ModuleKey[] = [
+  "core",
+  "clientsProjects",
+  "finance",
+  "social",
+  "email",
+  "store",
+];
 
 function cleanString(
-  value:
-    unknown,
+  value: unknown,
 ) {
-  if (
-    typeof value !==
-    "string"
-  ) {
-    return "";
-  }
-
-  return value.trim();
+  return typeof value === "string"
+    ? value.trim()
+    : "";
 }
 
-// ============================================================
-// LEGACY TIER
-// ============================================================
-
 function normaliseLegacyTier(
-  value:
-    unknown,
+  value: unknown,
 ):
   | LegacySubscriptionTier
   | null {
@@ -175,80 +119,52 @@ function normaliseLegacyTier(
       value,
     ).toLowerCase();
 
-  if (
-    tier ===
-    "standard"
-  ) {
+  if (tier === "standard") {
     return "standard";
   }
 
   if (
-    tier ===
-      "professional" ||
-    tier ===
-      "premium"
+    tier === "professional" ||
+    tier === "premium"
   ) {
     return "professional";
   }
 
-  if (
-    tier ===
-    "elite"
-  ) {
+  if (tier === "elite") {
     return "elite";
   }
 
   return null;
 }
 
-// ============================================================
-// BILLING MODEL
-// ============================================================
-
 function normaliseBillingModel(
-  value:
-    unknown,
-
+  value: unknown,
   legacyTier:
-    LegacySubscriptionTier |
-    null,
+    | LegacySubscriptionTier
+    | null,
 ): BillingModel {
   const raw =
     cleanString(
       value,
     ).toLowerCase();
 
-  if (
-    raw ===
-    "modular"
-  ) {
+  if (raw === "modular") {
     return "modular";
   }
 
   if (
-    raw ===
-    "legacy_tier"
+    raw === "legacy_tier"
   ) {
     return "legacy_tier";
   }
 
-  if (
-    legacyTier
-  ) {
-    return "legacy_tier";
-  }
-
-  return "modular";
+  return legacyTier
+    ? "legacy_tier"
+    : "modular";
 }
 
-// ============================================================
-// BILLING PACKAGE
-// ============================================================
-
 function normaliseBillingPackage(
-  value:
-    unknown,
-
+  value: unknown,
   billingModel:
     BillingModel,
 ): BillingPackage {
@@ -259,28 +175,16 @@ function normaliseBillingPackage(
     return "legacy";
   }
 
-  const raw =
-    cleanString(
-      value,
-    ).toLowerCase();
-
-  if (
-    raw ===
+  return cleanString(
+    value,
+  ).toLowerCase() ===
     "complete"
-  ) {
-    return "complete";
-  }
-
-  return "modular";
+    ? "complete"
+    : "modular";
 }
 
-// ============================================================
-// AI TIER
-// ============================================================
-
 function normaliseAiTier(
-  value:
-    unknown,
+  value: unknown,
 ): AiTierKey {
   const tier =
     cleanString(
@@ -288,12 +192,9 @@ function normaliseAiTier(
     ).toLowerCase();
 
   if (
-    tier ===
-      "starter" ||
-    tier ===
-      "plus" ||
-    tier ===
-      "pro"
+    tier === "starter" ||
+    tier === "plus" ||
+    tier === "pro"
   ) {
     return tier;
   }
@@ -301,92 +202,49 @@ function normaliseAiTier(
   return "none";
 }
 
-// ============================================================
-// MODULES
-// ============================================================
-
 function normaliseModules(
-  value:
-    unknown,
+  value: unknown,
 ): ModuleKey[] {
-  let raw:
-    unknown[] = [];
+  let raw: unknown[] = [];
 
-  if (
-    Array.isArray(
-      value,
-    )
-  ) {
-    raw =
-      value;
+  if (Array.isArray(value)) {
+    raw = value;
   } else if (
-    typeof value ===
-    "string"
+    typeof value === "string"
   ) {
     raw =
       value
         .split(",")
-        .map(
-          (
-            item,
-          ) =>
-            item.trim(),
+        .map((item) =>
+          item.trim(),
         );
   }
 
   return MAIN_MODULE_KEYS.filter(
-    (
-      moduleKey,
-    ) =>
+    (moduleKey) =>
       raw.some(
-        (
-          valueItem,
-        ) =>
-          cleanString(
-            valueItem,
-          ) ===
+        (item) =>
+          cleanString(item) ===
           moduleKey,
       ),
   );
 }
 
-// ============================================================
-// CUSTOMER ID
-// ============================================================
-
 function getStripeCustomerId(
   subscription:
     Stripe.Subscription,
 ) {
-  if (
-    typeof subscription
-      .customer ===
+  return typeof subscription.customer ===
     "string"
-  ) {
-    return subscription.customer;
-  }
-
-  return (
-    subscription
-      .customer
-      ?.id ||
-    null
-  );
+    ? subscription.customer
+    : subscription.customer?.id ||
+        null;
 }
 
-// ============================================================
-// POST
-// ============================================================
-
 export async function POST(
-  request:
-    NextRequest,
+  request: NextRequest,
 ) {
   try {
-    // ========================================================
-    // AUTHENTICATED SUPABASE CLIENT
-    // ========================================================
-
     const cookieStore =
       await cookies();
 
@@ -397,22 +255,15 @@ export async function POST(
         {
           cookies: {
             getAll() {
-              return cookieStore
-                .getAll();
+              return cookieStore.getAll();
             },
-
             setAll(
               cookiesToSet: {
-                name:
-                  string;
-
-                value:
-                  string;
-
-                options?:
-                  Parameters<
-                    typeof cookieStore.set
-                  >[2];
+                name: string;
+                value: string;
+                options?: Parameters<
+                  typeof cookieStore.set
+                >[2];
               }[],
             ) {
               try {
@@ -430,29 +281,18 @@ export async function POST(
                   },
                 );
               } catch {
-                // Safe to ignore when
-                // cookies cannot be mutated.
+                // Safe to ignore.
               }
             },
           },
         },
       );
 
-    // ========================================================
-    // LOGGED-IN USER
-    // ========================================================
-
     const {
-      data: {
-        user,
-      },
-
-      error:
-        userError,
+      data: { user },
+      error: userError,
     } =
-      await supabase
-        .auth
-        .getUser();
+      await supabase.auth.getUser();
 
     if (
       userError ||
@@ -464,21 +304,13 @@ export async function POST(
             "You must be logged in.",
         },
         {
-          status:
-            401,
+          status: 401,
         },
       );
     }
 
-    // ========================================================
-    // REQUEST
-    // ========================================================
-
     const body =
-      (
-        await request
-          .json()
-      ) as Record<
+      (await request.json()) as Record<
         string,
         unknown
       >;
@@ -488,41 +320,26 @@ export async function POST(
         body.sessionId,
       );
 
-    if (
-      !sessionId
-    ) {
+    if (!sessionId) {
       return NextResponse.json(
         {
           error:
             "Stripe session ID is required.",
         },
         {
-          status:
-            400,
+          status: 400,
         },
       );
     }
 
-    // ========================================================
-    // RETRIEVE CHECKOUT SESSION
-    // ========================================================
-
     const session =
-      await stripe
-        .checkout
-        .sessions
-        .retrieve(
-          sessionId,
-        );
-
-    // ========================================================
-    // VERIFY CHECKOUT TYPE
-    // ========================================================
+      await stripe.checkout.sessions.retrieve(
+        sessionId,
+      );
 
     if (
       cleanString(
-        session
-          .metadata
+        session.metadata
           ?.checkout_type,
       ) !==
       "existing_account"
@@ -533,21 +350,14 @@ export async function POST(
             "This is not an existing-account checkout.",
         },
         {
-          status:
-            400,
+          status: 400,
         },
       );
     }
 
-    // ========================================================
-    // VERIFY USER
-    // ========================================================
-
     const metadataUserId =
       cleanString(
-        session
-          .metadata
-          ?.user_id,
+        session.metadata?.user_id,
       );
 
     if (
@@ -561,89 +371,58 @@ export async function POST(
             "This checkout does not belong to the logged-in account.",
         },
         {
-          status:
-            403,
+          status: 403,
         },
       );
     }
 
-    // ========================================================
-    // ORGANISATION ID
-    // ========================================================
-
     const organisationId =
       cleanString(
-        session
-          .metadata
+        session.metadata
           ?.organisation_id,
       );
 
-    if (
-      !organisationId
-    ) {
+    if (!organisationId) {
       return NextResponse.json(
         {
           error:
             "Organisation metadata is missing.",
         },
         {
-          status:
-            400,
+          status: 400,
         },
       );
     }
 
-    // ========================================================
-    // SUBSCRIPTION
-    // ========================================================
-
     const subscriptionId =
-      typeof session
-        .subscription ===
+      typeof session.subscription ===
       "string"
-        ? session
-            .subscription
-        : session
-            .subscription
-            ?.id ||
+        ? session.subscription
+        : session.subscription?.id ||
           null;
 
-    if (
-      !subscriptionId
-    ) {
+    if (!subscriptionId) {
       return NextResponse.json(
         {
           error:
             "Stripe subscription was not found.",
         },
         {
-          status:
-            400,
+          status: 400,
         },
       );
     }
 
     const subscription =
-      await stripe
-        .subscriptions
-        .retrieve(
-          subscriptionId,
-        );
-
-    // ========================================================
-    // VERIFY SUBSCRIPTION STATUS
-    // ========================================================
-
-    const active =
-      subscription
-        .status ===
-        "active" ||
-      subscription
-        .status ===
-        "trialing";
+      await stripe.subscriptions.retrieve(
+        subscriptionId,
+      );
 
     if (
-      !active
+      subscription.status !==
+        "active" &&
+      subscription.status !==
+        "trialing"
     ) {
       return NextResponse.json(
         {
@@ -651,27 +430,15 @@ export async function POST(
             `Stripe subscription is ${subscription.status}.`,
         },
         {
-          status:
-            400,
+          status: 400,
         },
       );
     }
 
-    // ========================================================
-    // METADATA SOURCE
-    // ========================================================
-
     const subscriptionMetadata =
-      subscription
-        .metadata;
-
+      subscription.metadata;
     const sessionMetadata =
-      session
-        .metadata;
-
-    // ========================================================
-    // LEGACY TIER
-    // ========================================================
+      session.metadata;
 
     const legacyTier =
       normaliseLegacyTier(
@@ -684,10 +451,6 @@ export async function POST(
               ?.subscription_tier,
           ),
       );
-
-    // ========================================================
-    // BILLING MODEL
-    // ========================================================
 
     const billingModel =
       normaliseBillingModel(
@@ -702,10 +465,6 @@ export async function POST(
         legacyTier,
       );
 
-    // ========================================================
-    // BILLING PACKAGE
-    // ========================================================
-
     const billingPackage =
       normaliseBillingPackage(
         cleanString(
@@ -719,10 +478,6 @@ export async function POST(
         billingModel,
       );
 
-    // ========================================================
-    // MODULES
-    // ========================================================
-
     let modules =
       normaliseModules(
         cleanString(
@@ -734,10 +489,6 @@ export async function POST(
               ?.modules,
           ),
       );
-
-    // ========================================================
-    // REQUESTED AI
-    // ========================================================
 
     const requestedAiTier =
       normaliseAiTier(
@@ -751,10 +502,6 @@ export async function POST(
           ),
       );
 
-    // ========================================================
-    // EFFECTIVE AI
-    // ========================================================
-
     let effectiveAiTier =
       normaliseAiTier(
         cleanString(
@@ -767,10 +514,6 @@ export async function POST(
           ),
       );
 
-    // ========================================================
-    // BILLING VERSION
-    // ========================================================
-
     const billingVersion =
       cleanString(
         subscriptionMetadata
@@ -780,16 +523,10 @@ export async function POST(
         sessionMetadata
           ?.billing_version,
       ) ||
-      (
-        billingModel ===
-        "modular"
-          ? "v2"
-          : "legacy"
-      );
-
-    // ========================================================
-    // MONTHLY TOTAL
-    // ========================================================
+      (billingModel ===
+      "modular"
+        ? "v2"
+        : "legacy");
 
     const monthlyTotalPence =
       Math.max(
@@ -804,13 +541,8 @@ export async function POST(
                 ?.monthly_total_pence,
             ) ||
             0,
-        ) ||
-          0,
+        ) || 0,
       );
-
-    // ========================================================
-    // COMPLETE RULES
-    // ========================================================
 
     if (
       billingModel ===
@@ -820,20 +552,14 @@ export async function POST(
     ) {
       modules =
         [...MAIN_MODULE_KEYS];
-
       effectiveAiTier =
         "starter";
     }
 
-    // ========================================================
-    // MODULAR VALIDATION
-    // ========================================================
-
     if (
       billingModel ===
         "modular" &&
-      modules.length ===
-        0
+      modules.length === 0
     ) {
       return NextResponse.json(
         {
@@ -841,38 +567,10 @@ export async function POST(
             "No TOTS-OS modules were found in the Stripe subscription.",
         },
         {
-          status:
-            400,
+          status: 400,
         },
       );
     }
-
-    // ========================================================
-    // ADDITIONAL SEATS
-    // ========================================================
-
-    const additionalSeats =
-      Math.max(
-        0,
-        Math.floor(
-          Number(
-            cleanString(
-              subscriptionMetadata
-                ?.additional_seats,
-            ) ||
-              cleanString(
-                sessionMetadata
-                  ?.additional_seats,
-              ) ||
-              0,
-          ) ||
-            0,
-        ),
-      );
-
-    // ========================================================
-    // ADMIN SUPABASE CLIENT
-    // ========================================================
 
     const admin =
       createClient(
@@ -882,138 +580,67 @@ export async function POST(
           auth: {
             persistSession:
               false,
-
             autoRefreshToken:
               false,
           },
         },
       );
 
-    // ========================================================
-    // LOAD ORGANISATION
-    // ========================================================
-
     const {
-      data:
-        organisation,
-
+      data: organisation,
       error:
         organisationLookupError,
     } =
       await admin
-        .from(
-          "organisations",
-        )
+        .from("organisations")
         .select(
-          `
-            id,
-            name,
-            created_by,
-            subscription_tier,
-            subscription_status,
-            access_status,
-            billing_model,
-            billing_package,
-            clarity_ai_tier,
-            billing_version
-          `,
+          "id,name,created_by",
         )
-        .eq(
-          "id",
-          organisationId,
-        )
+        .eq("id", organisationId)
         .maybeSingle();
 
     if (
       organisationLookupError
     ) {
-      console.error(
-        "Organisation lookup failed:",
-        organisationLookupError,
-      );
-
       throw organisationLookupError;
     }
 
-    if (
-      !organisation
-    ) {
+    if (!organisation) {
       return NextResponse.json(
         {
           error:
             "Organisation could not be found.",
         },
         {
-          status:
-            404,
+          status: 404,
         },
       );
     }
 
-    // ========================================================
-    // VERIFY USER BELONGS TO ORGANISATION
-    // ========================================================
-
     let organisationVerified =
-      false;
+      organisation.created_by ===
+      user.id;
 
-    // --------------------------------------------------------
-    // METHOD 1:
-    // profiles.organisation_id
-    // --------------------------------------------------------
-
-    const {
-      data:
-        profile,
-
-      error:
-        profileLookupError,
-    } =
-      await admin
-        .from(
-          "profiles",
-        )
-        .select(
-          "organisation_id",
-        )
-        .eq(
-          "id",
-          user.id,
-        )
-        .maybeSingle();
-
-    if (
-      profileLookupError
-    ) {
-      console.error(
-        "Profile organisation verification error:",
-        profileLookupError,
-      );
-    }
-
-    if (
-      profile
-        ?.organisation_id ===
-      organisationId
-    ) {
-      organisationVerified =
-        true;
-    }
-
-    // --------------------------------------------------------
-    // METHOD 2:
-    // organisation_members
-    // --------------------------------------------------------
-
-    if (
-      !organisationVerified
-    ) {
+    if (!organisationVerified) {
       const {
-        data:
-          membership,
+        data: profile,
+      } =
+        await admin
+          .from("profiles")
+          .select(
+            "organisation_id",
+          )
+          .eq("id", user.id)
+          .maybeSingle();
 
-        error:
-          membershipError,
+      organisationVerified =
+        profile?.organisation_id ===
+        organisationId;
+    }
+
+    if (!organisationVerified) {
+      const {
+        data: membership,
       } =
         await admin
           .from(
@@ -1030,44 +657,18 @@ export async function POST(
             "organisation_id",
             organisationId,
           )
-          .limit(
-            1,
-          )
+          .limit(1)
           .maybeSingle();
 
-      if (
-        membershipError
-      ) {
-        console.error(
-          "Organisation membership verification error:",
-          membershipError,
-        );
-      }
-
-      if (
+      organisationVerified =
         membership
           ?.organisation_id ===
-        organisationId
-      ) {
-        organisationVerified =
-          true;
-      }
+        organisationId;
     }
 
-    // --------------------------------------------------------
-    // METHOD 3:
-    // user_organisations
-    // --------------------------------------------------------
-
-    if (
-      !organisationVerified
-    ) {
+    if (!organisationVerified) {
       const {
-        data:
-          userOrganisation,
-
-        error:
-          userOrganisationError,
+        data: userOrganisation,
       } =
         await admin
           .from(
@@ -1084,284 +685,143 @@ export async function POST(
             "organisation_id",
             organisationId,
           )
-          .limit(
-            1,
-          )
+          .limit(1)
           .maybeSingle();
 
-      if (
-        userOrganisationError
-      ) {
-        console.error(
-          "User organisation verification error:",
-          userOrganisationError,
-        );
-      }
-
-      if (
+      organisationVerified =
         userOrganisation
           ?.organisation_id ===
-        organisationId
-      ) {
-        organisationVerified =
-          true;
-      }
+        organisationId;
     }
 
-    // --------------------------------------------------------
-    // METHOD 4:
-    // legacy created_by
-    // --------------------------------------------------------
-
-    if (
-      !organisationVerified &&
-      organisation
-        .created_by ===
-        user.id
-    ) {
-      organisationVerified =
-        true;
-    }
-
-    // ========================================================
-    // ORGANISATION VERIFICATION FAILED
-    // ========================================================
-
-    if (
-      !organisationVerified
-    ) {
-      console.error(
-        "[STRIPE VERIFY] User does not belong to organisation:",
-        {
-          userId:
-            user.id,
-
-          organisationId,
-        },
-      );
-
+    if (!organisationVerified) {
       return NextResponse.json(
         {
           error:
             "Organisation could not be verified.",
         },
         {
-          status:
-            403,
+          status: 403,
         },
       );
     }
 
-    // ========================================================
-    // BUILD ORGANISATION UPDATE
-    // ========================================================
-
-    const organisationPayload:
-      Record<
-        string,
-        unknown
-      > = {
-        subscription_status:
-          "active",
-
-        access_status:
-          "active",
-
-        beta_ended_at:
-          null,
-
-        beta_grace_ends_at:
-          null,
-
-        retention_trial_ends_at:
-          null,
-      };
-
-    // ========================================================
-    // LEGACY BILLING
-    // ========================================================
+    const organisationPayload: Record<
+      string,
+      unknown
+    > = {
+      subscription_status:
+        "active",
+      access_status:
+        "active",
+      beta_ended_at:
+        null,
+      beta_grace_ends_at:
+        null,
+      retention_trial_ends_at:
+        null,
+    };
 
     if (
       billingModel ===
-        "legacy_tier"
+      "legacy_tier"
     ) {
-      if (
-        !legacyTier
-      ) {
+      if (!legacyTier) {
         return NextResponse.json(
           {
             error:
               "Legacy subscription tier is invalid.",
           },
           {
-            status:
-              400,
+            status: 400,
           },
         );
       }
 
-      organisationPayload
-        .subscription_tier =
+      organisationPayload.subscription_tier =
         legacyTier;
-
-      organisationPayload
-        .billing_model =
+      organisationPayload.billing_model =
         "legacy_tier";
-
-      organisationPayload
-        .billing_package =
+      organisationPayload.billing_package =
         "legacy";
-
-      organisationPayload
-        .billing_version =
+      organisationPayload.billing_version =
         "legacy";
-    }
-
-    // ========================================================
-    // MODULAR BILLING
-    // ========================================================
-
-    if (
-      billingModel ===
-      "modular"
-    ) {
-      organisationPayload
-        .billing_model =
+    } else {
+      organisationPayload.billing_model =
         "modular";
-
-      organisationPayload
-        .billing_package =
+      organisationPayload.billing_package =
         billingPackage;
-
-      organisationPayload
-        .clarity_ai_tier =
+      organisationPayload.clarity_ai_tier =
         effectiveAiTier;
-
-      organisationPayload
-        .billing_version =
+      organisationPayload.billing_version =
         billingVersion;
-
-      organisationPayload
-        .store_enabled =
-        modules.includes(
-          "store",
-        );
+      organisationPayload.store_enabled =
+        modules.includes("store");
     }
-
-    // ========================================================
-    // ACTIVATE ORGANISATION
-    // ========================================================
 
     const {
       error:
         organisationUpdateError,
     } =
       await admin
-        .from(
-          "organisations",
-        )
+        .from("organisations")
         .update(
           organisationPayload,
         )
         .eq(
           "id",
-          organisation.id,
+          organisationId,
         );
 
     if (
       organisationUpdateError
     ) {
-      console.error(
-        "Organisation activation failed:",
-        organisationUpdateError,
-      );
-
       throw organisationUpdateError;
     }
-
-    // ========================================================
-    // MODULAR ENTITLEMENTS
-    // ========================================================
 
     if (
       billingModel ===
       "modular"
     ) {
       const now =
-        new Date()
-          .toISOString();
-
-      // ======================================================
-      // LOAD EXISTING MODULE ROWS
-      // ======================================================
+        new Date().toISOString();
 
       const {
-        data:
-          existingModuleRows,
-
-        error:
-          existingModulesError,
+        data: currentRows,
+        error: lookupError,
       } =
         await admin
           .from(
             "organisation_modules",
           )
           .select(
-            `
-              id,
-              module_key,
-              status
-            `,
+            "id,module_key",
           )
           .eq(
             "organisation_id",
-            organisation.id,
+            organisationId,
           );
 
-      if (
-        existingModulesError
-      ) {
-        console.error(
-          "Existing module lookup failed:",
-          existingModulesError,
-        );
-
-        throw existingModulesError;
+      if (lookupError) {
+        throw lookupError;
       }
 
-      // ======================================================
-      // CANCEL MODULES NO LONGER SELECTED
-      // ======================================================
-
-      const moduleIdsToCancel =
-        (
-          existingModuleRows ||
-          []
-        )
+      const idsToCancel =
+        (currentRows || [])
           .filter(
-            (
-              row,
-            ) =>
+            (row) =>
               !modules.includes(
-                row
-                  .module_key as
+                row.module_key as
                   ModuleKey,
               ),
           )
-          .map(
-            (
-              row,
-            ) =>
-              row.id,
-          );
+          .map((row) => row.id);
 
       if (
-        moduleIdsToCancel.length >
-        0
+        idsToCancel.length > 0
       ) {
         const {
-          error:
-            cancellationError,
+          error: cancelError,
         } =
           await admin
             .from(
@@ -1370,309 +830,160 @@ export async function POST(
             .update({
               status:
                 "cancelled",
-
               cancelled_at:
                 now,
-
               updated_at:
                 now,
             })
             .in(
               "id",
-              moduleIdsToCancel,
+              idsToCancel,
             );
 
-        if (
-          cancellationError
-        ) {
-          console.error(
-            "Module cancellation failed:",
-            cancellationError,
-          );
-
-          throw cancellationError;
+        if (cancelError) {
+          throw cancelError;
         }
       }
 
-      // ======================================================
-      // UPSERT SELECTED MODULES
-      // ======================================================
-
-      const moduleRows =
-        modules.map(
-          (
-            moduleKey,
-          ) => ({
-            organisation_id:
-              organisation.id,
-
-            module_key:
-              moduleKey,
-
-            status:
-              "active",
-
-            cancelled_at:
-              null,
-
-            updated_at:
-              now,
-          }),
-        );
-
       const {
-        error:
-          moduleUpsertError,
+        error: upsertError,
       } =
         await admin
           .from(
             "organisation_modules",
           )
           .upsert(
-            moduleRows,
+            modules.map(
+              (moduleKey) => ({
+                organisation_id:
+                  organisationId,
+                module_key:
+                  moduleKey,
+                status:
+                  "active",
+                cancelled_at:
+                  null,
+                updated_at:
+                  now,
+              }),
+            ),
             {
               onConflict:
                 "organisation_id,module_key",
             },
           );
 
-      if (
-        moduleUpsertError
-      ) {
-        console.error(
-          "Module entitlement update failed:",
-          moduleUpsertError,
-        );
-
-        throw moduleUpsertError;
+      if (upsertError) {
+        throw upsertError;
       }
     }
 
-    // ========================================================
-    // PROFILE UPDATE
-    // ========================================================
-
-    const profilePayload:
-      Record<
-        string,
-        unknown
-      > = {
-        team_seats_allocated:
-          additionalSeats,
-
-        is_subscribed:
-          true,
-      };
-
-    /*
-     * IMPORTANT:
-     *
-     * Do NOT write "modular" or "complete"
-     * into profiles.subscription_tier.
-     *
-     * That field remains legacy-compatible only.
-     */
+    const profilePayload: Record<
+      string,
+      unknown
+    > = {
+      is_subscribed: true,
+    };
 
     if (
       billingModel ===
         "legacy_tier" &&
       legacyTier
     ) {
-      profilePayload
-        .subscription_tier =
+      profilePayload.subscription_tier =
         legacyTier;
     }
 
-    const {
-      error:
-        profileUpdateError,
-    } =
-      await admin
-        .from(
-          "profiles",
-        )
-        .update(
-          profilePayload,
-        )
-        .eq(
-          "id",
-          user.id,
-        );
+    await admin
+      .from("profiles")
+      .update(profilePayload)
+      .eq("id", user.id);
 
-    if (
-      profileUpdateError
-    ) {
-      console.error(
-        "Profile subscription update failed:",
-        profileUpdateError,
+    const stripeCustomerId =
+      getStripeCustomerId(
+        subscription,
       );
-
-      /*
-       * Do not remove paid access just because
-       * profile synchronisation failed.
-       */
-    }
-
-    // ========================================================
-    // SYNC SUBSCRIPTIONS TABLE IF RECORD EXISTS
-    // ========================================================
 
     const {
       data:
-        existingSubscriptionRecord,
-
-      error:
-        subscriptionLookupError,
+        subscriptionRows,
     } =
       await admin
-        .from(
-          "subscriptions",
-        )
-        .select(
-          "id",
-        )
+        .from("subscriptions")
+        .select("id")
         .eq(
           "stripe_subscription_id",
           subscriptionId,
         )
-        .maybeSingle();
+        .limit(1);
 
-    if (
-      subscriptionLookupError
-    ) {
-      console.error(
-        "Subscription record lookup failed:",
-        subscriptionLookupError,
-      );
-    }
+    const existingRow =
+      subscriptionRows?.[0];
 
-    if (
-      existingSubscriptionRecord
-        ?.id
-    ) {
+    if (existingRow?.id) {
+      await admin
+        .from("subscriptions")
+        .update({
+          organisation_id:
+            organisationId,
+          stripe_customer_id:
+            stripeCustomerId,
+          active: true,
+          status:
+            subscription.status,
+        })
+        .eq(
+          "id",
+          existingRow.id,
+        );
+    } else {
       const {
-        error:
-          subscriptionUpdateError,
+        error: insertError,
       } =
         await admin
-          .from(
-            "subscriptions",
-          )
-          .update({
+          .from("subscriptions")
+          .insert({
             organisation_id:
-              organisation.id,
-
+              organisationId,
+            stripe_subscription_id:
+              subscriptionId,
             stripe_customer_id:
-              getStripeCustomerId(
-                subscription,
-              ),
-
-            active:
-              true,
-
+              stripeCustomerId,
+            active: true,
             status:
-              "active",
-          })
-          .eq(
-            "id",
-            existingSubscriptionRecord.id,
-          );
+              subscription.status,
+          });
 
-      if (
-        subscriptionUpdateError
-      ) {
+      if (insertError) {
         console.error(
-          "Subscription record sync failed:",
-          subscriptionUpdateError,
+          "Subscription record insert failed:",
+          insertError,
         );
       }
     }
 
-    // ========================================================
-    // SUCCESS LOG
-    // ========================================================
-
-    console.log(
-      "[STRIPE VERIFY] Existing account activated:",
-      {
-        userId:
-          user.id,
-
-        organisationId:
-          organisation.id,
-
-        subscriptionId,
-
-        stripeStatus:
-          subscription.status,
-
-        billingModel,
-
-        billingPackage,
-
-        legacyTier,
-
-        modules,
-
-        requestedAiTier,
-
-        effectiveAiTier,
-
-        monthlyTotalPence,
-
-        additionalSeats,
-      },
-    );
-
-    // ========================================================
-    // RESPONSE
-    // ========================================================
-
     return NextResponse.json({
-      success:
-        true,
-
+      success: true,
       organisationId:
         organisation.id,
-
       organisationName:
         organisation.name,
-
       subscriptionId,
-
       subscriptionStatus:
         subscription.status,
-
       billingModel,
-
       package:
         billingPackage,
-
       modules,
-
       aiTier:
         effectiveAiTier,
-
       requestedAiTier,
-
       monthlyTotalPence,
-
-      additionalSeats,
-
       billingVersion,
-
-      /*
-       * Legacy compatibility.
-       *
-       * Your billing page can ignore this for modular accounts.
-       */
       tier:
         legacyTier,
     });
-  } catch (
-    error:
-      unknown
-  ) {
+  } catch (error: unknown) {
     console.error(
       "[STRIPE VERIFY] Failed:",
       error,
@@ -1681,14 +992,12 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          error instanceof
-            Error
+          error instanceof Error
             ? error.message
             : "Unable to verify your subscription.",
       },
       {
-        status:
-          500,
+        status: 500,
       },
     );
   }

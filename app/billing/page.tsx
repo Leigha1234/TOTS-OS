@@ -2,40 +2,54 @@
 
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
 import {
+  ArrowLeft,
   ArrowRight,
+  BrainCircuit,
   Check,
+  CheckCircle2,
+  CircleDollarSign,
   CreditCard,
+  FolderKanban,
+  LayoutDashboard,
   Loader2,
+  Mail,
+  Megaphone,
+  Minus,
+  Plus,
   ShieldCheck,
+  ShoppingBag,
   Sparkles,
+  Store,
+  WandSparkles,
+  type LucideIcon,
 } from "lucide-react";
 
-// ==================================================
-// TYPES
-// ==================================================
+/* ============================================================
+   TYPES
+============================================================ */
 
-type Tier = {
-  name:
-    | "Standard"
-    | "Professional"
-    | "Elite";
+type ModuleKey =
+  | "core"
+  | "clientsProjects"
+  | "finance"
+  | "social"
+  | "email"
+  | "store";
 
-  price:
-    string;
+type AiTierKey =
+  | "none"
+  | "starter"
+  | "plus"
+  | "pro";
 
-  description:
-    string;
-
-  features:
-    readonly string[];
-
-  popular?:
-    boolean;
-};
+type BillingPackage =
+  | "modular"
+  | "complete";
 
 type VerificationState =
   | "idle"
@@ -43,98 +57,552 @@ type VerificationState =
   | "success"
   | "error";
 
-// ==================================================
-// PLANS
-// ==================================================
+type ModuleInfo = {
+  key: ModuleKey;
+  name: string;
+  shortName: string;
+  description: string;
+  price: number;
+  icon: LucideIcon;
+};
 
-const TIERS: readonly Tier[] = [
-  {
-    name:
-      "Standard",
+type AiTierInfo = {
+  key: AiTierKey;
+  name: string;
+  shortName: string;
+  description: string;
+  allowance: string;
+  price: number;
+};
 
-    price:
-      "29",
+type PricingResult = {
+  requestedModules: ModuleKey[];
+  displayedModules: ModuleKey[];
 
-    description:
-      "FOUNDATIONAL SYSTEM ACCESS",
+  packageType: BillingPackage;
 
-    features: [
-      "Core TOTS-OS access",
-      "Task management",
-      "CRM",
-      "Projects",
-      "Notes & vault",
-      "Calendar",
-    ],
-  },
+  moduleCount: number;
 
-  {
-    name:
-      "Professional",
+  undiscountedModuleTotal: number;
+  discountedModuleTotal: number;
 
-    price:
-      "59",
+  moduleSaving: number;
 
-    description:
-      "SCALABLE GROWTH ARCHITECTURE",
+  requestedAiTier: AiTierKey;
+  displayedAiTier: AiTierKey;
 
-    popular:
-      true,
+  requestedAiPrice: number;
 
-    features: [
-      "Everything in Standard",
-      "Advanced CRM",
-      "Campaigns",
-      "Social tools",
-      "Automations",
-      "Enhanced reporting",
-    ],
-  },
+  modularTotal: number;
+  totalMonthly: number;
 
-  {
-    name:
-      "Elite",
+  isComplete: boolean;
 
-    price:
-      "99",
+  completeSaving: number;
 
-    description:
-      "COMPLETE BUSINESS OS",
+  discountPercent: number;
+  discountLabel: string;
 
-    features: [
-      "Everything in Professional",
-      "Clarity AI",
-      "Advanced automation",
-      "Full reporting suite",
-      "Priority support",
-      "Premium system access",
-    ],
-  },
+  aiUpgradeSuggested: boolean;
+};
+
+/* ============================================================
+   CONFIG
+============================================================ */
+
+const COMPLETE_PRICE = 199;
+
+const MODULE_ORDER: ModuleKey[] = [
+  "core",
+  "clientsProjects",
+  "finance",
+  "social",
+  "email",
+  "store",
 ];
 
-// ==================================================
-// PAGE
-// ==================================================
+/* ============================================================
+   MODULES
+============================================================ */
+
+const MODULES: Record<
+  ModuleKey,
+  ModuleInfo
+> = {
+  core: {
+    key: "core",
+
+    name:
+      "TOTS-OS Core",
+
+    shortName:
+      "Core",
+
+    description:
+      "Your central workspace for dashboards, contacts, tasks, calendar, notes and everyday business organisation.",
+
+    price: 39,
+
+    icon:
+      LayoutDashboard,
+  },
+
+  clientsProjects: {
+    key:
+      "clientsProjects",
+
+    name:
+      "Clients & Projects",
+
+    shortName:
+      "Clients & Projects",
+
+    description:
+      "Manage client relationships, projects, tasks, deadlines, notes, files and delivery in one connected workspace.",
+
+    price: 49,
+
+    icon:
+      FolderKanban,
+  },
+
+  finance: {
+    key:
+      "finance",
+
+    name:
+      "Finance",
+
+    shortName:
+      "Finance",
+
+    description:
+      "Manage invoices, quotes, expenses and day-to-day financial visibility alongside your wider business activity.",
+
+    price: 49,
+
+    icon:
+      CircleDollarSign,
+  },
+
+  social: {
+    key:
+      "social",
+
+    name:
+      "Social Studio",
+
+    shortName:
+      "Social Studio",
+
+    description:
+      "Plan, organise and publish social content without separating marketing from the rest of your business.",
+
+    price: 49,
+
+    icon:
+      Megaphone,
+  },
+
+  email: {
+    key:
+      "email",
+
+    name:
+      "Email Marketing",
+
+    shortName:
+      "Email Marketing",
+
+    description:
+      "Manage audiences, subscriber lists, campaigns, scheduling and customer email activity.",
+
+    price: 39,
+
+    icon:
+      Mail,
+  },
+
+  store: {
+    key:
+      "store",
+
+    name:
+      "TOTS-OS Store",
+
+    shortName:
+      "Store",
+
+    description:
+      "Manage products, customers and orders without running your online store as another disconnected system.",
+
+    price: 39,
+
+    icon:
+      Store,
+  },
+};
+
+/* ============================================================
+   CLARITY AI
+============================================================ */
+
+const AI_TIERS: Record<
+  AiTierKey,
+  AiTierInfo
+> = {
+  none: {
+    key:
+      "none",
+
+    name:
+      "No Clarity AI",
+
+    shortName:
+      "No AI",
+
+    price: 0,
+
+    allowance:
+      "",
+
+    description:
+      "Use your TOTS-OS workspace without an additional Clarity AI allowance.",
+  },
+
+  starter: {
+    key:
+      "starter",
+
+    name:
+      "Clarity AI Starter",
+
+    shortName:
+      "Starter",
+
+    price: 19,
+
+    allowance:
+      "100 AI actions / month",
+
+    description:
+      "For occasional summaries, ideas, recommendations and quick business assistance.",
+  },
+
+  plus: {
+    key:
+      "plus",
+
+    name:
+      "Clarity AI Plus",
+
+    shortName:
+      "Plus",
+
+    price: 39,
+
+    allowance:
+      "500 AI actions / month",
+
+    description:
+      "For regular AI use throughout the week across several areas of your business.",
+  },
+
+  pro: {
+    key:
+      "pro",
+
+    name:
+      "Clarity AI Pro",
+
+    shortName:
+      "Pro",
+
+    price: 69,
+
+    allowance:
+      "1,500 AI actions / month",
+
+    description:
+      "For businesses making Clarity AI part of their everyday operating workflow.",
+  },
+};
+
+/* ============================================================
+   HELPERS
+============================================================ */
+
+function isModuleKey(
+  value: string,
+): value is ModuleKey {
+  return MODULE_ORDER.includes(
+    value as ModuleKey,
+  );
+}
+
+function isAiTierKey(
+  value: string | null,
+): value is AiTierKey {
+  return (
+    value === "none" ||
+    value === "starter" ||
+    value === "plus" ||
+    value === "pro"
+  );
+}
+
+function uniqueModules(
+  modules: ModuleKey[],
+) {
+  return MODULE_ORDER.filter(
+    (key) =>
+      modules.includes(
+        key,
+      ),
+  );
+}
+
+/* ============================================================
+   PRICING
+
+   1–2 modules:
+   full module price
+
+   3–4 modules:
+   10% off
+
+   5 modules:
+   20% off
+
+   Complete:
+   £199 / month
+
+   Complete includes:
+   - all 6 main modules
+   - Clarity AI Starter
+
+   If the selected modular setup reaches £199 or more,
+   Complete is automatically recommended instead.
+
+   IMPORTANT:
+   The browser calculates this for DISPLAY ONLY.
+   Your Stripe API must calculate the real price server-side
+   from trusted Price IDs / product configuration.
+============================================================ */
+
+function calculatePricing(
+  modules: ModuleKey[],
+  requestedAiTier: AiTierKey,
+): PricingResult {
+  const cleanModules =
+    uniqueModules(
+      modules,
+    );
+
+  const moduleCount =
+    cleanModules.length;
+
+  const undiscountedModuleTotal =
+    cleanModules.reduce(
+      (
+        total,
+        key,
+      ) =>
+        total +
+        MODULES[key].price,
+
+      0,
+    );
+
+  let discountedModuleTotal =
+    undiscountedModuleTotal;
+
+  let discountPercent =
+    0;
+
+  let discountLabel =
+    "Standard module pricing";
+
+  if (
+    moduleCount === 5
+  ) {
+    discountPercent =
+      20;
+
+    discountLabel =
+      "20% bundle saving";
+
+    discountedModuleTotal =
+      Math.round(
+        undiscountedModuleTotal *
+          0.8,
+      );
+  } else if (
+    moduleCount >= 3
+  ) {
+    discountPercent =
+      10;
+
+    discountLabel =
+      "10% bundle saving";
+
+    discountedModuleTotal =
+      Math.round(
+        undiscountedModuleTotal *
+          0.9,
+      );
+  }
+
+  const moduleSaving =
+    undiscountedModuleTotal -
+    discountedModuleTotal;
+
+  const requestedAiPrice =
+    AI_TIERS[
+      requestedAiTier
+    ].price;
+
+  const modularTotal =
+    discountedModuleTotal +
+    requestedAiPrice;
+
+  const shouldUseComplete =
+    moduleCount ===
+      MODULE_ORDER.length ||
+    modularTotal >=
+      COMPLETE_PRICE;
+
+  if (
+    shouldUseComplete
+  ) {
+    return {
+      requestedModules:
+        cleanModules,
+
+      displayedModules:
+        MODULE_ORDER,
+
+      packageType:
+        "complete",
+
+      moduleCount:
+        MODULE_ORDER.length,
+
+      undiscountedModuleTotal,
+
+      discountedModuleTotal,
+
+      moduleSaving,
+
+      requestedAiTier,
+
+      displayedAiTier:
+        "starter",
+
+      requestedAiPrice,
+
+      modularTotal,
+
+      totalMonthly:
+        COMPLETE_PRICE,
+
+      isComplete:
+        true,
+
+      completeSaving:
+        Math.max(
+          0,
+
+          modularTotal -
+            COMPLETE_PRICE,
+        ),
+
+      discountPercent:
+        0,
+
+      discountLabel:
+        "Complete fixed price",
+
+      aiUpgradeSuggested:
+        requestedAiTier ===
+          "plus" ||
+        requestedAiTier ===
+          "pro",
+    };
+  }
+
+  return {
+    requestedModules:
+      cleanModules,
+
+    displayedModules:
+      cleanModules,
+
+    packageType:
+      "modular",
+
+    moduleCount,
+
+    undiscountedModuleTotal,
+
+    discountedModuleTotal,
+
+    moduleSaving,
+
+    requestedAiTier,
+
+    displayedAiTier:
+      requestedAiTier,
+
+    requestedAiPrice,
+
+    modularTotal,
+
+    totalMonthly:
+      modularTotal,
+
+    isComplete:
+      false,
+
+    completeSaving:
+      0,
+
+    discountPercent,
+
+    discountLabel,
+
+    aiUpgradeSuggested:
+      false,
+  };
+}
+
+/* ============================================================
+   PAGE
+============================================================ */
 
 export default function BillingPage() {
   const [
-    loading,
-    setLoading,
+    selectedModules,
+    setSelectedModules,
   ] =
-    useState<
-      Tier["name"] | null
-    >(
-      null
+    useState<ModuleKey[]>(
+      ["core"],
     );
 
   const [
-    selectedTier,
-    setSelectedTier,
+    selectedAiTier,
+    setSelectedAiTier,
   ] =
-    useState<
-      Tier["name"]
-    >(
-      "Professional"
+    useState<AiTierKey>(
+      "none",
+    );
+
+  const [
+    fromQuiz,
+    setFromQuiz,
+  ] =
+    useState(
+      false,
     );
 
   const [
@@ -142,7 +610,7 @@ export default function BillingPage() {
     setExistingAccount,
   ] =
     useState(
-      false
+      false,
     );
 
   const [
@@ -150,7 +618,25 @@ export default function BillingPage() {
     setModeReady,
   ] =
     useState(
-      false
+      false,
+    );
+
+  const [
+    checkoutLoading,
+    setCheckoutLoading,
+  ] =
+    useState(
+      false,
+    );
+
+  const [
+    checkoutError,
+    setCheckoutError,
+  ] =
+    useState<
+      string | null
+    >(
+      null,
     );
 
   const [
@@ -158,7 +644,7 @@ export default function BillingPage() {
     setVerificationState,
   ] =
     useState<VerificationState>(
-      "idle"
+      "idle",
     );
 
   const [
@@ -168,17 +654,7 @@ export default function BillingPage() {
     useState<
       string | null
     >(
-      null
-    );
-
-  const [
-    verifiedTier,
-    setVerifiedTier,
-  ] =
-    useState<
-      string | null
-    >(
-      null
+      null,
     );
 
   const [
@@ -188,12 +664,58 @@ export default function BillingPage() {
     useState<
       string | null
     >(
-      null
+      null,
     );
 
-  // ==================================================
-  // DETECT BILLING MODE + VERIFY SUCCESS RETURN
-  // ==================================================
+  const [
+    verifiedPackage,
+    setVerifiedPackage,
+  ] =
+    useState<
+      string | null
+    >(
+      null,
+    );
+
+  const [
+    verifiedModules,
+    setVerifiedModules,
+  ] =
+    useState<string[]>(
+      [],
+    );
+
+  const [
+    verifiedAiTier,
+    setVerifiedAiTier,
+  ] =
+    useState<
+      string | null
+    >(
+      null,
+    );
+
+  /* ==========================================================
+     PRICING RESULT
+  ========================================================== */
+
+  const pricing =
+    useMemo(
+      () =>
+        calculatePricing(
+          selectedModules,
+          selectedAiTier,
+        ),
+
+      [
+        selectedModules,
+        selectedAiTier,
+      ],
+    );
+
+  /* ==========================================================
+     INITIALISE
+  ========================================================== */
 
   useEffect(
     () => {
@@ -203,32 +725,52 @@ export default function BillingPage() {
       async function initialiseBillingPage() {
         const params =
           new URLSearchParams(
-            window.location.search
+            window.location.search,
           );
 
         const existing =
           params.get(
-            "existing"
+            "existing",
           );
 
         const success =
           params.get(
-            "success"
+            "success",
           );
 
         const sessionId =
           params.get(
-            "session_id"
+            "session_id",
+          );
+
+        const source =
+          params.get(
+            "source",
+          );
+
+        const packageParam =
+          params.get(
+            "package",
+          );
+
+        const modulesParam =
+          params.get(
+            "modules",
+          );
+
+        const aiParam =
+          params.get(
+            "ai",
           );
 
         setExistingAccount(
           existing ===
-            "true"
+            "true",
         );
 
-        // ============================================
-        // STRIPE SUCCESS RETURN
-        // ============================================
+        /* ==============================================
+           STRIPE SUCCESS
+        ============================================== */
 
         if (
           success ===
@@ -236,7 +778,7 @@ export default function BillingPage() {
           sessionId
         ) {
           setVerificationState(
-            "verifying"
+            "verifying",
           );
 
           try {
@@ -256,14 +798,14 @@ export default function BillingPage() {
                     JSON.stringify({
                       sessionId,
                     }),
-                }
+                },
               );
 
             const data =
               await response
                 .json()
                 .catch(
-                  () => ({})
+                  () => ({}),
                 );
 
             if (
@@ -277,30 +819,60 @@ export default function BillingPage() {
             ) {
               throw new Error(
                 data.error ||
-                  "Unable to verify your subscription."
+                  "Unable to verify your membership.",
               );
             }
-
-            setVerifiedTier(
-              typeof data.tier ===
-                "string"
-                ? data.tier
-                : null
-            );
 
             setVerifiedOrganisationName(
               typeof data.organisationName ===
                 "string"
                 ? data.organisationName
-                : null
+                : null,
+            );
+
+            setVerifiedPackage(
+              typeof data.package ===
+                "string"
+                ? data.package
+                : typeof data.membership ===
+                    "string"
+                  ? data.membership
+                  : typeof data.tier ===
+                      "string"
+                    ? data.tier
+                    : null,
+            );
+
+            setVerifiedModules(
+              Array.isArray(
+                data.modules,
+              )
+                ? data.modules.filter(
+                    (
+                      item: unknown,
+                    ) =>
+                      typeof item ===
+                      "string",
+                  )
+                : [],
+            );
+
+            setVerifiedAiTier(
+              typeof data.aiTier ===
+                "string"
+                ? data.aiTier
+                : typeof data.ai ===
+                    "string"
+                  ? data.ai
+                  : null,
             );
 
             setVerificationState(
-              "success"
+              "success",
             );
 
             setModeReady(
-              true
+              true,
             );
 
             return;
@@ -308,8 +880,8 @@ export default function BillingPage() {
             error
           ) {
             console.error(
-              "Subscription verification failed:",
-              error
+              "Membership verification failed:",
+              error,
             );
 
             if (
@@ -322,27 +894,85 @@ export default function BillingPage() {
               error instanceof
                 Error
                 ? error.message
-                : "Unable to verify your subscription."
+                : "Unable to verify your membership.",
             );
 
             setVerificationState(
-              "error"
+              "error",
             );
 
             setModeReady(
-              true
+              true,
             );
 
             return;
           }
         }
 
-        // ============================================
-        // NORMAL BILLING PAGE
-        // ============================================
+        /* ==============================================
+           QUIZ RECOMMENDATION
+        ============================================== */
+
+        if (
+          source ===
+          "find-your-setup"
+        ) {
+          setFromQuiz(
+            true,
+          );
+        }
+
+        if (
+          packageParam ===
+          "complete"
+        ) {
+          setSelectedModules(
+            MODULE_ORDER,
+          );
+
+          setSelectedAiTier(
+            "starter",
+          );
+        } else {
+          if (
+            modulesParam
+          ) {
+            const parsedModules =
+              modulesParam
+                .split(",")
+                .map(
+                  (value) =>
+                    value.trim(),
+                )
+                .filter(
+                  isModuleKey,
+                );
+
+            if (
+              parsedModules.length >
+              0
+            ) {
+              setSelectedModules(
+                uniqueModules(
+                  parsedModules,
+                ),
+              );
+            }
+          }
+
+          if (
+            isAiTierKey(
+              aiParam,
+            )
+          ) {
+            setSelectedAiTier(
+              aiParam,
+            );
+          }
+        }
 
         setModeReady(
-          true
+          true,
         );
       }
 
@@ -353,158 +983,138 @@ export default function BillingPage() {
           true;
       };
     },
-    []
+    [],
   );
 
-  // ==================================================
-  // NORMALISE TIER
-  // ==================================================
+  /* ==========================================================
+     MODULE SELECTION
+  ========================================================== */
 
-  function getApiTier(
-    tier:
-      Tier["name"]
+  function toggleModule(
+    moduleKey: ModuleKey,
   ) {
-    return tier
-      .toLowerCase();
+    setCheckoutError(
+      null,
+    );
+
+    setSelectedModules(
+      (
+        current,
+      ) => {
+        if (
+          current.includes(
+            moduleKey,
+          )
+        ) {
+          return current.filter(
+            (key) =>
+              key !==
+              moduleKey,
+          );
+        }
+
+        return uniqueModules(
+          [
+            ...current,
+            moduleKey,
+          ],
+        );
+      },
+    );
   }
 
-  // ==================================================
-  // CHECKOUT
-  // ==================================================
+  function selectComplete() {
+    setSelectedModules(
+      MODULE_ORDER,
+    );
 
-  const handleCheckout =
-    async (
-      tier:
-        Tier
-    ) => {
+    setSelectedAiTier(
+      "starter",
+    );
+
+    setCheckoutError(
+      null,
+    );
+  }
+
+  /* ==========================================================
+     CHECKOUT
+  ========================================================== */
+
+  async function handleCheckout() {
+    if (
+      checkoutLoading ||
+      !modeReady
+    ) {
+      return;
+    }
+
+    if (
+      selectedModules.length ===
+      0
+    ) {
+      setCheckoutError(
+        "Choose at least one TOTS-OS module before continuing.",
+      );
+
+      return;
+    }
+
+    setCheckoutLoading(
+      true,
+    );
+
+    setCheckoutError(
+      null,
+    );
+
+    try {
+      /*
+        IMPORTANT:
+
+        Do NOT trust totalMonthly from the browser
+        when creating Stripe prices.
+
+        The API should calculate the real amount using
+        trusted Stripe Price IDs / module configuration.
+      */
+
+      const checkoutPayload = {
+        billingModel:
+          "modular",
+
+        package:
+          pricing.packageType,
+
+        modules:
+          pricing.isComplete
+            ? MODULE_ORDER
+            : pricing.requestedModules,
+
+        aiTier:
+          pricing.isComplete
+            ? "starter"
+            : pricing.requestedAiTier,
+
+        additionalSeats:
+          0,
+
+        source:
+          fromQuiz
+            ? "find-your-setup"
+            : "billing",
+      };
+
+      /* ==============================================
+         EXISTING CUSTOMER
+      ============================================== */
+
       if (
-        loading ||
-        !modeReady
+        existingAccount
       ) {
-        return;
-      }
-
-      setSelectedTier(
-        tier.name
-      );
-
-      setLoading(
-        tier.name
-      );
-
-      try {
-        // ============================================
-        // EXISTING / BETA CUSTOMER
-        // ============================================
-
-        if (
-          existingAccount
-        ) {
-          const response =
-            await fetch(
-              "/api/pay/stripe/checkout",
-              {
-                method:
-                  "POST",
-
-                headers: {
-                  "Content-Type":
-                    "application/json",
-                },
-
-                body:
-                  JSON.stringify({
-                    tier:
-                      getApiTier(
-                        tier.name
-                      ),
-
-                    additionalSeats:
-                      0,
-                  }),
-              }
-            );
-
-          const data =
-            await response
-              .json()
-              .catch(
-                () => ({})
-              );
-
-          if (
-            !response.ok
-          ) {
-            if (
-              response.status ===
-              401
-            ) {
-              throw new Error(
-                "Please sign in to your existing TOTS-OS account before choosing your plan."
-              );
-            }
-
-            throw new Error(
-              data.error ||
-                "Unable to create checkout session."
-            );
-          }
-
-          if (
-            !data.url
-          ) {
-            throw new Error(
-              "Stripe checkout URL was not returned."
-            );
-          }
-
-          window.location.href =
-            data.url;
-
-          return;
-        }
-
-        // ============================================
-        // NEW CUSTOMER
-        // ============================================
-
-        const storedRegistration =
-          sessionStorage.getItem(
-            "pendingRegistration"
-          );
-
-        if (
-          !storedRegistration
-        ) {
-          throw new Error(
-            "Your registration details could not be found. Please return to signup and try again."
-          );
-        }
-
-        let registration;
-
-        try {
-          registration =
-            JSON.parse(
-              storedRegistration
-            );
-        } catch {
-          throw new Error(
-            "Your registration details are invalid. Please return to signup and try again."
-          );
-        }
-
-        if (
-          !registration
-        ) {
-          throw new Error(
-            "Your registration details could not be found. Please return to signup and try again."
-          );
-        }
-
         const response =
           await fetch(
-            "/api/create-checkout-session",
+            "/api/pay/stripe/checkout",
             {
               method:
                 "POST",
@@ -516,29 +1126,33 @@ export default function BillingPage() {
 
               body:
                 JSON.stringify(
-                  {
-                    ...registration,
-
-                    tier:
-                      tier.name,
-                  }
+                  checkoutPayload,
                 ),
-            }
+            },
           );
 
         const data =
           await response
             .json()
             .catch(
-              () => ({})
+              () => ({}),
             );
 
         if (
           !response.ok
         ) {
+          if (
+            response.status ===
+            401
+          ) {
+            throw new Error(
+              "Please sign in to your existing TOTS-OS account before buying your membership.",
+            );
+          }
+
           throw new Error(
             data.error ||
-              "Unable to create checkout session."
+              "Unable to create your checkout session.",
           );
         }
 
@@ -546,198 +1160,283 @@ export default function BillingPage() {
           !data.url
         ) {
           throw new Error(
-            "Stripe checkout URL was not returned."
+            "Stripe checkout URL was not returned.",
           );
         }
 
         window.location.href =
           data.url;
-      } catch (
-        error
+
+        return;
+      }
+
+      /* ==============================================
+         NEW CUSTOMER
+      ============================================== */
+
+      const storedRegistration =
+        sessionStorage.getItem(
+          "pendingRegistration",
+        );
+
+      if (
+        !storedRegistration
       ) {
-        console.error(
-          "Checkout failed:",
-          error
-        );
-
-        alert(
-          error instanceof
-            Error
-            ? error.message
-            : "Unable to start checkout."
-        );
-
-        setLoading(
-          null
+        throw new Error(
+          "Your registration details could not be found. Please return to signup, create your account and try again.",
         );
       }
-    };
 
-  // ==================================================
-  // VERIFYING SCREEN
-  // ==================================================
+      let registration:
+        Record<
+          string,
+          unknown
+        >;
+
+      try {
+        registration =
+          JSON.parse(
+            storedRegistration,
+          );
+      } catch {
+        throw new Error(
+          "Your registration details are invalid. Please return to signup and try again.",
+        );
+      }
+
+      const response =
+        await fetch(
+          "/api/create-checkout-session",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                ...registration,
+
+                ...checkoutPayload,
+              }),
+          },
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(
+            () => ({}),
+          );
+
+      if (
+        !response.ok
+      ) {
+        throw new Error(
+          data.error ||
+            "Unable to create your checkout session.",
+        );
+      }
+
+      if (
+        !data.url
+      ) {
+        throw new Error(
+          "Stripe checkout URL was not returned.",
+        );
+      }
+
+      window.location.href =
+        data.url;
+    } catch (
+      error
+    ) {
+      console.error(
+        "Checkout failed:",
+        error,
+      );
+
+      setCheckoutError(
+        error instanceof
+          Error
+          ? error.message
+          : "Unable to start checkout.",
+      );
+
+      setCheckoutLoading(
+        false,
+      );
+    }
+  }
+
+  /* ==========================================================
+     VERIFYING
+  ========================================================== */
 
   if (
     verificationState ===
     "verifying"
   ) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5">
-
-        <div className="w-full max-w-xl rounded-[2.5rem] border border-stone-200 bg-white p-10 text-center shadow-[0_20px_60px_rgba(28,25,23,0.06)] md:p-14">
-
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#edf1e8]">
-
+      <main className="flex min-h-screen items-center justify-center bg-[#FAF8F5] px-5">
+        <div className="w-full max-w-xl rounded-[2rem] border border-[#4f4a46]/10 bg-[#FFFEFD] p-10 text-center shadow-[0_26px_80px_rgba(79,74,70,0.08)] md:p-14">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EFF3EB]">
             <Loader2
               size={24}
-              className="animate-spin text-[#82936b]"
+              className="animate-spin text-[#637454]"
+              aria-hidden="true"
             />
-
           </div>
 
-          <p className="mt-7 text-[9px] font-black uppercase tracking-[0.2em] text-[#748361]">
+          <p className="mt-7 text-[11px] font-black uppercase tracking-[0.16em] text-[#637454]">
             Confirming your membership
           </p>
 
-          <h1 className="mt-4 font-serif text-4xl italic tracking-tight text-stone-900 md:text-5xl">
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#373330] md:text-5xl">
             Just a moment...
           </h1>
 
-          <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-stone-500">
-            We&apos;re confirming your Stripe subscription and
-            reconnecting your TOTS-OS workspace.
+          <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-[#69645f]">
+            We&apos;re confirming your Stripe payment and activating
+            the right TOTS-OS modules for your workspace.
           </p>
-
         </div>
-
       </main>
     );
   }
 
-  // ==================================================
-  // SUCCESS SCREEN
-  // ==================================================
+  /* ==========================================================
+     SUCCESS
+  ========================================================== */
 
   if (
     verificationState ===
     "success"
   ) {
-    const displayTier =
-      verifiedTier
-        ? verifiedTier
-            .charAt(
-              0
+    const successLabel =
+      verifiedPackage
+        ? verifiedPackage
+            .replaceAll(
+              "_",
+              " ",
             )
-            .toUpperCase() +
-          verifiedTier.slice(
-            1
-          )
-        : null;
+        : "TOTS-OS";
 
     return (
-      <main className="min-h-screen bg-[#f7f5f2] px-5 py-12 md:px-10 md:py-16">
-
+      <main className="min-h-screen bg-[#FAF8F5] px-5 py-12 md:px-10 md:py-16">
         <div className="mx-auto max-w-3xl">
+          <div className="overflow-hidden rounded-[2rem] border border-[#4f4a46]/10 bg-[#FFFEFD] shadow-[0_26px_80px_rgba(79,74,70,0.08)]">
 
-          <div className="overflow-hidden rounded-[2.5rem] border border-stone-200 bg-white shadow-[0_20px_60px_rgba(28,25,23,0.06)]">
+            <div className="border-b border-[#4f4a46]/10 p-8 md:p-14">
 
-            <div className="border-b border-stone-100 p-8 md:p-14">
-
-              <div className="inline-flex items-center gap-2 rounded-full bg-[#edf1e8] px-4 py-2">
-
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#EFF3EB] px-4 py-2 text-[#637454]">
                 <Sparkles
                   size={13}
-                  className="text-[#82936b]"
+                  aria-hidden="true"
                 />
 
-                <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#748361]">
+                <span className="text-[11px] font-black uppercase tracking-[0.15em]">
                   Membership active
                 </span>
-
               </div>
 
-              <div className="mt-8 flex h-14 w-14 items-center justify-center rounded-full bg-[#edf1e8]">
-
+              <div className="mt-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EFF3EB] text-[#637454]">
                 <Check
                   size={23}
                   strokeWidth={3}
-                  className="text-[#82936b]"
+                  aria-hidden="true"
                 />
-
               </div>
 
-              <h1 className="mt-7 max-w-2xl font-serif text-5xl italic tracking-tight text-stone-900 md:text-7xl">
+              <h1 className="mt-7 max-w-2xl text-5xl font-semibold tracking-[-0.055em] text-[#373330] md:text-7xl">
                 You&apos;re all set.
               </h1>
 
               {verifiedOrganisationName && (
-                <p className="mt-5 text-[10px] font-black uppercase tracking-[0.16em] text-[#829473]">
+                <p className="mt-5 text-[11px] font-black uppercase tracking-[0.14em] text-[#637454]">
                   {
                     verifiedOrganisationName
                   }
                 </p>
               )}
 
-              <p className="mt-6 max-w-2xl text-base leading-8 text-stone-500">
-                Your TOTS-OS membership has been activated and
-                your existing workspace is ready to use.
+              <p className="mt-6 max-w-2xl text-base leading-8 text-[#69645f]">
+                Your TOTS-OS membership has been activated and your
+                workspace is ready to use.
               </p>
-
             </div>
 
             <div className="p-8 md:p-14">
 
-              <div className="rounded-[2rem] border border-[#cdd7c3] bg-[#edf1e8] p-6 md:p-8">
-
+              <div className="rounded-[1.5rem] border border-[#A9B897]/50 bg-[#EFF3EB] p-6 md:p-8">
                 <div className="flex items-start gap-4">
 
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
-
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#637454] shadow-sm">
                     <ShieldCheck
                       size={18}
                       strokeWidth={2.5}
-                      className="text-[#82936b]"
+                      aria-hidden="true"
                     />
-
                   </div>
 
                   <div>
-
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#748361]">
+                    <p className="text-[11px] font-black uppercase tracking-[0.15em] text-[#637454]">
                       Your access is active
                     </p>
 
-                    {displayTier && (
-                      <p className="mt-3 text-sm font-semibold text-stone-700">
-                        {
-                          displayTier
-                        } membership
+                    <p className="mt-3 text-sm font-semibold capitalize text-[#4f4a46]">
+                      {
+                        successLabel
+                      }{" "}
+                      membership
+                    </p>
+
+                    {verifiedModules.length >
+                      0 && (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {verifiedModules.map(
+                          (
+                            module,
+                          ) => (
+                            <span
+                              key={
+                                module
+                              }
+                              className="rounded-full bg-white px-3 py-1.5 text-[10px] font-bold text-[#5d5854]"
+                            >
+                              {
+                                MODULES[
+                                  module as ModuleKey
+                                ]
+                                  ?.shortName ||
+                                module
+                              }
+                            </span>
+                          ),
+                        )}
+                      </div>
+                    )}
+
+                    {verifiedAiTier && (
+                      <p className="mt-4 text-xs text-[#69645f]">
+                        Clarity AI:{" "}
+                        <span className="font-semibold capitalize text-[#4f4a46]">
+                          {
+                            verifiedAiTier
+                          }
+                        </span>
                       </p>
                     )}
 
-                    <p className="mt-2 max-w-xl text-xs leading-6 text-stone-500">
-                      Your existing projects, contacts, notes,
-                      settings and business data are still exactly
-                      where you left them.
+                    <p className="mt-4 max-w-xl text-xs leading-6 text-[#69645f]">
+                      Your existing projects, contacts, notes, settings
+                      and business data remain exactly where they were.
                     </p>
-
                   </div>
-
                 </div>
-
-              </div>
-
-              <div className="mt-8">
-
-                <p className="font-serif text-3xl italic text-stone-800">
-                  Welcome back.
-                </p>
-
-                <p className="mt-3 max-w-xl text-sm leading-7 text-stone-500">
-                  Head straight back into TOTS-OS and carry on
-                  running your business.
-                </p>
-
               </div>
 
               <button
@@ -746,70 +1445,64 @@ export default function BillingPage() {
                   window.location.href =
                     "/dashboard";
                 }}
-                className="mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-stone-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-stone-700 sm:w-auto"
+                className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#373330] px-8 py-4 text-xs font-black text-white transition hover:bg-[#4f4a46] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#373330]"
               >
                 Go to TOTS-OS
 
                 <ArrowRight
-                  size={13}
+                  size={15}
+                  aria-hidden="true"
                 />
-
               </button>
-
             </div>
-
           </div>
-
         </div>
-
       </main>
     );
   }
 
-  // ==================================================
-  // VERIFICATION ERROR
-  // ==================================================
+  /* ==========================================================
+     VERIFICATION ERROR
+  ========================================================== */
 
   if (
     verificationState ===
     "error"
   ) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5">
+      <main className="flex min-h-screen items-center justify-center bg-[#FAF8F5] px-5">
+        <div className="w-full max-w-xl rounded-[2rem] border border-[#4f4a46]/10 bg-[#FFFEFD] p-10 text-center shadow-[0_26px_80px_rgba(79,74,70,0.08)] md:p-14">
 
-        <div className="w-full max-w-xl rounded-[2.5rem] border border-stone-200 bg-white p-10 text-center shadow-[0_20px_60px_rgba(28,25,23,0.06)] md:p-14">
-
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-stone-100">
-
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F0ECE7] text-[#69645f]">
             <ShieldCheck
               size={22}
-              className="text-stone-500"
+              aria-hidden="true"
             />
-
           </div>
 
-          <p className="mt-7 text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">
+          <p className="mt-7 text-[11px] font-black uppercase tracking-[0.16em] text-[#69645f]">
             Payment received
           </p>
 
-          <h1 className="mt-4 font-serif text-4xl italic tracking-tight text-stone-900 md:text-5xl">
-            We couldn&apos;t finish activating your account.
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#373330] md:text-5xl">
+            We couldn&apos;t finish activating your membership.
           </h1>
 
-          <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-stone-500">
-            Your Stripe payment may still have completed. Please
-            don&apos;t make another payment.
+          <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-[#69645f]">
+            Your Stripe payment may still have completed. Please do not
+            make another payment.
           </p>
 
           {verificationError && (
-            <div className="mt-6 rounded-2xl border border-stone-200 bg-stone-50 px-5 py-4">
-
-              <p className="text-xs leading-6 text-stone-500">
+            <div
+              role="alert"
+              className="mt-6 rounded-2xl border border-[#4f4a46]/10 bg-[#F0ECE7] px-5 py-4"
+            >
+              <p className="text-xs leading-6 text-[#5d5854]">
                 {
                   verificationError
                 }
               </p>
-
             </div>
           )}
 
@@ -818,739 +1511,1231 @@ export default function BillingPage() {
             onClick={() =>
               window.location.reload()
             }
-            className="mt-7 inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 px-7 py-4 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-stone-700"
+            className="mt-7 inline-flex min-h-12 items-center justify-center rounded-full bg-[#373330] px-7 py-4 text-xs font-black text-white transition hover:bg-[#4f4a46] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#373330]"
           >
             Try verification again
           </button>
-
         </div>
-
       </main>
     );
   }
 
-  // ==================================================
-  // MAIN BILLING UI
-  // ==================================================
+  /* ==========================================================
+     MAIN BILLING PAGE
+  ========================================================== */
 
   return (
-    <main className="min-h-screen bg-[#f7f5f2] px-5 py-8 md:px-10 md:py-12">
+    <main className="min-h-screen bg-[#FAF8F5] px-5 py-8 text-[#4f4a46] md:px-10 md:py-12">
 
-      <div className="mx-auto max-w-[1400px]">
+      <a
+        href="#membership-builder"
+        className="fixed left-3 top-3 z-[100] -translate-y-[180%] rounded-lg bg-[#373330] px-4 py-3 text-sm font-bold text-white focus:translate-y-0"
+      >
+        Skip to membership builder
+      </a>
 
-        {/* ==========================================
+      <div className="mx-auto max-w-[1380px]">
+
+        {/* ==================================================
             HEADER
-        ========================================== */}
+        ================================================== */}
 
-        <header className="mb-10 border-b border-stone-200 pb-8 md:mb-14">
+        <header className="mb-10 border-b border-[#4f4a46]/10 pb-8 md:mb-12">
 
-          <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
+          <a
+            href="/find-your-setup"
+            className="mb-7 inline-flex min-h-11 items-center gap-2 rounded-full border border-[#4f4a46]/10 bg-white px-4 text-xs font-bold text-[#5d5854] transition hover:border-[#4f4a46]/20 hover:bg-[#FFFEFD] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#373330]"
+          >
+            <ArrowLeft
+              size={14}
+              aria-hidden="true"
+            />
 
-            <div>
+            Find your setup
+          </a>
 
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2">
+          <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
+
+            <div className="max-w-4xl">
+
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#4f4a46]/10 bg-white px-4 py-2 text-[#637454]">
 
                 <Sparkles
                   size={13}
-                  className="text-[#A3B18A]"
+                  aria-hidden="true"
                 />
 
-                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-stone-500">
-                  {existingAccount
-                    ? "Continue with TOTS-OS"
-                    : "TOTS-OS Membership"}
+                <span className="text-[11px] font-black uppercase tracking-[0.15em]">
+                  {fromQuiz
+                    ? "Your recommended TOTS-OS membership"
+                    : "Build your TOTS-OS membership"}
                 </span>
-
               </div>
 
-              <h1 className="max-w-3xl font-serif text-4xl italic tracking-tight text-stone-900 md:text-6xl">
-                {existingAccount
-                  ? "Choose the plan you want to continue with."
-                  : "Choose how you want to run your business."}
+              <h1 className="max-w-4xl text-5xl font-semibold leading-[0.98] tracking-[-0.055em] text-[#373330] md:text-7xl">
+                {fromQuiz
+                  ? "Review your setup before you buy."
+                  : "Pay for what your business actually needs."}
               </h1>
 
-              <p className="mt-5 max-w-2xl text-sm leading-7 text-stone-500">
-                {existingAccount
-                  ? "Your TOTS-OS account, data and setup stay exactly where they are. Simply choose the membership that fits your business and continue where you left off."
-                  : "Pick the level of TOTS-OS that fits your business now. You can upgrade later as your system grows."}
+              <p className="mt-6 max-w-2xl text-base leading-8 text-[#69645f]">
+                Choose the TOTS-OS modules you want, add Clarity AI if
+                you need it, and we&apos;ll automatically apply the best
+                available bundle price.
               </p>
-
-              {/* ======================================
-                  STATUS MESSAGE
-              ====================================== */}
-
-              {existingAccount ? (
-                <div className="mt-6 flex max-w-xl items-start gap-4 rounded-2xl border border-[#cdd7c3] bg-[#edf1e8] px-5 py-4">
-
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#82936b] shadow-sm">
-
-                    <Check
-                      size={16}
-                      strokeWidth={3}
-                    />
-
-                  </div>
-
-                  <div>
-
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#748361]">
-                      Keep your TOTS-OS account
-                    </p>
-
-                    <p className="mt-1 text-sm font-semibold text-stone-700">
-                      Nothing needs to be set up again.
-                    </p>
-
-                    <p className="mt-1 text-xs leading-5 text-stone-500">
-                      Choose your membership below and your
-                      existing account, data and workspace
-                      will remain in place.
-                    </p>
-
-                  </div>
-
-                </div>
-              ) : (
-                <div className="mt-6 flex max-w-xl items-start gap-4 rounded-2xl border border-[#cdd7c3] bg-[#edf1e8] px-5 py-4">
-
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#82936b] shadow-sm">
-
-                    <Check
-                      size={16}
-                      strokeWidth={3}
-                    />
-
-                  </div>
-
-                  <div>
-
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#748361]">
-                      14-day free trial
-                    </p>
-
-                    <p className="mt-1 text-sm font-semibold text-stone-700">
-                      No bank details required.
-                    </p>
-
-                    <p className="mt-1 text-xs leading-5 text-stone-500">
-                      Create your account, choose
-                      your plan and use TOTS-OS
-                      completely free for two weeks.
-                    </p>
-
-                  </div>
-
-                </div>
-              )}
-
             </div>
 
-            {/* SELECTED PLAN */}
+            <div className="rounded-[1.5rem] border border-[#4f4a46]/10 bg-[#FFFEFD] px-6 py-5 shadow-[0_12px_34px_rgba(79,74,70,0.05)]">
 
-            <div className="w-fit rounded-2xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
-
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
-                Selected plan
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#69645f]">
+                Current membership
               </p>
 
-              <div className="mt-1 flex items-center gap-2">
+              <div className="mt-2 flex items-center gap-3">
 
-                <span className="h-2 w-2 rounded-full bg-[#A3B18A]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#637454]" />
 
-                <p className="font-serif text-xl italic text-stone-900">
-                  {
-                    selectedTier
-                  }
+                <p className="text-xl font-semibold tracking-[-0.025em] text-[#373330]">
+                  {pricing.isComplete
+                    ? "TOTS-OS Complete"
+                    : `${pricing.moduleCount} ${
+                        pricing.moduleCount ===
+                        1
+                          ? "module"
+                          : "modules"
+                      }`}
                 </p>
-
               </div>
 
+              <p className="mt-2 text-sm text-[#69645f]">
+                £
+                {
+                  pricing.totalMonthly
+                }
+                /month
+              </p>
             </div>
-
           </div>
 
+          {fromQuiz && (
+            <div className="mt-7 flex max-w-3xl items-start gap-4 rounded-2xl border border-[#A9B897]/60 bg-[#EFF3EB] px-5 py-4">
+
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#637454] shadow-sm">
+                <CheckCircle2
+                  size={18}
+                  aria-hidden="true"
+                />
+              </div>
+
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#637454]">
+                  Loaded from your quiz
+                </p>
+
+                <p className="mt-1 text-sm font-semibold text-[#4f4a46]">
+                  Your recommended setup is ready to review.
+                </p>
+
+                <p className="mt-1 text-xs leading-6 text-[#69645f]">
+                  You can buy it exactly as recommended or change any
+                  module before checkout.
+                </p>
+              </div>
+            </div>
+          )}
         </header>
 
-        {/* ==========================================
-            INFO STRIP
-        ========================================== */}
+        {/* ==================================================
+            VALUE STRIP
+        ================================================== */}
 
-        <section className="mb-7 grid gap-3 md:grid-cols-3">
+        <section
+          aria-label="Membership benefits"
+          className="mb-7 grid gap-3 md:grid-cols-3"
+        >
 
-          {existingAccount ? (
-            <>
-              <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
+          <div className="flex items-center gap-4 rounded-2xl border border-[#4f4a46]/10 bg-white px-5 py-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF3EB] text-[#637454]">
+              <Sparkles
+                size={16}
+                aria-hidden="true"
+              />
+            </div>
 
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
+            <div>
+              <p className="text-sm font-semibold text-[#4f4a46]">
+                Flexible modules
+              </p>
 
-                  <Check
-                    size={15}
-                    strokeWidth={3}
-                    className="text-[#82936b]"
-                  />
+              <p className="mt-0.5 text-xs text-[#69645f]">
+                Choose only what you need
+              </p>
+            </div>
+          </div>
 
-                </div>
+          <div className="flex items-center gap-4 rounded-2xl border border-[#4f4a46]/10 bg-white px-5 py-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF3EB] text-[#637454]">
+              <CreditCard
+                size={16}
+                aria-hidden="true"
+              />
+            </div>
 
-                <div>
+            <div>
+              <p className="text-sm font-semibold text-[#4f4a46]">
+                Automatic bundle savings
+              </p>
 
-                  <p className="text-xs font-semibold text-stone-700">
-                    Keep your workspace
-                  </p>
+              <p className="mt-0.5 text-xs text-[#69645f]">
+                The best eligible price is applied
+              </p>
+            </div>
+          </div>
 
-                  <p className="mt-0.5 text-[10px] text-stone-400">
-                    Your existing data stays put
-                  </p>
+          <div className="flex items-center gap-4 rounded-2xl border border-[#4f4a46]/10 bg-white px-5 py-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF3EB] text-[#637454]">
+              <ShieldCheck
+                size={16}
+                aria-hidden="true"
+              />
+            </div>
 
-                </div>
+            <div>
+              <p className="text-sm font-semibold text-[#4f4a46]">
+                £199 maximum
+              </p>
 
-              </div>
-
-              <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
-
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
-
-                  <CreditCard
-                    size={15}
-                    className="text-[#82936b]"
-                  />
-
-                </div>
-
-                <div>
-
-                  <p className="text-xs font-semibold text-stone-700">
-                    Simple monthly billing
-                  </p>
-
-                  <p className="mt-0.5 text-[10px] text-stone-400">
-                    Choose the plan that suits you
-                  </p>
-
-                </div>
-
-              </div>
-
-              <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
-
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
-
-                  <ShieldCheck
-                    size={15}
-                    className="text-[#82936b]"
-                  />
-
-                </div>
-
-                <div>
-
-                  <p className="text-xs font-semibold text-stone-700">
-                    Continue seamlessly
-                  </p>
-
-                  <p className="mt-0.5 text-[10px] text-stone-400">
-                    No new account required
-                  </p>
-
-                </div>
-
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
-
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
-
-                  <Sparkles
-                    size={15}
-                    className="text-[#82936b]"
-                  />
-
-                </div>
-
-                <div>
-
-                  <p className="text-xs font-semibold text-stone-700">
-                    2 weeks free
-                  </p>
-
-                  <p className="mt-0.5 text-[10px] text-stone-400">
-                    Full trial access
-                  </p>
-
-                </div>
-
-              </div>
-
-              <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
-
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
-
-                  <CreditCard
-                    size={15}
-                    className="text-[#82936b]"
-                  />
-
-                </div>
-
-                <div>
-
-                  <p className="text-xs font-semibold text-stone-700">
-                    No bank details
-                  </p>
-
-                  <p className="mt-0.5 text-[10px] text-stone-400">
-                    Nothing charged upfront
-                  </p>
-
-                </div>
-
-              </div>
-
-              <div className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-5 py-4">
-
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf1e8]">
-
-                  <ShieldCheck
-                    size={15}
-                    className="text-[#82936b]"
-                  />
-
-                </div>
-
-                <div>
-
-                  <p className="text-xs font-semibold text-stone-700">
-                    No commitment
-                  </p>
-
-                  <p className="mt-0.5 text-[10px] text-stone-400">
-                    Decide after your trial
-                  </p>
-
-                </div>
-
-              </div>
-            </>
-          )}
+              <p className="mt-0.5 text-xs text-[#69645f]">
+                Complete gives you everything
+              </p>
+            </div>
+          </div>
 
         </section>
 
-        {/* ==========================================
-            PRICING CARDS
-        ========================================== */}
+        <div
+          id="membership-builder"
+          className="grid items-start gap-7 xl:grid-cols-[minmax(0,1fr)_390px]"
+        >
 
-        <section className="grid gap-6 lg:grid-cols-3">
+          {/* ==================================================
+              LEFT: MODULE BUILDER
+          ================================================== */}
 
-          {TIERS.map(
-            (
-              tier
-            ) => {
-              const selected =
-                selectedTier ===
-                tier.name;
+          <div>
 
-              const isLoading =
-                loading ===
-                tier.name;
+            <section
+              aria-labelledby="module-heading"
+              className="rounded-[2rem] border border-[#4f4a46]/10 bg-[#FFFEFD] p-6 shadow-[0_12px_34px_rgba(79,74,70,0.04)] md:p-8"
+            >
 
-              return (
-                <article
-                  key={
-                    tier.name
-                  }
-                  onClick={() => {
-                    if (
-                      !loading
-                    ) {
-                      setSelectedTier(
-                        tier.name
-                      );
-                    }
-                  }}
-                  className={`
-                    relative
-                    flex
-                    min-h-[590px]
-                    cursor-pointer
-                    flex-col
-                    rounded-[2rem]
-                    border
-                    bg-white
-                    p-7
-                    transition-all
-                    duration-200
-                    md:p-8
+              <div className="flex flex-col gap-4 border-b border-[#4f4a46]/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
 
-                    ${
-                      selected
-                        ? `
-                          border-[#A3B18A]
-                          shadow-[0_20px_60px_rgba(28,25,23,0.08)]
-                          ring-1
-                          ring-[#A3B18A]
-                        `
-                        : `
-                          border-stone-200
-                          hover:-translate-y-1
-                          hover:border-stone-300
-                          hover:shadow-[0_16px_50px_rgba(28,25,23,0.06)]
-                        `
-                    }
-                  `}
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-[#936d43]">
+                    Step 1
+                  </p>
+
+                  <h2
+                    id="module-heading"
+                    className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[#373330]"
+                  >
+                    Choose your modules
+                  </h2>
+
+                  <p className="mt-2 max-w-xl text-sm leading-7 text-[#69645f]">
+                    Select the areas of TOTS-OS you want access to.
+                    Discounts are calculated automatically.
+                  </p>
+                </div>
+
+                <p
+                  aria-live="polite"
+                  className="text-sm font-semibold text-[#637454]"
                 >
+                  {
+                    selectedModules.length
+                  }{" "}
+                  {selectedModules.length ===
+                  1
+                    ? "module"
+                    : "modules"}{" "}
+                  selected
+                </p>
+              </div>
 
-                  {/* MOST POPULAR */}
+              <fieldset className="mt-6">
+                <legend className="sr-only">
+                  Select TOTS-OS modules
+                </legend>
 
-                  {tier.popular && (
-                    <span className="absolute right-5 top-5 rounded-full bg-[#A3B18A] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.16em] text-white">
-                      Most Popular
-                    </span>
-                  )}
+                <div className="grid gap-4 md:grid-cols-2">
 
-                  {/* PLAN HEADING */}
+                  {MODULE_ORDER.map(
+                    (
+                      key,
+                    ) => {
+                      const module =
+                        MODULES[
+                          key
+                        ];
 
-                  <div>
+                      const Icon =
+                        module.icon;
 
-                    <p className="mb-3 pr-24 text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
-                      {
-                        tier.description
-                      }
-                    </p>
+                      const selected =
+                        selectedModules.includes(
+                          key,
+                        );
 
-                    <h2 className="font-serif text-4xl italic text-stone-900">
-                      {
-                        tier.name
-                      }
-                    </h2>
+                      return (
+                        <label
+                          key={
+                            key
+                          }
+                          className={`
+                            relative
+                            cursor-pointer
+                            rounded-[1.35rem]
+                            border
+                            p-5
+                            transition
 
-                    {/* PRICE */}
-
-                    <div className="mt-7 flex items-end gap-2">
-
-                      <span className="font-serif text-6xl leading-none text-stone-900">
-                        £
-                        {
-                          tier.price
-                        }
-                      </span>
-
-                      <span className="pb-1 text-xs font-bold uppercase tracking-wide text-stone-400">
-                        / month
-                      </span>
-
-                    </div>
-
-                    {/* STATUS BADGE */}
-
-                    {existingAccount ? (
-                      <>
-                        <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#edf1e8] px-3 py-2">
-
-                          <Check
-                            size={11}
-                            strokeWidth={3}
-                            className="text-[#82936b]"
-                          />
-
-                          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#748361]">
-                            Continue on this plan
-                          </span>
-
-                        </div>
-
-                        <p className="mt-2 text-[10px] font-medium text-stone-400">
-                          Keep your existing TOTS-OS account
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#edf1e8] px-3 py-2">
-
-                          <Check
-                            size={11}
-                            strokeWidth={3}
-                            className="text-[#82936b]"
-                          />
-
-                          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#748361]">
-                            14 days free
-                          </span>
-
-                        </div>
-
-                        <p className="mt-2 text-[10px] font-medium text-stone-400">
-                          No bank details required
-                        </p>
-                      </>
-                    )}
-
-                  </div>
-
-                  <div className="my-8 h-px bg-stone-100" />
-
-                  {/* FEATURES */}
-
-                  <div className="flex-1">
-
-                    <p className="mb-5 text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
-                      Included
-                    </p>
-
-                    <ul className="space-y-4">
-
-                      {tier.features.map(
-                        (
-                          feature
-                        ) => (
-                          <li
-                            key={
-                              feature
+                            ${
+                              selected
+                                ? "border-[#637454] bg-[#EFF3EB] shadow-[inset_0_0_0_1px_rgba(99,116,84,0.18)]"
+                                : "border-[#4f4a46]/10 bg-white hover:border-[#A9B897]"
                             }
-                            className="flex items-start gap-3 text-sm text-stone-600"
-                          >
 
-                            <span
+                            focus-within:outline
+                            focus-within:outline-3
+                            focus-within:outline-offset-3
+                            focus-within:outline-[#373330]
+                          `}
+                        >
+
+                          <input
+                            type="checkbox"
+                            checked={
+                              selected
+                            }
+                            onChange={() =>
+                              toggleModule(
+                                key,
+                              )
+                            }
+                            className="sr-only"
+                          />
+
+                          <div className="flex items-start gap-4">
+
+                            <div
                               className={`
-                                mt-0.5
                                 flex
-                                h-5
-                                w-5
+                                h-11
+                                w-11
                                 shrink-0
                                 items-center
                                 justify-center
-                                rounded-full
+                                rounded-xl
 
                                 ${
                                   selected
-                                    ? "bg-[#edf1e8]"
-                                    : "bg-stone-100"
+                                    ? "bg-white text-[#637454]"
+                                    : "bg-[#F0ECE7] text-[#69645f]"
                                 }
                               `}
                             >
-
-                              <Check
-                                size={12}
-                                strokeWidth={3}
-                                className={
-                                  selected
-                                    ? "text-[#82936b]"
-                                    : "text-stone-400"
-                                }
+                              <Icon
+                                size={19}
+                                aria-hidden="true"
                               />
+                            </div>
 
-                            </span>
+                            <div className="min-w-0 flex-1">
 
-                            <span>
-                              {
-                                feature
-                              }
-                            </span>
+                              <div className="flex items-start justify-between gap-4">
 
-                          </li>
-                        )
-                      )}
+                                <div>
+                                  <h3 className="text-base font-bold text-[#373330]">
+                                    {
+                                      module.name
+                                    }
+                                  </h3>
 
-                    </ul>
+                                  <p className="mt-1 text-sm font-semibold text-[#4f4a46]">
+                                    £
+                                    {
+                                      module.price
+                                    }
+                                    /month
+                                  </p>
+                                </div>
+
+                                <span
+                                  aria-hidden="true"
+                                  className={`
+                                    flex
+                                    h-6
+                                    w-6
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    rounded-full
+                                    border
+
+                                    ${
+                                      selected
+                                        ? "border-[#637454] bg-[#637454] text-white"
+                                        : "border-[#4f4a46]/20 bg-white text-transparent"
+                                    }
+                                  `}
+                                >
+                                  <Check
+                                    size={13}
+                                    strokeWidth={3}
+                                  />
+                                </span>
+
+                              </div>
+
+                              <p className="mt-3 text-xs leading-6 text-[#69645f]">
+                                {
+                                  module.description
+                                }
+                              </p>
+
+                            </div>
+
+                          </div>
+
+                        </label>
+                      );
+                    },
+                  )}
+
+                </div>
+              </fieldset>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+
+                <div className="rounded-2xl bg-[#FAF8F5] px-4 py-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#69645f]">
+                    1–2 modules
+                  </p>
+
+                  <p className="mt-1 text-sm font-semibold text-[#4f4a46]">
+                    Standard pricing
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-[#FAF8F5] px-4 py-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#69645f]">
+                    3–4 modules
+                  </p>
+
+                  <p className="mt-1 text-sm font-semibold text-[#4f4a46]">
+                    10% off
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-[#FAF8F5] px-4 py-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#69645f]">
+                    5 modules
+                  </p>
+
+                  <p className="mt-1 text-sm font-semibold text-[#4f4a46]">
+                    20% off
+                  </p>
+                </div>
+
+              </div>
+
+            </section>
+
+            {/* ==================================================
+                CLARITY AI
+            ================================================== */}
+
+            <section
+              aria-labelledby="ai-heading"
+              className="mt-6 rounded-[2rem] border border-[#4f4a46]/10 bg-[#FFFEFD] p-6 shadow-[0_12px_34px_rgba(79,74,70,0.04)] md:p-8"
+            >
+
+              <div className="border-b border-[#4f4a46]/10 pb-6">
+
+                <p className="text-[11px] font-black uppercase tracking-[0.15em] text-[#936d43]">
+                  Step 2
+                </p>
+
+                <h2
+                  id="ai-heading"
+                  className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[#373330]"
+                >
+                  Choose your Clarity AI level
+                </h2>
+
+                <p className="mt-2 max-w-2xl text-sm leading-7 text-[#69645f]">
+                  Add only the AI allowance that matches how often you
+                  expect to use it.
+                </p>
+
+              </div>
+
+              {pricing.isComplete ? (
+                <div className="mt-6">
+
+                  <div className="flex items-start gap-4 rounded-[1.35rem] border border-[#637454] bg-[#EFF3EB] p-5">
+
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#936d43]">
+                      <BrainCircuit
+                        size={19}
+                        aria-hidden="true"
+                      />
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#637454]">
+                        Included with Complete
+                      </p>
+
+                      <h3 className="mt-1 text-lg font-bold text-[#373330]">
+                        Clarity AI Starter
+                      </h3>
+
+                      <p className="mt-1 text-sm font-semibold text-[#4f4a46]">
+                        100 AI actions / month
+                      </p>
+
+                      <p className="mt-3 max-w-xl text-xs leading-6 text-[#69645f]">
+                        Complete includes Clarity AI Starter as standard.
+                        Your total membership remains £199/month.
+                      </p>
+
+                    </div>
 
                   </div>
 
-                  {/* CHECKOUT BUTTON */}
+                  {pricing.aiUpgradeSuggested && (
+                    <div className="mt-3 flex items-start gap-3 rounded-2xl border border-[#C69D69]/30 bg-[#F2E7DA] px-4 py-4">
 
-                  <button
-                    type="button"
-                    onClick={(
-                      event
-                    ) => {
-                      event.stopPropagation();
+                      <Sparkles
+                        size={16}
+                        className="mt-0.5 shrink-0 text-[#936d43]"
+                        aria-hidden="true"
+                      />
 
-                      void handleCheckout(
-                        tier
-                      );
-                    }}
-                    disabled={
-                      loading !==
-                        null ||
-                      !modeReady
-                    }
-                    className={`
-                      mt-10
-                      flex
-                      w-full
-                      items-center
-                      justify-center
-                      rounded-full
-                      px-6
-                      py-4
-                      text-[10px]
-                      font-black
-                      uppercase
-                      tracking-[0.16em]
-                      transition-all
+                      <p className="text-xs leading-6 text-[#5d5854]">
+                        Your quiz suggested{" "}
+                        <strong>
+                          {
+                            AI_TIERS[
+                              pricing.requestedAiTier
+                            ].name
+                          }
+                        </strong>
+                        , but Complete includes Starter. We recommend
+                        starting there and only increasing your AI
+                        allowance later if you actually need it.
+                      </p>
 
-                      ${
-                        selected
-                          ? `
-                            bg-stone-900
-                            text-white
-                            hover:bg-stone-700
-                          `
-                          : `
-                            bg-stone-100
-                            text-stone-700
-                            hover:bg-stone-200
-                          `
-                      }
+                    </div>
+                  )}
 
-                      disabled:cursor-not-allowed
-                      disabled:opacity-50
-                    `}
-                  >
+                </div>
+              ) : (
+                <fieldset className="mt-6">
 
-                    {isLoading ? (
-                      <>
-                        <Loader2
-                          size={14}
-                          className="mr-2 animate-spin"
-                        />
+                  <legend className="sr-only">
+                    Choose your Clarity AI plan
+                  </legend>
 
-                        Preparing checkout
-                      </>
-                    ) : existingAccount ? (
-                      <>
-                        Continue with{" "}
-                        {
-                          tier.name
-                        }
-                      </>
-                    ) : (
-                      <>
-                        Start free with{" "}
-                        {
-                          tier.name
-                        }
-                      </>
+                  <div className="grid gap-3 md:grid-cols-2">
+
+                    {(
+                      Object.keys(
+                        AI_TIERS,
+                      ) as AiTierKey[]
+                    ).map(
+                      (
+                        key,
+                      ) => {
+                        const tier =
+                          AI_TIERS[
+                            key
+                          ];
+
+                        const selected =
+                          selectedAiTier ===
+                          key;
+
+                        return (
+                          <label
+                            key={
+                              key
+                            }
+                            className={`
+                              relative
+                              cursor-pointer
+                              rounded-[1.2rem]
+                              border
+                              p-5
+                              transition
+
+                              ${
+                                selected
+                                  ? "border-[#936d43] bg-[#F2E7DA]"
+                                  : "border-[#4f4a46]/10 bg-white hover:border-[#C69D69]"
+                              }
+
+                              focus-within:outline
+                              focus-within:outline-3
+                              focus-within:outline-offset-3
+                              focus-within:outline-[#373330]
+                            `}
+                          >
+
+                            <input
+                              type="radio"
+                              name="clarity-ai"
+                              value={
+                                key
+                              }
+                              checked={
+                                selected
+                              }
+                              onChange={() => {
+                                setSelectedAiTier(
+                                  key,
+                                );
+
+                                setCheckoutError(
+                                  null,
+                                );
+                              }}
+                              className="sr-only"
+                            />
+
+                            <div className="flex items-start justify-between gap-4">
+
+                              <div>
+                                <p className="text-base font-bold text-[#373330]">
+                                  {
+                                    tier.name
+                                  }
+                                </p>
+
+                                <p className="mt-1 text-sm font-semibold text-[#4f4a46]">
+                                  {tier.price ===
+                                  0
+                                    ? "No additional charge"
+                                    : `+£${tier.price}/month`}
+                                </p>
+                              </div>
+
+                              <span
+                                aria-hidden="true"
+                                className={`
+                                  flex
+                                  h-6
+                                  w-6
+                                  shrink-0
+                                  items-center
+                                  justify-center
+                                  rounded-full
+                                  border
+
+                                  ${
+                                    selected
+                                      ? "border-[#936d43] bg-[#936d43] text-white"
+                                      : "border-[#4f4a46]/20 bg-white text-transparent"
+                                  }
+                                `}
+                              >
+                                <Check
+                                  size={13}
+                                  strokeWidth={3}
+                                />
+                              </span>
+
+                            </div>
+
+                            {tier.allowance && (
+                              <p className="mt-3 text-xs font-bold text-[#936d43]">
+                                {
+                                  tier.allowance
+                                }
+                              </p>
+                            )}
+
+                            <p className="mt-2 text-xs leading-6 text-[#69645f]">
+                              {
+                                tier.description
+                              }
+                            </p>
+
+                          </label>
+                        );
+                      },
                     )}
 
-                  </button>
+                  </div>
 
-                  <p className="mt-3 text-center text-[9px] font-medium text-stone-400">
-                    {existingAccount
-                      ? `£${tier.price}/month`
-                      : "14 days free · no bank details"}
-                  </p>
+                </fieldset>
+              )}
 
-                </article>
-              );
-            }
-          )}
+            </section>
+
+            {/* ==================================================
+                COMPLETE OPTION
+            ================================================== */}
+
+            {!pricing.isComplete && (
+              <section className="mt-6 overflow-hidden rounded-[2rem] bg-[#373330] text-white shadow-[0_24px_70px_rgba(55,51,48,0.16)]">
+
+                <div className="grid md:grid-cols-[1fr_auto]">
+
+                  <div className="p-7 md:p-8">
+
+                    <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-[#D1DFC6]">
+                      <WandSparkles
+                        size={14}
+                        aria-hidden="true"
+                      />
+
+                      <span className="text-[10px] font-black uppercase tracking-[0.14em]">
+                        Everything in one membership
+                      </span>
+                    </div>
+
+                    <h2 className="mt-5 text-3xl font-semibold tracking-[-0.04em] md:text-4xl">
+                      TOTS-OS Complete
+                    </h2>
+
+                    <p className="mt-3 max-w-2xl text-sm leading-7 text-white/75">
+                      Get all six main modules plus Clarity AI Starter
+                      for one fixed monthly price.
+                    </p>
+
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      {MODULE_ORDER.map(
+                        (
+                          key,
+                        ) => (
+                          <span
+                            key={
+                              key
+                            }
+                            className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[10px] font-bold text-white/90"
+                          >
+                            {
+                              MODULES[
+                                key
+                              ]
+                                .shortName
+                            }
+                          </span>
+                        ),
+                      )}
+
+                      <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[10px] font-bold text-white/90">
+                        Clarity AI Starter
+                      </span>
+                    </div>
+
+                  </div>
+
+                  <div className="flex min-w-[220px] flex-col justify-center border-t border-white/10 bg-white/[0.04] p-7 md:border-l md:border-t-0">
+
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/65">
+                      Complete
+                    </p>
+
+                    <p className="mt-2 text-5xl font-bold tracking-[-0.05em]">
+                      £199
+                    </p>
+
+                    <p className="mt-1 text-xs text-white/65">
+                      per month
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={
+                        selectComplete
+                      }
+                      className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-xs font-black text-[#373330] transition hover:bg-[#EFF3EB] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-white"
+                    >
+                      Choose Complete
+
+                      <Plus
+                        size={14}
+                        aria-hidden="true"
+                      />
+                    </button>
+
+                  </div>
+
+                </div>
+
+              </section>
+            )}
+
+          </div>
+
+          {/* ==================================================
+              RIGHT: STICKY SUMMARY
+          ================================================== */}
+
+          <aside
+            aria-labelledby="summary-heading"
+            className="xl:sticky xl:top-6"
+          >
+
+            <div className="overflow-hidden rounded-[2rem] border border-[#4f4a46]/10 bg-[#FFFEFD] shadow-[0_20px_60px_rgba(79,74,70,0.08)]">
+
+              <div className="border-b border-[#4f4a46]/10 p-6">
+
+                <p className="text-[11px] font-black uppercase tracking-[0.15em] text-[#936d43]">
+                  Your membership
+                </p>
+
+                <h2
+                  id="summary-heading"
+                  className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-[#373330]"
+                >
+                  {pricing.isComplete
+                    ? "TOTS-OS Complete"
+                    : "Your TOTS-OS setup"}
+                </h2>
+
+                <p className="mt-2 text-xs leading-6 text-[#69645f]">
+                  Review everything below before continuing to Stripe.
+                </p>
+
+              </div>
+
+              <div className="p-6">
+
+                {selectedModules.length ===
+                0 ? (
+                  <div className="rounded-2xl bg-[#FAF8F5] p-5 text-center">
+                    <ShoppingBag
+                      size={20}
+                      className="mx-auto text-[#69645f]"
+                      aria-hidden="true"
+                    />
+
+                    <p className="mt-3 text-sm font-semibold text-[#4f4a46]">
+                      No modules selected
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-[#69645f]">
+                      Choose at least one module to build your membership.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+
+                    {pricing.displayedModules.map(
+                      (
+                        key,
+                      ) => {
+                        const module =
+                          MODULES[
+                            key
+                          ];
+
+                        return (
+                          <div
+                            key={
+                              key
+                            }
+                            className="flex items-center justify-between gap-4"
+                          >
+                            <div className="flex min-w-0 items-center gap-3">
+
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#EFF3EB] text-[#637454]">
+                                <Check
+                                  size={13}
+                                  strokeWidth={3}
+                                  aria-hidden="true"
+                                />
+                              </span>
+
+                              <span className="truncate text-xs font-semibold text-[#4f4a46]">
+                                {
+                                  module.shortName
+                                }
+                              </span>
+                            </div>
+
+                            <span className="shrink-0 text-xs font-bold text-[#69645f]">
+                              £
+                              {
+                                module.price
+                              }
+                            </span>
+                          </div>
+                        );
+                      },
+                    )}
+
+                  </div>
+                )}
+
+                {pricing.isComplete ? (
+                  <div className="mt-5 flex items-center justify-between gap-4 border-t border-[#4f4a46]/10 pt-5">
+
+                    <div className="flex items-center gap-3">
+
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F2E7DA] text-[#936d43]">
+                        <BrainCircuit
+                          size={14}
+                          aria-hidden="true"
+                        />
+                      </span>
+
+                      <div>
+                        <p className="text-xs font-semibold text-[#4f4a46]">
+                          Clarity AI Starter
+                        </p>
+
+                        <p className="mt-0.5 text-[10px] text-[#69645f]">
+                          100 actions / month
+                        </p>
+                      </div>
+
+                    </div>
+
+                    <span className="text-xs font-bold text-[#637454]">
+                      Included
+                    </span>
+
+                  </div>
+                ) : selectedAiTier !==
+                  "none" ? (
+                  <div className="mt-5 flex items-center justify-between gap-4 border-t border-[#4f4a46]/10 pt-5">
+
+                    <div className="flex items-center gap-3">
+
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F2E7DA] text-[#936d43]">
+                        <BrainCircuit
+                          size={14}
+                          aria-hidden="true"
+                        />
+                      </span>
+
+                      <div>
+                        <p className="text-xs font-semibold text-[#4f4a46]">
+                          {
+                            AI_TIERS[
+                              selectedAiTier
+                            ]
+                              .name
+                          }
+                        </p>
+
+                        <p className="mt-0.5 text-[10px] text-[#69645f]">
+                          {
+                            AI_TIERS[
+                              selectedAiTier
+                            ]
+                              .allowance
+                          }
+                        </p>
+                      </div>
+
+                    </div>
+
+                    <span className="text-xs font-bold text-[#69645f]">
+                      +£
+                      {
+                        AI_TIERS[
+                          selectedAiTier
+                        ]
+                          .price
+                      }
+                    </span>
+
+                  </div>
+                ) : null}
+
+                {/* ============================================
+                    DISCOUNT
+                ============================================ */}
+
+                {!pricing.isComplete &&
+                  pricing.moduleSaving >
+                    0 && (
+                    <div className="mt-5 rounded-2xl border border-[#A9B897]/50 bg-[#EFF3EB] px-4 py-4">
+
+                      <div className="flex items-center justify-between gap-4">
+
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#637454]">
+                            {
+                              pricing.discountLabel
+                            }
+                          </p>
+
+                          <p className="mt-1 text-xs text-[#69645f]">
+                            Applied automatically
+                          </p>
+                        </div>
+
+                        <p className="text-sm font-bold text-[#637454]">
+                          -£
+                          {
+                            pricing.moduleSaving
+                          }
+                        </p>
+
+                      </div>
+
+                    </div>
+                  )}
+
+                {/* ============================================
+                    COMPLETE AUTO-UPGRADE
+                ============================================ */}
+
+                {pricing.isComplete && (
+                  <div className="mt-5 rounded-2xl border border-[#A9B897]/50 bg-[#EFF3EB] px-4 py-4">
+
+                    <div className="flex items-start gap-3">
+
+                      <WandSparkles
+                        size={16}
+                        className="mt-0.5 shrink-0 text-[#637454]"
+                        aria-hidden="true"
+                      />
+
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#637454]">
+                          Complete applied
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-[#69645f]">
+                          Your selection reaches our Complete price, so
+                          we&apos;ve given you all six modules plus
+                          Clarity AI Starter for £199/month.
+                        </p>
+                      </div>
+
+                    </div>
+
+                  </div>
+                )}
+
+                {/* ============================================
+                    TOTAL
+                ============================================ */}
+
+                <div className="mt-6 border-t border-[#4f4a46]/10 pt-6">
+
+                  <div className="flex items-end justify-between gap-4">
+
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#69645f]">
+                        Monthly total
+                      </p>
+
+                      {pricing.isComplete &&
+                        pricing.modularTotal >
+                          COMPLETE_PRICE && (
+                          <p className="mt-1 text-xs text-[#69645f] line-through">
+                            £
+                            {
+                              pricing.modularTotal
+                            }
+                            /month
+                          </p>
+                        )}
+                    </div>
+
+                    <div className="text-right">
+
+                      <p
+                        aria-live="polite"
+                        className="text-4xl font-bold tracking-[-0.05em] text-[#373330]"
+                      >
+                        £
+                        {
+                          pricing.totalMonthly
+                        }
+                      </p>
+
+                      <p className="mt-1 text-xs text-[#69645f]">
+                        per month
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  {pricing.isComplete && (
+                    <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#EFF3EB] px-3 py-2 text-[10px] font-black text-[#637454]">
+                      <Check
+                        size={11}
+                        strokeWidth={3}
+                        aria-hidden="true"
+                      />
+
+                      £199 membership maximum
+                    </div>
+                  )}
+
+                </div>
+
+                {/* ============================================
+                    ERROR
+                ============================================ */}
+
+                {checkoutError && (
+                  <div
+                    role="alert"
+                    className="mt-5 rounded-2xl border border-[#936d43]/25 bg-[#F2E7DA] px-4 py-4"
+                  >
+                    <p className="text-xs leading-6 text-[#5d5854]">
+                      {
+                        checkoutError
+                      }
+                    </p>
+                  </div>
+                )}
+
+                {/* ============================================
+                    CTA
+                ============================================ */}
+
+                <button
+                  type="button"
+                  disabled={
+                    checkoutLoading ||
+                    !modeReady ||
+                    selectedModules.length ===
+                      0
+                  }
+                  onClick={() => {
+                    void handleCheckout();
+                  }}
+                  className="mt-6 flex min-h-13 w-full items-center justify-center gap-2 rounded-full bg-[#373330] px-6 py-4 text-xs font-black text-white transition hover:bg-[#4f4a46] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#373330] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {checkoutLoading ? (
+                    <>
+                      <Loader2
+                        size={15}
+                        className="animate-spin"
+                        aria-hidden="true"
+                      />
+
+                      Preparing secure checkout
+                    </>
+                  ) : (
+                    <>
+                      Buy this membership
+
+                      <ArrowRight
+                        size={15}
+                        aria-hidden="true"
+                      />
+                    </>
+                  )}
+                </button>
+
+                <div className="mt-4 flex items-center justify-center gap-2 text-center text-[10px] font-semibold text-[#69645f]">
+                  <ShieldCheck
+                    size={12}
+                    aria-hidden="true"
+                  />
+
+                  Secure checkout through Stripe
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* ==================================================
+                EXISTING ACCOUNT INFO
+            ================================================== */}
+
+            {existingAccount && (
+              <div className="mt-4 rounded-[1.5rem] border border-[#4f4a46]/10 bg-white p-5">
+
+                <div className="flex items-start gap-3">
+
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EFF3EB] text-[#637454]">
+                    <Check
+                      size={15}
+                      strokeWidth={3}
+                      aria-hidden="true"
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-bold text-[#4f4a46]">
+                      Your workspace stays intact
+                    </p>
+
+                    <p className="mt-1 text-[11px] leading-5 text-[#69645f]">
+                      Your existing clients, projects, files, settings and
+                      business data stay exactly where they are.
+                    </p>
+                  </div>
+
+                </div>
+
+              </div>
+            )}
+
+          </aside>
+
+        </div>
+
+        {/* ==================================================
+            FOOTER INFO
+        ================================================== */}
+
+        <section className="mt-10 grid gap-4 border-t border-[#4f4a46]/10 pt-8 md:grid-cols-3">
+
+          <div>
+            <p className="text-xs font-bold text-[#4f4a46]">
+              Change as you grow
+            </p>
+
+            <p className="mt-2 text-xs leading-6 text-[#69645f]">
+              Add or remove modules as the needs of your business
+              change.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs font-bold text-[#4f4a46]">
+              Clear monthly pricing
+            </p>
+
+            <p className="mt-2 text-xs leading-6 text-[#69645f]">
+              Bundle savings are automatically applied when your setup
+              qualifies.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs font-bold text-[#4f4a46]">
+              Complete never exceeds £199
+            </p>
+
+            <p className="mt-2 text-xs leading-6 text-[#69645f]">
+              If your configuration reaches £199, TOTS-OS Complete
+              becomes the better-value membership automatically.
+            </p>
+          </div>
 
         </section>
 
-        {/* ==========================================
-            CHECKOUT INFORMATION
-        ========================================== */}
-
-        {existingAccount ? (
-          <div className="mt-10 flex flex-col items-center justify-between gap-5 rounded-[2rem] border border-stone-200 bg-white px-6 py-5 text-center shadow-sm md:flex-row md:text-left">
-
-            <div className="flex items-center gap-4">
-
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#edf1e8]">
-
-                <Check
-                  size={16}
-                  strokeWidth={3}
-                  className="text-[#82936b]"
-                />
-
-              </div>
-
-              <div>
-
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-500">
-                  Continue with TOTS-OS
-                </p>
-
-                <p className="mt-1 text-xs font-semibold text-stone-600">
-                  Your existing workspace stays exactly where it is.
-                </p>
-
-                <p className="mt-1 text-[10px] text-stone-400">
-                  Choose your plan and continue using your
-                  existing account, data and setup.
-                </p>
-
-              </div>
-
-            </div>
-
-            <div className="text-center md:text-right">
-
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
-                TOTS-OS
-              </p>
-
-              <p className="mt-1 text-[10px] text-stone-400">
-                Secure monthly billing through Stripe.
-              </p>
-
-            </div>
-
-          </div>
-        ) : (
-          <div className="mt-10 flex flex-col items-center justify-between gap-5 rounded-[2rem] border border-stone-200 bg-white px-6 py-5 text-center shadow-sm md:flex-row md:text-left">
-
-            <div className="flex items-center gap-4">
-
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#edf1e8]">
-
-                <Check
-                  size={16}
-                  strokeWidth={3}
-                  className="text-[#82936b]"
-                />
-
-              </div>
-
-              <div>
-
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-500">
-                  Start completely free
-                </p>
-
-                <p className="mt-1 text-xs font-semibold text-stone-600">
-                  14-day free trial · no bank details required.
-                </p>
-
-                <p className="mt-1 text-[10px] text-stone-400">
-                  Choose your plan now and decide whether
-                  you want to continue once you&apos;ve
-                  properly tried TOTS-OS.
-                </p>
-
-              </div>
-
-            </div>
-
-            <div className="text-center md:text-right">
-
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
-                TOTS-OS
-              </p>
-
-              <p className="mt-1 text-[10px] text-stone-400">
-                Monthly pricing begins only
-                after your free trial.
-              </p>
-
-            </div>
-
-          </div>
-        )}
-
       </div>
-
     </main>
   );
 }

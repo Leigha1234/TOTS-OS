@@ -8,6 +8,10 @@ import {
   syncStoreSubscriptionFromInvoice,
 } from "@/lib/storeSubscriptions";
 
+import {
+  syncMtcMembershipsSafely,
+} from "@/lib/integrations/mtc/mtc";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -66,289 +70,104 @@ const stripe = new Stripe(
 
 type StoreOrderRow = {
   id: string;
-
   organisation_id: string;
-
-  customer_id?:
-    | string
-    | null;
-
+  customer_id?: string | null;
   order_number: string;
-
-  customer_name:
-    | string
-    | null;
-
-  customer_email:
-    | string
-    | null;
-
-  customer_phone:
-    | string
-    | null;
-
-  subtotal:
-    | number
-    | string;
-
-  discount_amount:
-    | number
-    | string;
-
-  shipping_amount:
-    | number
-    | string;
-
-  total:
-    | number
-    | string;
-
+  customer_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
+  subtotal: number | string;
+  discount_amount: number | string;
+  shipping_amount: number | string;
+  total: number | string;
   payment_status: string;
-
   fulfilment_status: string;
-
-  shipping_address:
-    | Record<string, unknown>
-    | null;
-
-  stripe_account_id?:
-    | string
-    | null;
-
-  stripe_checkout_session_id?:
-    | string
-    | null;
-
-  stripe_payment_intent_id?:
-    | string
-    | null;
-
-  stripe_customer_id?:
-    | string
-    | null;
-
-  currency?:
-    | string
-    | null;
-
-  checkout_completed_at?:
-    | string
-    | null;
-
-  paid_at?:
-    | string
-    | null;
-
-  discount_code?:
-    | string
-    | null;
-
-  discount_id?:
-    | string
-    | null;
-
+  shipping_address: Record<string, unknown> | null;
+  stripe_account_id?: string | null;
+  stripe_checkout_session_id?: string | null;
+  stripe_payment_intent_id?: string | null;
+  stripe_customer_id?: string | null;
+  currency?: string | null;
+  checkout_completed_at?: string | null;
+  paid_at?: string | null;
+  discount_code?: string | null;
+  discount_id?: string | null;
   created_at: string;
-
   updated_at: string;
 };
 
 type StoreOrderItemRow = {
   id: string;
-
   order_id: string;
-
-  product_id:
-    | string
-    | null;
-
+  product_id: string | null;
   product_name: string;
-
-  sku:
-    | string
-    | null;
-
+  sku: string | null;
   quantity: number;
-
-  unit_price:
-    | number
-    | string;
-
-  total:
-    | number
-    | string;
-
+  unit_price: number | string;
+  total: number | string;
   created_at: string;
 };
 
 type StoreProductRow = {
   id: string;
-
   organisation_id: string;
-
   name: string;
-
   stock: number;
-
   inventory_quantity: number;
-
   track_inventory: boolean;
-
   is_active: boolean;
-
   status: string;
 };
 
 type CustomerRow = {
   id: string;
-
-  organisation_id:
-    | string
-    | null;
-
-  name:
-    | string
-    | null;
-
-  email:
-    | string
-    | null;
-
-  phone:
-    | string
-    | null;
-
-  company:
-    | string
-    | null;
-
-  notes:
-    | string
-    | null;
-
-  stage:
-    | string
-    | null;
-
-  address:
-    | string
-    | null;
-
-  client_type:
-    | string
-    | null;
-
-  status:
-    | string
-    | null;
-
-  on_mailing_list?:
-    | boolean
-    | null;
-
-  mailing_list_category?:
-    | string
-    | null;
-
-  created_at?:
-    | string
-    | null;
-
-  updated_at?:
-    | string
-    | null;
+  organisation_id: string | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  notes: string | null;
+  stage: string | null;
+  address: string | null;
+  client_type: string | null;
+  status: string | null;
+  on_mailing_list?: boolean | null;
+  mailing_list_category?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 type CrmContactRow = {
   id: string;
-
-  organisation_id?:
-    | string
-    | null;
-
-  customer_id?:
-    | string
-    | null;
-
-  name?:
-    | string
-    | null;
-
-  email?:
-    | string
-    | null;
-
-  phone?:
-    | string
-    | null;
-
-  address?:
-    | string
-    | null;
-
-  website?:
-    | string
-    | null;
-
-  company_name?:
-    | string
-    | null;
-
-  company_details?:
-    | string
-    | null;
-
-  role?:
-    | string
-    | null;
-
-  [key: string]:
-    unknown;
+  organisation_id?: string | null;
+  customer_id?: string | null;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  website?: string | null;
+  company_name?: string | null;
+  company_details?: string | null;
+  role?: string | null;
+  [key: string]: unknown;
 };
 
 type ShippingDetailsLike = {
-  name?:
-    | string
-    | null;
-
+  name?: string | null;
   address?: {
-    line1?:
-      | string
-      | null;
-
-    line2?:
-      | string
-      | null;
-
-    city?:
-      | string
-      | null;
-
-    state?:
-      | string
-      | null;
-
-    postal_code?:
-      | string
-      | null;
-
-    country?:
-      | string
-      | null;
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postal_code?: string | null;
+    country?: string | null;
   } | null;
 };
 
 type NotificationRecipientRow = {
-  user_id?:
-    | string
-    | null;
-
-  id?:
-    | string
-    | null;
-
-  role?:
-    | string
-    | null;
+  user_id?: string | null;
+  id?: string | null;
+  role?: string | null;
 };
 
 // ============================================================
@@ -356,13 +175,9 @@ type NotificationRecipientRow = {
 // ============================================================
 
 function asString(
-  value:
-    | string
-    | null
-    | undefined
+  value: string | null | undefined
 ) {
-  return typeof value ===
-    "string" &&
+  return typeof value === "string" &&
     value.trim()
     ? value.trim()
     : null;
@@ -373,15 +188,9 @@ function asString(
 // ============================================================
 
 function normaliseEmail(
-  value:
-    | string
-    | null
-    | undefined
+  value: string | null | undefined
 ) {
-  const email =
-    asString(
-      value
-    );
+  const email = asString(value);
 
   return email
     ? email.toLowerCase()
@@ -396,40 +205,22 @@ function safeInteger(
   value: unknown,
   fallback = 0
 ) {
-  const number =
-    Number(
-      value
-    );
+  const number = Number(value);
 
-  if (
-    !Number.isFinite(
-      number
-    )
-  ) {
+  if (!Number.isFinite(number)) {
     return fallback;
   }
 
-  return Math.floor(
-    number
-  );
+  return Math.floor(number);
 }
-
-// ============================================================
 
 function safeNumber(
   value: unknown,
   fallback = 0
 ) {
-  const number =
-    Number(
-      value
-    );
+  const number = Number(value);
 
-  if (
-    !Number.isFinite(
-      number
-    )
-  ) {
+  if (!Number.isFinite(number)) {
     return fallback;
   }
 
@@ -451,11 +242,8 @@ function formatMoney(
     ).toLocaleString(
       "en-GB",
       {
-        style:
-          "currency",
-
-        currency:
-          currency.toUpperCase(),
+        style: "currency",
+        currency: currency.toUpperCase(),
       }
     );
   } catch {
@@ -476,8 +264,7 @@ function getEventStripeAccountId(
   const account =
     event.account;
 
-  return typeof account ===
-    "string"
+  return typeof account === "string"
     ? account
     : null;
 }
@@ -487,8 +274,7 @@ function getEventStripeAccountId(
 // ============================================================
 
 function getPaymentIntentId(
-  session:
-    Stripe.Checkout.Session
+  session: Stripe.Checkout.Session
 ) {
   if (
     typeof session.payment_intent ===
@@ -499,8 +285,7 @@ function getPaymentIntentId(
 
   if (
     session.payment_intent &&
-    typeof session.payment_intent ===
-      "object"
+    typeof session.payment_intent === "object"
   ) {
     return session.payment_intent.id;
   }
@@ -513,8 +298,7 @@ function getPaymentIntentId(
 // ============================================================
 
 function getStripeCustomerId(
-  session:
-    Stripe.Checkout.Session
+  session: Stripe.Checkout.Session
 ) {
   if (
     typeof session.customer ===
@@ -525,8 +309,7 @@ function getStripeCustomerId(
 
   if (
     session.customer &&
-    typeof session.customer ===
-      "object"
+    typeof session.customer === "object"
   ) {
     return session.customer.id;
   }
@@ -539,8 +322,7 @@ function getStripeCustomerId(
 // ============================================================
 
 function getRawShippingDetails(
-  session:
-    Stripe.Checkout.Session
+  session: Stripe.Checkout.Session
 ): ShippingDetailsLike | null {
   const collected =
     session
@@ -550,9 +332,7 @@ function getRawShippingDetails(
       | null
       | undefined;
 
-  if (
-    collected
-  ) {
+  if (collected) {
     return collected;
   }
 
@@ -576,8 +356,7 @@ function getRawShippingDetails(
 // ============================================================
 
 function getShippingAddress(
-  session:
-    Stripe.Checkout.Session
+  session: Stripe.Checkout.Session
 ):
   | Record<string, unknown>
   | null {
@@ -586,9 +365,7 @@ function getShippingAddress(
       session
     );
 
-  if (
-    !shipping
-  ) {
+  if (!shipping) {
     return null;
   }
 
@@ -639,17 +416,14 @@ function getShippingAddress(
 // ============================================================
 
 function getShippingAddressText(
-  session:
-    Stripe.Checkout.Session
+  session: Stripe.Checkout.Session
 ) {
   const shipping =
     getRawShippingDetails(
       session
     );
 
-  if (
-    !shipping?.address
-  ) {
+  if (!shipping?.address) {
     return null;
   }
 
@@ -662,25 +436,14 @@ function getShippingAddressText(
       shipping.address.postal_code,
       shipping.address.country,
     ]
-      .map(
-        (
-          value
-        ) =>
-          asString(
-            value
-          )
+      .map((value) =>
+        asString(value)
       )
       .filter(
-        (
-          value
-        ): value is string =>
-          Boolean(
-            value
-          )
+        (value): value is string =>
+          Boolean(value)
       )
-      .join(
-        ", "
-      ) ||
+      .join(", ") ||
     null
   );
 }
@@ -690,8 +453,7 @@ function getShippingAddressText(
 // ============================================================
 
 function getCustomerName(
-  session:
-    Stripe.Checkout.Session
+  session: Stripe.Checkout.Session
 ) {
   const shipping =
     getRawShippingDetails(
@@ -715,8 +477,7 @@ function getCustomerName(
 // ============================================================
 
 function getCustomerEmail(
-  session:
-    Stripe.Checkout.Session
+  session: Stripe.Checkout.Session
 ) {
   return normaliseEmail(
     session
@@ -732,8 +493,7 @@ function getCustomerEmail(
 // ============================================================
 
 function getCustomerPhone(
-  session:
-    Stripe.Checkout.Session
+  session: Stripe.Checkout.Session
 ) {
   return asString(
     session
@@ -754,19 +514,12 @@ async function getOrder(
     error,
   } =
     await supabaseAdmin
-      .from(
-        "store_orders"
-      )
+      .from("store_orders")
       .select("*")
-      .eq(
-        "id",
-        orderId
-      )
+      .eq("id", orderId)
       .maybeSingle();
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
@@ -780,17 +533,14 @@ async function getOrder(
 // ============================================================
 
 async function getOrderByPaymentIntent(
-  paymentIntentId:
-    string
+  paymentIntentId: string
 ) {
   const {
     data,
     error,
   } =
     await supabaseAdmin
-      .from(
-        "store_orders"
-      )
+      .from("store_orders")
       .select("*")
       .eq(
         "stripe_payment_intent_id",
@@ -798,9 +548,7 @@ async function getOrderByPaymentIntent(
       )
       .maybeSingle();
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
@@ -821,18 +569,14 @@ async function getOrderItems(
     error,
   } =
     await supabaseAdmin
-      .from(
-        "store_order_items"
-      )
+      .from("store_order_items")
       .select("*")
       .eq(
         "order_id",
         orderId
       );
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
@@ -850,11 +594,8 @@ async function verifyOrderStripeAccount({
   order,
   eventStripeAccountId,
 }: {
-  order:
-    StoreOrderRow;
-
-  eventStripeAccountId:
-    string | null;
+  order: StoreOrderRow;
+  eventStripeAccountId: string | null;
 }) {
   const storedAccountId =
     asString(
@@ -873,13 +614,9 @@ async function verifyOrderStripeAccount({
     );
   }
 
-  if (
-    eventStripeAccountId
-  ) {
+  if (eventStripeAccountId) {
     const {
-      data:
-        connection,
-
+      data: connection,
       error,
     } =
       await supabaseAdmin
@@ -899,15 +636,11 @@ async function verifyOrderStripeAccount({
         )
         .maybeSingle();
 
-    if (
-      error
-    ) {
+    if (error) {
       throw error;
     }
 
-    if (
-      !connection
-    ) {
+    if (!connection) {
       throw new Error(
         `Stripe account ${eventStripeAccountId} is not connected to organisation ${order.organisation_id}.`
       );
@@ -924,14 +657,9 @@ async function saveStripeReferences({
   session,
   eventStripeAccountId,
 }: {
-  order:
-    StoreOrderRow;
-
-  session:
-    Stripe.Checkout.Session;
-
-  eventStripeAccountId:
-    string | null;
+  order: StoreOrderRow;
+  session: Stripe.Checkout.Session;
+  eventStripeAccountId: string | null;
 }) {
   const paymentIntentId =
     getPaymentIntentId(
@@ -978,23 +706,17 @@ async function saveStripeReferences({
         .toISOString(),
   };
 
-  if (
-    accountId
-  ) {
+  if (accountId) {
     payload.stripe_account_id =
       accountId;
   }
 
-  if (
-    paymentIntentId
-  ) {
+  if (paymentIntentId) {
     payload.stripe_payment_intent_id =
       paymentIntentId;
   }
 
-  if (
-    stripeCustomerId
-  ) {
+  if (stripeCustomerId) {
     payload.stripe_customer_id =
       stripeCustomerId;
   }
@@ -1003,24 +725,15 @@ async function saveStripeReferences({
     error,
   } =
     await supabaseAdmin
-      .from(
-        "store_orders"
-      )
-      .update(
-        payload
-      )
-      .eq(
-        "id",
-        order.id
-      )
+      .from("store_orders")
+      .update(payload)
+      .eq("id", order.id)
       .eq(
         "organisation_id",
         order.organisation_id
       );
 
-  if (
-    error
-  ) {
+  if (error) {
     console.error(
       `[TOTS STORE] Failed to save Stripe references for ${order.order_number}:`,
       error
@@ -1035,34 +748,24 @@ async function saveStripeReferences({
 // ============================================================
 
 async function getOrganisationNotificationRecipients(
-  organisationId:
-    string
+  organisationId: string
 ) {
   const recipientIds =
     new Set<string>();
 
   const {
-    data:
-      teamMembers,
-
-    error:
-      teamMembersError,
+    data: teamMembers,
+    error: teamMembersError,
   } =
     await supabaseAdmin
-      .from(
-        "team_members"
-      )
-      .select(
-        "user_id, role"
-      )
+      .from("team_members")
+      .select("user_id, role")
       .eq(
         "organisation_id",
         organisationId
       );
 
-  if (
-    teamMembersError
-  ) {
+  if (teamMembersError) {
     console.warn(
       "[TOTS NOTIFICATIONS] Could not load team members:",
       teamMembersError
@@ -1080,9 +783,7 @@ async function getOrganisationNotificationRecipients(
           member.user_id
         );
 
-      if (
-        userId
-      ) {
+      if (userId) {
         recipientIds.add(
           userId
         );
@@ -1091,27 +792,18 @@ async function getOrganisationNotificationRecipients(
   }
 
   const {
-    data:
-      profiles,
-
-    error:
-      profilesError,
+    data: profiles,
+    error: profilesError,
   } =
     await supabaseAdmin
-      .from(
-        "profiles"
-      )
-      .select(
-        "id, role"
-      )
+      .from("profiles")
+      .select("id, role")
       .eq(
         "organisation_id",
         organisationId
       );
 
-  if (
-    profilesError
-  ) {
+  if (profilesError) {
     console.warn(
       "[TOTS NOTIFICATIONS] Profile fallback lookup failed:",
       profilesError
@@ -1129,9 +821,7 @@ async function getOrganisationNotificationRecipients(
           profile.id
         );
 
-      if (
-        userId
-      ) {
+      if (userId) {
         recipientIds.add(
           userId
         );
@@ -1154,17 +844,10 @@ async function createOrderNotifications({
   customerEmail,
   total,
 }: {
-  order:
-    StoreOrderRow;
-
-  customerName:
-    string | null;
-
-  customerEmail:
-    string | null;
-
-  total:
-    number;
+  order: StoreOrderRow;
+  customerName: string | null;
+  customerEmail: string | null;
+  total: number;
 }) {
   try {
     const recipients =
@@ -1173,8 +856,7 @@ async function createOrderNotifications({
       );
 
     if (
-      recipients.length ===
-      0
+      recipients.length === 0
     ) {
       console.warn(
         `[TOTS NOTIFICATIONS] No users found for organisation ${order.organisation_id}.`
@@ -1202,8 +884,7 @@ async function createOrderNotifications({
       new Date()
         .toISOString();
 
-    let createdCount =
-      0;
+    let createdCount = 0;
 
     for (
       const userId of
@@ -1220,16 +901,9 @@ async function createOrderNotifications({
           existingError,
       } =
         await supabaseAdmin
-          .from(
-            "notifications"
-          )
-          .select(
-            "id"
-          )
-          .eq(
-            "user_id",
-            userId
-          )
+          .from("notifications")
+          .select("id")
+          .eq("user_id", userId)
           .eq(
             "organisation_id",
             order.organisation_id
@@ -1240,9 +914,7 @@ async function createOrderNotifications({
           )
           .maybeSingle();
 
-      if (
-        existingError
-      ) {
+      if (existingError) {
         console.error(
           `[TOTS NOTIFICATIONS] Duplicate check failed for user ${userId}:`,
           existingError
@@ -1251,9 +923,7 @@ async function createOrderNotifications({
         continue;
       }
 
-      if (
-        existingNotification
-      ) {
+      if (existingNotification) {
         continue;
       }
 
@@ -1262,9 +932,7 @@ async function createOrderNotifications({
           notificationError,
       } =
         await supabaseAdmin
-          .from(
-            "notifications"
-          )
+          .from("notifications")
           .insert({
             user_id:
               userId,
@@ -1340,9 +1008,7 @@ async function createOrderNotifications({
               now,
           });
 
-      if (
-        notificationError
-      ) {
+      if (notificationError) {
         console.error(
           `[TOTS NOTIFICATIONS] Order notification insert failed for user ${userId}:`,
           notificationError
@@ -1351,8 +1017,7 @@ async function createOrderNotifications({
         continue;
       }
 
-      createdCount +=
-        1;
+      createdCount += 1;
     }
 
     console.log(
@@ -1377,14 +1042,9 @@ async function createRefundNotifications({
   refundId,
   amount,
 }: {
-  order:
-    StoreOrderRow;
-
-  refundId:
-    string;
-
-  amount:
-    number;
+  order: StoreOrderRow;
+  refundId: string;
+  amount: number;
 }) {
   try {
     const recipients =
@@ -1393,8 +1053,7 @@ async function createRefundNotifications({
       );
 
     if (
-      recipients.length ===
-      0
+      recipients.length === 0
     ) {
       return;
     }
@@ -1421,32 +1080,20 @@ async function createRefundNotifications({
         `store-refund:${refundId}:${userId}`;
 
       const {
-        data:
-          existing,
-
-        error:
-          lookupError,
+        data: existing,
+        error: lookupError,
       } =
         await supabaseAdmin
-          .from(
-            "notifications"
-          )
-          .select(
-            "id"
-          )
-          .eq(
-            "user_id",
-            userId
-          )
+          .from("notifications")
+          .select("id")
+          .eq("user_id", userId)
           .eq(
             "dedupe_key",
             dedupeKey
           )
           .maybeSingle();
 
-      if (
-        lookupError
-      ) {
+      if (lookupError) {
         console.error(
           "[TOTS NOTIFICATIONS] Refund duplicate lookup failed:",
           lookupError
@@ -1455,9 +1102,7 @@ async function createRefundNotifications({
         continue;
       }
 
-      if (
-        existing
-      ) {
+      if (existing) {
         continue;
       }
 
@@ -1465,9 +1110,7 @@ async function createRefundNotifications({
         error,
       } =
         await supabaseAdmin
-          .from(
-            "notifications"
-          )
+          .from("notifications")
           .insert({
             user_id:
               userId,
@@ -1535,18 +1178,14 @@ async function createRefundNotifications({
               now,
           });
 
-      if (
-        error
-      ) {
+      if (error) {
         console.error(
           "[TOTS NOTIFICATIONS] Refund notification failed:",
           error
         );
       }
     }
-  } catch (
-    error
-  ) {
+  } catch (error) {
     console.error(
       "[TOTS NOTIFICATIONS] Refund notification error:",
       error
@@ -1562,34 +1201,24 @@ async function findCustomerById({
   organisationId,
   customerId,
 }: {
-  organisationId:
-    string;
-
-  customerId:
-    string;
+  organisationId: string;
+  customerId: string;
 }) {
   const {
     data,
     error,
   } =
     await supabaseAdmin
-      .from(
-        "customers"
-      )
+      .from("customers")
       .select("*")
-      .eq(
-        "id",
-        customerId
-      )
+      .eq("id", customerId)
       .eq(
         "organisation_id",
         organisationId
       )
       .maybeSingle();
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
@@ -1606,37 +1235,25 @@ async function findCustomerByEmail({
   organisationId,
   email,
 }: {
-  organisationId:
-    string;
-
-  email:
-    string;
+  organisationId: string;
+  email: string;
 }) {
   const {
     data,
     error,
   } =
     await supabaseAdmin
-      .from(
-        "customers"
-      )
+      .from("customers")
       .select("*")
       .eq(
         "organisation_id",
         organisationId
       )
-      .ilike(
-        "email",
-        email
-      )
-      .limit(
-        1
-      )
+      .ilike("email", email)
+      .limit(1)
       .maybeSingle();
 
-  if (
-    error
-  ) {
+  if (error) {
     console.error(
       "[TOTS CRM] Customer lookup failed:",
       error
@@ -1661,29 +1278,18 @@ async function createCustomer({
   phone,
   address,
 }: {
-  organisationId:
-    string;
-
-  name:
-    string | null;
-
-  email:
-    string | null;
-
-  phone:
-    string | null;
-
-  address:
-    string | null;
+  organisationId: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
 }) {
   const {
     data,
     error,
   } =
     await supabaseAdmin
-      .from(
-        "customers"
-      )
+      .from("customers")
       .insert({
         organisation_id:
           organisationId,
@@ -1724,9 +1330,7 @@ async function createCustomer({
       .select("*")
       .single();
 
-  if (
-    error
-  ) {
+  if (error) {
     console.error(
       "[TOTS CRM] Customer creation failed:",
       error
@@ -1755,23 +1359,12 @@ async function updateCustomerDetails({
   phone,
   address,
 }: {
-  customer:
-    CustomerRow;
-
-  organisationId:
-    string;
-
-  name:
-    string | null;
-
-  email:
-    string | null;
-
-  phone:
-    string | null;
-
-  address:
-    string | null;
+  customer: CustomerRow;
+  organisationId: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
 }) {
   const payload: Record<
     string,
@@ -1837,16 +1430,9 @@ async function updateCustomerDetails({
     error,
   } =
     await supabaseAdmin
-      .from(
-        "customers"
-      )
-      .update(
-        payload
-      )
-      .eq(
-        "id",
-        customer.id
-      )
+      .from("customers")
+      .update(payload)
+      .eq("id", customer.id)
       .eq(
         "organisation_id",
         organisationId
@@ -1854,9 +1440,7 @@ async function updateCustomerDetails({
       .select("*")
       .single();
 
-  if (
-    error
-  ) {
+  if (error) {
     console.error(
       "[TOTS CRM] Customer update failed:",
       error
@@ -1880,20 +1464,11 @@ async function findOrCreateCustomer({
   phone,
   address,
 }: {
-  order:
-    StoreOrderRow;
-
-  name:
-    string | null;
-
-  email:
-    string | null;
-
-  phone:
-    string | null;
-
-  address:
-    string | null;
+  order: StoreOrderRow;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
 }) {
   const existingOrderCustomerId =
     asString(
@@ -1912,9 +1487,7 @@ async function findOrCreateCustomer({
           existingOrderCustomerId,
       });
 
-    if (
-      customer
-    ) {
+    if (customer) {
       return updateCustomerDetails({
         customer,
 
@@ -1929,9 +1502,7 @@ async function findOrCreateCustomer({
     }
   }
 
-  if (
-    email
-  ) {
+  if (email) {
     const customer =
       await findCustomerByEmail({
         organisationId:
@@ -1940,9 +1511,7 @@ async function findOrCreateCustomer({
         email,
       });
 
-    if (
-      customer
-    ) {
+    if (customer) {
       return updateCustomerDetails({
         customer,
 
@@ -1976,20 +1545,15 @@ async function findContactByCustomerId({
   organisationId,
   customerId,
 }: {
-  organisationId:
-    string;
-
-  customerId:
-    string;
+  organisationId: string;
+  customerId: string;
 }) {
   const {
     data,
     error,
   } =
     await supabaseAdmin
-      .from(
-        "contacts"
-      )
+      .from("contacts")
       .select("*")
       .eq(
         "organisation_id",
@@ -1999,14 +1563,10 @@ async function findContactByCustomerId({
         "customer_id",
         customerId
       )
-      .limit(
-        1
-      )
+      .limit(1)
       .maybeSingle();
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
@@ -2023,37 +1583,25 @@ async function findContactByEmail({
   organisationId,
   email,
 }: {
-  organisationId:
-    string;
-
-  email:
-    string;
+  organisationId: string;
+  email: string;
 }) {
   const {
     data,
     error,
   } =
     await supabaseAdmin
-      .from(
-        "contacts"
-      )
+      .from("contacts")
       .select("*")
       .eq(
         "organisation_id",
         organisationId
       )
-      .ilike(
-        "email",
-        email
-      )
-      .limit(
-        1
-      )
+      .ilike("email", email)
+      .limit(1)
       .maybeSingle();
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
@@ -2075,26 +1623,13 @@ async function updateCrmContact({
   phone,
   address,
 }: {
-  contact:
-    CrmContactRow;
-
-  customerId:
-    string;
-
-  organisationId:
-    string;
-
-  name:
-    string | null;
-
-  email:
-    string | null;
-
-  phone:
-    string | null;
-
-  address:
-    string | null;
+  contact: CrmContactRow;
+  customerId: string;
+  organisationId: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
 }) {
   const payload: Record<
     string,
@@ -2156,16 +1691,9 @@ async function updateCrmContact({
     error,
   } =
     await supabaseAdmin
-      .from(
-        "contacts"
-      )
-      .update(
-        payload
-      )
-      .eq(
-        "id",
-        contact.id
-      )
+      .from("contacts")
+      .update(payload)
+      .eq("id", contact.id)
       .eq(
         "organisation_id",
         organisationId
@@ -2173,9 +1701,7 @@ async function updateCrmContact({
       .select("*")
       .single();
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
@@ -2195,32 +1721,19 @@ async function createCrmContact({
   phone,
   address,
 }: {
-  customerId:
-    string;
-
-  organisationId:
-    string;
-
-  name:
-    string | null;
-
-  email:
-    string | null;
-
-  phone:
-    string | null;
-
-  address:
-    string | null;
+  customerId: string;
+  organisationId: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
 }) {
   const {
     data,
     error,
   } =
     await supabaseAdmin
-      .from(
-        "contacts"
-      )
+      .from("contacts")
       .insert({
         organisation_id:
           organisationId,
@@ -2252,9 +1765,7 @@ async function createCrmContact({
       .select("*")
       .single();
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
@@ -2274,23 +1785,12 @@ async function findOrCreateCrmContact({
   phone,
   address,
 }: {
-  customer:
-    CustomerRow;
-
-  order:
-    StoreOrderRow;
-
-  name:
-    string | null;
-
-  email:
-    string | null;
-
-  phone:
-    string | null;
-
-  address:
-    string | null;
+  customer: CustomerRow;
+  order: StoreOrderRow;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
 }) {
   const customerContact =
     await findContactByCustomerId({
@@ -2301,9 +1801,7 @@ async function findOrCreateCrmContact({
         customer.id,
     });
 
-  if (
-    customerContact
-  ) {
+  if (customerContact) {
     return updateCrmContact({
       contact:
         customerContact,
@@ -2321,9 +1819,7 @@ async function findOrCreateCrmContact({
     });
   }
 
-  if (
-    email
-  ) {
+  if (email) {
     const emailContact =
       await findContactByEmail({
         organisationId:
@@ -2332,9 +1828,7 @@ async function findOrCreateCrmContact({
         email,
       });
 
-    if (
-      emailContact
-    ) {
+    if (emailContact) {
       return updateCrmContact({
         contact:
           emailContact,
@@ -2375,19 +1869,14 @@ async function linkOrderToCustomer({
   order,
   customerId,
 }: {
-  order:
-    StoreOrderRow;
-
-  customerId:
-    string;
+  order: StoreOrderRow;
+  customerId: string;
 }) {
   const {
     error,
   } =
     await supabaseAdmin
-      .from(
-        "store_orders"
-      )
+      .from("store_orders")
       .update({
         customer_id:
           customerId,
@@ -2396,18 +1885,13 @@ async function linkOrderToCustomer({
           new Date()
             .toISOString(),
       })
-      .eq(
-        "id",
-        order.id
-      )
+      .eq("id", order.id)
       .eq(
         "organisation_id",
         order.organisation_id
       );
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 }
@@ -2423,20 +1907,11 @@ async function syncOrderToCrm({
   customerPhone,
   customerAddress,
 }: {
-  order:
-    StoreOrderRow;
-
-  customerName:
-    string | null;
-
-  customerEmail:
-    string | null;
-
-  customerPhone:
-    string | null;
-
-  customerAddress:
-    string | null;
+  order: StoreOrderRow;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  customerAddress: string | null;
 }) {
   if (
     !customerEmail &&
@@ -2507,17 +1982,14 @@ async function syncOrderToCrm({
 // ============================================================
 
 async function claimOrderForPaymentProcessing(
-  order:
-    StoreOrderRow
+  order: StoreOrderRow
 ) {
   const {
     data,
     error,
   } =
     await supabaseAdmin
-      .from(
-        "store_orders"
-      )
+      .from("store_orders")
       .update({
         payment_status:
           "processing",
@@ -2526,10 +1998,7 @@ async function claimOrderForPaymentProcessing(
           new Date()
             .toISOString(),
       })
-      .eq(
-        "id",
-        order.id
-      )
+      .eq("id", order.id)
       .eq(
         "organisation_id",
         order.organisation_id
@@ -2538,20 +2007,14 @@ async function claimOrderForPaymentProcessing(
         "payment_status",
         "pending"
       )
-      .select(
-        "id"
-      )
+      .select("id")
       .maybeSingle();
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
-  return Boolean(
-    data
-  );
+  return Boolean(data);
 }
 
 // ============================================================
@@ -2559,16 +2022,13 @@ async function claimOrderForPaymentProcessing(
 // ============================================================
 
 async function releasePaymentProcessingClaim(
-  order:
-    StoreOrderRow
+  order: StoreOrderRow
 ) {
   const {
     error,
   } =
     await supabaseAdmin
-      .from(
-        "store_orders"
-      )
+      .from("store_orders")
       .update({
         payment_status:
           "pending",
@@ -2577,10 +2037,7 @@ async function releasePaymentProcessingClaim(
           new Date()
             .toISOString(),
       })
-      .eq(
-        "id",
-        order.id
-      )
+      .eq("id", order.id)
       .eq(
         "organisation_id",
         order.organisation_id
@@ -2590,9 +2047,7 @@ async function releasePaymentProcessingClaim(
         "processing"
       );
 
-  if (
-    error
-  ) {
+  if (error) {
     console.error(
       `[TOTS STORE] Could not release processing state for ${order.order_number}:`,
       error
@@ -2605,8 +2060,7 @@ async function releasePaymentProcessingClaim(
 // ============================================================
 
 async function reduceOrderStock(
-  order:
-    StoreOrderRow
+  order: StoreOrderRow
 ) {
   const items =
     await getOrderItems(
@@ -2617,9 +2071,7 @@ async function reduceOrderStock(
     const item of
     items
   ) {
-    if (
-      !item.product_id
-    ) {
+    if (!item.product_id) {
       continue;
     }
 
@@ -2631,9 +2083,7 @@ async function reduceOrderStock(
         productError,
     } =
       await supabaseAdmin
-        .from(
-          "store_products"
-        )
+        .from("store_products")
         .select(
           `
             id,
@@ -2656,15 +2106,11 @@ async function reduceOrderStock(
         )
         .maybeSingle();
 
-    if (
-      productError
-    ) {
+    if (productError) {
       throw productError;
     }
 
-    if (
-      !productData
-    ) {
+    if (!productData) {
       console.warn(
         `[TOTS STORE] Product ${item.product_id} no longer exists.`
       );
@@ -2677,8 +2123,7 @@ async function reduceOrderStock(
         StoreProductRow;
 
     if (
-      product.track_inventory ===
-      false
+      product.track_inventory === false
     ) {
       continue;
     }
@@ -2693,8 +2138,7 @@ async function reduceOrderStock(
       );
 
     if (
-      quantityPurchased <=
-      0
+      quantityPurchased <= 0
     ) {
       continue;
     }
@@ -2736,9 +2180,7 @@ async function reduceOrderStock(
         updateError,
     } =
       await supabaseAdmin
-        .from(
-          "store_products"
-        )
+        .from("store_products")
         .update({
           inventory_quantity:
             newInventory,
@@ -2759,9 +2201,7 @@ async function reduceOrderStock(
           order.organisation_id
         );
 
-    if (
-      updateError
-    ) {
+    if (updateError) {
       throw updateError;
     }
 
@@ -2779,11 +2219,8 @@ async function incrementDiscountUsage({
   session,
   organisationId,
 }: {
-  session:
-    Stripe.Checkout.Session;
-
-  organisationId:
-    string;
+  session: Stripe.Checkout.Session;
+  organisationId: string;
 }) {
   const discountId =
     asString(
@@ -2792,23 +2229,16 @@ async function incrementDiscountUsage({
         ?.discount_id
     );
 
-  if (
-    !discountId
-  ) {
+  if (!discountId) {
     return;
   }
 
   const {
-    data:
-      discount,
-
-    error:
-      lookupError,
+    data: discount,
+    error: lookupError,
   } =
     await supabaseAdmin
-      .from(
-        "store_discounts"
-      )
+      .from("store_discounts")
       .select(
         "id, times_used"
       )
@@ -2822,15 +2252,11 @@ async function incrementDiscountUsage({
       )
       .maybeSingle();
 
-  if (
-    lookupError
-  ) {
+  if (lookupError) {
     throw lookupError;
   }
 
-  if (
-    !discount
-  ) {
+  if (!discount) {
     console.warn(
       `[TOTS STORE] Discount ${discountId} no longer exists.`
     );
@@ -2852,9 +2278,7 @@ async function incrementDiscountUsage({
       updateError,
   } =
     await supabaseAdmin
-      .from(
-        "store_discounts"
-      )
+      .from("store_discounts")
       .update({
         times_used:
           timesUsed + 1,
@@ -2872,9 +2296,7 @@ async function incrementDiscountUsage({
         organisationId
       );
 
-  if (
-    updateError
-  ) {
+  if (updateError) {
     throw updateError;
   }
 }
@@ -2893,30 +2315,16 @@ async function finaliseOrderPaid({
   stripeTotal,
   eventStripeAccountId,
 }: {
-  order:
-    StoreOrderRow;
-
-  session:
-    Stripe.Checkout.Session;
-
-  customerName:
-    string | null;
-
-  customerEmail:
-    string | null;
-
-  customerPhone:
-    string | null;
-
+  order: StoreOrderRow;
+  session: Stripe.Checkout.Session;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
   shippingAddress:
     | Record<string, unknown>
     | null;
-
-  stripeTotal:
-    number;
-
-  eventStripeAccountId:
-    string | null;
+  stripeTotal: number;
+  eventStripeAccountId: string | null;
 }) {
   const paymentIntentId =
     getPaymentIntentId(
@@ -2949,9 +2357,7 @@ async function finaliseOrderPaid({
     error,
   } =
     await supabaseAdmin
-      .from(
-        "store_orders"
-      )
+      .from("store_orders")
       .update({
         customer_name:
           customerName,
@@ -3003,10 +2409,7 @@ async function finaliseOrderPaid({
         updated_at:
           now,
       })
-      .eq(
-        "id",
-        order.id
-      )
+      .eq("id", order.id)
       .eq(
         "organisation_id",
         order.organisation_id
@@ -3015,20 +2418,14 @@ async function finaliseOrderPaid({
         "payment_status",
         "processing"
       )
-      .select(
-        "id"
-      )
+      .select("id")
       .maybeSingle();
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
-  if (
-    !data
-  ) {
+  if (!data) {
     throw new Error(
       `Order ${order.order_number} could not be finalised as paid.`
     );
@@ -3043,11 +2440,8 @@ async function completeStoreOrder({
   session,
   eventStripeAccountId,
 }: {
-  session:
-    Stripe.Checkout.Session;
-
-  eventStripeAccountId:
-    string | null;
+  session: Stripe.Checkout.Session;
+  eventStripeAccountId: string | null;
 }) {
   const orderId =
     asString(
@@ -3056,9 +2450,7 @@ async function completeStoreOrder({
         ?.order_id
     );
 
-  if (
-    !orderId
-  ) {
+  if (!orderId) {
     console.warn(
       `[TOTS STORE] Checkout ${session.id} has no order_id metadata.`
     );
@@ -3071,9 +2463,7 @@ async function completeStoreOrder({
       orderId
     );
 
-  if (
-    !order
-  ) {
+  if (!order) {
     console.error(
       "[TOTS STORE] Store order not found:",
       orderId
@@ -3101,15 +2491,12 @@ async function completeStoreOrder({
 
   await verifyOrderStripeAccount({
     order,
-
     eventStripeAccountId,
   });
 
   await saveStripeReferences({
     order,
-
     session,
-
     eventStripeAccountId,
   });
 
@@ -3153,18 +2540,15 @@ async function completeStoreOrder({
     );
 
   const stripeTotal =
-    typeof session.amount_total ===
-      "number"
-      ? session.amount_total /
-        100
+    typeof session.amount_total === "number"
+      ? session.amount_total / 100
       : safeNumber(
           order.total,
           0
         );
 
   if (
-    order.payment_status ===
-    "paid"
+    order.payment_status === "paid"
   ) {
     console.log(
       `[TOTS STORE] ${order.order_number} already paid.`
@@ -3173,13 +2557,9 @@ async function completeStoreOrder({
     try {
       await syncOrderToCrm({
         order,
-
         customerName,
-
         customerEmail,
-
         customerPhone,
-
         customerAddress,
       });
     } catch (
@@ -3193,11 +2573,8 @@ async function completeStoreOrder({
 
     await createOrderNotifications({
       order,
-
       customerName,
-
       customerEmail,
-
       total:
         safeNumber(
           order.total,
@@ -3209,8 +2586,7 @@ async function completeStoreOrder({
   }
 
   if (
-    session.payment_status !==
-    "paid"
+    session.payment_status !== "paid"
   ) {
     console.log(
       `[TOTS STORE] ${session.id} completed with payment_status=${session.payment_status}.`
@@ -3220,8 +2596,7 @@ async function completeStoreOrder({
   }
 
   if (
-    order.payment_status ===
-    "processing"
+    order.payment_status === "processing"
   ) {
     console.log(
       `[TOTS STORE] ${order.order_number} is already being processed.`
@@ -3235,17 +2610,14 @@ async function completeStoreOrder({
       order
     );
 
-  if (
-    !claimed
-  ) {
+  if (!claimed) {
     const latest =
       await getOrder(
         order.id
       );
 
     if (
-      latest?.payment_status ===
-      "paid"
+      latest?.payment_status === "paid"
     ) {
       await createOrderNotifications({
         order:
@@ -3288,7 +2660,6 @@ async function completeStoreOrder({
   try {
     await incrementDiscountUsage({
       session,
-
       organisationId:
         order.organisation_id,
     });
@@ -3304,19 +2675,12 @@ async function completeStoreOrder({
   try {
     await finaliseOrderPaid({
       order,
-
       session,
-
       customerName,
-
       customerEmail,
-
       customerPhone,
-
       shippingAddress,
-
       stripeTotal,
-
       eventStripeAccountId,
     });
   } catch (
@@ -3339,9 +2703,7 @@ async function completeStoreOrder({
       order.id
     );
 
-  if (
-    !updatedOrder
-  ) {
+  if (!updatedOrder) {
     return;
   }
 
@@ -3391,11 +2753,8 @@ async function markOrderPaymentFailed({
   session,
   eventStripeAccountId,
 }: {
-  session:
-    Stripe.Checkout.Session;
-
-  eventStripeAccountId:
-    string | null;
+  session: Stripe.Checkout.Session;
+  eventStripeAccountId: string | null;
 }) {
   const orderId =
     asString(
@@ -3404,9 +2763,7 @@ async function markOrderPaymentFailed({
         ?.order_id
     );
 
-  if (
-    !orderId
-  ) {
+  if (!orderId) {
     return;
   }
 
@@ -3415,15 +2772,12 @@ async function markOrderPaymentFailed({
       orderId
     );
 
-  if (
-    !order
-  ) {
+  if (!order) {
     return;
   }
 
   await verifyOrderStripeAccount({
     order,
-
     eventStripeAccountId,
   });
 
@@ -3431,9 +2785,7 @@ async function markOrderPaymentFailed({
     error,
   } =
     await supabaseAdmin
-      .from(
-        "store_orders"
-      )
+      .from("store_orders")
       .update({
         payment_status:
           "pending",
@@ -3460,10 +2812,7 @@ async function markOrderPaymentFailed({
           new Date()
             .toISOString(),
       })
-      .eq(
-        "id",
-        orderId
-      )
+      .eq("id", orderId)
       .eq(
         "organisation_id",
         order.organisation_id
@@ -3473,9 +2822,7 @@ async function markOrderPaymentFailed({
         "paid"
       );
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
@@ -3492,11 +2839,8 @@ async function handlePaymentIntentCancelled({
   paymentIntent,
   eventStripeAccountId,
 }: {
-  paymentIntent:
-    Stripe.PaymentIntent;
-
-  eventStripeAccountId:
-    string | null;
+  paymentIntent: Stripe.PaymentIntent;
+  eventStripeAccountId: string | null;
 }) {
   const orderId =
     asString(
@@ -3505,9 +2849,7 @@ async function handlePaymentIntentCancelled({
         ?.order_id
     );
 
-  if (
-    !orderId
-  ) {
+  if (!orderId) {
     return;
   }
 
@@ -3516,15 +2858,12 @@ async function handlePaymentIntentCancelled({
       orderId
     );
 
-  if (
-    !order
-  ) {
+  if (!order) {
     return;
   }
 
   await verifyOrderStripeAccount({
     order,
-
     eventStripeAccountId,
   });
 
@@ -3532,9 +2871,7 @@ async function handlePaymentIntentCancelled({
     error,
   } =
     await supabaseAdmin
-      .from(
-        "store_orders"
-      )
+      .from("store_orders")
       .update({
         payment_status:
           "pending",
@@ -3551,10 +2888,7 @@ async function handlePaymentIntentCancelled({
           new Date()
             .toISOString(),
       })
-      .eq(
-        "id",
-        orderId
-      )
+      .eq("id", orderId)
       .eq(
         "organisation_id",
         order.organisation_id
@@ -3564,9 +2898,7 @@ async function handlePaymentIntentCancelled({
         "paid"
       );
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
@@ -3583,15 +2915,11 @@ async function syncChargeRefundStatus({
   charge,
   eventStripeAccountId,
 }: {
-  charge:
-    Stripe.Charge;
-
-  eventStripeAccountId:
-    string | null;
+  charge: Stripe.Charge;
+  eventStripeAccountId: string | null;
 }) {
   const paymentIntentId =
-    typeof charge.payment_intent ===
-    "string"
+    typeof charge.payment_intent === "string"
       ? charge.payment_intent
       : charge.payment_intent?.id ||
         null;
@@ -3608,9 +2936,7 @@ async function syncChargeRefundStatus({
     | null =
     null;
 
-  if (
-    orderId
-  ) {
+  if (orderId) {
     order =
       await getOrder(
         orderId
@@ -3627,9 +2953,7 @@ async function syncChargeRefundStatus({
       );
   }
 
-  if (
-    !order
-  ) {
+  if (!order) {
     console.warn(
       `[TOTS STORE] Could not find order for refunded charge ${charge.id}.`
     );
@@ -3639,7 +2963,6 @@ async function syncChargeRefundStatus({
 
   await verifyOrderStripeAccount({
     order,
-
     eventStripeAccountId,
   });
 
@@ -3656,13 +2979,10 @@ async function syncChargeRefundStatus({
     );
 
   const fullyRefunded =
-    charge.refunded ===
-      true ||
+    charge.refunded === true ||
     (
-      originalAmount >
-        0 &&
-      amountRefunded >=
-        originalAmount
+      originalAmount > 0 &&
+      amountRefunded >= originalAmount
     );
 
   const paymentStatus =
@@ -3674,9 +2994,7 @@ async function syncChargeRefundStatus({
     error,
   } =
     await supabaseAdmin
-      .from(
-        "store_orders"
-      )
+      .from("store_orders")
       .update({
         payment_status:
           paymentStatus,
@@ -3695,18 +3013,13 @@ async function syncChargeRefundStatus({
           new Date()
             .toISOString(),
       })
-      .eq(
-        "id",
-        order.id
-      )
+      .eq("id", order.id)
       .eq(
         "organisation_id",
         order.organisation_id
       );
 
-  if (
-    error
-  ) {
+  if (error) {
     throw error;
   }
 
@@ -3723,15 +3036,11 @@ async function handleRefundCreated({
   refund,
   eventStripeAccountId,
 }: {
-  refund:
-    Stripe.Refund;
-
-  eventStripeAccountId:
-    string | null;
+  refund: Stripe.Refund;
+  eventStripeAccountId: string | null;
 }) {
   const paymentIntentId =
-    typeof refund.payment_intent ===
-    "string"
+    typeof refund.payment_intent === "string"
       ? refund.payment_intent
       : refund.payment_intent?.id ||
         null;
@@ -3748,9 +3057,7 @@ async function handleRefundCreated({
     | null =
     null;
 
-  if (
-    metadataOrderId
-  ) {
+  if (metadataOrderId) {
     order =
       await getOrder(
         metadataOrderId
@@ -3767,9 +3074,7 @@ async function handleRefundCreated({
       );
   }
 
-  if (
-    !order
-  ) {
+  if (!order) {
     console.warn(
       `[TOTS STORE] Could not identify order for refund ${refund.id}.`
     );
@@ -3779,7 +3084,6 @@ async function handleRefundCreated({
 
   await verifyOrderStripeAccount({
     order,
-
     eventStripeAccountId,
   });
 
@@ -3790,8 +3094,7 @@ async function handleRefundCreated({
       refund.id,
 
     amount:
-      refund.amount /
-      100,
+      refund.amount / 100,
   });
 }
 
@@ -3803,27 +3106,21 @@ async function syncCheckoutSubscriptionIfNeeded({
   session,
   eventStripeAccountId,
 }: {
-  session:
-    Stripe.Checkout.Session;
-
-  eventStripeAccountId:
-    string | null;
+  session: Stripe.Checkout.Session;
+  eventStripeAccountId: string | null;
 }) {
   if (
-    session.mode !==
-    "subscription"
+    session.mode !== "subscription"
   ) {
-    return;
+    return false;
   }
 
-  if (
-    !eventStripeAccountId
-  ) {
+  if (!eventStripeAccountId) {
     console.warn(
       `[TOTS STORE SUBSCRIPTIONS] Checkout ${session.id} is subscription mode but no connected Stripe account was supplied.`
     );
 
-    return;
+    return false;
   }
 
   await syncStoreSubscriptionFromCheckout({
@@ -3832,6 +3129,8 @@ async function syncCheckoutSubscriptionIfNeeded({
     stripeAccountId:
       eventStripeAccountId,
   });
+
+  return true;
 }
 
 // ============================================================
@@ -3846,9 +3145,7 @@ export async function POST(
       .STRIPE_STORE_WEBHOOK_SECRET
       ?.trim();
 
-  if (
-    !stripeWebhookSecret
-  ) {
+  if (!stripeWebhookSecret) {
     console.error(
       "[TOTS STORE WEBHOOK] STRIPE_STORE_WEBHOOK_SECRET is not configured."
     );
@@ -3875,9 +3172,7 @@ export async function POST(
       "stripe-signature"
     );
 
-  if (
-    !signature
-  ) {
+  if (!signature) {
     console.error(
       "[TOTS STORE WEBHOOK] Missing stripe-signature."
     );
@@ -3899,15 +3194,13 @@ export async function POST(
     );
   }
 
-  let body:
-    string;
+  let body: string;
 
   try {
     body =
       await req.text();
   } catch (
-    error:
-      unknown
+    error: unknown
   ) {
     console.error(
       "[TOTS STORE WEBHOOK] Could not read body:",
@@ -3942,8 +3235,7 @@ export async function POST(
         stripeWebhookSecret
       );
   } catch (
-    error:
-      unknown
+    error: unknown
   ) {
     console.error(
       "[TOTS STORE WEBHOOK] Signature verification failed:",
@@ -3953,8 +3245,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          error instanceof
-            Error
+          error instanceof Error
             ? `Webhook signature verification failed: ${error.message}`
             : "Invalid webhook signature.",
       },
@@ -3997,15 +3288,20 @@ export async function POST(
 
         await completeStoreOrder({
           session,
-
           eventStripeAccountId,
         });
 
-        await syncCheckoutSubscriptionIfNeeded({
-          session,
+        const subscriptionSynced =
+          await syncCheckoutSubscriptionIfNeeded({
+            session,
+            eventStripeAccountId,
+          });
 
-          eventStripeAccountId,
-        });
+        if (subscriptionSynced) {
+          await syncMtcMembershipsSafely(
+            "membership_created"
+          );
+        }
 
         break;
       }
@@ -4021,15 +3317,20 @@ export async function POST(
 
         await completeStoreOrder({
           session,
-
           eventStripeAccountId,
         });
 
-        await syncCheckoutSubscriptionIfNeeded({
-          session,
+        const subscriptionSynced =
+          await syncCheckoutSubscriptionIfNeeded({
+            session,
+            eventStripeAccountId,
+          });
 
-          eventStripeAccountId,
-        });
+        if (subscriptionSynced) {
+          await syncMtcMembershipsSafely(
+            "payment_succeeded"
+          );
+        }
 
         break;
       }
@@ -4045,7 +3346,6 @@ export async function POST(
 
         await markOrderPaymentFailed({
           session,
-
           eventStripeAccountId,
         });
 
@@ -4054,11 +3354,17 @@ export async function POST(
          * into incomplete / past_due / another relevant status.
          * If a subscription exists, refresh it too.
          */
-        await syncCheckoutSubscriptionIfNeeded({
-          session,
+        const subscriptionSynced =
+          await syncCheckoutSubscriptionIfNeeded({
+            session,
+            eventStripeAccountId,
+          });
 
-          eventStripeAccountId,
-        });
+        if (subscriptionSynced) {
+          await syncMtcMembershipsSafely(
+            "payment_failed"
+          );
+        }
 
         break;
       }
@@ -4072,9 +3378,7 @@ export async function POST(
           event.data.object as
             Stripe.Subscription;
 
-        if (
-          !eventStripeAccountId
-        ) {
+        if (!eventStripeAccountId) {
           console.warn(
             `[TOTS STORE SUBSCRIPTIONS] Ignoring ${event.type} because it did not come from a connected Stripe account.`
           );
@@ -4088,6 +3392,10 @@ export async function POST(
           stripeAccountId:
             eventStripeAccountId,
         });
+
+        await syncMtcMembershipsSafely(
+          "membership_created"
+        );
 
         break;
       }
@@ -4101,9 +3409,7 @@ export async function POST(
           event.data.object as
             Stripe.Subscription;
 
-        if (
-          !eventStripeAccountId
-        ) {
+        if (!eventStripeAccountId) {
           console.warn(
             `[TOTS STORE SUBSCRIPTIONS] Ignoring ${event.type} because it did not come from a connected Stripe account.`
           );
@@ -4117,6 +3423,10 @@ export async function POST(
           stripeAccountId:
             eventStripeAccountId,
         });
+
+        await syncMtcMembershipsSafely(
+          "membership_updated"
+        );
 
         break;
       }
@@ -4130,9 +3440,7 @@ export async function POST(
           event.data.object as
             Stripe.Subscription;
 
-        if (
-          !eventStripeAccountId
-        ) {
+        if (!eventStripeAccountId) {
           console.warn(
             `[TOTS STORE SUBSCRIPTIONS] Ignoring ${event.type} because it did not come from a connected Stripe account.`
           );
@@ -4147,6 +3455,10 @@ export async function POST(
             eventStripeAccountId,
         });
 
+        await syncMtcMembershipsSafely(
+          "membership_cancelled"
+        );
+
         break;
       }
 
@@ -4159,9 +3471,7 @@ export async function POST(
           event.data.object as
             Stripe.Invoice;
 
-        if (
-          !eventStripeAccountId
-        ) {
+        if (!eventStripeAccountId) {
           console.warn(
             `[TOTS STORE SUBSCRIPTIONS] Ignoring ${event.type} because it did not come from a connected Stripe account.`
           );
@@ -4175,6 +3485,10 @@ export async function POST(
           stripeAccountId:
             eventStripeAccountId,
         });
+
+        await syncMtcMembershipsSafely(
+          "payment_succeeded"
+        );
 
         break;
       }
@@ -4188,9 +3502,7 @@ export async function POST(
           event.data.object as
             Stripe.Invoice;
 
-        if (
-          !eventStripeAccountId
-        ) {
+        if (!eventStripeAccountId) {
           console.warn(
             `[TOTS STORE SUBSCRIPTIONS] Ignoring ${event.type} because it did not come from a connected Stripe account.`
           );
@@ -4204,6 +3516,10 @@ export async function POST(
           stripeAccountId:
             eventStripeAccountId,
         });
+
+        await syncMtcMembershipsSafely(
+          "payment_failed"
+        );
 
         break;
       }
@@ -4219,7 +3535,6 @@ export async function POST(
 
         await handlePaymentIntentCancelled({
           paymentIntent,
-
           eventStripeAccountId,
         });
 
@@ -4237,7 +3552,6 @@ export async function POST(
 
         await handleRefundCreated({
           refund,
-
           eventStripeAccountId,
         });
 
@@ -4255,7 +3569,6 @@ export async function POST(
 
         await syncChargeRefundStatus({
           charge,
-
           eventStripeAccountId,
         });
 
@@ -4300,8 +3613,7 @@ export async function POST(
       }
     );
   } catch (
-    error:
-      unknown
+    error: unknown
   ) {
     console.error(
       `[TOTS STORE WEBHOOK] Processing failed for ${event.type} (${event.id}):`,
@@ -4311,8 +3623,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          error instanceof
-            Error
+          error instanceof Error
             ? error.message
             : "Webhook processing failed.",
 

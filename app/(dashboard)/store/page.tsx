@@ -4,6233 +4,1949 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
-  type CSSProperties,
+  type FormEvent,
+  type ReactNode,
 } from "react";
 
 import {
-  ArrowRight,
+  AlertCircle,
+  BadgePoundSterling,
   Check,
-  ChevronDown,
-  ExternalLink,
-  Instagram,
+  ChevronRight,
+  CreditCard,
+  Edit3,
   Loader2,
-  LockKeyhole,
-  Mail,
-  MapPin,
-  Menu,
-  MessageCircle,
-  Minus,
   Package,
-  Phone,
   Plus,
+  RefreshCw,
   Search,
-  Send,
-  ShieldCheck,
   ShoppingBag,
-  ShoppingCart,
-  Sparkles,
   Store,
   Tag,
   Trash2,
-  Truck,
   X,
 } from "lucide-react";
 
-import { useParams } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
+
+// ============================================================
+// SUPABASE
+// ============================================================
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const supabaseKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+  "";
+
+const supabase =
+  supabaseUrl && supabaseKey
+    ? createClient(supabaseUrl, supabaseKey)
+    : null;
 
 // ============================================================
 // TYPES
 // ============================================================
 
-type Storefront = {
+type Organisation = {
   id: string;
-  organisation_id: string;
-  slug: string;
-
-  store_name: string;
-
-  store_description?: string | null;
-
-  hero_title?: string | null;
-  hero_text?: string | null;
-
-  announcement?: string | null;
-
-  accent_colour?: string | null;
-
-  storefront_mode?: string | null;
-  external_storefront_url?: string | null;
-
-  favicon_url?: string | null;
-  hero_image_url?: string | null;
-
-  background_colour?: string | null;
-  text_colour?: string | null;
-  button_colour?: string | null;
-  button_text_colour?: string | null;
-
-  heading_font?: string | null;
-  body_font?: string | null;
-
-  layout_style?: string | null;
-  card_style?: string | null;
-  border_radius?: number | null;
-
-  show_categories?: boolean | null;
-  show_search?: boolean | null;
-  show_stock?: boolean | null;
-  show_prices?: boolean | null;
-
-  footer_text?: string | null;
-
-  facebook_url?: string | null;
-  tiktok_url?: string | null;
-
-  custom_css?: string | null;
-
-  shipping_text?: string | null;
-
-  support_email?: string | null;
-
-  is_live?: boolean | null;
-
-  company_name?: string | null;
-
-  logo_url?: string | null;
-
-  email?: string | null;
-  phone?: string | null;
-  address?: string | null;
-
-  website_url?: string | null;
-  instagram_url?: string | null;
+  name: string;
+  store_enabled?: boolean | null;
 };
-
-type SellingModel =
-  | "physical"
-  | "digital_download"
-  | "digital_delivery"
-  | "collect"
-  | "customisable"
-  | "request_to_order"
-  | "service";
 
 type Product = {
   id: string;
-
-  organisation_id?: string | null;
-
+  organisation_id: string;
   name: string;
-
   slug?: string | null;
-
   description?: string | null;
-
-  category?: string | null;
-
-  selling_model?: SellingModel | string | null;
-
-  price: number | string;
-
-  compare_at_price?: number | string | null;
-
-  cost_price?: number | string | null;
-
-  image_url?: string | null;
-
-  images?: string[] | null;
-
-  inventory_quantity?: number | null;
-
-  stock?: number | null;
-
-  low_stock_threshold?: number | null;
-
-  track_inventory?: boolean | null;
-
   sku?: string | null;
-
-  is_active?: boolean | null;
-
+  category?: string | null;
+  price: number | string;
+  compare_at_price?: number | string | null;
+  cost_price?: number | string | null;
+  stock?: number | null;
+  inventory_quantity?: number | null;
+  low_stock_threshold?: number | null;
+  track_inventory?: boolean | null;
+  image_url?: string | null;
   featured?: boolean | null;
-
-  sort_order?: number | null;
-
   status?: string | null;
-
+  is_active?: boolean | null;
+  sort_order?: number | null;
+  selling_model?: string | null;
+  purchase_type?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
-
-  purchase_type?:
-    | "one_off"
-    | "subscription"
-    | string
-    | null;
-
-  billing_interval?:
-    | "week"
-    | "month"
-    | "year"
-    | string
-    | null;
-
-  external_system?:
-    | string
-    | null;
-
-  external_plan_code?:
-    | string
-    | null;
-
-  beneficiary_mode?:
-    | "none"
-    | "single_adult"
-    | "couple"
-    | "child"
-    | "child_plus_adult"
-    | string
-    | null;
-
-  [key: string]: unknown;
 };
 
-type CartLine = {
-  product: Product;
-  quantity: number;
+type StoreOrder = {
+  id: string;
+  organisation_id: string;
+  order_number?: string | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  customer_phone?: string | null;
+  subtotal?: number | string | null;
+  discount_amount?: number | string | null;
+  shipping_amount?: number | string | null;
+  total?: number | string | null;
+  payment_status?: string | null;
+  fulfilment_status?: string | null;
+  currency?: string | null;
+  stripe_checkout_session_id?: string | null;
+  stripe_payment_intent_id?: string | null;
+  stripe_customer_id?: string | null;
+  stripe_account_id?: string | null;
+  refunded_amount?: number | string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  paid_at?: string | null;
 };
 
-type BeneficiaryType =
-  | "adult"
-  | "child";
-
-type BeneficiaryMode =
-  | "none"
-  | "single_adult"
-  | "couple"
-  | "child"
-  | "child_plus_adult";
-
-type BeneficiaryDraft = {
-  productId: string;
-  slotKey: string;
-  beneficiaryType: BeneficiaryType;
-  isPrimary: boolean;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  relationshipToPayer: string;
+type Subscription = {
+  id: string;
+  organisation_id: string;
+  product_id?: string | null;
+  order_id?: string | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  customer_phone?: string | null;
+  status?: string | null;
+  quantity?: number | null;
+  currency?: string | null;
+  unit_amount_pence?: number | null;
+  billing_interval?: string | null;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+  cancel_at_period_end?: boolean | null;
+  cancelled_at?: string | null;
+  stripe_subscription_id?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
-type BeneficiarySpec = {
-  key: string;
-  beneficiaryType: BeneficiaryType;
-  isPrimary: boolean;
-  title: string;
+type Discount = {
+  id: string;
+  organisation_id: string;
+  code: string;
+  discount_type?: string | null;
+  value?: number | string | null;
+  minimum_order_amount?: number | string | null;
+  maximum_discount_amount?: number | string | null;
+  usage_limit?: number | null;
+  times_used?: number | null;
+  starts_at?: string | null;
+  expires_at?: string | null;
+  is_active?: boolean | null;
+  created_at?: string | null;
+};
+
+type ProductDraft = {
+  name: string;
   description: string;
-  relationshipToPayer: string;
-  emailRequired: boolean;
+  sku: string;
+  category: string;
+  price: string;
+  compare_at_price: string;
+  cost_price: string;
+  inventory_quantity: string;
+  low_stock_threshold: string;
+  image_url: string;
+  selling_model: string;
+  purchase_type: string;
+  track_inventory: boolean;
+  featured: boolean;
+  is_active: boolean;
 };
 
-type StorefrontApiResponse = {
-  store?: Storefront;
-  products?: Product[];
-  productLoadWarning?: string | null;
-  error?: string;
-};
-
-type ContactApiResponse = {
-  success?: boolean;
-  message?: string;
-  error?: string;
-};
-
-type CheckoutApiResponse = {
-  success?: boolean;
-
-  url?: string;
-  checkoutUrl?: string;
-  sessionUrl?: string;
-
-  sessionId?: string;
-
-  orderId?: string;
-  orderNumber?: string;
-
-  subtotal?: number;
-  discountAmount?: number;
-  shippingAmount?: number;
-  total?: number;
-
-  discountCode?: string | null;
-
-  error?: string;
-  message?: string;
-};
-
-// ============================================================
-// CONSTANTS
-// ============================================================
-
-const STOREFRONT_REQUEST_TIMEOUT_MS = 30000;
-const CONTACT_REQUEST_TIMEOUT_MS = 20000;
+type Tab = "overview" | "products" | "orders" | "subscriptions" | "discounts";
 
 // ============================================================
 // HELPERS
 // ============================================================
 
-function formatCurrency(
-  value?: number | string | null
-) {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(Number(value || 0));
-}
+const inputClass =
+  "h-11 w-full rounded-xl border border-stone-200 bg-white px-4 text-sm text-stone-900 outline-none transition placeholder:text-stone-300 focus:border-stone-400 focus:ring-2 focus:ring-stone-100";
 
-function normaliseColour(
-  value?: string | null,
-  fallback = "#a9b897"
-) {
-  const trimmed = String(
-    value || ""
-  ).trim();
+const blankProduct: ProductDraft = {
+  name: "",
+  description: "",
+  sku: "",
+  category: "",
+  price: "",
+  compare_at_price: "",
+  cost_price: "",
+  inventory_quantity: "0",
+  low_stock_threshold: "5",
+  image_url: "",
+  selling_model: "physical",
+  purchase_type: "one_off",
+  track_inventory: true,
+  featured: false,
+  is_active: true,
+};
 
-  if (
-    /^#[0-9A-Fa-f]{6}$/.test(
-      trimmed
-    )
-  ) {
-    return trimmed;
-  }
-
-  return fallback;
-}
-
-
-function colourToRgb(
-  colour: string
-) {
-  const normalised =
-    normaliseColour(
-      colour,
-      "#ffffff"
-    )
-      .replace(
-        "#",
-        ""
-      );
-
-  return {
-    r:
-      parseInt(
-        normalised.slice(
-          0,
-          2
-        ),
-        16
-      ),
-
-    g:
-      parseInt(
-        normalised.slice(
-          2,
-          4
-        ),
-        16
-      ),
-
-    b:
-      parseInt(
-        normalised.slice(
-          4,
-          6
-        ),
-        16
-      ),
-  };
-}
-
-function colourLuminance(
-  colour: string
-) {
-  const {
-    r,
-    g,
-    b,
-  } =
-    colourToRgb(
-      colour
-    );
-
-  return (
-    0.2126 *
-      r +
-    0.7152 *
-      g +
-    0.0722 *
-      b
-  );
-}
-
-function mixColours(
-  first: string,
-  second: string,
-  amount: number
-) {
-  const a =
-    colourToRgb(
-      first
-    );
-
-  const b =
-    colourToRgb(
-      second
-    );
-
-  const mix = (
-    x: number,
-    y: number
-  ) =>
-    Math.round(
-      x +
-        (
-          y -
-          x
-        ) *
-          amount
-    );
-
-  const toHex = (
-    value: number
-  ) =>
-    Math.max(
-      0,
-      Math.min(
-        255,
-        value
-      )
-    )
-      .toString(
-        16
-      )
-      .padStart(
-        2,
-        "0"
-      );
-
-  return `#${toHex(
-    mix(
-      a.r,
-      b.r
-    )
-  )}${toHex(
-    mix(
-      a.g,
-      b.g
-    )
-  )}${toHex(
-    mix(
-      a.b,
-      b.b
-    )
-  )}`;
-}
-
-function normaliseDiscountCode(
-  value: string
-) {
+function slugify(value: string) {
   return value
+    .toLowerCase()
     .trim()
-    .toUpperCase()
-    .replace(/\s+/g, "");
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
-function normaliseBeneficiaryMode(
-  value: unknown
-): BeneficiaryMode {
-  switch (value) {
-    case "single_adult":
-    case "couple":
-    case "child":
-    case "child_plus_adult":
-      return value;
+function toNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
-    default:
-      return "none";
+function formatMoney(value: unknown, currency = "GBP") {
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: currency.toUpperCase(),
+    }).format(toNumber(value));
+  } catch {
+    return `£${toNumber(value).toFixed(2)}`;
   }
 }
 
-function isMembershipProduct(
-  product: Product
-) {
-  return (
-    String(
-      product.purchase_type ||
-        ""
-    ).toLowerCase() ===
-      "subscription" &&
-    String(
-      product.external_system ||
-        ""
-    ).toLowerCase() ===
-      "mtc" &&
-    normaliseBeneficiaryMode(
-      product.beneficiary_mode
-    ) !== "none"
-  );
+function formatPence(value: unknown, currency = "GBP") {
+  return formatMoney(toNumber(value) / 100, currency);
 }
 
-function getBeneficiarySpecs(
-  line: CartLine
-): BeneficiarySpec[] {
-  if (
-    !isMembershipProduct(
-      line.product
-    )
-  ) {
-    return [];
-  }
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
 
-  const mode =
-    normaliseBeneficiaryMode(
-      line.product
-        .beneficiary_mode
-    );
-
-  const specs:
-    BeneficiarySpec[] = [];
-
-  const quantity =
-    Math.max(
-      1,
-      Math.floor(
-        Number(
-          line.quantity ||
-            1
-        )
-      )
-    );
-
-  for (
-    let purchaseIndex = 0;
-    purchaseIndex <
-    quantity;
-    purchaseIndex += 1
-  ) {
-    const purchaseSuffix =
-      quantity > 1
-        ? ` — membership ${purchaseIndex + 1}`
-        : "";
-
-    if (
-      mode ===
-      "single_adult"
-    ) {
-      specs.push({
-        key:
-          `${line.product.id}:${purchaseIndex}:adult:1`,
-        beneficiaryType:
-          "adult",
-        isPrimary:
-          true,
-        title:
-          `Member${purchaseSuffix}`,
-        description:
-          "Enter the adult who will use this membership.",
-        relationshipToPayer:
-          "self",
-        emailRequired:
-          true,
-      });
-    }
-
-    if (
-      mode === "couple"
-    ) {
-      specs.push(
-        {
-          key:
-            `${line.product.id}:${purchaseIndex}:adult:1`,
-          beneficiaryType:
-            "adult",
-          isPrimary:
-            true,
-          title:
-            `Adult 1${purchaseSuffix}`,
-          description:
-            "First adult covered by the couples membership.",
-          relationshipToPayer:
-            "self",
-          emailRequired:
-            true,
-        },
-        {
-          key:
-            `${line.product.id}:${purchaseIndex}:adult:2`,
-          beneficiaryType:
-            "adult",
-          isPrimary:
-            false,
-          title:
-            `Adult 2${purchaseSuffix}`,
-          description:
-            "Second adult covered by the couples membership.",
-          relationshipToPayer:
-            "partner",
-          emailRequired:
-            true,
-        }
-      );
-    }
-
-    if (
-      mode === "child"
-    ) {
-      specs.push({
-        key:
-          `${line.product.id}:${purchaseIndex}:child:1`,
-        beneficiaryType:
-          "child",
-        isPrimary:
-          true,
-        title:
-          `Child${purchaseSuffix}`,
-        description:
-          "Enter the child who will use this membership.",
-        relationshipToPayer:
-          "child",
-        emailRequired:
-          false,
-      });
-    }
-
-    if (
-      mode ===
-      "child_plus_adult"
-    ) {
-      specs.push(
-        {
-          key:
-            `${line.product.id}:${purchaseIndex}:adult:1`,
-          beneficiaryType:
-            "adult",
-          isPrimary:
-            true,
-          title:
-            `Adult / parent${purchaseSuffix}`,
-          description:
-            "This adult receives the Open Gym entitlement.",
-          relationshipToPayer:
-            "self",
-          emailRequired:
-            true,
-        },
-        {
-          key:
-            `${line.product.id}:${purchaseIndex}:child:1`,
-          beneficiaryType:
-            "child",
-          isPrimary:
-            false,
-          title:
-            `Child${purchaseSuffix}`,
-          description:
-            "This child receives the kids class entitlement.",
-          relationshipToPayer:
-            "child",
-          emailRequired:
-            false,
-        }
-      );
-    }
-  }
-
-  return specs;
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 }
 
-function getProductImage(
-  product: Product
-) {
-  if (
-    typeof product.image_url ===
-      "string" &&
-    product.image_url.trim()
-  ) {
-    return product.image_url.trim();
-  }
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
 
-  if (
-    Array.isArray(
-      product.images
-    )
-  ) {
-    const first =
-      product.images.find(
-        (image) =>
-          typeof image ===
-            "string" &&
-          image.trim()
-      );
-
-    if (first) {
-      return first;
-    }
-  }
-
-  return null;
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
-// ============================================================
-// INVENTORY
-// ============================================================
-
-function getAvailableQuantity(
-  product: Product
-) {
-  if (
-    product.track_inventory ===
-    false
-  ) {
-    return null;
-  }
+function statusClasses(value?: string | null) {
+  const status = value?.toLowerCase() ?? "";
 
   if (
-    typeof product.inventory_quantity ===
-      "number"
+    ["active", "paid", "complete", "completed", "fulfilled"].includes(status)
   ) {
-    return product.inventory_quantity;
+    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
   }
 
-  if (
-    typeof product.stock ===
-      "number"
-  ) {
-    return product.stock;
+  if (["pending", "processing", "unfulfilled"].includes(status)) {
+    return "bg-amber-50 text-amber-700 ring-amber-200";
   }
 
-  return null;
+  if (["cancelled", "canceled", "failed", "refunded"].includes(status)) {
+    return "bg-red-50 text-red-700 ring-red-200";
+  }
+
+  return "bg-stone-100 text-stone-600 ring-stone-200";
 }
 
-function isOutOfStock(
-  product: Product
-) {
-  if (
-    product.track_inventory ===
-    false
-  ) {
-    return false;
-  }
+function getStoredOrganisationId() {
+  if (typeof window === "undefined") return null;
 
-  const quantity =
-    getAvailableQuantity(
-      product
-    );
-
-  return (
-    quantity !== null &&
-    quantity <= 0
-  );
-}
-
-function isLowStock(
-  product: Product
-) {
-  if (
-    product.track_inventory ===
-    false
-  ) {
-    return false;
-  }
-
-  const quantity =
-    getAvailableQuantity(
-      product
-    );
-
-  const threshold =
-    typeof product.low_stock_threshold ===
-      "number"
-      ? product.low_stock_threshold
-      : 5;
-
-  return (
-    quantity !== null &&
-    quantity > 0 &&
-    quantity <= threshold
-  );
-}
-
-// ============================================================
-// SELLING MODELS
-//
-// The Store management page deliberately reuses the existing
-// category + inventory schema, so the public storefront infers
-// the selling model from those values.
-//
-// Supported models:
-// - Physical product
-// - Digital download
-// - Digitally delivered
-// - Order to collect
-// - Customisable / made to order
-// - Request to order / quote
-// - Service
-// ============================================================
-
-function inferSellingModel(
-  product: Product
-): SellingModel {
-  const storedModel =
-    String(
-      product.selling_model || ""
-    )
-      .trim()
-      .toLowerCase();
-
-  const validModels: SellingModel[] = [
-    "physical",
-    "digital_download",
-    "digital_delivery",
-    "collect",
-    "customisable",
-    "request_to_order",
-    "service",
+  const keys = [
+    "activeOrganisationId",
+    "active_organisation_id",
+    "currentOrganisationId",
+    "current_organisation_id",
+    "organisationId",
+    "organisation_id",
+    "organizationId",
+    "organization_id",
+    "selectedOrganisationId",
   ];
 
-  if (
-    validModels.includes(
-      storedModel as SellingModel
-    )
-  ) {
-    return storedModel as SellingModel;
+  for (const key of keys) {
+    const value = window.localStorage.getItem(key);
+
+    if (
+      value &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        value,
+      )
+    ) {
+      return value;
+    }
   }
 
-  // Legacy fallback for products created before selling_model
-  // existed. New products should always use selling_model.
-  const category =
-    String(
-      product.category || ""
-    )
-      .trim()
-      .toLowerCase();
-
-  if (
-    category.includes(
-      "digital download"
-    ) ||
-    category.includes(
-      "download"
-    ) ||
-    category.includes(
-      "template"
-    ) ||
-    category.includes(
-      "ebook"
-    )
-  ) {
-    return "digital_download";
-  }
-
-  if (
-    category.includes(
-      "digital delivery"
-    ) ||
-    category.includes(
-      "digitally delivered"
-    )
-  ) {
-    return "digital_delivery";
-  }
-
-  if (
-    category.includes(
-      "collect"
-    ) ||
-    category.includes(
-      "collection"
-    ) ||
-    category.includes(
-      "click and collect"
-    )
-  ) {
-    return "collect";
-  }
-
-  if (
-    category.includes(
-      "custom"
-    ) ||
-    category.includes(
-      "personalised"
-    ) ||
-    category.includes(
-      "personalized"
-    ) ||
-    category.includes(
-      "made to order"
-    )
-  ) {
-    return "customisable";
-  }
-
-  if (
-    category.includes(
-      "request"
-    ) ||
-    category.includes(
-      "quote"
-    ) ||
-    category.includes(
-      "enquiry"
-    )
-  ) {
-    return "request_to_order";
-  }
-
-  if (
-    category.includes(
-      "service"
-    ) ||
-    category.includes(
-      "consult"
-    ) ||
-    category.includes(
-      "session"
-    ) ||
-    category.includes(
-      "booking"
-    ) ||
-    [
-      "websites",
-      "website",
-      "website add-ons",
-      "website add ons",
-      "website maintenance",
-      "branding",
-      "business coaching",
-      "coaching",
-      "social media",
-      "business support",
-    ].includes(
-      category
-    )
-  ) {
-    return "service";
-  }
-
-  return product.track_inventory ===
-    false
-    ? "service"
-    : "physical";
+  return null;
 }
 
-function isServiceProduct(
-  product: Product
-) {
-  return (
-    inferSellingModel(
-      product
-    ) ===
-    "service"
-  );
-}
+function pickOrganisationId(record: Record<string, unknown> | null) {
+  if (!record) return null;
 
-function isDigitalProduct(
-  product: Product
-) {
-  const model =
-    inferSellingModel(
-      product
-    );
+  const candidates = [
+    record.organisation_id,
+    record.organization_id,
+    record.active_organisation_id,
+    record.active_organization_id,
+    record.current_organisation_id,
+    record.current_organization_id,
+    record.default_organisation_id,
+    record.default_organization_id,
+  ];
 
-  return (
-    model ===
-      "digital_download" ||
-    model ===
-      "digital_delivery"
-  );
-}
-
-function isCollectionProduct(
-  product: Product
-) {
-  return (
-    inferSellingModel(
-      product
-    ) ===
-    "collect"
-  );
-}
-
-function isCustomisableProduct(
-  product: Product
-) {
-  return (
-    inferSellingModel(
-      product
-    ) ===
-    "customisable"
-  );
-}
-
-function isRequestToOrderProduct(
-  product: Product
-) {
-  return (
-    inferSellingModel(
-      product
-    ) ===
-    "request_to_order"
-  );
-}
-
-function requiresShipping(
-  product: Product
-) {
-  return (
-    inferSellingModel(
-      product
-    ) ===
-    "physical"
-  );
-}
-
-function getProductTypeLabel(
-  product: Product
-) {
-  const model =
-    inferSellingModel(
-      product
-    );
-
-  switch (
-    model
-  ) {
-    case "digital_download":
-      return "Digital download";
-
-    case "digital_delivery":
-      return "Digital delivery";
-
-    case "collect":
-      return "Collection";
-
-    case "customisable":
-      return "Customisable";
-
-    case "request_to_order":
-      return "Request to order";
-
-    case "service":
-      return "Service";
-
-    default:
-      return "Physical product";
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.length > 0) {
+      return candidate;
+    }
   }
-}
 
-function getProductActionLabel(
-  product: Product
-) {
-  const model =
-    inferSellingModel(
-      product
-    );
-
-  switch (
-    model
-  ) {
-    case "digital_download":
-      return "Buy download";
-
-    case "digital_delivery":
-      return "Buy now";
-
-    case "collect":
-      return "Order to collect";
-
-    case "customisable":
-      return "Customise & order";
-
-    case "request_to_order":
-      return "Request to order";
-
-    case "service":
-      return "Add service";
-
-    default:
-      return "Add to basket";
-  }
-}
-
-function getProductFulfilmentText(
-  product: Product
-) {
-  const model =
-    inferSellingModel(
-      product
-    );
-
-  switch (
-    model
-  ) {
-    case "digital_download":
-      return "Digital product — no shipping required.";
-
-    case "digital_delivery":
-      return "Delivered digitally after purchase.";
-
-    case "collect":
-      return "Order online and collect from the business.";
-
-    case "customisable":
-      return "Made for you — send your custom details before ordering.";
-
-    case "request_to_order":
-      return "Send a request first. The business will confirm the details with you.";
-
-    case "service":
-      return "Service purchase — the business will confirm next steps.";
-
-    default:
-      return "Physical product — delivery or fulfilment details are confirmed at checkout.";
-  }
+  return null;
 }
 
 // ============================================================
 // PAGE
 // ============================================================
 
-export default function ShopFrontPage() {
-  const params =
-    useParams();
+export default function StoreDashboardPage() {
+  const [organisation, setOrganisation] = useState<Organisation | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<StoreOrder[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [discounts, setDiscounts] = useState<Discount[]>([]);
 
-  const slug =
-    typeof params?.slug ===
-    "string"
-      ? params.slug
-      : Array.isArray(
-            params?.slug
-          )
-        ? params.slug[0]
-        : "";
+  const [tab, setTab] = useState<Tab>("overview");
+  const [search, setSearch] = useState("");
 
-  // ==========================================================
-  // REQUEST MANAGEMENT
-  // ==========================================================
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const requestControllerRef =
-    useRef<AbortController | null>(
-      null
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [draft, setDraft] = useState<ProductDraft>(blankProduct);
+  const [savingProduct, setSavingProduct] = useState(false);
+
+  const resolveOrganisationId = useCallback(async () => {
+    if (!supabase) {
+      throw new Error("Supabase environment variables are missing.");
+    }
+
+    // 1. Prefer an already-selected organisation stored by TOTS-OS.
+    const stored = getStoredOrganisationId();
+    if (stored) return stored;
+
+    // 2. Resolve from the logged-in Supabase user.
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+
+    if (authError) throw authError;
+
+    const user = authData.user;
+
+    if (!user) {
+      throw new Error("You are not signed in.");
+    }
+
+    // 3. Check auth metadata.
+    const metadataId = pickOrganisationId({
+      ...(user.user_metadata ?? {}),
+      ...(user.app_metadata ?? {}),
+    });
+
+    if (metadataId) return metadataId;
+
+    // 4. Check profiles.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const profileOrganisationId = pickOrganisationId(
+      (profile ?? null) as Record<string, unknown> | null,
     );
 
-  const contactControllerRef =
-    useRef<AbortController | null>(
-      null
+    if (profileOrganisationId) return profileOrganisationId;
+
+    // 5. Compatibility fallbacks for membership tables.
+    const membershipTables = [
+      "organisation_members",
+      "organization_members",
+      "organisation_users",
+      "organization_users",
+    ];
+
+    for (const table of membershipTables) {
+      const { data } = await supabase
+        .from(table)
+        .select("*")
+        .eq("user_id", user.id)
+        .limit(1);
+
+      const row =
+        Array.isArray(data) && data.length > 0
+          ? (data[0] as Record<string, unknown>)
+          : null;
+
+      const id = pickOrganisationId(row);
+
+      if (id) return id;
+    }
+
+    throw new Error(
+      "We could not determine which organisation is currently active.",
     );
+  }, []);
 
-  // ==========================================================
-  // STORE
-  // ==========================================================
-
-  const [
-    store,
-    setStore,
-  ] =
-    useState<Storefront | null>(
-      null
-    );
-
-  const [
-    products,
-    setProducts,
-  ] =
-    useState<Product[]>(
-      []
-    );
-
-  const [
-    loading,
-    setLoading,
-  ] =
-    useState(true);
-
-  const [
-    error,
-    setError,
-  ] =
-    useState<string | null>(
-      null
-    );
-
-  const [
-    productLoadWarning,
-    setProductLoadWarning,
-  ] =
-    useState<string | null>(
-      null
-    );
-
-  // ==========================================================
-  // FILTERS
-  // ==========================================================
-
-  const [
-    search,
-    setSearch,
-  ] =
-    useState("");
-
-  const [
-    category,
-    setCategory,
-  ] =
-    useState("All");
-
-  // ==========================================================
-  // UI
-  // ==========================================================
-
-  const [
-    mobileMenuOpen,
-    setMobileMenuOpen,
-  ] =
-    useState(false);
-
-  const [
-    cartOpen,
-    setCartOpen,
-  ] =
-    useState(false);
-
-  const [
-    contactOpen,
-    setContactOpen,
-  ] =
-    useState(false);
-
-  // ==========================================================
-  // CONTACT
-  // ==========================================================
-
-  const [
-    contactName,
-    setContactName,
-  ] =
-    useState("");
-
-  const [
-    contactEmail,
-    setContactEmail,
-  ] =
-    useState("");
-
-  const [
-    contactMessage,
-    setContactMessage,
-  ] =
-    useState("");
-
-  const [
-    sendingMessage,
-    setSendingMessage,
-  ] =
-    useState(false);
-
-  const [
-    messageSent,
-    setMessageSent,
-  ] =
-    useState(false);
-
-  const [
-    messageError,
-    setMessageError,
-  ] =
-    useState<string | null>(
-      null
-    );
-
-  // ==========================================================
-  // CART
-  // ==========================================================
-
-  const [
-    cart,
-    setCart,
-  ] =
-    useState<
-      Record<
-        string,
-        CartLine
-      >
-    >({});
-
-  const [
-    checkingOut,
-    setCheckingOut,
-  ] =
-    useState(false);
-
-  const [
-    checkoutError,
-    setCheckoutError,
-  ] =
-    useState<string | null>(
-      null
-    );
-
-  const [
-    beneficiaryDrafts,
-    setBeneficiaryDrafts,
-  ] =
-    useState<
-      Record<
-        string,
-        BeneficiaryDraft
-      >
-    >({});
-
-  // ==========================================================
-  // DISCOUNTS
-  // ==========================================================
-
-  const [
-    discountCode,
-    setDiscountCode,
-  ] =
-    useState("");
-
-  const [
-    appliedDiscountCode,
-    setAppliedDiscountCode,
-  ] =
-    useState("");
-
-  const [
-    discountMessage,
-    setDiscountMessage,
-  ] =
-    useState<string | null>(
-      null
-    );
-
-  // ==========================================================
-  // LOAD STORE
-  // ==========================================================
-
-  const loadStore =
-    useCallback(
-      async () => {
-        if (
-          !slug ||
-          !slug.trim()
-        ) {
-          setStore(null);
-          setProducts([]);
-
-          setError(
-            "No store was specified."
-          );
-
-          setLoading(false);
-
-          return;
-        }
-
-        requestControllerRef.current?.abort();
-
-        const controller =
-          new AbortController();
-
-        requestControllerRef.current =
-          controller;
-
-        setLoading(true);
-
-        setError(null);
-
-        setProductLoadWarning(
-          null
+  const loadStore = useCallback(
+    async (silent = false) => {
+      if (!supabase) {
+        setError(
+          "Supabase is not configured. Check NEXT_PUBLIC_SUPABASE_URL and your public Supabase key.",
         );
+        setLoading(false);
+        return;
+      }
 
-        const safeSlug =
-          slug
-            .trim()
-            .toLowerCase();
+      if (silent) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
 
-        let timeoutId:
-          ReturnType<
-            typeof setTimeout
-          > | null =
-          null;
+      setError(null);
 
-        try {
-          timeoutId =
-            setTimeout(
-              () => {
-                controller.abort();
-              },
-              STOREFRONT_REQUEST_TIMEOUT_MS
-            );
+      try {
+        const organisationId = await resolveOrganisationId();
 
-          const response =
-            await fetch(
-              `/api/storefront/${encodeURIComponent(
-                safeSlug
-              )}?t=${Date.now()}`,
-              {
-                method:
-                  "GET",
+        const [
+          organisationResult,
+          productsResult,
+          ordersResult,
+          subscriptionsResult,
+          discountsResult,
+        ] = await Promise.all([
+          supabase
+            .from("organisations")
+            .select("id, name, store_enabled")
+            .eq("id", organisationId)
+            .single(),
 
-                headers: {
-                  Accept:
-                    "application/json",
-                },
+          supabase
+            .from("store_products")
+            .select("*")
+            .eq("organisation_id", organisationId)
+            .order("sort_order", { ascending: true })
+            .order("created_at", { ascending: false }),
 
-                cache:
-                  "no-store",
+          supabase
+            .from("store_orders")
+            .select("*")
+            .eq("organisation_id", organisationId)
+            .order("created_at", { ascending: false }),
 
-                signal:
-                  controller.signal,
-              }
-            );
+          supabase
+            .from("store_subscriptions")
+            .select("*")
+            .eq("organisation_id", organisationId)
+            .order("created_at", { ascending: false }),
 
-          const contentType =
-            response.headers.get(
-              "content-type"
-            );
+          supabase
+            .from("store_discounts")
+            .select("*")
+            .eq("organisation_id", organisationId)
+            .order("created_at", { ascending: false }),
+        ]);
 
-          let data:
-            StorefrontApiResponse | null =
-            null;
+        if (organisationResult.error) throw organisationResult.error;
+        if (productsResult.error) throw productsResult.error;
+        if (ordersResult.error) throw ordersResult.error;
+        if (subscriptionsResult.error) throw subscriptionsResult.error;
+        if (discountsResult.error) throw discountsResult.error;
 
-          if (
-            contentType?.includes(
-              "application/json"
-            )
-          ) {
-            data =
-              (await response.json()) as StorefrontApiResponse;
-          } else {
-            const text =
-              await response.text();
+        setOrganisation(organisationResult.data as Organisation);
+        setProducts((productsResult.data ?? []) as Product[]);
+        setOrders((ordersResult.data ?? []) as StoreOrder[]);
+        setSubscriptions((subscriptionsResult.data ?? []) as Subscription[]);
+        setDiscounts((discountsResult.data ?? []) as Discount[]);
+      } catch (loadError) {
+        console.error("Store dashboard load error:", loadError);
 
-            console.error(
-              "[TOTS STORE] API returned a non-JSON response:",
-              text.slice(
-                0,
-                500
-              )
-            );
-
-            throw new Error(
-              "The store server returned an unexpected response."
-            );
-          }
-
-          if (
-            !response.ok
-          ) {
-            throw new Error(
-              data?.error ||
-                "The store could not be loaded."
-            );
-          }
-
-          if (
-            !data?.store
-          ) {
-            throw new Error(
-              "This store could not be found."
-            );
-          }
-
-          const incomingProducts =
-            Array.isArray(
-              data.products
-            )
-              ? data.products
-              : [];
-
-          const cleanedProducts =
-            incomingProducts
-              .filter(
-                (product) =>
-                  Boolean(
-                    product?.id
-                  )
-              )
-              .filter(
-                (product) =>
-                  typeof product.name ===
-                    "string" &&
-                  Boolean(
-                    product.name.trim()
-                  )
-              )
-              .filter(
-                (product) =>
-                  product.is_active !==
-                  false
-              )
-              .filter(
-                (product) =>
-                  !product.status ||
-                  product.status ===
-                    "active"
-              )
-              .sort(
-                (
-                  first,
-                  second
-                ) => {
-                  const firstFeatured =
-                    first.featured ===
-                    true
-                      ? 1
-                      : 0;
-
-                  const secondFeatured =
-                    second.featured ===
-                    true
-                      ? 1
-                      : 0;
-
-                  if (
-                    firstFeatured !==
-                    secondFeatured
-                  ) {
-                    return (
-                      secondFeatured -
-                      firstFeatured
-                    );
-                  }
-
-                  const firstOrder =
-                    typeof first.sort_order ===
-                    "number"
-                      ? first.sort_order
-                      : 999999;
-
-                  const secondOrder =
-                    typeof second.sort_order ===
-                    "number"
-                      ? second.sort_order
-                      : 999999;
-
-                  if (
-                    firstOrder !==
-                    secondOrder
-                  ) {
-                    return (
-                      firstOrder -
-                      secondOrder
-                    );
-                  }
-
-                  return first.name.localeCompare(
-                    second.name
-                  );
-                }
-              );
-
-          setStore(
-            data.store
-          );
-
-          setProducts(
-            cleanedProducts
-          );
-
-          setProductLoadWarning(
-            typeof data.productLoadWarning ===
-              "string"
-              ? data.productLoadWarning
-              : null
-          );
-
-          setError(null);
-        } catch (
-          loadError: unknown
-        ) {
-          if (
-            controller.signal.aborted
-          ) {
-            if (
-              requestControllerRef.current !==
-              controller
-            ) {
-              return;
-            }
-
-            setStore(null);
-
-            setProducts([]);
-
-            setError(
-              "The store is taking longer than expected. Please try again."
-            );
-
-            return;
-          }
-
-          console.error(
-            "[TOTS STORE] Storefront request failed:",
-            loadError
-          );
-
-          setStore(null);
-
-          setProducts([]);
-
-          setError(
-            loadError instanceof
-              Error
-              ? loadError.message
-              : "We couldn't load this store right now."
-          );
-        } finally {
-          if (
-            timeoutId
-          ) {
-            clearTimeout(
-              timeoutId
-            );
-          }
-
-          if (
-            requestControllerRef.current ===
-            controller
-          ) {
-            setLoading(false);
-          }
-        }
-      },
-      [
-        slug,
-      ]
-    );
-
-  // ==========================================================
-  // INITIAL LOAD
-  // ==========================================================
-
-  useEffect(
-    () => {
-      void loadStore();
-
-      return () => {
-        requestControllerRef.current?.abort();
-
-        contactControllerRef.current?.abort();
-      };
+        setOrganisation(null);
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "We couldn't load this store.",
+        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
     },
-    [
-      loadStore,
-    ]
+    [resolveOrganisationId],
   );
 
-  // ==========================================================
-  // CONTACT
-  // ==========================================================
+  useEffect(() => {
+    void loadStore();
+  }, [loadStore]);
 
-  async function sendContactMessage() {
-    if (
-      sendingMessage ||
-      !store
-    ) {
-      return;
-    }
+  const metrics = useMemo(() => {
+    const activeProducts = products.filter(
+      (product) =>
+        product.is_active !== false &&
+        product.status?.toLowerCase() !== "archived",
+    ).length;
 
-    const name =
-      contactName.trim();
-
-    const email =
-      contactEmail.trim();
-
-    const message =
-      contactMessage.trim();
-
-    if (
-      !name
-    ) {
-      setMessageError(
-        "Please enter your name."
-      );
-
-      return;
-    }
-
-    if (
-      !email ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        email
-      )
-    ) {
-      setMessageError(
-        "Please enter a valid email address."
-      );
-
-      return;
-    }
-
-    if (
-      !message
-    ) {
-      setMessageError(
-        "Please enter a message."
-      );
-
-      return;
-    }
-
-    contactControllerRef.current?.abort();
-
-    const controller =
-      new AbortController();
-
-    contactControllerRef.current =
-      controller;
-
-    setSendingMessage(true);
-
-    setMessageError(null);
-
-    setMessageSent(false);
-
-    const timeoutId =
-      setTimeout(
-        () => {
-          controller.abort();
-        },
-        CONTACT_REQUEST_TIMEOUT_MS
-      );
-
-    try {
-      const response =
-        await fetch(
-          "/api/store-contact",
-          {
-            method:
-              "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-
-              Accept:
-                "application/json",
-            },
-
-            cache:
-              "no-store",
-
-            signal:
-              controller.signal,
-
-            body:
-              JSON.stringify({
-                organisationId:
-                  store.organisation_id,
-
-                storeId:
-                  store.id,
-
-                storeSlug:
-                  store.slug,
-
-                storeName:
-                  store.store_name,
-
-                name,
-                email,
-                message,
-
-                source:
-                  "storefront",
-              }),
-          }
-        );
-
-      const contentType =
-        response.headers.get(
-          "content-type"
-        );
-
-      let data:
-        ContactApiResponse | null =
-        null;
-
-      if (
-        contentType?.includes(
-          "application/json"
-        )
-      ) {
-        data =
-          (await response.json()) as ContactApiResponse;
-      } else {
-        const text =
-          await response.text();
-
-        console.error(
-          "[TOTS STORE] Contact endpoint returned non-JSON:",
-          text.slice(
-            0,
-            500
-          )
-        );
-      }
-
-      if (
-        !response.ok
-      ) {
-        throw new Error(
-          data?.error ||
-            data?.message ||
-            "Your message could not be sent."
-        );
-      }
-
-      setMessageSent(true);
-
-      setContactName("");
-
-      setContactEmail("");
-
-      setContactMessage("");
-    } catch (
-      sendError: unknown
-    ) {
-      if (
-        controller.signal.aborted
-      ) {
-        setMessageError(
-          "Sending took too long. Please try again."
-        );
-      } else {
-        setMessageError(
-          sendError instanceof
-            Error
-            ? sendError.message
-            : "Your message could not be sent."
-        );
-      }
-    } finally {
-      clearTimeout(
-        timeoutId
-      );
-
-      if (
-        contactControllerRef.current ===
-        controller
-      ) {
-        setSendingMessage(false);
-      }
-    }
-  }
-
-  function openContactDrawer() {
-    setMessageSent(false);
-
-    setMessageError(null);
-
-    setContactOpen(true);
-  }
-
-  // ==========================================================
-  // CATEGORIES
-  // ==========================================================
-
-  const categories =
-    useMemo(
-      () => [
-        "All",
-
-        ...Array.from(
-          new Set(
-            products
-              .map(
-                (product) =>
-                  product.category?.trim()
-              )
-              .filter(
-                (
-                  value
-                ):
-                  value is string =>
-                    Boolean(
-                      value
-                    )
-              )
-          )
-        ).sort(
-          (
-            first,
-            second
-          ) =>
-            first.localeCompare(
-              second
-            )
-        ),
-      ],
-      [
-        products,
-      ]
+    const paidOrders = orders.filter(
+      (order) => order.payment_status?.toLowerCase() === "paid",
     );
 
-  // ==========================================================
-  // VISIBLE PRODUCTS
-  // ==========================================================
-
-  const visibleProducts =
-    useMemo(
-      () => {
-        const query =
-          search
-            .trim()
-            .toLowerCase();
-
-        return products.filter(
-          (product) => {
-            if (
-              category !==
-                "All" &&
-              product.category !==
-                category
-            ) {
-              return false;
-            }
-
-            if (
-              !query
-            ) {
-              return true;
-            }
-
-            return [
-              product.name,
-              product.description,
-              product.category,
-              product.sku,
-            ]
-              .filter(
-                Boolean
-              )
-              .some(
-                (value) =>
-                  String(
-                    value
-                  )
-                    .toLowerCase()
-                    .includes(
-                      query
-                    )
-              );
-          }
-        );
-      },
-      [
-        products,
-        search,
-        category,
-      ]
-    );
-
-  // ==========================================================
-  // FEATURED
-  // ==========================================================
-
-  const featuredProducts =
-    useMemo(
-      () => {
-        const explicit =
-          products.filter(
-            (product) =>
-              product.featured ===
-              true
-          );
-
-        return (
-          explicit.length
-            ? explicit
-            : products
-        ).slice(
-          0,
-          3
-        );
-      },
-      [
-        products,
-      ]
-    );
-
-  const featuredProduct =
-    featuredProducts.length >
-      0
-      ? featuredProducts[0]
-      : null;
-
-  // ==========================================================
-  // CART
-  // ==========================================================
-
-  const cartLines =
-    useMemo(
-      () =>
-        Object.values(
-          cart
-        ),
-      [
-        cart,
-      ]
-    );
-
-  const cartCount =
-    useMemo(
-      () =>
-        cartLines.reduce(
-          (
-            total,
-            line
-          ) =>
-            total +
-            line.quantity,
-          0
-        ),
-      [
-        cartLines,
-      ]
-    );
-
-  const cartTotal =
-    useMemo(
-      () =>
-        cartLines.reduce(
-          (
-            total,
-            line
-          ) =>
-            total +
-            Number(
-              line.product.price ||
-                0
-            ) *
-              line.quantity,
-          0
-        ),
-      [
-        cartLines,
-      ]
-    );
-
-  const cartContainsPhysicalProduct =
-    useMemo(
-      () =>
-        cartLines.some(
-          (
-            line
-          ) =>
-            requiresShipping(
-              line.product
-            )
-        ),
-      [
-        cartLines,
-      ]
-    );
-
-  const cartContainsCollectionProduct =
-    useMemo(
-      () =>
-        cartLines.some(
-          (
-            line
-          ) =>
-            isCollectionProduct(
-              line.product
-            )
-        ),
-      [
-        cartLines,
-      ]
-    );
-
-  const cartContainsDigitalProduct =
-    useMemo(
-      () =>
-        cartLines.some(
-          (
-            line
-          ) =>
-            isDigitalProduct(
-              line.product
-            )
-        ),
-      [
-        cartLines,
-      ]
-    );
-
-  const cartContainsServiceProduct =
-    useMemo(
-      () =>
-        cartLines.some(
-          (
-            line
-          ) =>
-            isServiceProduct(
-              line.product
-            )
-        ),
-      [
-        cartLines,
-      ]
-    );
-
-  const membershipLines =
-    useMemo(
-      () =>
-        cartLines.filter(
-          (
-            line
-          ) =>
-            isMembershipProduct(
-              line.product
-            )
-        ),
-      [
-        cartLines,
-      ]
-    );
-
-  const requiredBeneficiarySpecs =
-    useMemo(
-      () =>
-        membershipLines.flatMap(
-          (
-            line
-          ) =>
-            getBeneficiarySpecs(
-              line
-            ).map(
-              (
-                spec
-              ) => ({
-                ...spec,
-                productId:
-                  line.product.id,
-                productName:
-                  line.product.name,
-                planCode:
-                  String(
-                    line.product
-                      .external_plan_code ||
-                      ""
-                  ).trim(),
-              })
-            )
-        ),
-      [
-        membershipLines,
-      ]
-    );
-
-  // ==========================================================
-  // CART ACTIONS
-  // ==========================================================
-
-  function addToCart(
-    product: Product
-  ) {
-    if (
-      isOutOfStock(
-        product
-      )
-    ) {
-      return;
-    }
-
-    setCheckoutError(null);
-
-    setCart(
-      (previous) => {
-        const existing =
-          previous[
-            product.id
-          ];
-
-        let nextQuantity =
-          existing
-            ? existing.quantity +
-              1
-            : 1;
-
-        const available =
-          getAvailableQuantity(
-            product
-          );
-
-        if (
-          available !==
-          null
-        ) {
-          nextQuantity =
-            Math.min(
-              nextQuantity,
-              Math.max(
-                available,
-                0
-              )
-            );
-        }
-
-        if (
-          nextQuantity <=
-          0
-        ) {
-          return previous;
-        }
-
-        return {
-          ...previous,
-
-          [product.id]: {
-            product,
-
-            quantity:
-              nextQuantity,
-          },
-        };
-      }
-    );
-
-    setCartOpen(true);
-  }
-
-  function requestProduct(
-    product: Product
-  ) {
-    setCartOpen(false);
-
-    setMessageSent(false);
-    setMessageError(null);
-
-    const model =
-      inferSellingModel(
-        product
-      );
-
-    const intro =
-      model ===
-      "customisable"
-        ? `Hi, I'd like to customise and order "${product.name}". My customisation details are: `
-        : model ===
-            "request_to_order"
-          ? `Hi, I'd like to request to order "${product.name}". Please can you let me know the next steps?`
-          : `Hi, I'm interested in "${product.name}". Please can you send me more information?`;
-
-    setContactMessage(
-      intro
-    );
-
-    setContactOpen(true);
-  }
-
-  function setQuantity(
-    productId: string,
-    quantity: number
-  ) {
-    setCheckoutError(null);
-
-    setCart(
-      (previous) => {
-        if (
-          quantity <=
-          0
-        ) {
-          const next = {
-            ...previous,
-          };
-
-          delete next[
-            productId
-          ];
-
-          return next;
-        }
-
-        const existing =
-          previous[
-            productId
-          ];
-
-        if (
-          !existing
-        ) {
-          return previous;
-        }
-
-        let safeQuantity =
-          quantity;
-
-        const available =
-          getAvailableQuantity(
-            existing.product
-          );
-
-        if (
-          available !==
-          null
-        ) {
-          safeQuantity =
-            Math.min(
-              safeQuantity,
-              Math.max(
-                available,
-                0
-              )
-            );
-        }
-
-        return {
-          ...previous,
-
-          [productId]: {
-            ...existing,
-
-            quantity:
-              safeQuantity,
-          },
-        };
-      }
-    );
-  }
-
-  function removeFromCart(
-    productId: string
-  ) {
-    setCheckoutError(null);
-
-    setCart(
-      (previous) => {
-        const next = {
-          ...previous,
-        };
-
-        delete next[
-          productId
-        ];
-
-        return next;
-      }
-    );
-  }
-
-  // ==========================================================
-  // MEMBERSHIP BENEFICIARIES
-  // ==========================================================
-
-  function updateBeneficiaryDraft(
-    spec: BeneficiarySpec & {
-      productId: string;
-    },
-    field:
-      | "firstName"
-      | "lastName"
-      | "email"
-      | "phone",
-    value: string
-  ) {
-    setCheckoutError(
-      null
-    );
-
-    setBeneficiaryDrafts(
-      (
-        previous
-      ) => {
-        const existing =
-          previous[
-            spec.key
-          ];
-
-        const base:
-          BeneficiaryDraft =
-          existing || {
-            productId:
-              spec.productId,
-            slotKey:
-              spec.key,
-            beneficiaryType:
-              spec.beneficiaryType,
-            isPrimary:
-              spec.isPrimary,
-            firstName:
-              "",
-            lastName:
-              "",
-            email:
-              "",
-            phone:
-              "",
-            relationshipToPayer:
-              spec.relationshipToPayer,
-          };
-
-        return {
-          ...previous,
-
-          [spec.key]: {
-            ...base,
-            [field]:
-              value,
-          },
-        };
-      }
-    );
-  }
-
-  function buildCheckoutBeneficiaries() {
-    const payload:
-      Array<{
-        productId: string;
-        slotKey: string;
-        beneficiaryType: BeneficiaryType;
-        isPrimary: boolean;
-        firstName: string;
-        lastName: string;
-        email: string | null;
-        phone: string | null;
-        relationshipToPayer: string | null;
-      }> = [];
-
-    for (
-      const spec of
-      requiredBeneficiarySpecs
-    ) {
-      const draft =
-        beneficiaryDrafts[
-          spec.key
-        ];
-
-      const firstName =
-        String(
-          draft?.firstName ||
-            ""
-        ).trim();
-
-      const lastName =
-        String(
-          draft?.lastName ||
-            ""
-        ).trim();
-
-      const email =
-        String(
-          draft?.email ||
-            ""
-        )
-          .trim()
-          .toLowerCase();
-
-      const phone =
-        String(
-          draft?.phone ||
-            ""
-        ).trim();
-
-      if (
-        !firstName ||
-        !lastName
-      ) {
-        throw new Error(
-          `Enter the first and last name for ${spec.title} on ${spec.productName}.`
-        );
-      }
-
-      if (
-        spec.emailRequired &&
-        !email
-      ) {
-        throw new Error(
-          `Enter an email address for ${spec.title} on ${spec.productName}.`
-        );
-      }
-
-      if (
-        email &&
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-          email
-        )
-      ) {
-        throw new Error(
-          `Enter a valid email address for ${spec.title} on ${spec.productName}.`
-        );
-      }
-
-      payload.push({
-        productId:
-          spec.productId,
-
-        slotKey:
-          spec.key,
-
-        beneficiaryType:
-          spec.beneficiaryType,
-
-        isPrimary:
-          spec.isPrimary,
-
-        firstName,
-
-        lastName,
-
-        email:
-          email ||
-          null,
-
-        phone:
-          phone ||
-          null,
-
-        relationshipToPayer:
-          spec.relationshipToPayer ||
-          null,
-      });
-    }
-
-    return payload;
-  }
-
-  // ==========================================================
-  // DISCOUNT
-  // ==========================================================
-
-  function applyDiscountCode() {
-    const code =
-      normaliseDiscountCode(
-        discountCode
-      );
-
-    setCheckoutError(null);
-
-    setDiscountMessage(null);
-
-    if (
-      !code
-    ) {
-      setAppliedDiscountCode("");
-
-      setDiscountMessage(
-        "Enter a discount code first."
-      );
-
-      return;
-    }
-
-    setDiscountCode(code);
-
-    setAppliedDiscountCode(
-      code
-    );
-
-    setDiscountMessage(
-      "We'll verify this code securely when you continue."
-    );
-  }
-
-  function removeDiscountCode() {
-    setDiscountCode("");
-
-    setAppliedDiscountCode("");
-
-    setDiscountMessage(null);
-
-    setCheckoutError(null);
-  }
-
-  // ==========================================================
-  // CHECKOUT
-  // ==========================================================
-
-  async function startCheckout() {
-    if (
-      checkingOut ||
-      !store ||
-      cartLines.length ===
-        0
-    ) {
-      return;
-    }
-
-    setCheckingOut(true);
-
-    setCheckoutError(null);
-
-    try {
-      const items =
-        cartLines.map(
-          (
-            line
-          ) => ({
-            productId:
-              line.product.id,
-
-            quantity:
-              line.quantity,
-          })
-        );
-
-      const resolvedDiscountCode =
-        normaliseDiscountCode(
-          discountCode ||
-            appliedDiscountCode
-        );
-
-      const beneficiaries =
-        buildCheckoutBeneficiaries();
-
-      const response =
-        await fetch(
-          "/api/store-checkout",
-          {
-            method:
-              "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-
-              Accept:
-                "application/json",
-            },
-
-            cache:
-              "no-store",
-
-            body:
-              JSON.stringify({
-                storeSlug:
-                  store.slug,
-
-                items,
-
-                discountCode:
-                  resolvedDiscountCode ||
-                  undefined,
-
-                beneficiaries:
-                  beneficiaries.length >
-                  0
-                    ? beneficiaries
-                    : undefined,
-              }),
-          }
-        );
-
-      const contentType =
-        response.headers.get(
-          "content-type"
-        );
-
-      let data:
-        CheckoutApiResponse | null =
-        null;
-
-      if (
-        contentType?.includes(
-          "application/json"
-        )
-      ) {
-        data =
-          (await response.json()) as CheckoutApiResponse;
-      } else {
-        const text =
-          await response.text();
-
-        console.error(
-          "[TOTS STORE] Checkout returned non-JSON:",
-          text.slice(
-            0,
-            500
-          )
-        );
-
-        throw new Error(
-          "Checkout returned an unexpected response."
-        );
-      }
-
-      if (
-        !response.ok
-      ) {
-        throw new Error(
-          data?.error ||
-            data?.message ||
-            "Checkout could not be started."
-        );
-      }
-
-      const checkoutUrl =
-        data?.url ||
-        data?.checkoutUrl ||
-        data?.sessionUrl;
-
-      if (
-        !checkoutUrl
-      ) {
-        throw new Error(
-          "Stripe checkout was created, but no checkout URL was returned."
-        );
-      }
-
-      window.location.href =
-        checkoutUrl;
-    } catch (
-      checkoutFailure: unknown
-    ) {
-      console.error(
-        "[TOTS STORE] Checkout failed:",
-        checkoutFailure
-      );
-
-      setCheckoutError(
-        checkoutFailure instanceof
-          Error
-          ? checkoutFailure.message
-          : "Checkout could not be started."
-      );
-    } finally {
-      setCheckingOut(false);
-    }
-  }
-
-  // ==========================================================
-  // BRAND
-  // ==========================================================
-
-  const primary =
-    normaliseColour(
-      store?.accent_colour,
-      "#a9b897"
-    );
-
-  const secondary =
-    `${primary}12`;
-
-  const strongerSecondary =
-    `${primary}20`;
-
-  const storeName =
-    store?.store_name ||
-    store?.company_name ||
-    "Online Store";
-
-  const pageBackground =
-    normaliseColour(
-      store?.background_colour,
-      "#f8f7f3"
-    );
-
-  const pageText =
-    normaliseColour(
-      store?.text_colour,
-      "#1c1917"
-    );
-
-  const buttonColour =
-    normaliseColour(
-      store?.button_colour,
-      primary
-    );
-
-  const buttonTextColour =
-    normaliseColour(
-      store?.button_text_colour,
-      "#ffffff"
-    );
-
-  const configuredRadius =
-    Math.max(
+    const revenue = paidOrders.reduce(
+      (sum, order) => sum + toNumber(order.total),
       0,
-      Math.min(
-        48,
-        Number(
-          store?.border_radius ??
-          18
-        ) || 18
-      )
     );
 
-  const cardStyle =
-    store?.card_style ||
-    "soft";
+    const activeSubscriptions = subscriptions.filter(
+      (subscription) => subscription.status?.toLowerCase() === "active",
+    );
 
-  const storeRadius =
-    cardStyle ===
-      "square"
-      ? 0
-      : configuredRadius;
+    const monthlySubscriptionValue = activeSubscriptions.reduce(
+      (sum, subscription) => {
+        const amount = toNumber(subscription.unit_amount_pence) / 100;
+        const quantity = subscription.quantity ?? 1;
+        const interval = subscription.billing_interval?.toLowerCase();
 
-  const darkTheme =
-    colourLuminance(
-      pageBackground
-    ) <
-    125;
+        if (["year", "yearly", "annual"].includes(interval ?? "")) {
+          return sum + (amount * quantity) / 12;
+        }
 
-  const storeSurface =
-    darkTheme
-      ? mixColours(
-          pageBackground,
-          "#ffffff",
-          0.08
-        )
-      : "#ffffff";
+        return sum + amount * quantity;
+      },
+      0,
+    );
 
-  const storeSurfaceSoft =
-    darkTheme
-      ? mixColours(
-          pageBackground,
-          "#ffffff",
-          0.13
-        )
-      : mixColours(
-          pageBackground,
-          "#ffffff",
-          0.62
-        );
+    return {
+      activeProducts,
+      revenue,
+      paidOrders: paidOrders.length,
+      activeSubscriptions: activeSubscriptions.length,
+      monthlySubscriptionValue,
+    };
+  }, [products, orders, subscriptions]);
 
-  const storeSurfaceStrong =
-    darkTheme
-      ? mixColours(
-          pageBackground,
-          "#ffffff",
-          0.18
-        )
-      : mixColours(
-          pageBackground,
-          "#000000",
-          0.04
-        );
+  const filteredProducts = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return products;
 
-  const storeMutedText =
-    darkTheme
-      ? mixColours(
-          pageText,
-          pageBackground,
-          0.38
-        )
-      : mixColours(
-          pageText,
-          pageBackground,
-          0.44
-        );
+    return products.filter(
+      (product) =>
+        product.name.toLowerCase().includes(query) ||
+        product.category?.toLowerCase().includes(query) ||
+        product.sku?.toLowerCase().includes(query),
+    );
+  }, [products, search]);
 
-  const storeFaintText =
-    darkTheme
-      ? mixColours(
-          pageText,
-          pageBackground,
-          0.58
-        )
-      : mixColours(
-          pageText,
-          pageBackground,
-          0.6
-        );
+  const filteredOrders = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return orders;
 
-  const storeBorder =
-    darkTheme
-      ? mixColours(
-          pageBackground,
-          pageText,
-          0.2
-        )
-      : mixColours(
-          pageBackground,
-          pageText,
-          0.14
-        );
+    return orders.filter(
+      (order) =>
+        order.order_number?.toLowerCase().includes(query) ||
+        order.customer_name?.toLowerCase().includes(query) ||
+        order.customer_email?.toLowerCase().includes(query),
+    );
+  }, [orders, search]);
 
-  const storeOverlay =
-    darkTheme
-      ? "rgba(0,0,0,0.72)"
-      : "rgba(255,255,255,0.88)";
+  const filteredSubscriptions = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return subscriptions;
 
-  const headingFont =
-    store?.heading_font ||
-    "Poppins";
+    return subscriptions.filter(
+      (subscription) =>
+        subscription.customer_name?.toLowerCase().includes(query) ||
+        subscription.customer_email?.toLowerCase().includes(query) ||
+        subscription.status?.toLowerCase().includes(query),
+    );
+  }, [subscriptions, search]);
 
-  const bodyFont =
-    store?.body_font ||
-    "Poppins";
+  function openNewProduct() {
+    setEditingProduct(null);
+    setDraft(blankProduct);
+    setProductModalOpen(true);
+  }
 
-  const layoutStyle =
-    store?.layout_style ||
-    "minimal";
+  function openEditProduct(product: Product) {
+    setEditingProduct(product);
 
-  const membershipLayout =
-    layoutStyle ===
-    "memberships";
+    setDraft({
+      name: product.name ?? "",
+      description: product.description ?? "",
+      sku: product.sku ?? "",
+      category: product.category ?? "",
+      price:
+        product.price !== null && product.price !== undefined
+          ? String(product.price)
+          : "",
+      compare_at_price:
+        product.compare_at_price !== null &&
+        product.compare_at_price !== undefined
+          ? String(product.compare_at_price)
+          : "",
+      cost_price:
+        product.cost_price !== null && product.cost_price !== undefined
+          ? String(product.cost_price)
+          : "",
+      inventory_quantity: String(
+        product.inventory_quantity ?? product.stock ?? 0,
+      ),
+      low_stock_threshold: String(product.low_stock_threshold ?? 5),
+      image_url: product.image_url ?? "",
+      selling_model: product.selling_model ?? "physical",
+      purchase_type: product.purchase_type ?? "one_off",
+      track_inventory: product.track_inventory ?? true,
+      featured: product.featured ?? false,
+      is_active: product.is_active ?? true,
+    });
 
-  const showCategories =
-    store?.show_categories !==
-    false;
+    setProductModalOpen(true);
+  }
 
-  const showSearch =
-    store?.show_search !==
-    false;
+  async function saveProduct(event: FormEvent) {
+    event.preventDefault();
 
-  const showStock =
-    store?.show_stock ===
-    true;
+    if (!supabase || !organisation) return;
 
-  const showPrices =
-    store?.show_prices !==
-    false;
+    if (!draft.name.trim()) {
+      setError("Enter a product name.");
+      return;
+    }
 
-  // ==========================================================
-  // LOADING
-  // ==========================================================
+    const price = Number(draft.price);
 
-  if (
-    loading
-  ) {
+    if (Number.isNaN(price) || price < 0) {
+      setError("Enter a valid product price.");
+      return;
+    }
+
+    setSavingProduct(true);
+    setError(null);
+
+    try {
+      const inventoryQuantity = Number(draft.inventory_quantity || "0");
+      const lowStockThreshold = Number(draft.low_stock_threshold || "0");
+
+      const payload = {
+        organisation_id: organisation.id,
+        name: draft.name.trim(),
+        slug: editingProduct?.slug || slugify(draft.name),
+        description: draft.description.trim() || null,
+        sku: draft.sku.trim() || null,
+        category: draft.category.trim() || null,
+        price,
+        compare_at_price: draft.compare_at_price.trim()
+          ? Number(draft.compare_at_price)
+          : null,
+        cost_price: draft.cost_price.trim()
+          ? Number(draft.cost_price)
+          : null,
+        inventory_quantity: Number.isFinite(inventoryQuantity)
+          ? inventoryQuantity
+          : 0,
+        stock: Number.isFinite(inventoryQuantity) ? inventoryQuantity : 0,
+        low_stock_threshold: Number.isFinite(lowStockThreshold)
+          ? lowStockThreshold
+          : 0,
+        track_inventory: draft.track_inventory,
+        image_url: draft.image_url.trim() || null,
+        featured: draft.featured,
+        status: draft.is_active ? "active" : "draft",
+        is_active: draft.is_active,
+        selling_model: draft.selling_model,
+        purchase_type: draft.purchase_type,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (editingProduct) {
+        const { error: updateError } = await supabase
+          .from("store_products")
+          .update(payload)
+          .eq("id", editingProduct.id)
+          .eq("organisation_id", organisation.id);
+
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from("store_products")
+          .insert({
+            ...payload,
+            created_at: new Date().toISOString(),
+          });
+
+        if (insertError) throw insertError;
+      }
+
+      setProductModalOpen(false);
+      setEditingProduct(null);
+      setDraft(blankProduct);
+
+      await loadStore(true);
+    } catch (saveError) {
+      console.error("Product save error:", saveError);
+
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "We couldn't save that product.",
+      );
+    } finally {
+      setSavingProduct(false);
+    }
+  }
+
+  async function deleteProduct(product: Product) {
+    if (!supabase || !organisation) return;
+
+    const confirmed = window.confirm(
+      `Delete "${product.name}"? This cannot be undone.`,
+    );
+
+    if (!confirmed) return;
+
+    setError(null);
+
+    try {
+      const { error: deleteError } = await supabase
+        .from("store_products")
+        .delete()
+        .eq("id", product.id)
+        .eq("organisation_id", organisation.id);
+
+      if (deleteError) throw deleteError;
+
+      setProducts((current) =>
+        current.filter((item) => item.id !== product.id),
+      );
+    } catch (deleteError) {
+      console.error("Product delete error:", deleteError);
+
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "We couldn't delete that product.",
+      );
+    }
+  }
+
+  if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f8f7f3] px-5">
-        <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
-            <Loader2
-              className="animate-spin text-stone-400"
-              size={22}
-            />
+      <div className="flex min-h-[70vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-stone-200 bg-white shadow-sm">
+            <Loader2 className="h-6 w-6 animate-spin text-stone-700" />
           </div>
 
-          <p className="mt-5 text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">
-            Opening store
-          </p>
-
-          <p className="mt-2 text-xs text-stone-400">
-            Getting everything ready for you.
-          </p>
+          <div className="text-center">
+            <p className="font-semibold text-stone-900">Loading your store</p>
+            <p className="mt-1 text-sm text-stone-500">
+              Connecting to your organisation…
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
-  // ==========================================================
-  // ERROR
-  // ==========================================================
-
-  if (
-    !store ||
-    error
-  ) {
+  if (!organisation) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f8f7f3] px-5">
-        <div className="w-full max-w-lg rounded-[2rem] border border-stone-200 bg-white p-10 text-center shadow-sm">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-500">
-            <Store
-              size={22}
-            />
+      <div className="flex min-h-[70vh] items-center justify-center p-6">
+        <div className="w-full max-w-lg rounded-[28px] border border-stone-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50">
+            <AlertCircle className="h-6 w-6 text-red-600" />
           </div>
 
-          <h1 className="mt-6 font-serif text-4xl italic text-stone-900">
-            We couldn&apos;t open this store.
+          <h1 className="mt-5 text-xl font-semibold text-stone-900">
+            We couldn't open this store
           </h1>
 
-          <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-stone-500">
-            {error ||
-              "This store could not be found."}
+          <p className="mt-2 text-sm leading-6 text-stone-500">
+            {error ?? "No active organisation could be found for this account."}
           </p>
 
           <button
             type="button"
-            onClick={() =>
-              void loadStore()
-            }
-            className="mt-7 inline-flex items-center gap-2 rounded-full bg-stone-900 px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-stone-800"
+            onClick={() => void loadStore()}
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800"
           >
+            <RefreshCw className="h-4 w-4" />
             Try again
-
-            <ArrowRight
-              size={13}
-            />
           </button>
         </div>
-
-        <StorefrontGlobalStyles />
       </div>
     );
   }
 
-  // ==========================================================
-  // PAGE
-  // ==========================================================
-
   return (
-    <div
-      className={`tots-store min-h-screen ${
-        membershipLayout
-          ? "tots-store-memberships"
-          : ""
-      }`}
-      style={
-        {
-          "--brand":
-            primary,
-          "--store-bg":
-            pageBackground,
-          "--store-text":
-            pageText,
-          "--store-button":
-            buttonColour,
-          "--store-button-text":
-            buttonTextColour,
-          "--store-radius":
-            `${storeRadius}px`,
-          "--store-surface":
-            storeSurface,
-          "--store-surface-soft":
-            storeSurfaceSoft,
-          "--store-surface-strong":
-            storeSurfaceStrong,
-          "--store-muted":
-            storeMutedText,
-          "--store-faint":
-            storeFaintText,
-          "--store-border":
-            storeBorder,
-          "--store-overlay":
-            storeOverlay,
-          "--store-heading-font":
-            headingFont,
-          "--store-body-font":
-            bodyFont,
-          background:
-            pageBackground,
-          color:
-            pageText,
-          fontFamily:
-            bodyFont,
-        } as CSSProperties
-      }
-    >
-      {store.custom_css && (
-        <style
-          dangerouslySetInnerHTML={{
-            __html:
-              store.custom_css,
-          }}
-        />
-      )}
-      <style>{`
-        .tots-store {
-          background: var(--store-bg);
-          color: var(--store-text);
-        }
-
-        .tots-store,
-        .tots-store * {
-          border-color: var(--store-border);
-        }
-
-        .tots-store h1,
-        .tots-store h2,
-        .tots-store h3,
-        .tots-store h4,
-        .tots-store h5 {
-          font-family: var(--store-heading-font);
-          color: var(--store-text);
-        }
-
-        .tots-store p,
-        .tots-store span,
-        .tots-store label,
-        .tots-store a,
-        .tots-store button,
-        .tots-store input,
-        .tots-store select,
-        .tots-store textarea {
-          font-family: var(--store-body-font);
-        }
-
-        /* Turn the original generic white/stone storefront into the
-           saved business theme without having to duplicate every component. */
-        .tots-store .bg-white {
-          background-color: var(--store-surface) !important;
-        }
-
-        .tots-store .bg-white\/95,
-        .tots-store .bg-white\/90 {
-          background-color: var(--store-overlay) !important;
-        }
-
-        .tots-store .bg-white\/55 {
-          background-color: var(--store-surface-soft) !important;
-          opacity: .72;
-        }
-
-        .tots-store .bg-stone-50,
-        .tots-store .bg-stone-50\/70,
-        .tots-store .bg-stone-100 {
-          background-color: var(--store-surface-soft) !important;
-        }
-
-        .tots-store .bg-stone-900 {
-          background-color: var(--store-surface-strong) !important;
-        }
-
-        .tots-store .text-stone-900,
-        .tots-store .text-stone-800,
-        .tots-store .text-stone-700 {
-          color: var(--store-text) !important;
-        }
-
-        .tots-store .text-stone-600,
-        .tots-store .text-stone-500 {
-          color: var(--store-muted) !important;
-        }
-
-        .tots-store .text-stone-400,
-        .tots-store .text-stone-300 {
-          color: var(--store-faint) !important;
-        }
-
-        .tots-store .border-stone-100,
-        .tots-store .border-stone-200,
-        .tots-store .border-stone-200\/80,
-        .tots-store .border-stone-300 {
-          border-color: var(--store-border) !important;
-        }
-
-        .tots-store input,
-        .tots-store select,
-        .tots-store textarea {
-          background: var(--store-surface) !important;
-          color: var(--store-text) !important;
-          border-color: var(--store-border) !important;
-        }
-
-        .tots-store input::placeholder,
-        .tots-store textarea::placeholder {
-          color: var(--store-faint) !important;
-        }
-
-        .tots-store button:not(:disabled) {
-          border-color: var(--store-border);
-        }
-
-        .tots-store [class*="rounded"] {
-          border-radius: var(--store-radius) !important;
-        }
-
-        .tots-store .rounded-full {
-          border-radius: 9999px !important;
-        }
-
-        /* Main commerce action buttons use the saved button palette. */
-        .tots-store .store-primary-action,
-        .tots-store button[data-store-primary="true"],
-        .tots-store a[data-store-primary="true"] {
-          background: var(--store-button) !important;
-          color: var(--store-button-text) !important;
-          border-color: var(--store-button) !important;
-        }
-
-        /* Product cards and major storefront panels. */
-        .tots-store article,
-        .tots-store .store-card-radius {
-          background: var(--store-surface);
-          color: var(--store-text);
-          border-color: var(--store-border);
-          border-radius: var(--store-radius);
-        }
-
-        .tots-store article:hover {
-          border-color: var(--brand);
-        }
-
-        .tots-store-memberships article {
-          min-height: 100%;
-        }
-
-        .tots-store-memberships #shop [class*="grid-cols"] {
-          align-items: stretch;
-        }
-      `}</style>
-
-      {/* =====================================================
-          ANNOUNCEMENT
-      ===================================================== */}
-
-      <div
-        className="px-4 py-2.5 text-center text-[8px] font-black uppercase tracking-[0.2em] text-white"
-        style={{
-          background:
-            buttonColour,
-          color:
-            buttonTextColour,
-        }}
-      >
-        {store.announcement ||
-          "Shop securely with us online"}
-      </div>
-
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
-
-      <header className="sticky top-0 z-40 border-b border-stone-200/80 backdrop-blur-xl" style={{ background: `${pageBackground}F2` }}>
-        <div className="mx-auto flex h-[72px] max-w-[1360px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-
-          <button
-            type="button"
-            aria-label="Open menu"
-            onClick={() =>
-              setMobileMenuOpen(
-                true
-              )
-            }
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-stone-200 bg-white lg:hidden"
-          >
-            <Menu
-              size={16}
-            />
-          </button>
-
-          <a
-            href="#top"
-            className="flex min-w-0 items-center gap-3 no-underline"
-          >
-            {store.logo_url ? (
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-white">
-                <img
-                  src={
-                    store.logo_url
-                  }
-                  alt={`${storeName} logo`}
-                  className="h-full w-full object-contain p-1"
-                />
-              </div>
-            ) : (
-              <div
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white"
-                style={{
-                  background:
-                    primary,
-                }}
-              >
-                <Store
-                  size={17}
-                />
-              </div>
-            )}
-
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black tracking-[-0.01em] text-stone-900">
-                {
-                  storeName
-                }
-              </p>
-
-              <p className="mt-0.5 hidden text-[9px] text-stone-400 sm:block">
-                Online store
-              </p>
+    <div className="min-h-screen bg-[#f7f6f3]">
+      <div className="mx-auto w-full max-w-[1600px] px-5 py-6 md:px-8 lg:px-10">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
+              <Store className="h-4 w-4" />
+              Commerce
             </div>
-          </a>
 
-          <nav className="hidden items-center gap-8 lg:flex">
-            <a
-              href="#shop"
-              className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
+            <h1 className="text-3xl font-semibold tracking-tight text-stone-950">
+              Store
+            </h1>
+
+            <p className="mt-1 text-sm text-stone-500">{organisation.name}</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void loadStore(true)}
+              disabled={refreshing}
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-stone-700 shadow-sm transition hover:bg-stone-50 disabled:opacity-50"
             >
-              Shop
-            </a>
-
-            {featuredProducts.length >
-              0 && (
-              <a
-                href="#featured"
-                className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
-              >
-                Featured
-              </a>
-            )}
-
-            <a
-              href="#about"
-              className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
-            >
-              About
-            </a>
+              <RefreshCw
+                className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
 
             <button
               type="button"
-              onClick={
-                openContactDrawer
-              }
-              className="text-xs font-semibold text-stone-500 transition hover:text-stone-900"
+              onClick={openNewProduct}
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-stone-950 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-stone-800"
             >
-              Contact
+              <Plus className="h-4 w-4" />
+              Add product
             </button>
-          </nav>
-
-          <button
-            type="button"
-            aria-label={`Open basket with ${cartCount} items`}
-            onClick={() =>
-              setCartOpen(
-                true
-              )
-            }
-            className="relative flex h-11 items-center gap-2 rounded-full border border-stone-200 bg-white px-4 text-xs font-bold text-stone-700 shadow-sm transition hover:border-stone-300 hover:shadow-md"
-          >
-            <ShoppingBag
-              size={15}
-            />
-
-            <span className="hidden sm:inline">
-              Basket
-            </span>
-
-            {cartCount >
-              0 && (
-              <span
-                className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[8px] font-black text-white"
-                style={{
-                  background:
-                    primary,
-                }}
-              >
-                {
-                  cartCount
-                }
-              </span>
-            )}
-          </button>
-        </div>
-      </header>
-
-      {/* =====================================================
-          MOBILE MENU
-      ===================================================== */}
-
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[150] bg-stone-950/40 backdrop-blur-sm lg:hidden">
-
-          <button
-            type="button"
-            aria-label="Close menu"
-            className="absolute inset-0"
-            onClick={() =>
-              setMobileMenuOpen(
-                false
-              )
-            }
-          />
-
-          <aside
-            className="absolute left-0 top-0 h-full w-[88%] max-w-sm p-6 shadow-2xl"
-            style={{
-              background:
-                storeSurface,
-              color:
-                pageText,
-            }}
-          >
-
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-black text-stone-900">
-                {
-                  storeName
-                }
-              </p>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setMobileMenuOpen(
-                    false
-                  )
-                }
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-100"
-              >
-                <X
-                  size={15}
-                />
-              </button>
-            </div>
-
-            <div className="mt-8 space-y-2">
-
-              <MobileMenuLink
-                href="#shop"
-                label="Shop everything"
-                onClick={() =>
-                  setMobileMenuOpen(
-                    false
-                  )
-                }
-              />
-
-              {featuredProducts.length >
-                0 && (
-                <MobileMenuLink
-                  href="#featured"
-                  label="Featured"
-                  onClick={() =>
-                    setMobileMenuOpen(
-                      false
-                    )
-                  }
-                />
-              )}
-
-              <MobileMenuLink
-                href="#about"
-                label="About us"
-                onClick={() =>
-                  setMobileMenuOpen(
-                    false
-                  )
-                }
-              />
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(
-                    false
-                  );
-
-                  openContactDrawer();
-                }}
-                data-store-primary="true"
-                className="store-primary-action mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-4 text-left text-sm font-bold"
-                style={{
-                  background:
-                    primary,
-                }}
-              >
-                Get in touch
-
-                <MessageCircle
-                  size={15}
-                />
-              </button>
-            </div>
-
-          </aside>
-        </div>
-      )}
-
-      {/* =====================================================
-          HERO
-      ===================================================== */}
-
-      <section
-        id="top"
-        className="px-4 pb-8 pt-5 sm:px-6 lg:px-8 lg:pt-7"
-      >
-        <div className="mx-auto max-w-[1360px] overflow-hidden border shadow-[0_16px_50px_rgba(0,0,0,0.12)]" style={{ borderRadius: `${storeRadius}px`, background: storeSurface, borderColor: storeBorder }}>
-
-          <div className="grid lg:grid-cols-[1.08fr_.92fr]">
-
-            <div className="flex min-h-[490px] items-center p-7 sm:p-10 lg:p-14 xl:p-16">
-
-              <div className="max-w-2xl">
-
-                <div
-                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[8px] font-black uppercase tracking-[0.18em]"
-                  style={{
-                    background:
-                      strongerSecondary,
-
-                    color:
-                      primary,
-                  }}
-                >
-                  <Sparkles
-                    size={11}
-                  />
-
-                  Welcome to{" "}
-                  {
-                    storeName
-                  }
-                </div>
-
-                <h1 className="mt-6 max-w-[720px] text-[3.4rem] font-semibold leading-[0.92] tracking-[-0.035em] sm:text-6xl lg:text-[4.5rem]" style={{ fontFamily: headingFont, color: pageText }}>
-                  {store.hero_title ||
-                    `Everything you need, all in one place.`}
-                </h1>
-
-                <p className="mt-6 max-w-xl text-sm leading-7 text-stone-500 sm:text-[15px]">
-                  {store.hero_text ||
-                    store.store_description ||
-                    `Explore products and services from ${storeName}.`}
-                </p>
-
-                <div className="mt-8 flex flex-wrap gap-3">
-
-                  <a
-                    href="#shop"
-                    className="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-white no-underline shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                    style={{
-                      background:
-                        buttonColour,
-                      color:
-                        buttonTextColour,
-                    }}
-                  >
-                    Shop now
-
-                    <ArrowRight
-                      size={13}
-                    />
-                  </a>
-
-                  <button
-                    type="button"
-                    onClick={
-                      openContactDrawer
-                    }
-                    className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
-                  >
-                    Ask a question
-                  </button>
-
-                </div>
-
-                <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 border-t border-stone-100 pt-6">
-
-                  <TrustItem
-                    icon={
-                      <ShieldCheck
-                        size={13}
-                      />
-                    }
-                    text="Secure payment"
-                    primary={
-                      primary
-                    }
-                  />
-
-                  <TrustItem
-                    icon={
-                      <MessageCircle
-                        size={13}
-                      />
-                    }
-                    text="Direct support"
-                    primary={
-                      primary
-                    }
-                  />
-
-                  <TrustItem
-                    icon={
-                      <ShoppingBag
-                        size={13}
-                      />
-                    }
-                    text="Independent business"
-                    primary={
-                      primary
-                    }
-                  />
-
-                </div>
-              </div>
-            </div>
-
-            <div
-              className="relative min-h-[340px] overflow-hidden lg:min-h-[520px]"
-              style={{
-                background:
-                  secondary,
-              }}
-            >
-              <div
-                className="absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-40 blur-3xl"
-                style={{
-                  background:
-                    primary,
-                }}
-              />
-
-              <div className="absolute inset-0 flex items-center justify-center p-7 sm:p-10 lg:p-12">
-
-                {(store.hero_image_url ||
-                  (
-                    featuredProduct &&
-                    getProductImage(
-                      featuredProduct
-                    )
-                  )) ? (
-                  <div className="relative w-full max-w-[390px]">
-
-                    <div className="absolute -left-6 top-10 h-[82%] w-full rotate-[-4deg] rounded-[2rem] bg-white/55" />
-
-                    <div className="relative aspect-[4/5] overflow-hidden bg-white shadow-[0_30px_90px_rgba(28,25,23,0.16)]" style={{ borderRadius: `${storeRadius}px` }}>
-
-                      <img
-                        src={
-                          store.hero_image_url ||
-                          (
-                            featuredProduct
-                              ? getProductImage(
-                                  featuredProduct
-                                )
-                              : null
-                          ) ||
-                          ""
-                        }
-                        alt={
-                          store.hero_image_url
-                            ? `${storeName} hero`
-                            : featuredProduct?.name ||
-                              `${storeName} featured product`
-                        }
-                        className="h-full w-full object-cover"
-                      />
-
-                      {featuredProduct && (
-                        <div className="absolute inset-x-4 bottom-4 rounded-2xl bg-white/95 p-4 shadow-lg backdrop-blur">
-
-                          <p className="text-[8px] font-black uppercase tracking-[0.16em] text-stone-400">
-                            Featured
-                          </p>
-
-                          <div className="mt-1 flex items-end justify-between gap-3">
-
-                            <p className="line-clamp-1 text-sm font-bold text-stone-800">
-                              {
-                                featuredProduct
-                                  .name
-                              }
-                            </p>
-
-                            <p className="shrink-0 font-serif text-xl italic">
-                              {formatCurrency(
-                                featuredProduct
-                                  .price
-                              )}
-                            </p>
-
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center">
-
-                    <div
-                      className="mx-auto flex h-28 w-28 items-center justify-center rounded-[2rem] text-white shadow-xl"
-                      style={{
-                        background:
-                          primary,
-                      }}
-                    >
-                      {store.logo_url ? (
-                        <img
-                          src={
-                            store.logo_url
-                          }
-                          alt={`${storeName} logo`}
-                          className="h-20 w-20 object-contain"
-                        />
-                      ) : (
-                        <ShoppingBag
-                          size={38}
-                        />
-                      )}
-                    </div>
-
-                    <p className="mt-5 text-sm font-bold text-stone-700">
-                      {
-                        storeName
-                      }
-                    </p>
-                  </div>
-                )}
-
-              </div>
-            </div>
-
           </div>
         </div>
-      </section>
 
-      {/* =====================================================
-          CATEGORY BAR
-      ===================================================== */}
-
-      {showCategories &&
-        categories.length >
-          1 && (
-        <section className="px-4 sm:px-6 lg:px-8">
-
-          <div className="mx-auto max-w-[1360px]">
-
-            <div className="no-scrollbar flex gap-2 overflow-x-auto py-3">
-
-              {categories.map(
-                (
-                  item
-                ) => (
-                  <button
-                    type="button"
-                    key={
-                      item
-                    }
-                    onClick={() => {
-                      setCategory(
-                        item
-                      );
-
-                      document
-                        .getElementById(
-                          "shop"
-                        )
-                        ?.scrollIntoView({
-                          behavior:
-                            "smooth",
-                        });
-                    }}
-                    className="shrink-0 rounded-full border px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] transition"
-                    style={
-                      category ===
-                      item
-                        ? {
-                            borderColor:
-                              primary,
-
-                            background:
-                              primary,
-
-                            color:
-                              "#ffffff",
-                          }
-                        : {
-                            borderColor:
-                              "#e7e5e4",
-
-                            background:
-                              "#ffffff",
-
-                            color:
-                              "#78716c",
-                          }
-                    }
-                  >
-                    {
-                      item
-                    }
-                  </button>
-                )
-              )}
-
+        {error && (
+          <div className="mt-5 flex items-start justify-between gap-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
             </div>
+
+            <button type="button" onClick={() => setError(null)}>
+              <X className="h-4 w-4" />
+            </button>
           </div>
-        </section>
-      )}
+        )}
 
-      {/* =====================================================
-          FEATURED
-      ===================================================== */}
-
-      {!membershipLayout &&
-        featuredProducts.length >
-          0 && (
-        <section
-          id="featured"
-          className="px-4 py-12 sm:px-6 lg:px-8 lg:py-16"
-        >
-          <div className="mx-auto max-w-[1360px]">
-
-            <SectionHeading
-              eyebrow="Popular right now"
-              title="Featured picks."
-              description={`A few popular choices from ${storeName}.`}
-              primary={
-                primary
-              }
-            />
-
-            <div className="mt-8 grid gap-5 lg:grid-cols-3">
-
-              {featuredProducts.map(
-                (
-                  product
-                ) => (
-                  <ProductCard
-                    key={
-                      product.id
-                    }
-                    product={
-                      product
-                    }
-                    primary={
-                      primary
-                    }
-                    onAdd={() =>
-                      addToCart(
-                        product
-                      )
-                    }
-                    onRequest={() =>
-                      requestProduct(
-                        product
-                      )
-                    }
-                    featuredLayout
-                  />
-                )
-              )}
-
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* =====================================================
-          SHOP
-      ===================================================== */}
-
-      <section
-        id="shop"
-        className="px-4 py-12 sm:px-6 lg:px-8 lg:py-16"
-      >
-        <div className="mx-auto max-w-[1360px]">
-
-          <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
-
-            <SectionHeading
-              eyebrow={
-                membershipLayout
-                  ? "Memberships"
-                  : "Browse the store"
-              }
-              title={
-                membershipLayout
-                  ? "Choose your membership."
-                  : "Find what you need."
-              }
-              description={
-                membershipLayout
-                  ? "Pick the membership that best suits you. TOTS handles the membership setup and keeps your access connected."
-                  : "Browse everything available, or use the filters to narrow things down."
-              }
-              primary={
-                primary
-              }
-            />
-
-            <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
-
-              {showSearch && (
-              <div className="relative flex-1 lg:w-[300px]">
-
-                <Search
-                  size={14}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
-                />
-
-                <input
-                  value={
-                    search
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setSearch(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Search products..."
-                  className="h-12 w-full rounded-2xl border border-stone-200 bg-white pl-11 pr-4 text-xs text-stone-700 outline-none transition focus:border-stone-400 focus:shadow-sm"
-                />
-
-                {search && (
-                  <button
-                    type="button"
-                    aria-label="Clear search"
-                    onClick={() =>
-                      setSearch(
-                        ""
-                      )
-                    }
-                    className="absolute right-3 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-stone-100 text-stone-400"
-                  >
-                    <X
-                      size={11}
-                    />
-                  </button>
-                )}
-
-              </div>
-              )}
-
-              {showCategories &&
-                categories.length >
-                1 && (
-                <div className="relative">
-
-                  <select
-                    value={
-                      category
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setCategory(
-                        event.target.value
-                      )
-                    }
-                    className="h-12 w-full appearance-none rounded-2xl border border-stone-200 bg-white pl-4 pr-10 text-xs font-semibold text-stone-600 outline-none sm:w-52"
-                  >
-                    {categories.map(
-                      (
-                        item
-                      ) => (
-                        <option
-                          key={
-                            item
-                          }
-                          value={
-                            item
-                          }
-                        >
-                          {
-                            item
-                          }
-                        </option>
-                      )
-                    )}
-                  </select>
-
-                  <ChevronDown
-                    size={12}
-                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-stone-400"
-                  />
-
-                </div>
-              )}
-
-            </div>
-          </div>
-
-          <div className="mt-6 flex items-center justify-between border-b border-stone-200 pb-4">
-
-            <p className="text-xs text-stone-400">
-              <strong className="font-bold text-stone-700">
-                {
-                  visibleProducts.length
-                }
-              </strong>{" "}
-              {visibleProducts.length ===
-              1
-                ? "result"
-                : "results"}
+        {organisation.store_enabled === false && (
+          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+            <p className="text-sm font-semibold text-amber-900">
+              Store module disabled
             </p>
-
-            {(search ||
-              category !==
-                "All") && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("");
-
-                  setCategory(
-                    "All"
-                  );
-                }}
-                className="text-[9px] font-black uppercase tracking-[0.12em] text-stone-500"
-              >
-                Reset filters
-              </button>
-            )}
-
+            <p className="mt-1 text-sm text-amber-700">
+              This organisation currently has store_enabled set to false.
+            </p>
           </div>
-
-          {productLoadWarning && (
-            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
-
-              <p className="text-xs font-semibold text-amber-700">
-                {
-                  productLoadWarning
-                }
-              </p>
-
-              <button
-                type="button"
-                onClick={() =>
-                  void loadStore()
-                }
-                className="mt-2 text-[9px] font-black uppercase tracking-[0.12em] text-amber-700 underline"
-              >
-                Try again
-              </button>
-
-            </div>
-          )}
-
-          {visibleProducts.length >
-          0 ? (
-            <div className={`mt-8 grid gap-5 sm:grid-cols-2 ${
-              membershipLayout
-                ? "lg:grid-cols-2 xl:grid-cols-3"
-                : "lg:grid-cols-3 xl:grid-cols-4"
-            }`}>
-
-              {visibleProducts.map(
-                (
-                  product
-                ) => (
-                  <ProductCard
-                    key={
-                      product.id
-                    }
-                    product={
-                      product
-                    }
-                    primary={
-                      primary
-                    }
-                    onAdd={() =>
-                      addToCart(
-                        product
-                      )
-                    }
-                    onRequest={() =>
-                      requestProduct(
-                        product
-                      )
-                    }
-                  />
-                )
-              )}
-
-            </div>
-          ) : products.length ===
-            0 ? (
-            <EmptyState
-              icon={
-                <Package
-                  size={26}
-                />
-              }
-              title="Nothing here yet."
-              description="New products and services will appear here when they're published."
-            />
-          ) : (
-            <EmptyState
-              icon={
-                <Search
-                  size={26}
-                />
-              }
-              title="No matches found."
-              description="Try another search term or clear your filters."
-            />
-          )}
-
-        </div>
-      </section>
-
-      {/* =====================================================
-          ABOUT
-      ===================================================== */}
-
-      <section
-        id="about"
-        className="px-4 py-12 sm:px-6 lg:px-8 lg:py-16"
-      >
-        <div
-          className="mx-auto max-w-[1360px] overflow-hidden border"
-          style={{
-            background:
-              storeSurface,
-            borderColor:
-              storeBorder,
-            borderRadius:
-              `${storeRadius}px`,
-          }}
-        >
-
-          <div className="grid lg:grid-cols-[1.1fr_.9fr]">
-
-            <div className="p-8 sm:p-10 lg:p-14">
-
-              <p
-                className="text-[8px] font-black uppercase tracking-[0.22em]"
-                style={{
-                  color:
-                    primary,
-                }}
-              >
-                About us
-              </p>
-
-              <h2 className="mt-4 max-w-xl font-serif text-4xl italic tracking-[-0.02em] text-stone-900 sm:text-5xl">
-                The people behind{" "}
-                {
-                  storeName
-                }.
-              </h2>
-
-              <p className="mt-5 max-w-xl whitespace-pre-line text-sm leading-7 text-stone-500">
-                {store.store_description ||
-                  `Welcome to ${storeName}. We're an independent business creating products and services designed to make things easier for our customers.`}
-              </p>
-
-              <div className="mt-7 flex flex-wrap gap-2">
-
-                {store.website_url && (
-                  <a
-                    href={
-                      store.website_url
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full border border-stone-200 px-5 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-stone-600 no-underline transition hover:bg-stone-50"
-                  >
-                    Visit website
-
-                    <ExternalLink
-                      size={12}
-                    />
-                  </a>
-                )}
-
-                <button
-                  type="button"
-                  onClick={
-                    openContactDrawer
-                  }
-                  className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-white"
-                  style={{
-                    background:
-                      primary,
-                  }}
-                >
-                  Contact us
-
-                  <MessageCircle
-                    size={12}
-                  />
-                </button>
-
-              </div>
-            </div>
-
-            <div
-              className="flex min-h-[300px] items-center justify-center p-10"
-              style={{
-                background:
-                  secondary,
-              }}
-            >
-
-              <div className="text-center">
-
-                {store.logo_url ? (
-                  <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-[2rem] bg-white p-4 shadow-sm">
-                    <img
-                      src={
-                        store.logo_url
-                      }
-                      alt={`${storeName} logo`}
-                      className="max-h-full max-w-full object-contain"
-                    />
-                  </div>
-                ) : (
-                  <div
-                    className="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] text-white"
-                    style={{
-                      background:
-                        primary,
-                    }}
-                  >
-                    <Store
-                      size={30}
-                    />
-                  </div>
-                )}
-
-                <p className="mt-5 text-base font-bold text-stone-700">
-                  {
-                    storeName
-                  }
-                </p>
-
-                <p className="mt-1 text-[8px] font-black uppercase tracking-[0.17em] text-stone-400">
-                  Independent business
-                </p>
-
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* =====================================================
-          CONTACT CTA
-      ===================================================== */}
-
-      <section className="px-4 pb-16 pt-4 sm:px-6 lg:px-8">
-
-        <div className="mx-auto max-w-[1360px] overflow-hidden rounded-[2rem] bg-stone-900 p-8 text-white sm:p-10 lg:p-14">
-
-          <div className="grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
-
-            <div>
-
-              <p
-                className="text-[8px] font-black uppercase tracking-[0.22em]"
-                style={{
-                  color:
-                    primary,
-                }}
-              >
-                Need some help?
-              </p>
-
-              <h2 className="mt-4 max-w-2xl font-serif text-4xl italic tracking-[-0.02em] sm:text-5xl">
-                Not sure what to choose?
-              </h2>
-
-              <p className="mt-4 max-w-xl text-sm leading-7 text-stone-400">
-                Send us a message before you order and we&apos;ll help point you in the right direction.
-              </p>
-
-              <button
-                type="button"
-                onClick={
-                  openContactDrawer
-                }
-                className="mt-7 inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.15em] text-white"
-                style={{
-                  background:
-                    primary,
-                }}
-              >
-                Talk to us
-
-                <ArrowRight
-                  size={13}
-                />
-              </button>
-            </div>
-
-            <div className="grid gap-2 sm:grid-cols-2 lg:w-[440px]">
-
-              {store.email && (
-                <ContactItem
-                  href={`mailto:${store.email}`}
-                  icon={
-                    <Mail
-                      size={15}
-                    />
-                  }
-                  label={
-                    store.email
-                  }
-                  primary={
-                    primary
-                  }
-                />
-              )}
-
-              {store.phone && (
-                <ContactItem
-                  href={`tel:${store.phone}`}
-                  icon={
-                    <Phone
-                      size={15}
-                    />
-                  }
-                  label={
-                    store.phone
-                  }
-                  primary={
-                    primary
-                  }
-                />
-              )}
-
-              {store.address && (
-                <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-4">
-                  <MapPin
-                    size={15}
-                    style={{
-                      color:
-                        primary,
-                    }}
-                  />
-
-                  <span className="text-xs text-stone-300">
-                    {
-                      store.address
-                    }
-                  </span>
-                </div>
-              )}
-
-              {store.instagram_url && (
-                <ContactItem
-                  href={
-                    store.instagram_url
-                  }
-                  external
-                  icon={
-                    <Instagram
-                      size={15}
-                    />
-                  }
-                  label="Instagram"
-                  primary={
-                    primary
-                  }
-                />
-              )}
-
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* =====================================================
-          FOOTER
-      ===================================================== */}
-
-      <footer className="border-t border-stone-200 px-4 py-8 sm:px-6 lg:px-8" style={{ background: pageBackground }}>
-
-        <div className="mx-auto flex max-w-[1360px] flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-
-          <div className="flex items-center gap-3">
-
-            {store.logo_url ? (
-              <img
-                src={
-                  store.logo_url
-                }
-                alt={`${storeName} logo`}
-                className="h-9 w-9 rounded-xl object-contain"
-              />
-            ) : (
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-white"
-                style={{
-                  background:
-                    primary,
-                }}
-              >
-                <Store
-                  size={14}
-                />
-              </div>
-            )}
-
-            <div>
-
-              <p className="text-xs font-bold text-stone-700">
-                {
-                  storeName
-                }
-              </p>
-
-              <p className="mt-0.5 text-[8px] text-stone-400">
-                ©{" "}
-                {new Date().getFullYear()}{" "}
-                {
-                  storeName
-                }
-              </p>
-
-              {store.footer_text && (
-                <p className="mt-1 max-w-md text-[8px] leading-4 text-stone-400">
-                  {store.footer_text}
-                </p>
-              )}
-
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[8px] text-stone-400">
-
-            {store.instagram_url && (
-              <a
-                href={store.instagram_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-stone-400 no-underline hover:text-stone-700"
-              >
-                <Instagram size={10} />
-                Instagram
-              </a>
-            )}
-
-            {store.facebook_url && (
-              <a
-                href={store.facebook_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-stone-400 no-underline hover:text-stone-700"
-              >
-                Facebook
-              </a>
-            )}
-
-            {store.tiktok_url && (
-              <a
-                href={store.tiktok_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-stone-400 no-underline hover:text-stone-700"
-              >
-                TikTok
-              </a>
-            )}
-
-            <span className="flex items-center gap-1.5">
-              <LockKeyhole
-                size={10}
-              />
-
-              Secure checkout
-            </span>
-
-            <span className="flex items-center gap-1.5">
-              <Sparkles
-                size={10}
-                style={{
-                  color:
-                    primary,
-                }}
-              />
-
-              Powered by TOTS-OS
-            </span>
-
-          </div>
-
-        </div>
-      </footer>
-
-      {/* =====================================================
-          FLOATING CONTACT
-      ===================================================== */}
-
-      {!contactOpen &&
-        !cartOpen && (
-        <button
-          type="button"
-          onClick={
-            openContactDrawer
-          }
-          className="fixed bottom-5 right-5 z-[80] flex h-12 items-center gap-2 rounded-full px-5 text-[9px] font-black uppercase tracking-[0.14em] text-white shadow-[0_16px_45px_rgba(0,0,0,0.2)] transition hover:-translate-y-0.5"
-          style={{
-            background:
-              primary,
-          }}
-        >
-          <MessageCircle
-            size={15}
+        )}
+
+        <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            icon={Package}
+            label="Active products"
+            value={String(metrics.activeProducts)}
+            detail={`${products.length} total`}
           />
 
-          <span className="hidden sm:inline">
-            Need help?
-          </span>
-        </button>
-      )}
 
-      {/* =====================================================
-          CONTACT DRAWER
-      ===================================================== */}
-
-      {contactOpen && (
-        <div className="fixed inset-0 z-[170] bg-stone-950/40 backdrop-blur-sm">
-
-          <button
-            type="button"
-            aria-label="Close contact panel"
-            className="absolute inset-0"
-            onClick={() => {
-              if (
-                !sendingMessage
-              ) {
-                setContactOpen(
-                  false
-                );
-              }
-            }}
+          <MetricCard
+            icon={CreditCard}
+            label="Active subscriptions"
+            value={String(metrics.activeSubscriptions)}
+            detail={`${subscriptions.length} total`}
           />
 
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col shadow-2xl"
-          style={{
-            background:
-              storeSurface,
-            color:
-              pageText,
-          }}>
+          <MetricCard
+            icon={BadgePoundSterling}
+            label="Monthly subscription value"
+            value={formatMoney(metrics.monthlySubscriptionValue)}
+            detail="Approx. monthly recurring"
+          />
+        </div>
 
-            <div
-              className="border-b border-stone-100 px-6 pb-7 pt-7"
-              style={{
-                background:
-                  secondary,
-              }}
+        <div className="mt-7 overflow-x-auto">
+          <div className="inline-flex min-w-max gap-1 rounded-2xl border border-stone-200 bg-white p-1.5 shadow-sm">
+            <TabButton active={tab === "overview"} onClick={() => setTab("overview")}>
+              Overview
+            </TabButton>
+
+            <TabButton active={tab === "products"} onClick={() => setTab("products")}>
+              Products <CountBadge>{products.length}</CountBadge>
+            </TabButton>
+
+            <TabButton active={tab === "orders"} onClick={() => setTab("orders")}>
+              Orders <CountBadge>{orders.length}</CountBadge>
+            </TabButton>
+
+            <TabButton
+              active={tab === "subscriptions"}
+              onClick={() => setTab("subscriptions")}
             >
+              Subscriptions <CountBadge>{subscriptions.length}</CountBadge>
+            </TabButton>
 
-              <div className="flex items-start justify-between gap-5">
+            <TabButton
+              active={tab === "discounts"}
+              onClick={() => setTab("discounts")}
+            >
+              Discounts <CountBadge>{discounts.length}</CountBadge>
+            </TabButton>
+          </div>
+        </div>
 
+        {tab === "overview" && (
+          <div className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_.65fr]">
+            <section className="rounded-[24px] border border-stone-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-stone-100 px-6 py-5">
                 <div>
-
-                  <div
-                    className="flex h-11 w-11 items-center justify-center rounded-2xl text-white"
-                    style={{
-                      background:
-                        primary,
-                    }}
-                  >
-                    <MessageCircle
-                      size={19}
-                    />
-                  </div>
-
-                  <p
-                    className="mt-5 text-[8px] font-black uppercase tracking-[0.2em]"
-                    style={{
-                      color:
-                        primary,
-                    }}
-                  >
-                    Contact{" "}
-                    {
-                      storeName
-                    }
+                  <h2 className="font-semibold text-stone-950">Products</h2>
+                  <p className="mt-1 text-sm text-stone-500">
+                    Latest products in {organisation.name}
                   </p>
-
-                  <h2 className="mt-2 font-serif text-4xl italic leading-none text-stone-900">
-                    How can we help?
-                  </h2>
-
-                  <p className="mt-3 max-w-sm text-xs leading-6 text-stone-500">
-                    Send us a message and we&apos;ll get back to you as soon as we can.
-                  </p>
-
                 </div>
 
                 <button
                   type="button"
-                  disabled={
-                    sendingMessage
-                  }
-                  onClick={() =>
-                    setContactOpen(
-                      false
-                    )
-                  }
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-stone-500 shadow-sm disabled:opacity-50"
+                  onClick={() => setTab("products")}
+                  className="inline-flex items-center gap-1 text-sm font-semibold text-stone-600 transition hover:text-stone-950"
                 >
-                  <X
-                    size={15}
-                  />
+                  View all
+                  <ChevronRight className="h-4 w-4" />
                 </button>
-
               </div>
-            </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
-
-              {messageSent ? (
-                <div className="flex min-h-[430px] flex-col items-center justify-center text-center">
-
-                  <div
-                    className="flex h-16 w-16 items-center justify-center rounded-2xl text-white"
-                    style={{
-                      background:
-                        primary,
-                    }}
-                  >
-                    <Check
-                      size={25}
-                    />
-                  </div>
-
-                  <h3 className="mt-6 font-serif text-4xl italic text-stone-900">
-                    Message sent.
-                  </h3>
-
-                  <p className="mt-3 max-w-xs text-sm leading-6 text-stone-500">
-                    Thanks for getting in touch. We&apos;ll get back to you as soon as possible.
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMessageSent(
-                        false
-                      );
-
-                      setContactOpen(
-                        false
-                      );
-                    }}
-                    className="mt-7 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.15em] text-white"
-                    style={{
-                      background:
-                        primary,
-                    }}
-                  >
-                    Done
-                  </button>
-
-                </div>
-              ) : (
-                <div className="space-y-5">
-
-                  <StoreInput
-                    label="Your name"
-                    id="store-contact-name"
-                    value={
-                      contactName
-                    }
-                    onChange={
-                      setContactName
-                    }
-                    placeholder="Your name"
-                    autoComplete="name"
+              <div className="divide-y divide-stone-100">
+                {products.slice(0, 6).map((product) => (
+                  <ProductRow
+                    key={product.id}
+                    product={product}
+                    onEdit={() => openEditProduct(product)}
                   />
+                ))}
 
-                  <StoreInput
-                    label="Email address"
-                    id="store-contact-email"
-                    type="email"
-                    value={
-                      contactEmail
+                {products.length === 0 && (
+                  <EmptyState
+                    icon={Package}
+                    title="No products yet"
+                    description="Add your first product to start building your store."
+                    action={
+                      <button
+                        type="button"
+                        onClick={openNewProduct}
+                        className="mt-4 inline-flex items-center gap-2 rounded-xl bg-stone-950 px-4 py-2.5 text-sm font-semibold text-white"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add product
+                      </button>
                     }
-                    onChange={
-                      setContactEmail
-                    }
-                    placeholder="you@example.com"
-                    autoComplete="email"
                   />
+                )}
+              </div>
+            </section>
 
+            <div className="space-y-6">
+              <section className="rounded-[24px] border border-stone-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between">
                   <div>
-
-                    <label
-                      htmlFor="store-contact-message"
-                      className="mb-2 block text-[8px] font-black uppercase tracking-[0.16em] text-stone-400"
-                    >
-                      How can we help?
-                    </label>
-
-                    <textarea
-                      id="store-contact-message"
-                      value={
-                        contactMessage
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setContactMessage(
-                          event.target.value
-                        )
-                      }
-                      placeholder="Tell us what you'd like to know..."
-                      rows={7}
-                      className="store-contact-input resize-none"
-                    />
-
+                    <h2 className="font-semibold text-stone-950">Store health</h2>
+                    <p className="mt-1 text-sm text-stone-500">Database status</p>
                   </div>
 
-                  {messageError && (
-                    <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-
-                      <p className="text-xs leading-5 text-red-600">
-                        {
-                          messageError
-                        }
-                      </p>
-
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    disabled={
-                      sendingMessage
-                    }
-                    onClick={() =>
-                      void sendContactMessage()
-                    }
-                    data-store-primary="true"
-                    className="store-primary-action flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[9px] font-black uppercase tracking-[0.16em] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                    style={{
-                      background:
-                        primary,
-                    }}
-                  >
-                    {sendingMessage ? (
-                      <>
-                        <Loader2
-                          size={14}
-                          className="animate-spin"
-                        />
-
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <Send
-                          size={14}
-                        />
-
-                        Send message
-                      </>
-                    )}
-                  </button>
-
-                  <div className="rounded-2xl bg-stone-50 p-4">
-
-                    <div className="flex items-start gap-3">
-
-                      <ShieldCheck
-                        size={14}
-                        className="mt-0.5 shrink-0"
-                        style={{
-                          color:
-                            primary,
-                        }}
-                      />
-
-                      <p className="text-[10px] leading-5 text-stone-400">
-                        Your message goes directly to{" "}
-                        <strong className="font-semibold text-stone-600">
-                          {
-                            storeName
-                          }
-                        </strong>
-                        .
-                      </p>
-
-                    </div>
-                  </div>
-
-                  {store.email && (
-                    <p className="text-center text-[9px] leading-5 text-stone-400">
-                      Prefer email?{" "}
-
-                      <a
-                        href={`mailto:${store.email}`}
-                        className="font-semibold underline"
-                        style={{
-                          color:
-                            primary,
-                        }}
-                      >
-                        {
-                          store.email
-                        }
-                      </a>
-                    </p>
-                  )}
-
-                </div>
-              )}
-
-            </div>
-          </aside>
-        </div>
-      )}
-
-      {/* =====================================================
-          CART DRAWER
-      ===================================================== */}
-
-      {cartOpen && (
-        <div className="fixed inset-0 z-[160] bg-stone-950/40 backdrop-blur-sm">
-
-          <button
-            type="button"
-            aria-label="Close basket"
-            className="absolute inset-0"
-            onClick={() => {
-              if (
-                !checkingOut
-              ) {
-                setCartOpen(
-                  false
-                );
-              }
-            }}
-          />
-
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col shadow-2xl"
-          style={{
-            background:
-              storeSurface,
-            color:
-              pageText,
-          }}>
-
-            {/* HEADER */}
-
-            <div className="border-b border-stone-100 px-5 py-5 sm:px-6">
-
-              <div className="flex items-center justify-between">
-
-                <div>
-
-                  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
-                    Your basket
-                  </p>
-
-                  <div className="mt-1 flex items-baseline gap-2">
-
-                    <h3 className="font-serif text-3xl italic">
-                      {
-                        cartCount
-                      }{" "}
-                      {cartCount ===
-                      1
-                        ? "item"
-                        : "items"}
-                    </h3>
-
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#edf2e8]">
+                    <Check className="h-5 w-5 text-[#617451]" />
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  disabled={
-                    checkingOut
-                  }
-                  onClick={() =>
-                    setCartOpen(
-                      false
-                    )
-                  }
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-100 text-stone-500 disabled:opacity-50"
-                >
-                  <X
-                    size={16}
+                <div className="mt-6 space-y-4">
+                  <HealthRow label="Organisation" value="Connected" good />
+                  <HealthRow
+                    label="Products"
+                    value={`${products.length}`}
+                    good={products.length > 0}
                   />
-                </button>
-
-              </div>
-            </div>
-
-            {/* ITEMS */}
-
-            <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-
-              {cartLines.length ===
-              0 ? (
-                <div className="flex h-full min-h-[420px] flex-col items-center justify-center text-center">
-
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-stone-100 text-stone-400">
-                    <ShoppingCart
-                      size={22}
-                    />
-                  </div>
-
-                  <h4 className="mt-5 font-serif text-3xl italic text-stone-800">
-                    Your basket is empty.
-                  </h4>
-
-                  <p className="mt-2 max-w-xs text-xs leading-5 text-stone-400">
-                    Browse the store and add something you love.
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCartOpen(
-                        false
-                      )
-                    }
-                    className="mt-6 rounded-full bg-stone-900 px-6 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
-                  >
-                    Continue shopping
-                  </button>
-
-                </div>
-              ) : (
-                <div className="space-y-3">
-
-                  {cartLines.map(
-                    (
-                      line
-                    ) => {
-                      const image =
-                        getProductImage(
-                          line.product
-                        );
-
-                      const maxStock =
-                        getAvailableQuantity(
-                          line.product
-                        );
-
-                      return (
-                        <div
-                          key={
-                            line.product.id
-                          }
-                          className="rounded-2xl border border-stone-100 bg-stone-50 p-3"
-                        >
-
-                          <div className="flex gap-3">
-
-                            <div className="h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-white">
-
-                              {image ? (
-                                <img
-                                  src={
-                                    image
-                                  }
-                                  alt={
-                                    line.product.name
-                                  }
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center text-stone-300">
-                                  <Package
-                                    size={18}
-                                  />
-                                </div>
-                              )}
-
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-
-                              <div className="flex items-start justify-between gap-3">
-
-                                <div className="min-w-0">
-
-                                  <p className="truncate text-xs font-bold text-stone-700">
-                                    {
-                                      line.product.name
-                                    }
-                                  </p>
-
-                                  <p className="mt-1 text-[9px] text-stone-400">
-                                    {getProductTypeLabel(
-                                      line.product
-                                    )}
-                                  </p>
-
-                                </div>
-
-                                <button
-                                  type="button"
-                                  aria-label={`Remove ${line.product.name}`}
-                                  disabled={
-                                    checkingOut
-                                  }
-                                  onClick={() =>
-                                    removeFromCart(
-                                      line.product.id
-                                    )
-                                  }
-                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-stone-400 transition hover:text-red-500 disabled:opacity-40"
-                                >
-                                  <Trash2
-                                    size={11}
-                                  />
-                                </button>
-
-                              </div>
-
-                              <div className="mt-3 flex items-center justify-between">
-
-                                <div className="flex items-center rounded-full border border-stone-200 bg-white p-1">
-
-                                  <button
-                                    type="button"
-                                    aria-label="Decrease quantity"
-                                    disabled={
-                                      checkingOut
-                                    }
-                                    onClick={() =>
-                                      setQuantity(
-                                        line.product.id,
-                                        line.quantity -
-                                          1
-                                      )
-                                    }
-                                    className="flex h-7 w-7 items-center justify-center rounded-full text-stone-500 hover:bg-stone-50 disabled:opacity-40"
-                                  >
-                                    <Minus
-                                      size={10}
-                                    />
-                                  </button>
-
-                                  <span className="min-w-7 text-center text-[10px] font-bold">
-                                    {
-                                      line.quantity
-                                    }
-                                  </span>
-
-                                  <button
-                                    type="button"
-                                    aria-label="Increase quantity"
-                                    disabled={
-                                      checkingOut ||
-                                      (
-                                        maxStock !==
-                                          null &&
-                                        line.quantity >=
-                                          maxStock
-                                      )
-                                    }
-                                    onClick={() =>
-                                      setQuantity(
-                                        line.product.id,
-                                        line.quantity +
-                                          1
-                                      )
-                                    }
-                                    className="flex h-7 w-7 items-center justify-center rounded-full text-stone-500 hover:bg-stone-50 disabled:opacity-30"
-                                  >
-                                    <Plus
-                                      size={10}
-                                    />
-                                  </button>
-
-                                </div>
-
-                                <div className="text-right">
-
-                                  <p className="font-serif text-xl italic text-stone-800">
-                                    {formatCurrency(
-                                      Number(
-                                        line.product.price ||
-                                          0
-                                      ) *
-                                        line.quantity
-                                    )}
-                                  </p>
-
-                                </div>
-
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                  )}
-
-                </div>
-              )}
-
-            </div>
-
-            {/* FOOTER */}
-
-            {cartLines.length >
-              0 && (
-              <div className="border-t border-stone-100 bg-white px-5 pb-5 pt-5 sm:px-6">
-
-                {/* MEMBERSHIP DETAILS */}
-
-                {requiredBeneficiarySpecs.length >
-                  0 && (
-                  <div className="mb-4 rounded-2xl border border-stone-200 bg-stone-50 p-4">
-
-                    <div className="flex items-start gap-3">
-
-                      <div
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white"
-                        style={{
-                          background:
-                            primary,
-                        }}
-                      >
-                        <ShieldCheck
-                          size={14}
-                        />
-                      </div>
-
-                      <div>
-
-                        <p className="text-[9px] font-black uppercase tracking-[0.15em] text-stone-700">
-                          Membership details
-                        </p>
-
-                        <p className="mt-1 text-[10px] leading-5 text-stone-500">
-                          Tell us who will use the membership. Payment details are entered securely with Stripe next.
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                    <div className="mt-4 space-y-4">
-
-                      {requiredBeneficiarySpecs.map(
-                        (
-                          spec
-                        ) => {
-                          const draft =
-                            beneficiaryDrafts[
-                              spec.key
-                            ];
-
-                          return (
-                            <div
-                              key={
-                                spec.key
-                              }
-                              className="rounded-2xl border border-stone-200 bg-white p-4"
-                            >
-
-                              <div className="flex items-start justify-between gap-3">
-
-                                <div>
-
-                                  <p className="text-[10px] font-black text-stone-800">
-                                    {
-                                      spec.title
-                                    }
-                                  </p>
-
-                                  <p className="mt-1 text-[9px] leading-4 text-stone-400">
-                                    {
-                                      spec.productName
-                                    }
-                                    {spec.planCode
-                                      ? ` · ${spec.planCode}`
-                                      : ""}
-                                  </p>
-
-                                  <p className="mt-1 text-[9px] leading-4 text-stone-400">
-                                    {
-                                      spec.description
-                                    }
-                                  </p>
-
-                                </div>
-
-                                <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-stone-500">
-                                  {
-                                    spec.beneficiaryType
-                                  }
-                                </span>
-
-                              </div>
-
-                              <div className="mt-3 grid grid-cols-2 gap-2">
-
-                                <input
-                                  type="text"
-                                  value={
-                                    draft?.firstName ||
-                                    ""
-                                  }
-                                  disabled={
-                                    checkingOut
-                                  }
-                                  onChange={(
-                                    event
-                                  ) =>
-                                    updateBeneficiaryDraft(
-                                      spec,
-                                      "firstName",
-                                      event.target.value
-                                    )
-                                  }
-                                  placeholder="First name *"
-                                  autoComplete="given-name"
-                                  className="rounded-xl border border-stone-200 bg-white px-3 py-3 text-[10px] font-semibold text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
-                                />
-
-                                <input
-                                  type="text"
-                                  value={
-                                    draft?.lastName ||
-                                    ""
-                                  }
-                                  disabled={
-                                    checkingOut
-                                  }
-                                  onChange={(
-                                    event
-                                  ) =>
-                                    updateBeneficiaryDraft(
-                                      spec,
-                                      "lastName",
-                                      event.target.value
-                                    )
-                                  }
-                                  placeholder="Last name *"
-                                  autoComplete="family-name"
-                                  className="rounded-xl border border-stone-200 bg-white px-3 py-3 text-[10px] font-semibold text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
-                                />
-
-                                <input
-                                  type="email"
-                                  value={
-                                    draft?.email ||
-                                    ""
-                                  }
-                                  disabled={
-                                    checkingOut
-                                  }
-                                  onChange={(
-                                    event
-                                  ) =>
-                                    updateBeneficiaryDraft(
-                                      spec,
-                                      "email",
-                                      event.target.value
-                                    )
-                                  }
-                                  placeholder={
-                                    spec.emailRequired
-                                      ? "Email *"
-                                      : "Email (optional)"
-                                  }
-                                  autoComplete="email"
-                                  className="col-span-2 rounded-xl border border-stone-200 bg-white px-3 py-3 text-[10px] font-semibold text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
-                                />
-
-                                <input
-                                  type="tel"
-                                  value={
-                                    draft?.phone ||
-                                    ""
-                                  }
-                                  disabled={
-                                    checkingOut
-                                  }
-                                  onChange={(
-                                    event
-                                  ) =>
-                                    updateBeneficiaryDraft(
-                                      spec,
-                                      "phone",
-                                      event.target.value
-                                    )
-                                  }
-                                  placeholder="Phone (optional)"
-                                  autoComplete="tel"
-                                  className="col-span-2 rounded-xl border border-stone-200 bg-white px-3 py-3 text-[10px] font-semibold text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
-                                />
-
-                              </div>
-
-                            </div>
-                          );
-                        }
-                      )}
-
-                    </div>
-
-                  </div>
-                )}
-
-                {/* DISCOUNT */}
-
-                <div className="rounded-2xl border border-stone-100 bg-stone-50 p-4">
-
-                  <div className="flex items-center gap-2">
-
-                    <Tag
-                      size={13}
-                      style={{
-                        color:
-                          primary,
-                      }}
-                    />
-
-                    <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-500">
-                      Have a discount code?
-                    </p>
-
-                  </div>
-
-                  {appliedDiscountCode ? (
-                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-stone-100 bg-white px-4 py-3">
-
-                      <div className="min-w-0">
-
-                        <div className="flex items-center gap-2">
-
-                          <div
-                            className="flex h-5 w-5 items-center justify-center rounded-full text-white"
-                            style={{
-                              background:
-                                primary,
-                            }}
-                          >
-                            <Check
-                              size={10}
-                            />
-                          </div>
-
-                          <p className="truncate text-xs font-black text-stone-700">
-                            {
-                              appliedDiscountCode
-                            }
-                          </p>
-
-                        </div>
-
-                        <p className="mt-1 pl-7 text-[9px] text-stone-400">
-                          Ready to be verified at checkout.
-                        </p>
-
-                      </div>
-
-                      <button
-                        type="button"
-                        disabled={
-                          checkingOut
-                        }
-                        onClick={
-                          removeDiscountCode
-                        }
-                        className="text-[8px] font-black uppercase tracking-[0.12em] text-stone-400 underline disabled:opacity-40"
-                      >
-                        Remove
-                      </button>
-
-                    </div>
-                  ) : (
-                    <div className="mt-3 flex gap-2">
-
-                      <input
-                        type="text"
-                        value={
-                          discountCode
-                        }
-                        disabled={
-                          checkingOut
-                        }
-                        onChange={(
-                          event
-                        ) => {
-                          setDiscountCode(
-                            event.target.value.toUpperCase()
-                          );
-
-                          setCheckoutError(
-                            null
-                          );
-
-                          setDiscountMessage(
-                            null
-                          );
-                        }}
-                        onKeyDown={(
-                          event
-                        ) => {
-                          if (
-                            event.key ===
-                            "Enter"
-                          ) {
-                            event.preventDefault();
-
-                            applyDiscountCode();
-                          }
-                        }}
-                        placeholder="Enter code"
-                        autoComplete="off"
-                        spellCheck={
-                          false
-                        }
-                        className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-4 py-3 text-xs font-bold uppercase tracking-[0.06em] text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
-                      />
-
-                      <button
-                        type="button"
-                        disabled={
-                          checkingOut ||
-                          !discountCode.trim()
-                        }
-                        onClick={
-                          applyDiscountCode
-                        }
-                        className="shrink-0 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.13em] text-white disabled:opacity-40"
-                      >
-                        Apply
-                      </button>
-
-                    </div>
-                  )}
-
-                  {discountMessage && (
-                    <p className="mt-2 text-[9px] leading-4 text-stone-400">
-                      {
-                        discountMessage
-                      }
-                    </p>
-                  )}
-
-                </div>
-
-                {/* SHIPPING / DELIVERY */}
-
-                <div className="mt-4">
-
-                  {store.shipping_text ? (
-                    <div className="flex items-start gap-3 rounded-2xl bg-stone-50 p-4">
-
-                      <Truck
-                        size={14}
-                        className="mt-0.5 shrink-0"
-                        style={{
-                          color:
-                            primary,
-                        }}
-                      />
-
-                      <p className="text-[10px] leading-5 text-stone-500">
-                        {
-                          store.shipping_text
-                        }
-                      </p>
-
-                    </div>
-                  ) : (
-                    <div className="flex items-start gap-3 rounded-2xl bg-stone-50 p-4">
-
-                      {cartContainsPhysicalProduct ? (
-                        <Truck
-                          size={14}
-                          className="mt-0.5 shrink-0"
-                          style={{
-                            color:
-                              primary,
-                          }}
-                        />
-                      ) : (
-                        <Check
-                          size={14}
-                          className="mt-0.5 shrink-0"
-                          style={{
-                            color:
-                              primary,
-                          }}
-                        />
-                      )}
-
-                      <p className="text-[10px] leading-5 text-stone-500">
-                        {cartContainsPhysicalProduct
-                          ? "Your basket includes a physical product. Delivery details will be confirmed during checkout."
-                          : cartContainsCollectionProduct
-                            ? "This order includes collection items. The business will confirm collection details with you."
-                            : cartContainsDigitalProduct
-                              ? "No shipping required. Digital fulfilment details will be provided after purchase."
-                              : cartContainsServiceProduct
-                                ? "No shipping required. The business will confirm the next steps for your service."
-                                : "No shipping required for these items."}
-                      </p>
-
-                    </div>
-                  )}
-
-                </div>
-
-                {/* ERROR */}
-
-                {checkoutError && (
-                  <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-
-                    <p className="text-[10px] font-semibold leading-5 text-red-600">
-                      {
-                        checkoutError
-                      }
-                    </p>
-
-                    {appliedDiscountCode && (
-                      <button
-                        type="button"
-                        onClick={
-                          removeDiscountCode
-                        }
-                        className="mt-2 text-[8px] font-black uppercase tracking-[0.12em] text-red-500 underline"
-                      >
-                        Remove discount code
-                      </button>
-                    )}
-
-                  </div>
-                )}
-
-                {/* TOTAL */}
-
-                <div className="mt-5 border-t border-stone-100 pt-5">
-
-                  <div className="flex items-center justify-between">
-
-                    <div>
-
-                      <p className="text-[9px] font-semibold text-stone-400">
-                        Subtotal
-                      </p>
-
-                      <p className="mt-1 text-[8px] text-stone-300">
-                        Discounts applied at checkout
-                      </p>
-
-                    </div>
-
-                    <strong className="font-serif text-3xl italic text-stone-900">
-                      {formatCurrency(
-                        cartTotal
-                      )}
-                    </strong>
-
-                  </div>
-
-                </div>
-
-                {/* CHECKOUT */}
-
-                <button
-                  type="button"
-                  disabled={
-                    checkingOut
-                  }
-                  onClick={() =>
-                    void startCheckout()
-                  }
-                  data-store-primary="true"
-                  className="store-primary-action mt-5 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[9px] font-black uppercase tracking-[0.17em] shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                  style={{
-                    background:
-                      primary,
-                  }}
-                >
-                  {checkingOut ? (
-                    <>
-                      <Loader2
-                        size={13}
-                        className="animate-spin"
-                      />
-
-                      Preparing checkout...
-                    </>
-                  ) : (
-                    <>
-                      Checkout securely
-
-                      <ArrowRight
-                        size={13}
-                      />
-                    </>
-                  )}
-                </button>
-
-                <div className="mt-3 flex items-center justify-center gap-2 text-[8px] text-stone-400">
-
-                  <LockKeyhole
-                    size={10}
+                  <HealthRow label="Orders" value={`${orders.length}`} good />
+                  <HealthRow
+                    label="Subscriptions"
+                    value={`${subscriptions.length}`}
+                    good
                   />
-
-                  Secure payment powered by Stripe
-
+                  <HealthRow
+                    label="Discounts"
+                    value={`${discounts.length}`}
+                    good
+                  />
                 </div>
+              </section>
 
-              </div>
-            )}
+              <section className="rounded-[24px] bg-stone-950 p-6 text-white shadow-sm">
+                <ShoppingBag className="h-6 w-6" />
 
-          </aside>
-        </div>
-      )}
+                <h2 className="mt-5 text-xl font-semibold">{organisation.name}</h2>
 
-      <StorefrontGlobalStyles />
-    </div>
-  );
-}
-
-// ============================================================
-// PRODUCT CARD
-// ============================================================
-
-function ProductCard({
-  product,
-  primary,
-  onAdd,
-  onRequest,
-  featuredLayout = false,
-}: {
-  product: Product;
-  primary: string;
-  onAdd: () => void;
-  onRequest: () => void;
-  featuredLayout?: boolean;
-}) {
-  const image =
-    getProductImage(
-      product
-    );
-
-  const outOfStock =
-    isOutOfStock(
-      product
-    );
-
-  const lowStock =
-    isLowStock(
-      product
-    );
-
-  const available =
-    getAvailableQuantity(
-      product
-    );
-
-  const compareAt =
-    Number(
-      product.compare_at_price ||
-        0
-    );
-
-  const price =
-    Number(
-      product.price ||
-        0
-    );
-
-  const onSale =
-    compareAt >
-      price &&
-    price >
-      0;
-
-  const typeLabel =
-    getProductTypeLabel(
-      product
-    );
-
-  const sellingModel =
-    inferSellingModel(
-      product
-    );
-
-  const requestAction =
-    sellingModel ===
-      "customisable" ||
-    sellingModel ===
-      "request_to_order";
-
-  const saving =
-    onSale
-      ? compareAt -
-        price
-      : 0;
-
-  return (
-    <article
-      className="group flex min-w-0 flex-col overflow-hidden border transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_55px_rgba(0,0,0,0.16)]"
-      style={{
-        borderRadius:
-          "var(--store-radius)",
-        background:
-          "var(--store-surface)",
-        borderColor:
-          "var(--store-border)",
-      }}
-    >
-
-      {/* IMAGE */}
-
-      <div
-        className={`relative overflow-hidden bg-[#f2f0ec] ${
-          featuredLayout
-            ? "aspect-[16/11]"
-            : "aspect-[4/3]"
-        }`}
-      >
-        {image ? (
-          <img
-            src={
-              image
-            }
-            alt={
-              product.name
-            }
-            loading="lazy"
-            className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.035]"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-stone-300">
-            <Package
-              size={30}
-            />
-          </div>
-        )}
-
-        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-
-          {product.featured && (
-            <span
-              className="rounded-full px-3 py-1.5 text-[6px] font-black uppercase tracking-[0.13em] text-white shadow-sm"
-              style={{
-                background:
-                  primary,
-              }}
-            >
-              Featured
-            </span>
-          )}
-
-          {onSale && (
-            <span className="rounded-full bg-stone-900 px-3 py-1.5 text-[6px] font-black uppercase tracking-[0.13em] text-white shadow-sm">
-              Save{" "}
-              {formatCurrency(
-                saving
-              )}
-            </span>
-          )}
-
-          {outOfStock && (
-            <span className="rounded-full bg-white px-3 py-1.5 text-[6px] font-black uppercase tracking-[0.13em] text-stone-500 shadow-sm">
-              Unavailable
-            </span>
-          )}
-
-        </div>
-
-        <div className="absolute bottom-3 right-3">
-
-          <span className="rounded-full bg-white/90 px-3 py-1.5 text-[6px] font-black uppercase tracking-[0.12em] text-stone-500 shadow-sm backdrop-blur">
-            {
-              typeLabel
-            }
-          </span>
-
-        </div>
-      </div>
-
-      {/* CONTENT */}
-
-      <div className="flex flex-1 flex-col p-5">
-
-        <p
-          className="text-[7px] font-black uppercase tracking-[0.16em]"
-          style={{
-            color:
-              primary,
-          }}
-        >
-          {product.category ||
-            "General"}
-        </p>
-
-        <h3 className="mt-2 line-clamp-2 text-[15px] font-bold leading-5 text-stone-800">
-          {
-            product.name
-          }
-        </h3>
-
-        {product.description ? (
-          <p className="mt-2 line-clamp-2 min-h-[42px] text-[10px] leading-5 text-stone-400">
-            {
-              product.description
-            }
-          </p>
-        ) : (
-          <div className="min-h-[50px]" />
-        )}
-
-        <div className="mt-3 flex items-start gap-2 rounded-xl bg-stone-50 px-3 py-2.5">
-          {sellingModel ===
-          "physical" ? (
-            <Truck
-              size={12}
-              className="mt-0.5 shrink-0"
-              style={{
-                color:
-                  primary,
-              }}
-            />
-          ) : sellingModel ===
-              "collect" ? (
-            <MapPin
-              size={12}
-              className="mt-0.5 shrink-0"
-              style={{
-                color:
-                  primary,
-              }}
-            />
-          ) : (
-            <Check
-              size={12}
-              className="mt-0.5 shrink-0"
-              style={{
-                color:
-                  primary,
-              }}
-            />
-          )}
-
-          <p className="text-[8px] leading-4 text-stone-500">
-            {getProductFulfilmentText(
-              product
-            )}
-          </p>
-        </div>
-
-        <div className="mt-auto pt-5">
-
-          <div className="flex items-end justify-between gap-3">
-
-            <div>
-
-              <div className="flex items-end gap-2">
-
-                <p className="font-serif text-[1.8rem] italic leading-none text-stone-900">
-                  {formatCurrency(
-                    product.price
-                  )}
+                <p className="mt-2 text-sm leading-6 text-stone-400">
+                  This dashboard is scoped directly to the active organisation.
+                  There is no separate store ID required.
                 </p>
 
-                {onSale && (
-                  <p className="pb-0.5 text-[9px] text-stone-400 line-through">
-                    {formatCurrency(
-                      compareAt
-                    )}
+                <div className="mt-5 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                    Organisation ID
                   </p>
-                )}
-
-              </div>
-
-              {lowStock &&
-                available !==
-                  null && (
-                  <p className="mt-2 text-[7px] font-black uppercase tracking-[0.12em] text-amber-600">
-                    Only{" "}
-                    {
-                      available
-                    }{" "}
-                    left
+                  <p className="mt-1 break-all font-mono text-xs text-stone-300">
+                    {organisation.id}
                   </p>
-                )}
-
+                </div>
+              </section>
             </div>
           </div>
+        )}
 
-          <button
-            type="button"
-            disabled={
-              outOfStock &&
-              !requestAction
-            }
-            onClick={
-              requestAction
-                ? onRequest
-                : onAdd
-            }
-            data-store-primary="true"
-            className="store-primary-action mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-3.5 text-left transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            style={{
-              background:
-                outOfStock &&
-                !requestAction
-                  ? "#d6d3d1"
-                  : primary,
-            }}
-          >
-            <span className="text-[8px] font-black uppercase tracking-[0.13em]">
-              {outOfStock &&
-              !requestAction
-                ? "Unavailable"
-                : getProductActionLabel(
-                    product
-                  )}
-            </span>
+        {tab === "products" && (
+          <section className="mt-6 overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
+            <SectionHeader
+              title="Products"
+              description="Manage products available through your store."
+            >
+              <SearchBox
+                value={search}
+                onChange={setSearch}
+                placeholder="Search products..."
+              />
 
-            {(!outOfStock ||
-              requestAction) && (
-              <ArrowRight
-                size={12}
+              <button
+                type="button"
+                onClick={openNewProduct}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-stone-950 px-4 text-sm font-semibold text-white"
+              >
+                <Plus className="h-4 w-4" />
+                Add product
+              </button>
+            </SectionHeader>
+
+            {filteredProducts.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px]">
+                  <thead className="border-b border-stone-100 bg-stone-50/80">
+                    <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">
+                      <th className="px-6 py-4">Product</th>
+                      <th className="px-4 py-4">Category</th>
+                      <th className="px-4 py-4">Price</th>
+                      <th className="px-4 py-4">Stock</th>
+                      <th className="px-4 py-4">Status</th>
+                      <th className="px-4 py-4">Type</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-stone-100">
+                    {filteredProducts.map((product) => (
+                      <tr
+                        key={product.id}
+                        className="transition hover:bg-stone-50/60"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <ProductImage product={product} />
+
+                            <div>
+                              <p className="font-semibold text-stone-900">
+                                {product.name}
+                              </p>
+                              <p className="mt-0.5 text-xs text-stone-400">
+                                {product.sku || product.slug || "No SKU"}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-4 text-sm text-stone-600">
+                          {product.category || "—"}
+                        </td>
+
+                        <td className="px-4 py-4 text-sm font-semibold text-stone-900">
+                          {formatMoney(product.price)}
+                        </td>
+
+                        <td className="px-4 py-4 text-sm text-stone-600">
+                          {product.track_inventory === false
+                            ? "Not tracked"
+                            : product.inventory_quantity ?? product.stock ?? 0}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <StatusBadge
+                            status={
+                              product.is_active === false
+                                ? "draft"
+                                : product.status || "active"
+                            }
+                          />
+                        </td>
+
+                        <td className="px-4 py-4 text-sm capitalize text-stone-600">
+                          {(product.selling_model || "physical").replaceAll(
+                            "_",
+                            " ",
+                          )}
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEditProduct(product)}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 text-stone-500 transition hover:bg-stone-50 hover:text-stone-950"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => void deleteProduct(product)}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-100 text-red-500 transition hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState
+                icon={Package}
+                title="No products found"
+                description={
+                  search
+                    ? "Nothing matched your search."
+                    : "Add your first product to get started."
+                }
               />
             )}
-          </button>
+          </section>
+        )}
 
-        </div>
+        {tab === "orders" && (
+          <section className="mt-6 overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
+            <SectionHeader
+              title="Orders"
+              description="Orders placed through this organisation's store."
+            >
+              <SearchBox
+                value={search}
+                onChange={setSearch}
+                placeholder="Search orders..."
+              />
+            </SectionHeader>
+
+            {filteredOrders.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[950px]">
+                  <thead className="border-b border-stone-100 bg-stone-50/80">
+                    <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">
+                      <th className="px-6 py-4">Order</th>
+                      <th className="px-4 py-4">Customer</th>
+                      <th className="px-4 py-4">Total</th>
+                      <th className="px-4 py-4">Payment</th>
+                      <th className="px-4 py-4">Fulfilment</th>
+                      <th className="px-6 py-4">Date</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-stone-100">
+                    {filteredOrders.map((order) => (
+                      <tr key={order.id} className="hover:bg-stone-50/60">
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-stone-900">
+                            {order.order_number || order.id.slice(0, 8)}
+                          </p>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <p className="text-sm font-medium text-stone-800">
+                            {order.customer_name || "Customer"}
+                          </p>
+                          <p className="mt-0.5 text-xs text-stone-400">
+                            {order.customer_email || "—"}
+                          </p>
+                        </td>
+
+                        <td className="px-4 py-4 font-semibold text-stone-900">
+                          {formatMoney(order.total, order.currency || "GBP")}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <StatusBadge status={order.payment_status || "pending"} />
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <StatusBadge
+                            status={order.fulfilment_status || "unfulfilled"}
+                          />
+                        </td>
+
+                        <td className="px-6 py-4 text-sm text-stone-500">
+                          {formatDateTime(order.created_at)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState
+                icon={ShoppingBag}
+                title="No orders yet"
+                description="Orders will appear here when customers purchase through your store."
+              />
+            )}
+          </section>
+        )}
+
+        {tab === "subscriptions" && (
+          <section className="mt-6 overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
+            <SectionHeader
+              title="Subscriptions"
+              description="Recurring memberships and subscriptions attached to this store."
+            >
+              <SearchBox
+                value={search}
+                onChange={setSearch}
+                placeholder="Search subscriptions..."
+              />
+            </SectionHeader>
+
+            {filteredSubscriptions.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1000px]">
+                  <thead className="border-b border-stone-100 bg-stone-50/80">
+                    <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">
+                      <th className="px-6 py-4">Customer</th>
+                      <th className="px-4 py-4">Amount</th>
+                      <th className="px-4 py-4">Interval</th>
+                      <th className="px-4 py-4">Status</th>
+                      <th className="px-4 py-4">Started</th>
+                      <th className="px-6 py-4">Subscription ID</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-stone-100">
+                    {filteredSubscriptions.map((subscription) => (
+                      <tr
+                        key={subscription.id}
+                        className="hover:bg-stone-50/60"
+                      >
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-stone-900">
+                            {subscription.customer_name || "Customer"}
+                          </p>
+                          <p className="mt-0.5 text-xs text-stone-400">
+                            {subscription.customer_email || "—"}
+                          </p>
+                        </td>
+
+                        <td className="px-4 py-4 font-semibold text-stone-900">
+                          {formatPence(
+                            subscription.unit_amount_pence,
+                            subscription.currency || "GBP",
+                          )}
+                        </td>
+
+                        <td className="px-4 py-4 text-sm capitalize text-stone-600">
+                          {subscription.billing_interval || "—"}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <StatusBadge
+                            status={subscription.status || "unknown"}
+                          />
+                        </td>
+
+                        <td className="px-4 py-4 text-sm text-stone-500">
+                          {formatDate(
+                            subscription.current_period_start ||
+                              subscription.created_at,
+                          )}
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <p className="max-w-[260px] truncate font-mono text-xs text-stone-500">
+                            {subscription.stripe_subscription_id || "—"}
+                          </p>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState
+                icon={CreditCard}
+                title="No subscriptions"
+                description="Active store subscriptions and memberships will appear here."
+              />
+            )}
+          </section>
+        )}
+
+        {tab === "discounts" && (
+          <section className="mt-6 overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
+            <SectionHeader
+              title="Discounts"
+              description="Discount codes connected to this organisation."
+            />
+
+            {discounts.length > 0 ? (
+              <div className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-3">
+                {discounts.map((discount) => (
+                  <div
+                    key={discount.id}
+                    className="rounded-2xl border border-stone-200 p-5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#edf2e8]">
+                        <Tag className="h-5 w-5 text-[#617451]" />
+                      </div>
+
+                      <StatusBadge
+                        status={discount.is_active === false ? "inactive" : "active"}
+                      />
+                    </div>
+
+                    <p className="mt-5 font-mono text-lg font-bold text-stone-950">
+                      {discount.code}
+                    </p>
+
+                    <p className="mt-2 text-sm text-stone-500">
+                      {discount.discount_type === "percentage"
+                        ? `${toNumber(discount.value)}% off`
+                        : `${formatMoney(discount.value)} off`}
+                    </p>
+
+                    <div className="mt-5 flex items-center justify-between border-t border-stone-100 pt-4 text-xs text-stone-400">
+                      <span>
+                        Used {discount.times_used ?? 0}
+                        {discount.usage_limit ? ` / ${discount.usage_limit}` : ""}
+                      </span>
+
+                      <span>
+                        {discount.expires_at
+                          ? `Ends ${formatDate(discount.expires_at)}`
+                          : "No expiry"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={Tag}
+                title="No discount codes"
+                description="Discount codes created for this store will appear here."
+              />
+            )}
+          </section>
+        )}
       </div>
-    </article>
-  );
-}
 
-// ============================================================
-// SECTION HEADING
-// ============================================================
+      {productModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-stone-100 px-6 py-5">
+              <div>
+                <h2 className="text-xl font-semibold text-stone-950">
+                  {editingProduct ? "Edit product" : "Add product"}
+                </h2>
+                <p className="mt-1 text-sm text-stone-500">
+                  {organisation.name}
+                </p>
+              </div>
 
-function SectionHeading({
-  eyebrow,
-  title,
-  description,
-  primary,
-}: {
-  eyebrow: string;
-  title: string;
-  description?: string;
-  primary: string;
-}) {
-  return (
-    <div>
+              <button
+                type="button"
+                onClick={() => setProductModalOpen(false)}
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-stone-200 text-stone-500 hover:bg-stone-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-      <p
-        className="text-[8px] font-black uppercase tracking-[0.22em]"
-        style={{
-          color:
-            primary,
-        }}
-      >
-        {
-          eyebrow
-        }
-      </p>
+            <form
+              onSubmit={saveProduct}
+              className="max-h-[calc(92vh-82px)] overflow-y-auto"
+            >
+              <div className="grid gap-5 p-6 md:grid-cols-2">
+                <Field label="Product name" required className="md:col-span-2">
+                  <input
+                    value={draft.name}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
+                    }
+                    className={inputClass}
+                    placeholder="e.g. Couple Membership"
+                  />
+                </Field>
 
-      <h2 className="mt-2 font-serif text-4xl italic tracking-[-0.025em] text-stone-900 sm:text-5xl">
-        {
-          title
-        }
-      </h2>
+                <Field label="Description" className="md:col-span-2">
+                  <textarea
+                    value={draft.description}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        description: event.target.value,
+                      }))
+                    }
+                    rows={4}
+                    className={`${inputClass} h-auto resize-none py-3`}
+                    placeholder="Product description..."
+                  />
+                </Field>
 
-      {description && (
-        <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
-          {
-            description
-          }
-        </p>
+                <Field label="Price">
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">
+                      £
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={draft.price}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          price: event.target.value,
+                        }))
+                      }
+                      className={`${inputClass} pl-8`}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </Field>
+
+                <Field label="Compare at price">
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">
+                      £
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={draft.compare_at_price}
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          compare_at_price: event.target.value,
+                        }))
+                      }
+                      className={`${inputClass} pl-8`}
+                      placeholder="Optional"
+                    />
+                  </div>
+                </Field>
+
+                <Field label="Category">
+                  <input
+                    value={draft.category}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        category: event.target.value,
+                      }))
+                    }
+                    className={inputClass}
+                    placeholder="Memberships"
+                  />
+                </Field>
+
+                <Field label="SKU">
+                  <input
+                    value={draft.sku}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        sku: event.target.value,
+                      }))
+                    }
+                    className={inputClass}
+                    placeholder="Optional"
+                  />
+                </Field>
+
+                <Field label="Selling model">
+                  <select
+                    value={draft.selling_model}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        selling_model: event.target.value,
+                      }))
+                    }
+                    className={inputClass}
+                  >
+                    <option value="physical">Physical product</option>
+                    <option value="digital_download">Digital download</option>
+                    <option value="digital_delivery">Digital delivery</option>
+                    <option value="collect">Collection</option>
+                    <option value="customisable">Customisable</option>
+                    <option value="request_to_order">Request to order</option>
+                    <option value="service">Service</option>
+                  </select>
+                </Field>
+
+                <Field label="Purchase type">
+                  <select
+                    value={draft.purchase_type}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        purchase_type: event.target.value,
+                      }))
+                    }
+                    className={inputClass}
+                  >
+                    <option value="one_off">One-off</option>
+                    <option value="subscription">Subscription</option>
+                    <option value="membership">Membership</option>
+                  </select>
+                </Field>
+
+                <Field label="Inventory">
+                  <input
+                    type="number"
+                    min="0"
+                    value={draft.inventory_quantity}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        inventory_quantity: event.target.value,
+                      }))
+                    }
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Low stock warning">
+                  <input
+                    type="number"
+                    min="0"
+                    value={draft.low_stock_threshold}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        low_stock_threshold: event.target.value,
+                      }))
+                    }
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Image URL" className="md:col-span-2">
+                  <input
+                    type="url"
+                    value={draft.image_url}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        image_url: event.target.value,
+                      }))
+                    }
+                    className={inputClass}
+                    placeholder="https://..."
+                  />
+                </Field>
+
+                <div className="grid gap-3 md:col-span-2 sm:grid-cols-3">
+                  <ToggleCard
+                    label="Active"
+                    description="Show in store"
+                    checked={draft.is_active}
+                    onChange={(value) =>
+                      setDraft((current) => ({
+                        ...current,
+                        is_active: value,
+                      }))
+                    }
+                  />
+
+                  <ToggleCard
+                    label="Featured"
+                    description="Highlight product"
+                    checked={draft.featured}
+                    onChange={(value) =>
+                      setDraft((current) => ({
+                        ...current,
+                        featured: value,
+                      }))
+                    }
+                  />
+
+                  <ToggleCard
+                    label="Track stock"
+                    description="Inventory enabled"
+                    checked={draft.track_inventory}
+                    onChange={(value) =>
+                      setDraft((current) => ({
+                        ...current,
+                        track_inventory: value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-stone-100 bg-white px-6 py-4">
+                <button
+                  type="button"
+                  onClick={() => setProductModalOpen(false)}
+                  className="h-11 rounded-xl border border-stone-200 px-5 text-sm font-semibold text-stone-700"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={savingProduct}
+                  className="inline-flex h-11 min-w-[130px] items-center justify-center gap-2 rounded-xl bg-stone-950 px-5 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {savingProduct ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      {editingProduct ? "Save changes" : "Add product"}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
-
     </div>
   );
 }
 
 // ============================================================
-// TRUST ITEM
+// UI COMPONENTS
 // ============================================================
 
-function TrustItem({
-  icon,
-  text,
-  primary,
-}: {
-  icon: React.ReactNode;
-  text: string;
-  primary: string;
-}) {
-  return (
-    <div className="flex items-center gap-2 text-[9px] font-semibold text-stone-400">
-
-      <span
-        style={{
-          color:
-            primary,
-        }}
-      >
-        {
-          icon
-        }
-      </span>
-
-      {
-        text
-      }
-
-    </div>
-  );
-}
-
-// ============================================================
-// CONTACT ITEM
-// ============================================================
-
-function ContactItem({
-  href,
-  icon,
+function MetricCard({
+  icon: Icon,
   label,
-  primary,
-  external = false,
+  value,
+  detail,
 }: {
-  href: string;
-  icon: React.ReactNode;
+  icon: typeof Store;
   label: string;
-  primary: string;
-  external?: boolean;
+  value: string;
+  detail: string;
 }) {
   return (
-    <a
-      href={
-        href
-      }
-      target={
-        external
-          ? "_blank"
-          : undefined
-      }
-      rel={
-        external
-          ? "noopener noreferrer"
-          : undefined
-      }
-      className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-4 no-underline transition hover:bg-white/10"
-    >
-      <span
-        style={{
-          color:
-            primary,
-        }}
-      >
-        {
-          icon
-        }
-      </span>
+    <div className="rounded-[22px] border border-stone-200 bg-white p-5 shadow-sm">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#edf2e8]">
+        <Icon className="h-5 w-5 text-[#617451]" />
+      </div>
 
-      <span className="truncate text-xs text-stone-300">
-        {
-          label
-        }
-      </span>
-    </a>
+      <p className="mt-5 text-sm text-stone-500">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tracking-tight text-stone-950">
+        {value}
+      </p>
+      <p className="mt-2 text-xs text-stone-400">{detail}</p>
+    </div>
   );
 }
 
-// ============================================================
-// MOBILE MENU LINK
-// ============================================================
-
-function MobileMenuLink({
-  href,
-  label,
+function TabButton({
+  active,
   onClick,
+  children,
 }: {
-  href: string;
-  label: string;
+  active: boolean;
   onClick: () => void;
+  children: ReactNode;
 }) {
   return (
-    <a
-      href={
-        href
-      }
-      onClick={
-        onClick
-      }
-      className="flex items-center justify-between rounded-2xl bg-stone-50 px-4 py-4 text-sm font-semibold text-stone-700 no-underline"
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition ${
+        active
+          ? "bg-stone-950 text-white shadow-sm"
+          : "text-stone-500 hover:bg-stone-50 hover:text-stone-900"
+      }`}
     >
-      {
-        label
-      }
-
-      <ArrowRight
-        size={14}
-      />
-    </a>
+      {children}
+    </button>
   );
 }
 
-// ============================================================
-// EMPTY STATE
-// ============================================================
+function CountBadge({ children }: { children: ReactNode }) {
+  return (
+    <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-[10px] font-bold">
+      {children}
+    </span>
+  );
+}
 
-function EmptyState({
-  icon,
+function SectionHeader({
   title,
   description,
+  children,
 }: {
-  icon: React.ReactNode;
   title: string;
   description: string;
+  children?: ReactNode;
 }) {
   return (
-    <div className="mt-8 rounded-[2rem] border border-dashed border-stone-200 bg-white py-20 text-center">
-
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-50 text-stone-300">
-        {
-          icon
-        }
+    <div className="flex flex-col gap-4 border-b border-stone-100 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h2 className="font-semibold text-stone-950">{title}</h2>
+        <p className="mt-1 text-sm text-stone-500">{description}</p>
       </div>
 
-      <p className="mt-5 text-sm font-bold text-stone-600">
-        {
-          title
-        }
-      </p>
-
-      <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-stone-400">
-        {
-          description
-        }
-      </p>
-
+      {children && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
 
-// ============================================================
-// INPUT
-// ============================================================
-
-function StoreInput({
-  id,
-  label,
+function SearchBox({
   value,
   onChange,
   placeholder,
-  type = "text",
-  autoComplete,
 }: {
-  id: string;
-  label: string;
   value: string;
-  onChange: (
-    value: string
-  ) => void;
-  placeholder?: string;
-  type?: string;
-  autoComplete?: string;
+  onChange: (value: string) => void;
+  placeholder: string;
 }) {
   return (
-    <div>
-
-      <label
-        htmlFor={
-          id
-        }
-        className="mb-2 block text-[8px] font-black uppercase tracking-[0.16em] text-stone-400"
-      >
-        {
-          label
-        }
-      </label>
-
+    <div className="relative">
+      <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
       <input
-        id={
-          id
-        }
-        type={
-          type
-        }
-        value={
-          value
-        }
-        onChange={(
-          event
-        ) =>
-          onChange(
-            event.target.value
-          )
-        }
-        placeholder={
-          placeholder
-        }
-        autoComplete={
-          autoComplete
-        }
-        className="store-contact-input"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="h-10 w-full min-w-[240px] rounded-xl border border-stone-200 bg-white pl-10 pr-4 text-sm outline-none transition placeholder:text-stone-400 focus:border-stone-400"
       />
-
     </div>
   );
 }
 
-// ============================================================
-// GLOBAL STYLES
-// ============================================================
+function ProductImage({ product }: { product: Product }) {
+  if (product.image_url) {
+    return (
+      <div className="h-11 w-11 overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={product.image_url}
+          alt=""
+          className="h-full w-full object-cover"
+        />
+      </div>
+    );
+  }
 
-function StorefrontGlobalStyles() {
   return (
-    <style jsx global>{`
-      @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Inter:wght@400;500;600;700;800&display=swap");
+    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-stone-100">
+      <Package className="h-5 w-5 text-stone-400" />
+    </div>
+  );
+}
 
-      html {
-        scroll-behavior: smooth;
-      }
+function ProductRow({
+  product,
+  onEdit,
+}: {
+  product: Product;
+  onEdit: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onEdit}
+      className="flex w-full items-center gap-4 px-6 py-4 text-left transition hover:bg-stone-50"
+    >
+      <ProductImage product={product} />
 
-      body {
-        font-family:
-          "Inter",
-          Arial,
-          sans-serif;
-      }
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-stone-900">
+          {product.name}
+        </p>
+        <p className="mt-0.5 truncate text-xs text-stone-400">
+          {product.category || product.selling_model || "Product"}
+        </p>
+      </div>
 
-      .font-serif {
-        font-family:
-          "Instrument Serif",
-          Georgia,
-          serif;
-      }
+      <p className="text-sm font-semibold text-stone-900">
+        {formatMoney(product.price)}
+      </p>
 
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
+      <ChevronRight className="h-4 w-4 text-stone-300" />
+    </button>
+  );
+}
 
-      .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize ring-1 ring-inset ${statusClasses(
+        status,
+      )}`}
+    >
+      {status.replaceAll("_", " ")}
+    </span>
+  );
+}
 
-      .store-contact-input {
-        width: 100%;
-        border: 1px solid #e7e5e4;
-        background: #fafaf9;
-        border-radius: 1rem;
-        padding: 0.95rem 1rem;
-        font-size: 0.78rem;
-        color: #44403c;
-        outline: none;
-        transition:
-          border-color 0.2s ease,
-          background 0.2s ease,
-          box-shadow 0.2s ease;
-      }
+function HealthRow({
+  label,
+  value,
+  good,
+}: {
+  label: string;
+  value: string;
+  good: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-sm text-stone-500">{label}</span>
 
-      .store-contact-input::placeholder {
-        color: #b9b4ae;
-      }
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold text-stone-800">{value}</span>
+        <span
+          className={`h-2 w-2 rounded-full ${
+            good ? "bg-emerald-500" : "bg-amber-400"
+          }`}
+        />
+      </div>
+    </div>
+  );
+}
 
-      .store-contact-input:focus {
-        background: #ffffff;
-        border-color: var(--brand);
-        box-shadow:
-          0 0 0 3px
-          color-mix(
-            in srgb,
-            var(--brand) 12%,
-            transparent
-          );
-      }
+function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  action,
+}: {
+  icon: typeof Store;
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-[280px] flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-100">
+        <Icon className="h-5 w-5 text-stone-400" />
+      </div>
 
-      button,
-      a,
-      input,
-      textarea,
-      select {
-        -webkit-tap-highlight-color: transparent;
-      }
+      <h3 className="mt-4 font-semibold text-stone-900">{title}</h3>
+      <p className="mt-1 max-w-sm text-sm leading-6 text-stone-500">
+        {description}
+      </p>
 
-      @media (max-width: 640px) {
-        .font-serif {
-          text-wrap: balance;
-        }
-      }
-    `}</style>
+      {action}
+    </div>
+  );
+}
+
+function Field({
+  label,
+  required,
+  className = "",
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="mb-2 block text-sm font-semibold text-stone-700">
+        {label}
+        {required && <span className="ml-1 text-red-500">*</span>}
+      </span>
+
+      {children}
+    </label>
+  );
+}
+
+function ToggleCard({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={`flex items-center justify-between rounded-2xl border p-4 text-left transition ${
+        checked
+          ? "border-[#a9b897] bg-[#f4f7f1]"
+          : "border-stone-200 bg-white"
+      }`}
+    >
+      <div>
+        <p className="text-sm font-semibold text-stone-900">{label}</p>
+        <p className="mt-0.5 text-xs text-stone-400">{description}</p>
+      </div>
+
+      <div
+        className={`relative h-6 w-11 rounded-full transition ${
+          checked ? "bg-[#718261]" : "bg-stone-200"
+        }`}
+      >
+        <span
+          className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition ${
+            checked ? "left-6" : "left-1"
+          }`}
+        />
+      </div>
+    </button>
   );
 }

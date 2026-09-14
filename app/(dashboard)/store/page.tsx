@@ -6589,22 +6589,50 @@ if (orderError) {
     const maxBytes =
       assetType ===
         "favicon"
-        ? 2 *
+        ? 2 * 1024 * 1024
+        : 8 * 1024 * 1024;
+
+    const fileSizeBytes =
+      Number(
+        file.size
+      );
+
+    const fileSizeMb =
+      Number.isFinite(
+        fileSizeBytes
+      )
+        ? fileSizeBytes /
+          (
+            1024 *
+            1024
+          )
+        : 0;
+
+    /*
+     * File.size is already measured in bytes by the browser.
+     * Keep the comparison entirely in bytes so a normal image
+     * such as 300 KB is never mistaken for an 8 MB+ file.
+     */
+    if (
+      Number.isFinite(
+        fileSizeBytes
+      ) &&
+      fileSizeBytes >
+        maxBytes
+    ) {
+      const maxMb =
+        maxBytes /
+        (
           1024 *
           1024
-        : 8 *
-          1024 *
-          1024;
+        );
 
-    if (
-      file.size >
-      maxBytes
-    ) {
       alert(
-        assetType ===
-          "favicon"
-          ? "Favicons must be under 2MB."
-          : "Store images must be under 8MB."
+        `This image is ${fileSizeMb.toFixed(
+          2
+        )} MB. Please choose a file under ${maxMb.toFixed(
+          0
+        )} MB.`
       );
 
       return;
@@ -6672,6 +6700,34 @@ if (orderError) {
       if (
         uploadError
       ) {
+        const message =
+          uploadError.message ||
+          "The image could not be uploaded.";
+
+        if (
+          message
+            .toLowerCase()
+            .includes(
+              "maximum allowed size"
+            ) ||
+          message
+            .toLowerCase()
+            .includes(
+              "payload too large"
+            ) ||
+          message
+            .toLowerCase()
+            .includes(
+              "file size"
+            )
+        ) {
+          throw new Error(
+            `Supabase rejected this ${fileSizeMb.toFixed(
+              2
+            )} MB image because of the Storage bucket file-size limit. Check the store-assets bucket is set to at least 8 MB.`
+          );
+        }
+
         throw uploadError;
       }
 

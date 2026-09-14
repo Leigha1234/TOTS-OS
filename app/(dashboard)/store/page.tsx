@@ -307,6 +307,62 @@ type StoreSubscription = {
   updated_at: string;
 };
 
+type StoreSubscriptionBeneficiary = {
+  id: string;
+
+  organisation_id: string;
+
+  subscription_id: string;
+
+  customer_id:
+    | string
+    | null;
+
+  beneficiary_type:
+    | string
+    | null;
+
+  first_name:
+    | string
+    | null;
+
+  last_name:
+    | string
+    | null;
+
+  email:
+    | string
+    | null;
+
+  phone:
+    | string
+    | null;
+
+  relationship_to_payer:
+    | string
+    | null;
+
+  external_user_id:
+    | string
+    | null;
+
+  is_primary: boolean;
+
+  is_active: boolean;
+
+  metadata:
+    | Record<string, unknown>
+    | null;
+
+  created_at:
+    | string
+    | null;
+
+  updated_at:
+    | string
+    | null;
+};
+
 type StoreSettingsRow = {
   id: string;
 
@@ -1645,6 +1701,26 @@ export default function StorePage() {
       ""
     );
 
+  const [
+    updatingSubscriptionId,
+    setUpdatingSubscriptionId,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+  const [
+    subscriptionBeneficiaries,
+    setSubscriptionBeneficiaries,
+  ] =
+    useState<
+      StoreSubscriptionBeneficiary[]
+    >(
+      []
+    );
+
   // ==========================================================
   // DISCOUNTS
   // ==========================================================
@@ -2634,6 +2710,170 @@ if (orderError) {
           );
 
           // ===================================================
+          // SUBSCRIPTION BENEFICIARIES
+          // ===================================================
+
+          const {
+            data:
+              beneficiaryRows,
+            error:
+              beneficiaryError,
+          } =
+            await supabase
+              .from(
+                "store_subscription_beneficiaries"
+              )
+              .select(
+                `
+                  id,
+                  organisation_id,
+                  subscription_id,
+                  customer_id,
+                  beneficiary_type,
+                  first_name,
+                  last_name,
+                  email,
+                  phone,
+                  relationship_to_payer,
+                  external_user_id,
+                  is_primary,
+                  is_active,
+                  metadata,
+                  created_at,
+                  updated_at
+                `
+              )
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .order(
+                "created_at",
+                {
+                  ascending:
+                    true,
+                }
+              );
+
+          if (
+            beneficiaryError
+          ) {
+            console.warn(
+              "[TOTS COMMERCE] Subscription beneficiaries could not be loaded:",
+              beneficiaryError
+            );
+
+            setSubscriptionBeneficiaries(
+              []
+            );
+          } else {
+            setSubscriptionBeneficiaries(
+              (
+                beneficiaryRows ||
+                []
+              ).map(
+                (
+                  row:
+                    Record<
+                      string,
+                      unknown
+                    >
+                ) => ({
+                  id:
+                    String(
+                      row.id
+                    ),
+
+                  organisation_id:
+                    String(
+                      row.organisation_id ||
+                        orgId
+                    ),
+
+                  subscription_id:
+                    String(
+                      row.subscription_id
+                    ),
+
+                  customer_id:
+                    firstString(
+                      row.customer_id
+                    ),
+
+                  beneficiary_type:
+                    firstString(
+                      row.beneficiary_type
+                    ),
+
+                  first_name:
+                    firstString(
+                      row.first_name
+                    ),
+
+                  last_name:
+                    firstString(
+                      row.last_name
+                    ),
+
+                  email:
+                    firstString(
+                      row.email
+                    ),
+
+                  phone:
+                    firstString(
+                      row.phone
+                    ),
+
+                  relationship_to_payer:
+                    firstString(
+                      row.relationship_to_payer
+                    ),
+
+                  external_user_id:
+                    firstString(
+                      row.external_user_id
+                    ),
+
+                  is_primary:
+                    row.is_primary ===
+                    true,
+
+                  is_active:
+                    row.is_active !==
+                    false,
+
+                  metadata:
+                    row.metadata &&
+                    typeof row.metadata ===
+                      "object" &&
+                    !Array.isArray(
+                      row.metadata
+                    )
+                      ? (
+                          row.metadata as
+                            Record<
+                              string,
+                              unknown
+                            >
+                        )
+                      : null,
+
+                  created_at:
+                    firstString(
+                      row.created_at
+                    ),
+
+                  updated_at:
+                    firstString(
+                      row.updated_at
+                    ),
+                })
+              )
+            );
+          }
+
+          // ===================================================
           // CLEAN ORDERS
           // ===================================================
 
@@ -2908,6 +3148,197 @@ if (orderError) {
       loadData,
     ]
   );
+
+  // ==========================================================
+  // SUBSCRIPTION MANAGEMENT
+  // ==========================================================
+
+  const updateSubscriptionCancellation =
+    useCallback(
+      async (
+        subscription:
+          StoreSubscription,
+        cancelAtPeriodEnd:
+          boolean
+      ) => {
+        if (
+          !organisationId
+        ) {
+          setPageError(
+            "Your organisation could not be resolved."
+          );
+
+          return;
+        }
+
+        setUpdatingSubscriptionId(
+          subscription.id
+        );
+
+        setPageError(
+          null
+        );
+
+        try {
+          const {
+            data:
+              sessionData,
+          } =
+            await supabase.auth.getSession();
+
+          const accessToken =
+            sessionData
+              .session
+              ?.access_token;
+
+          if (
+            !accessToken
+          ) {
+            throw new Error(
+              "Your session has expired. Please sign in again."
+            );
+          }
+
+          const response =
+            await fetch(
+              "/api/store/subscriptions/cancel",
+              {
+                method:
+                  "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+
+                  Authorization:
+                    `Bearer ${accessToken}`,
+                },
+
+                body:
+                  JSON.stringify({
+                    organisationId,
+
+                    subscriptionId:
+                      subscription.id,
+
+                    cancelAtPeriodEnd,
+                  }),
+
+                cache:
+                  "no-store",
+              }
+            );
+
+          const result =
+            await response
+              .json()
+              .catch(
+                () =>
+                  null
+              );
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              result?.error ||
+                "The subscription could not be updated."
+            );
+          }
+
+          setSubscriptions(
+            (
+              current
+            ) =>
+              current.map(
+                (
+                  item
+                ) =>
+                  item.id ===
+                  subscription.id
+                    ? {
+                        ...item,
+
+                        status:
+                          typeof result
+                            ?.subscription
+                            ?.status ===
+                          "string"
+                            ? result.subscription.status
+                            : item.status,
+
+                        cancel_at_period_end:
+                          result
+                            ?.subscription
+                            ?.cancel_at_period_end ===
+                          true,
+
+                        cancelled_at:
+                          typeof result
+                            ?.subscription
+                            ?.cancelled_at ===
+                          "string"
+                            ? result.subscription.cancelled_at
+                            : result
+                                ?.subscription
+                                ?.cancelled_at ===
+                              null
+                              ? null
+                              : item.cancelled_at,
+
+                        current_period_start:
+                          typeof result
+                            ?.subscription
+                            ?.current_period_start ===
+                          "string"
+                            ? result.subscription.current_period_start
+                            : item.current_period_start,
+
+                        current_period_end:
+                          typeof result
+                            ?.subscription
+                            ?.current_period_end ===
+                          "string"
+                            ? result.subscription.current_period_end
+                            : item.current_period_end,
+
+                        updated_at:
+                          new Date()
+                            .toISOString(),
+                      }
+                    : item
+              )
+          );
+
+          await loadData(
+            true
+          );
+        } catch (
+          error:
+            unknown
+        ) {
+          console.error(
+            "Subscription update failed:",
+            error
+          );
+
+          setPageError(
+            error instanceof
+              Error
+              ? error.message
+              : "The subscription could not be updated."
+          );
+        } finally {
+          setUpdatingSubscriptionId(
+            null
+          );
+        }
+      },
+      [
+        organisationId,
+        loadData,
+      ]
+    );
 
   // ==========================================================
   // REALTIME DATABASE SYNC
@@ -7492,10 +7923,10 @@ if (orderError) {
                       CreditCard
                     }
                     title="No subscriptions yet"
-                    text="Recurring purchases will appear here after Stripe creates the subscription and the store webhook syncs it into TOTS-OS."
+                    text="Recurring memberships will appear here once they are created in TOTS-OS or synced from Stripe."
                   />
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {filteredSubscriptions.map(
                       (
                         subscription
@@ -7507,6 +7938,16 @@ if (orderError) {
                             ) =>
                               item.id ===
                               subscription.product_id
+                          );
+
+                        const beneficiaries =
+                          subscriptionBeneficiaries.filter(
+                            (
+                              beneficiary
+                            ) =>
+                              beneficiary.subscription_id ===
+                                subscription.id &&
+                              beneficiary.is_active
                           );
 
                         const amount =
@@ -7532,20 +7973,83 @@ if (orderError) {
                                 letter.toUpperCase()
                             );
 
+                        const importedFromMtc =
+                          subscription.metadata
+                            ?.imported_from_mtc ===
+                            true;
+
+                        const explicitlyNotStripe =
+                          subscription.metadata
+                            ?.real_stripe_subscription ===
+                            false;
+
+                        const legacyStripeId =
+                          subscription.stripe_subscription_id
+                            ?.startsWith(
+                              "mtc_admin_"
+                            );
+
+                        const isLegacyImported =
+                          importedFromMtc ||
+                          explicitlyNotStripe ||
+                          legacyStripeId;
+
+                        const isMtcMembership =
+                          product?.external_system ===
+                            "mtc" ||
+                          subscription.metadata
+                            ?.external_system ===
+                            "mtc" ||
+                          isLegacyImported;
+
+                        const canManageStripe =
+                          !isLegacyImported &&
+                          Boolean(
+                            subscription.stripe_subscription_id
+                          ) &&
+                          Boolean(
+                            subscription.stripe_account_id
+                          );
+
+                        const primaryBeneficiary =
+                          beneficiaries.find(
+                            (
+                              beneficiary
+                            ) =>
+                              beneficiary.is_primary
+                          );
+
+                        const beneficiaryName =
+                          (
+                            beneficiary:
+                              StoreSubscriptionBeneficiary
+                          ) =>
+                            [
+                              beneficiary.first_name,
+                              beneficiary.last_name,
+                            ]
+                              .filter(
+                                Boolean
+                              )
+                              .join(
+                                " "
+                              ) ||
+                            beneficiary.email ||
+                            "Member";
+
                         return (
                           <div
                             key={
                               subscription.id
                             }
-                            className="rounded-2xl border border-stone-100 bg-stone-50 p-5"
+                            className="overflow-hidden rounded-[22px] border border-stone-200 bg-white shadow-sm"
                           >
-                            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-                              <div className="min-w-0">
+                            <div className="flex flex-col gap-5 p-5 lg:flex-row lg:items-start lg:justify-between">
+                              <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <p className="text-sm font-semibold text-stone-800">
-                                    {subscription.customer_name ||
-                                      subscription.customer_email ||
-                                      "Store customer"}
+                                  <p className="text-base font-semibold text-stone-900">
+                                    {product?.name ||
+                                      "Membership"}
                                   </p>
 
                                   <span className={`rounded-full px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] ${
@@ -7564,6 +8068,18 @@ if (orderError) {
                                     {statusLabel}
                                   </span>
 
+                                  {isLegacyImported && (
+                                    <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-stone-600">
+                                      Legacy / imported
+                                    </span>
+                                  )}
+
+                                  {isMtcMembership && (
+                                    <span className="rounded-full bg-[#edf2e8] px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-[#657457]">
+                                      MTC linked
+                                    </span>
+                                  )}
+
                                   {subscription.cancel_at_period_end && (
                                     <span className="rounded-full bg-rose-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-rose-700">
                                       Cancels at period end
@@ -7571,66 +8087,313 @@ if (orderError) {
                                   )}
                                 </div>
 
-                                <p className="mt-2 text-xs font-medium text-stone-600">
-                                  {product?.name ||
-                                    "Subscription product"}
+                                <p className="mt-2 text-sm font-semibold text-stone-700">
+                                  {subscription.customer_name ||
+                                    primaryBeneficiary
+                                      ? subscription.customer_name ||
+                                        beneficiaryName(
+                                          primaryBeneficiary as
+                                            StoreSubscriptionBeneficiary
+                                        )
+                                      : "Store customer"}
                                 </p>
 
-                                <p className="mt-1 truncate text-[10px] text-stone-400">
+                                <p className="mt-1 text-[10px] text-stone-400">
                                   {subscription.customer_email ||
-                                    "No email"}
+                                    primaryBeneficiary?.email ||
+                                    "No customer email"}
                                   {subscription.customer_phone
                                     ? ` · ${subscription.customer_phone}`
                                     : ""}
                                 </p>
                               </div>
 
-                              <div className="grid gap-4 sm:grid-cols-3 xl:min-w-[560px]">
-                                <div>
-                                  <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
-                                    Price
-                                  </p>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {canManageStripe &&
+                                  [
+                                    "active",
+                                    "trialing",
+                                    "past_due",
+                                  ].includes(
+                                    subscription.status
+                                  ) && (
+                                    <button
+                                      type="button"
+                                      disabled={
+                                        updatingSubscriptionId ===
+                                        subscription.id
+                                      }
+                                      onClick={() => {
+                                        const cancelling =
+                                          !subscription.cancel_at_period_end;
 
-                                  <p className="mt-1 text-sm font-bold text-stone-700">
-                                    {money(
-                                      amount
+                                        const confirmed =
+                                          window.confirm(
+                                            cancelling
+                                              ? `Cancel ${product?.name || "this membership"} at the end of the current billing period? Access will remain active until ${formatDate(
+                                                  subscription.current_period_end
+                                                )}.`
+                                              : `Keep ${product?.name || "this membership"} active and continue future renewals?`
+                                          );
+
+                                        if (
+                                          confirmed
+                                        ) {
+                                          void updateSubscriptionCancellation(
+                                            subscription,
+                                            cancelling
+                                          );
+                                        }
+                                      }}
+                                      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-[9px] font-black uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                                        subscription.cancel_at_period_end
+                                          ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                          : "border-rose-200 bg-white text-rose-600 hover:bg-rose-50"
+                                      }`}
+                                    >
+                                      {updatingSubscriptionId ===
+                                      subscription.id ? (
+                                        <Loader2
+                                          size={
+                                            14
+                                          }
+                                          className="animate-spin"
+                                        />
+                                      ) : subscription.cancel_at_period_end ? (
+                                        <RotateCcw
+                                          size={
+                                            14
+                                          }
+                                        />
+                                      ) : (
+                                        <X
+                                          size={
+                                            14
+                                          }
+                                        />
+                                      )}
+
+                                      {subscription.cancel_at_period_end
+                                        ? "Keep membership"
+                                        : "Cancel membership"}
+                                    </button>
+                                  )}
+                              </div>
+                            </div>
+
+                            <div className="grid border-t border-stone-100 sm:grid-cols-2 xl:grid-cols-5">
+                              <div className="border-b border-stone-100 p-4 sm:border-r xl:border-b-0">
+                                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                                  Price
+                                </p>
+
+                                <p className="mt-1 text-sm font-bold text-stone-800">
+                                  {money(
+                                    amount
+                                  )}
+                                  <span className="ml-1 text-[9px] font-medium text-stone-400">
+                                    /{subscription.billing_interval ||
+                                      "period"}
+                                  </span>
+                                </p>
+                              </div>
+
+                              <div className="border-b border-stone-100 p-4 xl:border-b-0 xl:border-r">
+                                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                                  {subscription.cancel_at_period_end
+                                    ? "Access ends"
+                                    : "Next renewal"}
+                                </p>
+
+                                <p className="mt-1 text-sm font-bold text-stone-800">
+                                  {isLegacyImported
+                                    ? "Legacy billing"
+                                    : formatDate(
+                                        subscription.current_period_end
+                                      )}
+                                </p>
+                              </div>
+
+                              <div className="border-b border-stone-100 p-4 sm:border-r xl:border-b-0">
+                                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                                  MTC plan
+                                </p>
+
+                                <p className="mt-1 font-mono text-[10px] font-bold text-stone-700">
+                                  {product?.external_plan_code ||
+                                    "—"}
+                                </p>
+                              </div>
+
+                              <div className="border-b border-stone-100 p-4 xl:border-b-0 xl:border-r">
+                                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                                  Billing source
+                                </p>
+
+                                <p className="mt-1 text-sm font-bold text-stone-800">
+                                  {isLegacyImported
+                                    ? "Legacy / imported"
+                                    : subscription.stripe_subscription_id
+                                      ? "Stripe"
+                                      : "TOTS-OS"}
+                                </p>
+                              </div>
+
+                              <div className="p-4">
+                                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                                  MTC access
+                                </p>
+
+                                <p className="mt-1 text-sm font-bold text-stone-800">
+                                  {isMtcMembership
+                                    ? "Synced from TOTS-OS"
+                                    : "Not linked"}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="grid gap-5 border-t border-stone-100 bg-stone-50/70 p-5 xl:grid-cols-[1.35fr_1fr]">
+                              <div>
+                                <div className="flex items-center justify-between gap-3">
+                                  <div>
+                                    <p className="text-[8px] font-black uppercase tracking-[0.14em] text-stone-500">
+                                      Members / beneficiaries
+                                    </p>
+
+                                    <p className="mt-1 text-xs text-stone-400">
+                                      People included in this membership.
+                                    </p>
+                                  </div>
+
+                                  <span className="rounded-full bg-white px-2.5 py-1 text-[8px] font-black text-stone-500 shadow-sm ring-1 ring-stone-200">
+                                    {beneficiaries.length}
+                                  </span>
+                                </div>
+
+                                {beneficiaries.length ? (
+                                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                    {beneficiaries.map(
+                                      (
+                                        beneficiary
+                                      ) => (
+                                        <div
+                                          key={
+                                            beneficiary.id
+                                          }
+                                          className="rounded-xl border border-stone-200 bg-white p-3"
+                                        >
+                                          <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                              <p className="truncate text-xs font-bold text-stone-800">
+                                                {beneficiaryName(
+                                                  beneficiary
+                                                )}
+                                              </p>
+
+                                              <p className="mt-1 truncate text-[9px] text-stone-400">
+                                                {beneficiary.email ||
+                                                  beneficiary.external_user_id ||
+                                                  "No linked email"}
+                                              </p>
+                                            </div>
+
+                                            {beneficiary.is_primary && (
+                                              <span className="rounded-full bg-[#edf2e8] px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-[#657457]">
+                                                Primary
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          <div className="mt-3 flex flex-wrap gap-1.5">
+                                            <span className="rounded-full bg-stone-100 px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-stone-500">
+                                              {(
+                                                beneficiary.relationship_to_payer ||
+                                                beneficiary.beneficiary_type ||
+                                                "member"
+                                              )
+                                                .replace(
+                                                  /_/g,
+                                                  " "
+                                                )}
+                                            </span>
+
+                                            {beneficiary.external_user_id && (
+                                              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-emerald-700">
+                                                MTC linked
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )
                                     )}
-                                    <span className="ml-1 text-[9px] font-medium text-stone-400">
-                                      /{subscription.billing_interval ||
-                                        "period"}
+                                  </div>
+                                ) : (
+                                  <div className="mt-3 rounded-xl border border-dashed border-stone-200 bg-white p-4 text-xs text-stone-400">
+                                    No beneficiary records are linked to this subscription yet.
+                                  </div>
+                                )}
+                              </div>
+
+                              <div>
+                                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-stone-500">
+                                  Subscription details
+                                </p>
+
+                                <div className="mt-3 space-y-2 rounded-xl border border-stone-200 bg-white p-4">
+                                  <div className="flex items-start justify-between gap-4">
+                                    <span className="text-[9px] font-semibold text-stone-400">
+                                      TOTS subscription
                                     </span>
-                                  </p>
-                                </div>
 
-                                <div>
-                                  <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
-                                    Next renewal
-                                  </p>
+                                    <span className="max-w-[220px] truncate font-mono text-[9px] font-semibold text-stone-600">
+                                      {subscription.id}
+                                    </span>
+                                  </div>
 
-                                  <p className="mt-1 text-sm font-bold text-stone-700">
-                                    {subscription.cancel_at_period_end
-                                      ? "Ends "
-                                      : ""}
-                                    {formatDate(
-                                      subscription.current_period_end
-                                    )}
-                                  </p>
-                                </div>
+                                  <div className="flex items-start justify-between gap-4">
+                                    <span className="text-[9px] font-semibold text-stone-400">
+                                      Stripe subscription
+                                    </span>
 
-                                <div className="min-w-0">
-                                  <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
-                                    Stripe subscription
-                                  </p>
+                                    <span
+                                      title={
+                                        subscription.stripe_subscription_id
+                                      }
+                                      className="max-w-[220px] truncate font-mono text-[9px] font-semibold text-stone-600"
+                                    >
+                                      {isLegacyImported
+                                        ? "Not connected (legacy)"
+                                        : subscription.stripe_subscription_id ||
+                                          "—"}
+                                    </span>
+                                  </div>
 
-                                  <p
-                                    title={
-                                      subscription.stripe_subscription_id
-                                    }
-                                    className="mt-1 truncate font-mono text-[10px] font-semibold text-stone-500"
-                                  >
-                                    {subscription.stripe_subscription_id ||
-                                      "—"}
-                                  </p>
+                                  <div className="flex items-start justify-between gap-4">
+                                    <span className="text-[9px] font-semibold text-stone-400">
+                                      Beneficiary mode
+                                    </span>
+
+                                    <span className="text-right text-[9px] font-bold uppercase tracking-[0.08em] text-stone-600">
+                                      {product?.beneficiary_mode
+                                        ?.replace(
+                                          /_/g,
+                                          " "
+                                        ) ||
+                                        "—"}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-start justify-between gap-4">
+                                    <span className="text-[9px] font-semibold text-stone-400">
+                                      Management
+                                    </span>
+
+                                    <span className="text-right text-[9px] font-bold text-stone-600">
+                                      {isLegacyImported
+                                        ? "TOTS-OS access management · no live Stripe billing"
+                                        : "TOTS-OS + Stripe"}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                             </div>

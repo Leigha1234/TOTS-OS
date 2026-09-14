@@ -1968,6 +1968,7 @@ export default function ShopFrontPage() {
       ]
     );
 
+
   // ==========================================================
   // CART
   // ==========================================================
@@ -3560,59 +3561,26 @@ export default function ShopFrontPage() {
 
               <div className="absolute inset-0 flex items-center justify-center p-7 sm:p-10 lg:p-12">
 
-                {(store.hero_image_url ||
-                  (
-                    featuredProducts[0] &&
-                    getProductImage(
-                      featuredProducts[0]
-                    )
-                  )) ? (
-                  <div className="relative w-full max-w-[390px]">
+                {store.hero_image_url ? (
+                  <div className="relative w-full max-w-[760px]">
 
-                    <div className="absolute -left-6 top-10 h-[82%] w-full rotate-[-4deg] rounded-[2rem] bg-white/55" />
+                    <div className="absolute -left-6 top-10 h-[82%] w-full rotate-[-2deg] rounded-[2rem] bg-white/55" />
 
-                    <div className="relative aspect-[4/5] overflow-hidden bg-white shadow-[0_30px_90px_rgba(28,25,23,0.16)]" style={{ borderRadius: `${storeRadius}px` }}>
+                    <div
+                      className="relative aspect-[16/9] overflow-hidden bg-white shadow-[0_30px_90px_rgba(28,25,23,0.16)]"
+                      style={{
+                        borderRadius:
+                          `${storeRadius}px`,
+                      }}
+                    >
 
                       <img
                         src={
-                          store.hero_image_url ||
-                          getProductImage(
-                            featuredProducts[0]!
-                          )!
-                        }
-                        alt={
                           store.hero_image_url
-                            ? `${storeName} hero`
-                            : featuredProducts[0]!
-                                .name
                         }
+                        alt={`${storeName} hero`}
                         className="h-full w-full object-cover"
                       />
-
-                      <div className="absolute inset-x-4 bottom-4 rounded-2xl bg-white/95 p-4 shadow-lg backdrop-blur">
-
-                        <p className="text-[8px] font-black uppercase tracking-[0.16em] text-stone-400">
-                          Featured
-                        </p>
-
-                        <div className="mt-1 flex items-end justify-between gap-3">
-
-                          <p className="line-clamp-1 text-sm font-bold text-stone-800">
-                            {
-                              featuredProducts[0]
-                                .name
-                            }
-                          </p>
-
-                          <p className="shrink-0 font-serif text-xl italic">
-                            {formatCurrency(
-                              featuredProducts[0]
-                                .price
-                            )}
-                          </p>
-
-                        </div>
-                      </div>
                     </div>
                   </div>
                 ) : (
@@ -3753,7 +3721,18 @@ export default function ShopFrontPage() {
 
             <div className="mt-8 grid gap-5 lg:grid-cols-3">
 
-              {featuredProducts.map(
+              {featuredProducts
+                .filter(
+                  (
+                    product
+                  ) =>
+                    Boolean(
+                      product &&
+                      product.id &&
+                      product.name
+                    )
+                )
+                .map(
                 (
                   product
                 ) => (

@@ -6644,28 +6644,19 @@ if (orderError) {
 
     try {
       const extension =
-        file.name
-          .split(
-            "."
-          )
-          .pop()
-          ?.toLowerCase()
-          .replace(
-            /[^a-z0-9]/g,
-            ""
-          ) ||
-        (
-          file.type ===
-            "image/png"
-            ? "png"
+        file.type ===
+          "image/png"
+          ? "png"
+          : file.type ===
+              "image/webp"
+            ? "webp"
             : file.type ===
-                "image/webp"
-              ? "webp"
+                "image/svg+xml"
+              ? "svg"
               : file.type ===
-                  "image/svg+xml"
-                ? "svg"
-                : "jpg"
-        );
+                  "image/x-icon"
+                ? "ico"
+                : "jpg";
 
       const fileName =
         `${assetType}.${extension}`;
@@ -13438,20 +13429,29 @@ function StoreAssetUploader({
             onChange={(
               event
             ) => {
+              const input =
+                event.currentTarget;
+
+              const fileList =
+                input.files;
+
               const file =
-                event.target
-                  .files
-                  ?.[0];
+                fileList
+                  ? fileList.item(
+                      0
+                    )
+                  : null;
 
               if (
-                file
+                file instanceof
+                  File
               ) {
                 onUpload(
                   file
                 );
               }
 
-              event.currentTarget.value =
+              input.value =
                 "";
             }}
           />

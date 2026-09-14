@@ -39,6 +39,7 @@ import {
   Tag,
   Trash2,
   TrendingUp,
+  Upload,
   Users,
   WalletCards,
   X,
@@ -1793,6 +1794,16 @@ export default function StorePage() {
   ] =
     useState(
       ""
+    );
+
+  const [
+    uploadingStoreAsset,
+    setUploadingStoreAsset,
+  ] =
+    useState<
+      "logo" | "hero" | "favicon" | null
+    >(
+      null
     );
 
   const [
@@ -6543,6 +6554,201 @@ if (orderError) {
   // STORE SETTINGS
   // ==========================================================
 
+  async function uploadStoreAsset({
+    file,
+    assetType,
+  }: {
+    file:
+      File;
+
+    assetType:
+      "logo" | "hero" | "favicon";
+  }) {
+    if (
+      !organisationId
+    ) {
+      alert(
+        "Your organisation could not be resolved."
+      );
+
+      return;
+    }
+
+    if (
+      !file.type.startsWith(
+        "image/"
+      )
+    ) {
+      alert(
+        "Please choose an image file."
+      );
+
+      return;
+    }
+
+    const maxBytes =
+      assetType ===
+        "favicon"
+        ? 2 *
+          1024 *
+          1024
+        : 8 *
+          1024 *
+          1024;
+
+    if (
+      file.size >
+      maxBytes
+    ) {
+      alert(
+        assetType ===
+          "favicon"
+          ? "Favicons must be under 2MB."
+          : "Store images must be under 8MB."
+      );
+
+      return;
+    }
+
+    setUploadingStoreAsset(
+      assetType
+    );
+
+    try {
+      const extension =
+        file.name
+          .split(
+            "."
+          )
+          .pop()
+          ?.toLowerCase()
+          .replace(
+            /[^a-z0-9]/g,
+            ""
+          ) ||
+        (
+          file.type ===
+            "image/png"
+            ? "png"
+            : file.type ===
+                "image/webp"
+              ? "webp"
+              : file.type ===
+                  "image/svg+xml"
+                ? "svg"
+                : "jpg"
+        );
+
+      const fileName =
+        `${assetType}.${extension}`;
+
+      const storagePath =
+        `${organisationId}/${fileName}`;
+
+      const {
+        error:
+          uploadError,
+      } =
+        await supabase
+          .storage
+          .from(
+            "store-assets"
+          )
+          .upload(
+            storagePath,
+            file,
+            {
+              cacheControl:
+                "3600",
+
+              upsert:
+                true,
+
+              contentType:
+                file.type,
+            }
+          );
+
+      if (
+        uploadError
+      ) {
+        throw uploadError;
+      }
+
+      const {
+        data:
+          publicUrlData,
+      } =
+        supabase
+          .storage
+          .from(
+            "store-assets"
+          )
+          .getPublicUrl(
+            storagePath
+          );
+
+      const publicUrl =
+        publicUrlData
+          .publicUrl;
+
+      if (
+        !publicUrl
+      ) {
+        throw new Error(
+          "The image uploaded, but its public URL could not be created."
+        );
+      }
+
+      /*
+       * Add a cache-busting query value. We use fixed storage
+       * filenames with upsert so replacing a logo/hero does not
+       * leave old URLs scattered throughout the database.
+       */
+      const url =
+        `${publicUrl}?v=${Date.now()}`;
+
+      if (
+        assetType ===
+        "logo"
+      ) {
+        setLogoUrl(
+          url
+        );
+      } else if (
+        assetType ===
+        "hero"
+      ) {
+        setHeroImageUrl(
+          url
+        );
+      } else {
+        setFaviconUrl(
+          url
+        );
+      }
+    } catch (
+      error:
+        unknown
+    ) {
+      console.error(
+        "[TOTS STORE] Store asset upload failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+          Error
+          ? error.message
+          : "The image could not be uploaded."
+      );
+    } finally {
+      setUploadingStoreAsset(
+        null
+      );
+    }
+  }
+
   async function saveStoreSettings() {
     if (
       savingSettings
@@ -10246,52 +10452,96 @@ if (orderError) {
                   <SectionEyebrow>
                     Images
                   </SectionEyebrow>
+
                   <h3 className="mt-1 font-serif text-2xl italic">
                     Brand assets
                   </h3>
+
                   <p className="mt-2 text-xs leading-5 text-stone-400">
-                    For now paste image URLs. We can wire these fields to Supabase Storage uploads next.
+                    Upload your branding directly. Files are stored securely in your organisation&apos;s Store assets folder.
                   </p>
 
-                  <div className="mt-5 grid gap-5 md:grid-cols-2">
-                    <Field label="Logo URL">
-                      <input
-                        value={logoUrl}
-                        onChange={(event) =>
-                          setLogoUrl(
-                            event.target.value
-                          )
-                        }
-                        className="store-input"
-                        placeholder="https://..."
-                      />
-                    </Field>
+                  <div className="mt-5 grid gap-5 lg:grid-cols-3">
+                    <StoreAssetUploader
+                      label="Logo"
+                      description="Used in your storefront header. PNG, JPG, WebP or SVG."
+                      value={
+                        logoUrl
+                      }
+                      uploading={
+                        uploadingStoreAsset ===
+                        "logo"
+                      }
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      onUpload={(
+                        file
+                      ) =>
+                        void uploadStoreAsset({
+                          file,
+                          assetType:
+                            "logo",
+                        })
+                      }
+                      onRemove={() =>
+                        setLogoUrl(
+                          ""
+                        )
+                      }
+                    />
 
-                    <Field label="Hero Image URL">
-                      <input
-                        value={heroImageUrl}
-                        onChange={(event) =>
-                          setHeroImageUrl(
-                            event.target.value
-                          )
-                        }
-                        className="store-input"
-                        placeholder="https://..."
-                      />
-                    </Field>
+                    <StoreAssetUploader
+                      label="Hero image"
+                      description="Large storefront image. Landscape or portrait both work."
+                      value={
+                        heroImageUrl
+                      }
+                      uploading={
+                        uploadingStoreAsset ===
+                        "hero"
+                      }
+                      accept="image/png,image/jpeg,image/webp"
+                      onUpload={(
+                        file
+                      ) =>
+                        void uploadStoreAsset({
+                          file,
+                          assetType:
+                            "hero",
+                        })
+                      }
+                      onRemove={() =>
+                        setHeroImageUrl(
+                          ""
+                        )
+                      }
+                    />
 
-                    <Field label="Favicon URL">
-                      <input
-                        value={faviconUrl}
-                        onChange={(event) =>
-                          setFaviconUrl(
-                            event.target.value
-                          )
-                        }
-                        className="store-input"
-                        placeholder="https://..."
-                      />
-                    </Field>
+                    <StoreAssetUploader
+                      label="Favicon"
+                      description="Small browser/store icon. Square PNG, JPG, WebP or SVG works best."
+                      value={
+                        faviconUrl
+                      }
+                      uploading={
+                        uploadingStoreAsset ===
+                        "favicon"
+                      }
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon"
+                      onUpload={(
+                        file
+                      ) =>
+                        void uploadStoreAsset({
+                          file,
+                          assetType:
+                            "favicon",
+                        })
+                      }
+                      onRemove={() =>
+                        setFaviconUrl(
+                          ""
+                        )
+                      }
+                    />
                   </div>
                 </div>
 
@@ -13011,6 +13261,149 @@ function DetailRow({
 }
 
 // ============================================================
+
+function StoreAssetUploader({
+  label,
+  description,
+  value,
+  uploading,
+  accept,
+  onUpload,
+  onRemove,
+}: {
+  label:
+    string;
+
+  description:
+    string;
+
+  value:
+    string;
+
+  uploading:
+    boolean;
+
+  accept:
+    string;
+
+  onUpload:
+    (
+      file:
+        File
+    ) =>
+      void;
+
+  onRemove:
+    () =>
+      void;
+}) {
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold text-stone-700">
+            {label}
+          </p>
+
+          <p className="mt-1 text-[9px] leading-4 text-stone-400">
+            {description}
+          </p>
+        </div>
+
+        {value && (
+          <button
+            type="button"
+            onClick={
+              onRemove
+            }
+            className="rounded-lg border border-stone-200 bg-white p-2 text-stone-400 transition hover:text-rose-500"
+            title={`Remove ${label.toLowerCase()}`}
+          >
+            <Trash2
+              size={13}
+            />
+          </button>
+        )}
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-xl border border-dashed border-stone-200 bg-white">
+        {value ? (
+          <div className="relative flex min-h-[150px] items-center justify-center bg-stone-50 p-4">
+            <img
+              src={
+                value
+              }
+              alt={
+                label
+              }
+              className="max-h-[180px] max-w-full object-contain"
+            />
+          </div>
+        ) : (
+          <div className="flex min-h-[150px] flex-col items-center justify-center gap-2 p-5 text-center">
+            <ImageIcon
+              size={23}
+              className="text-stone-300"
+            />
+
+            <p className="text-[9px] font-semibold text-stone-400">
+              No {label.toLowerCase()} uploaded
+            </p>
+          </div>
+        )}
+
+        <label className="flex cursor-pointer items-center justify-center gap-2 border-t border-stone-100 px-4 py-3 text-[8px] font-black uppercase tracking-[0.13em] text-stone-600 transition hover:bg-stone-50">
+          {uploading ? (
+            <Loader2
+              size={13}
+              className="animate-spin"
+            />
+          ) : (
+            <Upload
+              size={13}
+            />
+          )}
+
+          {uploading
+            ? "Uploading..."
+            : value
+              ? "Replace image"
+              : "Upload image"}
+
+          <input
+            type="file"
+            accept={
+              accept
+            }
+            disabled={
+              uploading
+            }
+            className="hidden"
+            onChange={(
+              event
+            ) => {
+              const file =
+                event.target
+                  .files
+                  ?.[0];
+
+              if (
+                file
+              ) {
+                onUpload(
+                  file
+                );
+              }
+
+              event.currentTarget.value =
+                "";
+            }}
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
 
 function Field({
   label,

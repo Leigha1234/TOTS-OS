@@ -4,109 +4,88 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
-  type CSSProperties,
+  type ReactNode,
 } from "react";
 
 import {
+  AlertTriangle,
   ArrowRight,
+  Banknote,
+  BadgePercent,
+  Boxes,
   Check,
-  ChevronDown,
+  ChevronRight,
+  CircleDollarSign,
+  Copy,
+  CreditCard,
+  Edit3,
   ExternalLink,
-  Instagram,
+  Eye,
+  ImageIcon,
   Loader2,
-  LockKeyhole,
   Mail,
-  MapPin,
-  Menu,
-  MessageCircle,
-  Minus,
   Package,
-  Phone,
+  PackageCheck,
   Plus,
+  RefreshCw,
+  RotateCcw,
   Search,
-  Send,
-  ShieldCheck,
+  Settings,
   ShoppingBag,
   ShoppingCart,
   Sparkles,
   Store,
   Tag,
   Trash2,
-  Truck,
+  TrendingUp,
+  Upload,
+  Users,
+  WalletCards,
   X,
 } from "lucide-react";
 
-import { useParams } from "next/navigation";
+import {
+  AnimatePresence,
+  motion,
+} from "framer-motion";
+
+import { supabase } from "@/lib/supabase";
 
 // ============================================================
 // TYPES
 // ============================================================
 
-type Storefront = {
-  id: string;
-  organisation_id: string;
-  slug: string;
+type StoreTab =
+  | "Overview"
+  | "Products"
+  | "Orders"
+  | "Subscriptions"
+  | "Payments"
+  | "Inventory"
+  | "Discounts"
+  | "Settings";
 
-  store_name: string;
+type ProductStatus =
+  | "active"
+  | "draft"
+  | "archived";
 
-  store_description?: string | null;
+type PurchaseType =
+  | "one_off"
+  | "subscription";
 
-  hero_title?: string | null;
-  hero_text?: string | null;
+type BillingInterval =
+  | "week"
+  | "month"
+  | "year";
 
-  announcement?: string | null;
-
-  accent_colour?: string | null;
-
-  storefront_mode?: string | null;
-  external_storefront_url?: string | null;
-
-  favicon_url?: string | null;
-  hero_image_url?: string | null;
-
-  background_colour?: string | null;
-  text_colour?: string | null;
-  button_colour?: string | null;
-  button_text_colour?: string | null;
-
-  heading_font?: string | null;
-  body_font?: string | null;
-
-  layout_style?: string | null;
-  card_style?: string | null;
-  border_radius?: number | null;
-
-  show_categories?: boolean | null;
-  show_search?: boolean | null;
-  show_stock?: boolean | null;
-  show_prices?: boolean | null;
-
-  footer_text?: string | null;
-
-  facebook_url?: string | null;
-  tiktok_url?: string | null;
-
-  custom_css?: string | null;
-
-  shipping_text?: string | null;
-
-  support_email?: string | null;
-
-  is_live?: boolean | null;
-
-  company_name?: string | null;
-
-  logo_url?: string | null;
-
-  email?: string | null;
-  phone?: string | null;
-  address?: string | null;
-
-  website_url?: string | null;
-  instagram_url?: string | null;
-};
+type BeneficiaryMode =
+  | "none"
+  | "single_adult"
+  | "couple"
+  | "child"
+  | "child_plus_adult";
 
 type SellingModel =
   | "physical"
@@ -117,1502 +96,3477 @@ type SellingModel =
   | "request_to_order"
   | "service";
 
+type OrderStatus =
+  | "new"
+  | "processing"
+  | "dispatched"
+  | "delivered"
+  | "cancelled";
+
+type PaymentStatus =
+  | "paid"
+  | "pending"
+  | "refunded";
+
+type DiscountType =
+  | "percentage"
+  | "fixed";
+
+type DiscountStatus =
+  | "Active"
+  | "Inactive"
+  | "Scheduled"
+  | "Expired"
+  | "Used up";
+
 type Product = {
   id: string;
 
-  organisation_id?: string | null;
+  organisation_id: string;
 
   name: string;
 
-  slug?: string | null;
+  slug: string;
 
-  description?: string | null;
+  sku: string;
 
-  category?: string | null;
+  category: string;
 
-  selling_model?: SellingModel | string | null;
+  selling_model: SellingModel;
 
-  price: number | string;
+  purchase_type: PurchaseType;
 
-  compare_at_price?: number | string | null;
+  billing_interval:
+    | BillingInterval
+    | null;
 
-  cost_price?: number | string | null;
-
-  image_url?: string | null;
-
-  images?: string[] | null;
-
-  inventory_quantity?: number | null;
-
-  stock?: number | null;
-
-  low_stock_threshold?: number | null;
-
-  track_inventory?: boolean | null;
-
-  sku?: string | null;
-
-  is_active?: boolean | null;
-
-  featured?: boolean | null;
-
-  sort_order?: number | null;
-
-  status?: string | null;
-
-  created_at?: string | null;
-  updated_at?: string | null;
-
-  purchase_type?:
-    | "one_off"
-    | "subscription"
+  stripe_product_id:
     | string
     | null;
 
-  billing_interval?:
-    | "week"
-    | "month"
-    | "year"
+  stripe_price_id:
     | string
     | null;
 
-  external_system?:
+  external_system:
     | string
     | null;
 
-  external_plan_code?:
+  external_plan_code:
     | string
     | null;
 
-  beneficiary_mode?:
-    | "none"
-    | "single_adult"
-    | "couple"
-    | "child"
-    | "child_plus_adult"
-    | string
-    | null;
+  beneficiary_mode:
+    BeneficiaryMode;
 
-  [key: string]: unknown;
-};
-
-type CartLine = {
-  product: Product;
-  quantity: number;
-};
-
-type BeneficiaryType =
-  | "adult"
-  | "child";
-
-type BeneficiaryMode =
-  | "none"
-  | "single_adult"
-  | "couple"
-  | "child"
-  | "child_plus_adult";
-
-type BeneficiaryDraft = {
-  productId: string;
-  slotKey: string;
-  beneficiaryType: BeneficiaryType;
-  isPrimary: boolean;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  relationshipToPayer: string;
-};
-
-type BeneficiarySpec = {
-  key: string;
-  beneficiaryType: BeneficiaryType;
-  isPrimary: boolean;
-  title: string;
   description: string;
-  relationshipToPayer: string;
-  emailRequired: boolean;
+
+  price: number;
+
+  compare_at_price:
+    | number
+    | null;
+
+  /**
+   * UI-friendly property.
+   *
+   * Database column is cost_price.
+   */
+  cost: number;
+
+  stock: number;
+
+  inventory_quantity: number;
+
+  low_stock_threshold: number;
+
+  track_inventory: boolean;
+
+  status: ProductStatus;
+
+  image_url:
+    | string
+    | null;
+
+  images: string[];
+
+  featured: boolean;
+
+  sort_order:
+    | number
+    | null;
+
+  is_active: boolean;
+
+  created_at:
+    | string
+    | null;
+
+  orders: number;
+
+  revenue: number;
 };
 
-type StorefrontApiResponse = {
-  store?: Storefront;
-  products?: Product[];
-  productLoadWarning?: string | null;
-  error?: string;
+type Order = {
+  id: string;
+
+  organisation_id: string;
+
+  number: string;
+
+  customer: string;
+
+  email: string;
+
+  total: number;
+
+  status: OrderStatus;
+
+  paymentStatus:
+    PaymentStatus;
+
+  items: number;
+
+  createdAt: string;
+
+  raw:
+    Record<
+      string,
+      unknown
+    >;
 };
 
-type ContactApiResponse = {
-  success?: boolean;
-  message?: string;
-  error?: string;
+type StoreSubscription = {
+  id: string;
+
+  organisation_id: string;
+
+  order_id:
+    | string
+    | null;
+
+  product_id:
+    | string
+    | null;
+
+  customer_name:
+    | string
+    | null;
+
+  customer_email:
+    | string
+    | null;
+
+  customer_phone:
+    | string
+    | null;
+
+  stripe_account_id: string;
+
+  stripe_customer_id:
+    | string
+    | null;
+
+  stripe_subscription_id: string;
+
+  stripe_price_id:
+    | string
+    | null;
+
+  status: string;
+
+  quantity: number;
+
+  currency: string;
+
+  unit_amount_pence:
+    | number
+    | null;
+
+  billing_interval:
+    | BillingInterval
+    | null;
+
+  current_period_start:
+    | string
+    | null;
+
+  current_period_end:
+    | string
+    | null;
+
+  cancel_at_period_end: boolean;
+
+  cancelled_at:
+    | string
+    | null;
+
+  metadata: Record<string, unknown>;
+
+  created_at: string;
+
+  updated_at: string;
 };
 
-type CheckoutApiResponse = {
-  success?: boolean;
+type StoreSubscriptionBeneficiary = {
+  id: string;
 
-  url?: string;
-  checkoutUrl?: string;
-  sessionUrl?: string;
+  organisation_id: string;
 
-  sessionId?: string;
+  subscription_id: string;
 
-  orderId?: string;
-  orderNumber?: string;
+  customer_id:
+    | string
+    | null;
 
-  subtotal?: number;
-  discountAmount?: number;
-  shippingAmount?: number;
-  total?: number;
+  beneficiary_type:
+    | string
+    | null;
 
-  discountCode?: string | null;
+  first_name:
+    | string
+    | null;
 
-  error?: string;
-  message?: string;
+  last_name:
+    | string
+    | null;
+
+  email:
+    | string
+    | null;
+
+  phone:
+    | string
+    | null;
+
+  relationship_to_payer:
+    | string
+    | null;
+
+  external_user_id:
+    | string
+    | null;
+
+  is_primary: boolean;
+
+  is_active: boolean;
+
+  metadata:
+    | Record<string, unknown>
+    | null;
+
+  created_at:
+    | string
+    | null;
+
+  updated_at:
+    | string
+    | null;
+};
+
+type StoreSettingsRow = {
+  id: string;
+
+  organisation_id: string;
+
+  slug: string;
+
+  store_name:
+    | string
+    | null;
+
+  store_description:
+    | string
+    | null;
+
+  hero_title:
+    | string
+    | null;
+
+  hero_text:
+    | string
+    | null;
+
+  announcement:
+    | string
+    | null;
+
+  accent_colour:
+    | string
+    | null;
+
+  storefront_mode?:
+    | "hosted"
+    | "external"
+    | string
+    | null;
+
+  external_storefront_url?:
+    | string
+    | null;
+
+  logo_url?:
+    | string
+    | null;
+
+  favicon_url?:
+    | string
+    | null;
+
+  hero_image_url?:
+    | string
+    | null;
+
+  background_colour?:
+    | string
+    | null;
+
+  text_colour?:
+    | string
+    | null;
+
+  button_colour?:
+    | string
+    | null;
+
+  button_text_colour?:
+    | string
+    | null;
+
+  heading_font?:
+    | string
+    | null;
+
+  body_font?:
+    | string
+    | null;
+
+  layout_style?:
+    | string
+    | null;
+
+  card_style?:
+    | string
+    | null;
+
+  border_radius?:
+    | number
+    | null;
+
+  show_categories?:
+    | boolean
+    | null;
+
+  show_search?:
+    | boolean
+    | null;
+
+  show_stock?:
+    | boolean
+    | null;
+
+  show_prices?:
+    | boolean
+    | null;
+
+  footer_text?:
+    | string
+    | null;
+
+  instagram_url?:
+    | string
+    | null;
+
+  facebook_url?:
+    | string
+    | null;
+
+  tiktok_url?:
+    | string
+    | null;
+
+  custom_css?:
+    | string
+    | null;
+
+  shipping_text:
+    | string
+    | null;
+
+  support_email:
+    | string
+    | null;
+
+  is_live:
+    | boolean
+    | null;
+
+  created_at?:
+    | string
+    | null;
+
+  updated_at?:
+    | string
+    | null;
+};
+
+type ProductForm = {
+  id?: string;
+
+  sellingModel: SellingModel;
+
+  purchaseType: PurchaseType;
+
+  billingInterval: BillingInterval;
+
+  externalSystem: string;
+
+  externalPlanCode: string;
+
+  beneficiaryMode: BeneficiaryMode;
+
+  name: string;
+
+  slug: string;
+
+  sku: string;
+
+  category: string;
+
+  description: string;
+
+  price: string;
+
+  compareAtPrice:
+    string;
+
+  cost: string;
+
+  stock: string;
+
+  imageUrl: string;
+
+  featured: boolean;
+
+  trackInventory:
+    boolean;
+
+  status:
+    ProductStatus;
+};
+
+type Discount = {
+  id: string;
+
+  organisation_id: string;
+
+  code: string;
+
+  description: string;
+
+  discount_type:
+    DiscountType;
+
+  value: number;
+
+  minimum_order_amount:
+    number;
+
+  maximum_discount_amount:
+    | number
+    | null;
+
+  usage_limit:
+    | number
+    | null;
+
+  usage_count: number;
+
+  starts_at:
+    | string
+    | null;
+
+  expires_at:
+    | string
+    | null;
+
+  is_active: boolean;
+
+  created_at:
+    | string
+    | null;
+
+  updated_at:
+    | string
+    | null;
+};
+
+type DiscountForm = {
+  id?: string;
+
+  code: string;
+
+  description:
+    string;
+
+  discountType:
+    DiscountType;
+
+  value: string;
+
+  minimumOrderAmount:
+    string;
+
+  maximumDiscountAmount:
+    string;
+
+  usageLimit:
+    string;
+
+  startsAt:
+    string;
+
+  expiresAt:
+    string;
+
+  active:
+    boolean;
+};
+
+type StockAdjustState = {
+  product: Product;
+
+  quantity: string;
+};
+
+type OrganisationContext = {
+  organisationId:
+    string;
+
+  organisationName:
+    string;
+};
+
+
+type StripeAccountStatus = {
+  connected: boolean;
+  accountId: string | null;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  detailsSubmitted: boolean;
+  availableBalance: number;
+  pendingBalance: number;
+  currency: string;
+};
+
+type RefundFormState = {
+  order: Order;
+  amount: string;
+  reason:
+    | "requested_by_customer"
+    | "duplicate"
+    | "fraudulent";
 };
 
 // ============================================================
-// CONSTANTS
+// DEFAULTS
 // ============================================================
 
-const STOREFRONT_REQUEST_TIMEOUT_MS = 30000;
-const CONTACT_REQUEST_TIMEOUT_MS = 20000;
+const EMPTY_PRODUCT_FORM: ProductForm = {
+  sellingModel: "physical",
+  purchaseType: "one_off",
+  billingInterval: "month",
+  externalSystem: "",
+  externalPlanCode: "",
+  beneficiaryMode: "none",
+  name: "",
+  slug: "",
+  sku: "",
+  category: "General",
+  description: "",
+  price: "",
+  compareAtPrice: "",
+  cost: "",
+  stock: "",
+  imageUrl: "",
+  featured: false,
+  trackInventory: true,
+  status: "active",
+};
+const EMPTY_DISCOUNT_FORM: DiscountForm =
+  {
+    code: "",
+
+    description:
+      "",
+
+    discountType:
+      "percentage",
+
+    value: "",
+
+    minimumOrderAmount:
+      "",
+
+    maximumDiscountAmount:
+      "",
+
+    usageLimit:
+      "",
+
+    startsAt:
+      "",
+
+    expiresAt:
+      "",
+
+    active:
+      true,
+  };
 
 // ============================================================
 // HELPERS
 // ============================================================
 
-function formatCurrency(
-  value?: number | string | null
+function firstString(
+  ...values: unknown[]
 ) {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(Number(value || 0));
+  for (
+    const value of values
+  ) {
+    if (
+      typeof value ===
+        "string" &&
+      value.trim()
+    ) {
+      return value.trim();
+    }
+  }
+
+  return null;
 }
 
-function normaliseColour(
-  value?: string | null,
-  fallback = "#a9b897"
+function firstNumber(
+  ...values: unknown[]
 ) {
-  const trimmed = String(
-    value || ""
-  ).trim();
-
-  if (
-    /^#[0-9A-Fa-f]{6}$/.test(
-      trimmed
-    )
+  for (
+    const value of values
   ) {
-    return trimmed;
+    if (
+      typeof value ===
+        "number" &&
+      Number.isFinite(
+        value
+      )
+    ) {
+      return value;
+    }
+
+    if (
+      typeof value ===
+        "string" &&
+      value.trim() !==
+        ""
+    ) {
+      const parsed =
+        Number(value);
+
+      if (
+        Number.isFinite(
+          parsed
+        )
+      ) {
+        return parsed;
+      }
+    }
+  }
+
+  return 0;
+}
+
+function safeBoolean(
+  value: unknown,
+  fallback = false
+) {
+  if (
+    typeof value ===
+    "boolean"
+  ) {
+    return value;
   }
 
   return fallback;
 }
 
-
-function colourToRgb(
-  colour: string
-) {
-  const normalised =
-    normaliseColour(
-      colour,
-      "#ffffff"
-    )
-      .replace(
-        "#",
-        ""
-      );
-
-  return {
-    r:
-      parseInt(
-        normalised.slice(
-          0,
-          2
-        ),
-        16
-      ),
-
-    g:
-      parseInt(
-        normalised.slice(
-          2,
-          4
-        ),
-        16
-      ),
-
-    b:
-      parseInt(
-        normalised.slice(
-          4,
-          6
-        ),
-        16
-      ),
-  };
-}
-
-function colourLuminance(
-  colour: string
-) {
-  const {
-    r,
-    g,
-    b,
-  } =
-    colourToRgb(
-      colour
-    );
-
-  return (
-    0.2126 *
-      r +
-    0.7152 *
-      g +
-    0.0722 *
-      b
-  );
-}
-
-function mixColours(
-  first: string,
-  second: string,
-  amount: number
-) {
-  const a =
-    colourToRgb(
-      first
-    );
-
-  const b =
-    colourToRgb(
-      second
-    );
-
-  const mix = (
-    x: number,
-    y: number
-  ) =>
-    Math.round(
-      x +
-        (
-          y -
-          x
-        ) *
-          amount
-    );
-
-  const toHex = (
-    value: number
-  ) =>
-    Math.max(
-      0,
-      Math.min(
-        255,
-        value
-      )
-    )
-      .toString(
-        16
-      )
-      .padStart(
-        2,
-        "0"
-      );
-
-  return `#${toHex(
-    mix(
-      a.r,
-      b.r
-    )
-  )}${toHex(
-    mix(
-      a.g,
-      b.g
-    )
-  )}${toHex(
-    mix(
-      a.b,
-      b.b
-    )
-  )}`;
-}
-
-function normaliseDiscountCode(
-  value: string
-) {
-  return value
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, "");
-}
-
-function normaliseBeneficiaryMode(
+function safeStringArray(
   value: unknown
-): BeneficiaryMode {
-  switch (value) {
-    case "single_adult":
-    case "couple":
-    case "child":
-    case "child_plus_adult":
-      return value;
-
-    default:
-      return "none";
-  }
-}
-
-function isMembershipProduct(
-  product: Product
 ) {
-  return (
-    String(
-      product.purchase_type ||
-        ""
-    ).toLowerCase() ===
-      "subscription" &&
-    String(
-      product.external_system ||
-        ""
-    ).toLowerCase() ===
-      "mtc" &&
-    normaliseBeneficiaryMode(
-      product.beneficiary_mode
-    ) !== "none"
-  );
-}
-
-function getBeneficiarySpecs(
-  line: CartLine
-): BeneficiarySpec[] {
   if (
-    !isMembershipProduct(
-      line.product
+    !Array.isArray(
+      value
     )
   ) {
     return [];
   }
 
-  const mode =
-    normaliseBeneficiaryMode(
-      line.product
-        .beneficiary_mode
-    );
-
-  const specs:
-    BeneficiarySpec[] = [];
-
-  const quantity =
-    Math.max(
-      1,
-      Math.floor(
-        Number(
-          line.quantity ||
-            1
-        )
-      )
-    );
-
-  for (
-    let purchaseIndex = 0;
-    purchaseIndex <
-    quantity;
-    purchaseIndex += 1
-  ) {
-    const purchaseSuffix =
-      quantity > 1
-        ? ` — membership ${purchaseIndex + 1}`
-        : "";
-
-    if (
-      mode ===
-      "single_adult"
-    ) {
-      specs.push({
-        key:
-          `${line.product.id}:${purchaseIndex}:adult:1`,
-        beneficiaryType:
-          "adult",
-        isPrimary:
-          true,
-        title:
-          `Member${purchaseSuffix}`,
-        description:
-          "Enter the adult who will use this membership.",
-        relationshipToPayer:
-          "self",
-        emailRequired:
-          true,
-      });
-    }
-
-    if (
-      mode === "couple"
-    ) {
-      specs.push(
-        {
-          key:
-            `${line.product.id}:${purchaseIndex}:adult:1`,
-          beneficiaryType:
-            "adult",
-          isPrimary:
-            true,
-          title:
-            `Adult 1${purchaseSuffix}`,
-          description:
-            "First adult covered by the couples membership.",
-          relationshipToPayer:
-            "self",
-          emailRequired:
-            true,
-        },
-        {
-          key:
-            `${line.product.id}:${purchaseIndex}:adult:2`,
-          beneficiaryType:
-            "adult",
-          isPrimary:
-            false,
-          title:
-            `Adult 2${purchaseSuffix}`,
-          description:
-            "Second adult covered by the couples membership.",
-          relationshipToPayer:
-            "partner",
-          emailRequired:
-            true,
-        }
-      );
-    }
-
-    if (
-      mode === "child"
-    ) {
-      specs.push({
-        key:
-          `${line.product.id}:${purchaseIndex}:child:1`,
-        beneficiaryType:
-          "child",
-        isPrimary:
-          true,
-        title:
-          `Child${purchaseSuffix}`,
-        description:
-          "Enter the child who will use this membership.",
-        relationshipToPayer:
-          "child",
-        emailRequired:
-          false,
-      });
-    }
-
-    if (
-      mode ===
-      "child_plus_adult"
-    ) {
-      specs.push(
-        {
-          key:
-            `${line.product.id}:${purchaseIndex}:adult:1`,
-          beneficiaryType:
-            "adult",
-          isPrimary:
-            true,
-          title:
-            `Adult / parent${purchaseSuffix}`,
-          description:
-            "This adult receives the Open Gym entitlement.",
-          relationshipToPayer:
-            "self",
-          emailRequired:
-            true,
-        },
-        {
-          key:
-            `${line.product.id}:${purchaseIndex}:child:1`,
-          beneficiaryType:
-            "child",
-          isPrimary:
-            false,
-          title:
-            `Child${purchaseSuffix}`,
-          description:
-            "This child receives the kids class entitlement.",
-          relationshipToPayer:
-            "child",
-          emailRequired:
-            false,
-        }
-      );
-    }
-  }
-
-  return specs;
-}
-
-function getProductImage(
-  product: Product
-) {
-  if (
-    typeof product.image_url ===
-      "string" &&
-    product.image_url.trim()
-  ) {
-    return product.image_url.trim();
-  }
-
-  if (
-    Array.isArray(
-      product.images
+  return value
+    .filter(
+      (item) =>
+        typeof item ===
+        "string"
     )
-  ) {
-    const first =
-      product.images.find(
-        (image) =>
-          typeof image ===
-            "string" &&
-          image.trim()
-      );
-
-    if (first) {
-      return first;
-    }
-  }
-
-  return null;
+    .map(
+      (item) =>
+        item.trim()
+    )
+    .filter(Boolean);
 }
 
-// ============================================================
-// INVENTORY
-// ============================================================
-
-function getAvailableQuantity(
-  product: Product
-) {
-  if (
-    product.track_inventory ===
-    false
-  ) {
-    return null;
-  }
-
-  if (
-    typeof product.inventory_quantity ===
-      "number"
-  ) {
-    return product.inventory_quantity;
-  }
-
-  if (
-    typeof product.stock ===
-      "number"
-  ) {
-    return product.stock;
-  }
-
-  return null;
-}
-
-function isOutOfStock(
-  product: Product
-) {
-  if (
-    product.track_inventory ===
-    false
-  ) {
-    return false;
-  }
-
-  const quantity =
-    getAvailableQuantity(
-      product
-    );
-
-  return (
-    quantity !== null &&
-    quantity <= 0
-  );
-}
-
-function isLowStock(
-  product: Product
-) {
-  if (
-    product.track_inventory ===
-    false
-  ) {
-    return false;
-  }
-
-  const quantity =
-    getAvailableQuantity(
-      product
-    );
-
-  const threshold =
-    typeof product.low_stock_threshold ===
-      "number"
-      ? product.low_stock_threshold
-      : 5;
-
-  return (
-    quantity !== null &&
-    quantity > 0 &&
-    quantity <= threshold
-  );
-}
-
-// ============================================================
-// SELLING MODELS
-//
-// The Store management page deliberately reuses the existing
-// category + inventory schema, so the public storefront infers
-// the selling model from those values.
-//
-// Supported models:
-// - Physical product
-// - Digital download
-// - Digitally delivered
-// - Order to collect
-// - Customisable / made to order
-// - Request to order / quote
-// - Service
-// ============================================================
-
-function inferSellingModel(
-  product: Product
+function normaliseSellingModel(
+  value: unknown,
+  fallback: SellingModel = "physical"
 ): SellingModel {
-  const storedModel =
-    String(
-      product.selling_model || ""
-    )
-      .trim()
-      .toLowerCase();
-
-  const validModels: SellingModel[] = [
-    "physical",
-    "digital_download",
-    "digital_delivery",
-    "collect",
-    "customisable",
-    "request_to_order",
-    "service",
-  ];
-
-  if (
-    validModels.includes(
-      storedModel as SellingModel
-    )
-  ) {
-    return storedModel as SellingModel;
-  }
-
-  // Legacy fallback for products created before selling_model
-  // existed. New products should always use selling_model.
-  const category =
-    String(
-      product.category || ""
-    )
-      .trim()
-      .toLowerCase();
-
-  if (
-    category.includes(
-      "digital download"
-    ) ||
-    category.includes(
-      "download"
-    ) ||
-    category.includes(
-      "template"
-    ) ||
-    category.includes(
-      "ebook"
-    )
-  ) {
-    return "digital_download";
-  }
-
-  if (
-    category.includes(
-      "digital delivery"
-    ) ||
-    category.includes(
-      "digitally delivered"
-    )
-  ) {
-    return "digital_delivery";
-  }
-
-  if (
-    category.includes(
-      "collect"
-    ) ||
-    category.includes(
-      "collection"
-    ) ||
-    category.includes(
-      "click and collect"
-    )
-  ) {
-    return "collect";
-  }
-
-  if (
-    category.includes(
-      "custom"
-    ) ||
-    category.includes(
-      "personalised"
-    ) ||
-    category.includes(
-      "personalized"
-    ) ||
-    category.includes(
-      "made to order"
-    )
-  ) {
-    return "customisable";
-  }
-
-  if (
-    category.includes(
-      "request"
-    ) ||
-    category.includes(
-      "quote"
-    ) ||
-    category.includes(
-      "enquiry"
-    )
-  ) {
-    return "request_to_order";
-  }
-
-  if (
-    category.includes(
-      "service"
-    ) ||
-    category.includes(
-      "consult"
-    ) ||
-    category.includes(
-      "session"
-    ) ||
-    category.includes(
-      "booking"
-    ) ||
-    [
-      "websites",
-      "website",
-      "website add-ons",
-      "website add ons",
-      "website maintenance",
-      "branding",
-      "business coaching",
-      "coaching",
-      "social media",
-      "business support",
-    ].includes(
-      category
-    )
-  ) {
-    return "service";
-  }
-
-  return product.track_inventory ===
-    false
-    ? "service"
-    : "physical";
-}
-
-function isServiceProduct(
-  product: Product
-) {
-  return (
-    inferSellingModel(
-      product
-    ) ===
-    "service"
-  );
-}
-
-function isDigitalProduct(
-  product: Product
-) {
   const model =
-    inferSellingModel(
-      product
-    );
+    String(
+      value ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
 
-  return (
+  if (
+    model ===
+      "physical" ||
     model ===
       "digital_download" ||
     model ===
-      "digital_delivery"
-  );
+      "digital_delivery" ||
+    model ===
+      "collect" ||
+    model ===
+      "customisable" ||
+    model ===
+      "request_to_order" ||
+    model ===
+      "service"
+  ) {
+    return model;
+  }
+
+  return fallback;
 }
 
-function isCollectionProduct(
-  product: Product
-) {
-  return (
-    inferSellingModel(
-      product
-    ) ===
-    "collect"
-  );
+function normalisePurchaseType(
+  value: unknown,
+  fallback: PurchaseType = "one_off"
+): PurchaseType {
+  return value === "subscription"
+    ? "subscription"
+    : fallback;
 }
 
-function isCustomisableProduct(
-  product: Product
-) {
-  return (
-    inferSellingModel(
-      product
-    ) ===
-    "customisable"
-  );
+function normaliseBillingInterval(
+  value: unknown,
+  fallback: BillingInterval = "month"
+): BillingInterval {
+  if (
+    value === "week" ||
+    value === "month" ||
+    value === "year"
+  ) {
+    return value;
+  }
+
+  return fallback;
 }
 
-function isRequestToOrderProduct(
-  product: Product
-) {
-  return (
-    inferSellingModel(
-      product
-    ) ===
-    "request_to_order"
-  );
+function normaliseBeneficiaryMode(
+  value: unknown,
+  fallback: BeneficiaryMode = "none"
+): BeneficiaryMode {
+  if (
+    value === "single_adult" ||
+    value === "couple" ||
+    value === "child" ||
+    value === "child_plus_adult"
+  ) {
+    return value;
+  }
+
+  return fallback;
 }
 
-function requiresShipping(
-  product: Product
+const MTC_MEMBERSHIP_PLANS = [
+  {
+    code: "ADULT_3PW",
+    label: "3 Per Week",
+    beneficiaryMode: "single_adult" as const,
+  },
+  {
+    code: "ADULT_UNLIMITED",
+    label: "Unlimited",
+    beneficiaryMode: "single_adult" as const,
+  },
+  {
+    code: "COUPLE_3PW",
+    label: "Couples - 3 Per Week",
+    beneficiaryMode: "couple" as const,
+  },
+  {
+    code: "COUPLE_UNLIMITED",
+    label: "Couples - Unlimited",
+    beneficiaryMode: "couple" as const,
+  },
+  {
+    code: "KID_1PW",
+    label: "Kids - 1 Per Week",
+    beneficiaryMode: "child" as const,
+  },
+  {
+    code: "KID_1PW_OPEN_GYM",
+    label: "Kids - 1 Per Week + Open Gym",
+    beneficiaryMode: "child_plus_adult" as const,
+  },
+  {
+    code: "KID_2PW",
+    label: "Kids - 2 Per Week",
+    beneficiaryMode: "child" as const,
+  },
+  {
+    code: "KID_2PW_OPEN_GYM",
+    label: "Kids - 2 Per Week + Open Gym",
+    beneficiaryMode: "child_plus_adult" as const,
+  },
+  {
+    code: "KID_3PW",
+    label: "Kids - 3 Per Week",
+    beneficiaryMode: "child" as const,
+  },
+  {
+    code: "KID_3PW_OPEN_GYM",
+    label: "Kids - 3 Per Week + Open Gym",
+    beneficiaryMode: "child_plus_adult" as const,
+  },
+] as const;
+
+// ============================================================
+
+function createSlug(
+  value: string
 ) {
-  return (
-    inferSellingModel(
-      product
-    ) ===
-    "physical"
-  );
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(
+      /['’]/g,
+      ""
+    )
+    .replace(
+      /[^a-z0-9]+/g,
+      "-"
+    )
+    .replace(
+      /^-+|-+$/g,
+      ""
+    );
 }
 
-function getProductTypeLabel(
-  product: Product
+function generateSku(
+  name: string
 ) {
-  const model =
-    inferSellingModel(
-      product
+  const prefix =
+    name
+      .replace(
+        /[^a-zA-Z0-9]/g,
+        ""
+      )
+      .slice(
+        0,
+        4
+      )
+      .toUpperCase() ||
+    "PROD";
+
+  return `${prefix}-${Date.now()
+    .toString()
+    .slice(-6)}`;
+}
+
+function normaliseOrderStatus(
+  value: unknown
+): OrderStatus {
+  const status =
+    String(
+      value ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    status ===
+    "processing"
+  ) {
+    return "processing";
+  }
+
+  if (
+    status ===
+      "dispatched" ||
+    status ===
+      "shipped"
+  ) {
+    return "dispatched";
+  }
+
+  if (
+    status ===
+      "delivered" ||
+    status ===
+      "complete" ||
+    status ===
+      "completed"
+  ) {
+    return "delivered";
+  }
+
+  if (
+    status ===
+      "cancelled" ||
+    status ===
+      "canceled"
+  ) {
+    return "cancelled";
+  }
+
+  return "new";
+}
+
+function normalisePaymentStatus(
+  value: unknown
+): PaymentStatus {
+  const status =
+    String(
+      value ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    status ===
+      "paid" ||
+    status ===
+      "succeeded" ||
+    status ===
+      "complete" ||
+    status ===
+      "completed"
+  ) {
+    return "paid";
+  }
+
+  if (
+    status ===
+      "refunded" ||
+    status ===
+      "refund"
+  ) {
+    return "refunded";
+  }
+
+  return "pending";
+}
+
+function formatDate(
+  value: unknown
+) {
+  if (
+    typeof value !==
+      "string" ||
+    !value
+  ) {
+    return "—";
+  }
+
+  const date =
+    new Date(
+      value
     );
 
-  switch (
-    model
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
   ) {
-    case "digital_download":
-      return "Digital download";
-
-    case "digital_delivery":
-      return "Digital delivery";
-
-    case "collect":
-      return "Collection";
-
-    case "customisable":
-      return "Customisable";
-
-    case "request_to_order":
-      return "Request to order";
-
-    case "service":
-      return "Service";
-
-    default:
-      return "Physical product";
+    return value;
   }
+
+  return new Intl.DateTimeFormat(
+    "en-GB",
+    {
+      day:
+        "numeric",
+
+      month:
+        "short",
+
+      year:
+        "numeric",
+    }
+  ).format(
+    date
+  );
 }
 
-function getProductActionLabel(
-  product: Product
+function formatDateTimeLocal(
+  value:
+    | string
+    | null
+    | undefined
 ) {
-  const model =
-    inferSellingModel(
-      product
+  if (
+    !value
+  ) {
+    return "";
+  }
+
+  const date =
+    new Date(
+      value
     );
 
-  switch (
-    model
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
   ) {
-    case "digital_download":
-      return "Buy download";
-
-    case "digital_delivery":
-      return "Buy now";
-
-    case "collect":
-      return "Order to collect";
-
-    case "customisable":
-      return "Customise & order";
-
-    case "request_to_order":
-      return "Request to order";
-
-    case "service":
-      return "Add service";
-
-    default:
-      return "Add to basket";
+    return "";
   }
+
+  const local =
+    new Date(
+      date.getTime() -
+        date.getTimezoneOffset() *
+          60000
+    );
+
+  return local
+    .toISOString()
+    .slice(
+      0,
+      16
+    );
 }
 
-function getProductFulfilmentText(
-  product: Product
-) {
-  const model =
-    inferSellingModel(
-      product
-    );
+function getDiscountStatus(
+  discount:
+    Discount
+): DiscountStatus {
+  const now =
+    Date.now();
 
-  switch (
-    model
+  if (
+    !discount.is_active
   ) {
-    case "digital_download":
-      return "Digital product — no shipping required.";
-
-    case "digital_delivery":
-      return "Delivered digitally after purchase.";
-
-    case "collect":
-      return "Order online and collect from the business.";
-
-    case "customisable":
-      return "Made for you — send your custom details before ordering.";
-
-    case "request_to_order":
-      return "Send a request first. The business will confirm the details with you.";
-
-    case "service":
-      return "Service purchase — the business will confirm next steps.";
-
-    default:
-      return "Physical product — delivery or fulfilment details are confirmed at checkout.";
+    return "Inactive";
   }
+
+  if (
+    discount.starts_at
+  ) {
+    const starts =
+      new Date(
+        discount.starts_at
+      ).getTime();
+
+    if (
+      !Number.isNaN(
+        starts
+      ) &&
+      starts >
+        now
+    ) {
+      return "Scheduled";
+    }
+  }
+
+  if (
+    discount.expires_at
+  ) {
+    const expires =
+      new Date(
+        discount.expires_at
+      ).getTime();
+
+    if (
+      !Number.isNaN(
+        expires
+      ) &&
+      expires <
+        now
+    ) {
+      return "Expired";
+    }
+  }
+
+  if (
+    discount.usage_limit !==
+      null &&
+    discount.usage_count >=
+      discount.usage_limit
+  ) {
+    return "Used up";
+  }
+
+  return "Active";
+}
+
+// ============================================================
+// ORGANISATION RESOLUTION
+// ============================================================
+
+async function resolveOrganisationContext(): Promise<OrganisationContext> {
+  const {
+    data:
+      authData,
+    error:
+      authError,
+  } =
+    await supabase.auth.getUser();
+
+  if (
+    authError ||
+    !authData.user
+  ) {
+    throw new Error(
+      "You need to be signed in to manage your store."
+    );
+  }
+
+  const user =
+    authData.user;
+
+  // ==========================================================
+  // USER ORGANISATIONS
+  // ==========================================================
+
+  try {
+    const {
+      data:
+        membershipRows,
+      error,
+    } =
+      await supabase
+        .from(
+          "user_organisations"
+        )
+        .select("*")
+        .eq(
+          "user_id",
+          user.id
+        )
+        .limit(
+          1
+        );
+
+    if (
+      !error
+    ) {
+      const membership =
+        membershipRows?.[0] as
+          | Record<
+              string,
+              unknown
+            >
+          | undefined;
+
+      const membershipOrgId =
+        firstString(
+          membership
+            ?.organisation_id,
+
+          membership
+            ?.organization_id
+        );
+
+      if (
+        membershipOrgId
+      ) {
+        const {
+          data:
+            organisation,
+        } =
+          await supabase
+            .from(
+              "organisations"
+            )
+            .select("*")
+            .eq(
+              "id",
+              membershipOrgId
+            )
+            .maybeSingle();
+
+        return {
+          organisationId:
+            membershipOrgId,
+
+          organisationName:
+            firstString(
+              organisation?.name,
+
+              organisation
+                ?.company_name
+            ) ||
+            "My Business",
+
+        };
+      }
+    }
+  } catch (
+    error
+  ) {
+    console.warn(
+      "user_organisations lookup skipped:",
+      error
+    );
+  }
+
+  // ==========================================================
+  // PROFILES
+  // ==========================================================
+
+  try {
+    const {
+      data:
+        profile,
+    } =
+      await supabase
+        .from(
+          "profiles"
+        )
+        .select("*")
+        .eq(
+          "id",
+          user.id
+        )
+        .maybeSingle();
+
+    const profileOrgId =
+      firstString(
+        profile
+          ?.organisation_id,
+
+        profile
+          ?.organization_id
+      );
+
+    if (
+      profileOrgId
+    ) {
+      const {
+        data:
+          organisation,
+      } =
+        await supabase
+          .from(
+            "organisations"
+          )
+          .select("*")
+          .eq(
+            "id",
+            profileOrgId
+          )
+          .maybeSingle();
+
+      return {
+        organisationId:
+          profileOrgId,
+
+        organisationName:
+          firstString(
+            organisation?.name,
+
+            organisation
+              ?.company_name
+          ) ||
+          "My Business",
+
+      };
+    }
+  } catch (
+    error
+  ) {
+    console.warn(
+      "profiles organisation lookup skipped:",
+      error
+    );
+  }
+
+  // ==========================================================
+  // ORGANISATION MEMBERS
+  // ==========================================================
+
+  try {
+    const {
+      data:
+        memberRows,
+    } =
+      await supabase
+        .from(
+          "organisation_members"
+        )
+        .select("*")
+        .eq(
+          "user_id",
+          user.id
+        )
+        .limit(
+          1
+        );
+
+    const member =
+      memberRows?.[0] as
+        | Record<
+            string,
+            unknown
+          >
+        | undefined;
+
+    const memberOrgId =
+      firstString(
+        member
+          ?.organisation_id,
+
+        member
+          ?.organization_id
+      );
+
+    if (
+      memberOrgId
+    ) {
+      const {
+        data:
+          organisation,
+      } =
+        await supabase
+          .from(
+            "organisations"
+          )
+          .select("*")
+          .eq(
+            "id",
+            memberOrgId
+          )
+          .maybeSingle();
+
+      return {
+        organisationId:
+          memberOrgId,
+
+        organisationName:
+          firstString(
+            organisation?.name,
+
+            organisation
+              ?.company_name
+          ) ||
+          "My Business",
+
+      };
+    }
+  } catch (
+    error
+  ) {
+    console.warn(
+      "organisation_members lookup skipped:",
+      error
+    );
+  }
+
+  throw new Error(
+    "We couldn't work out which organisation this store belongs to."
+  );
 }
 
 // ============================================================
 // PAGE
 // ============================================================
 
-export default function ShopFrontPage() {
-  const params =
-    useParams();
-
-  const slug =
-    typeof params?.slug ===
-    "string"
-      ? params.slug
-      : Array.isArray(
-            params?.slug
-          )
-        ? params.slug[0]
-        : "";
-
+export default function StorePage() {
   // ==========================================================
-  // REQUEST MANAGEMENT
-  // ==========================================================
-
-  const requestControllerRef =
-    useRef<AbortController | null>(
-      null
-    );
-
-  const contactControllerRef =
-    useRef<AbortController | null>(
-      null
-    );
-
-  // ==========================================================
-  // STORE
+  // CORE
   // ==========================================================
 
   const [
-    store,
-    setStore,
+    activeTab,
+    setActiveTab,
   ] =
-    useState<Storefront | null>(
-      null
-    );
-
-  const [
-    products,
-    setProducts,
-  ] =
-    useState<Product[]>(
-      []
+    useState<StoreTab>(
+      "Overview"
     );
 
   const [
     loading,
     setLoading,
   ] =
-    useState(true);
-
-  const [
-    error,
-    setError,
-  ] =
-    useState<string | null>(
-      null
+    useState(
+      true
     );
 
   const [
-    productLoadWarning,
-    setProductLoadWarning,
+    refreshing,
+    setRefreshing,
   ] =
-    useState<string | null>(
-      null
+    useState(
+      false
     );
 
-  // ==========================================================
-  // FILTERS
-  // ==========================================================
-
   const [
-    search,
-    setSearch,
-  ] =
-    useState("");
-
-  const [
-    category,
-    setCategory,
-  ] =
-    useState("All");
-
-  // ==========================================================
-  // UI
-  // ==========================================================
-
-  const [
-    mobileMenuOpen,
-    setMobileMenuOpen,
-  ] =
-    useState(false);
-
-  const [
-    cartOpen,
-    setCartOpen,
-  ] =
-    useState(false);
-
-  const [
-    contactOpen,
-    setContactOpen,
-  ] =
-    useState(false);
-
-  // ==========================================================
-  // CONTACT
-  // ==========================================================
-
-  const [
-    contactName,
-    setContactName,
-  ] =
-    useState("");
-
-  const [
-    contactEmail,
-    setContactEmail,
-  ] =
-    useState("");
-
-  const [
-    contactMessage,
-    setContactMessage,
-  ] =
-    useState("");
-
-  const [
-    sendingMessage,
-    setSendingMessage,
-  ] =
-    useState(false);
-
-  const [
-    messageSent,
-    setMessageSent,
-  ] =
-    useState(false);
-
-  const [
-    messageError,
-    setMessageError,
-  ] =
-    useState<string | null>(
-      null
-    );
-
-  // ==========================================================
-  // CART
-  // ==========================================================
-
-  const [
-    cart,
-    setCart,
+    pageError,
+    setPageError,
   ] =
     useState<
-      Record<
-        string,
-        CartLine
-      >
-    >({});
-
-  const [
-    checkingOut,
-    setCheckingOut,
-  ] =
-    useState(false);
-
-  const [
-    checkoutError,
-    setCheckoutError,
-  ] =
-    useState<string | null>(
+      string | null
+    >(
       null
     );
 
   const [
-    beneficiaryDrafts,
-    setBeneficiaryDrafts,
+    organisationId,
+    setOrganisationId,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    organisationName,
+    setOrganisationName,
+  ] =
+    useState(
+      ""
+    );
+
+
+  // ==========================================================
+  // SETTINGS
+  // ==========================================================
+
+  const [
+    storeSettings,
+    setStoreSettings,
+  ] =
+    useState<StoreSettingsRow | null>(
+      null
+    );
+
+  const [
+    storeName,
+    setStoreName,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    storeDescription,
+    setStoreDescription,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    heroTitle,
+    setHeroTitle,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    heroText,
+    setHeroText,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    announcement,
+    setAnnouncement,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    accentColour,
+    setAccentColour,
+  ] =
+    useState(
+      "#A9B897"
+    );
+
+  const [
+    storefrontMode,
+    setStorefrontMode,
   ] =
     useState<
-      Record<
-        string,
-        BeneficiaryDraft
-      >
-    >({});
+      "hosted" | "external"
+    >(
+      "hosted"
+    );
+
+  const [
+    externalStorefrontUrl,
+    setExternalStorefrontUrl,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    logoUrl,
+    setLogoUrl,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    faviconUrl,
+    setFaviconUrl,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    heroImageUrl,
+    setHeroImageUrl,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    backgroundColour,
+    setBackgroundColour,
+  ] =
+    useState(
+      "#FAF8F5"
+    );
+
+  const [
+    textColour,
+    setTextColour,
+  ] =
+    useState(
+      "#1c1917"
+    );
+
+  const [
+    buttonColour,
+    setButtonColour,
+  ] =
+    useState(
+      "#1c1917"
+    );
+
+  const [
+    buttonTextColour,
+    setButtonTextColour,
+  ] =
+    useState(
+      "#ffffff"
+    );
+
+  const [
+    headingFont,
+    setHeadingFont,
+  ] =
+    useState(
+      "Poppins"
+    );
+
+  const [
+    bodyFont,
+    setBodyFont,
+  ] =
+    useState(
+      "Poppins"
+    );
+
+  const [
+    layoutStyle,
+    setLayoutStyle,
+  ] =
+    useState(
+      "minimal"
+    );
+
+  const [
+    cardStyle,
+    setCardStyle,
+  ] =
+    useState(
+      "soft"
+    );
+
+  const [
+    borderRadius,
+    setBorderRadius,
+  ] =
+    useState(
+      "18"
+    );
+
+  const [
+    showCategories,
+    setShowCategories,
+  ] =
+    useState(
+      true
+    );
+
+  const [
+    showSearch,
+    setShowSearch,
+  ] =
+    useState(
+      true
+    );
+
+  const [
+    showStock,
+    setShowStock,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    showPrices,
+    setShowPrices,
+  ] =
+    useState(
+      true
+    );
+
+  const [
+    footerText,
+    setFooterText,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    instagramUrl,
+    setInstagramUrl,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    facebookUrl,
+    setFacebookUrl,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    tiktokUrl,
+    setTiktokUrl,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    customCss,
+    setCustomCss,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    uploadingStoreAsset,
+    setUploadingStoreAsset,
+  ] =
+    useState<
+      "logo" | "hero" | "favicon" | null
+    >(
+      null
+    );
+
+  const [
+    shippingText,
+    setShippingText,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    supportEmail,
+    setSupportEmail,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    slug,
+    setSlug,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    storeLive,
+    setStoreLive,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    savingSettings,
+    setSavingSettings,
+  ] =
+    useState(
+      false
+    );
+
+  // ==========================================================
+  // PRODUCTS
+  // ==========================================================
+
+  const [
+    products,
+    setProducts,
+  ] =
+    useState<
+      Product[]
+    >(
+      []
+    );
+
+  const [
+    productSearch,
+    setProductSearch,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    showProductModal,
+    setShowProductModal,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    productForm,
+    setProductForm,
+  ] =
+    useState<ProductForm>({
+      ...EMPTY_PRODUCT_FORM,
+    });
+
+  const [
+    savingProduct,
+    setSavingProduct,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    deletingProductId,
+    setDeletingProductId,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+  // ==========================================================
+  // INVENTORY
+  // ==========================================================
+
+  const [
+    lowStockThreshold,
+    setLowStockThreshold,
+  ] =
+    useState(
+      "8"
+    );
+
+  const [
+    stockAdjust,
+    setStockAdjust,
+  ] =
+    useState<StockAdjustState | null>(
+      null
+    );
+
+  const [
+    savingStock,
+    setSavingStock,
+  ] =
+    useState(
+      false
+    );
+
+  // ==========================================================
+  // ORDERS
+  // ==========================================================
+
+  const [
+    orders,
+    setOrders,
+  ] =
+    useState<
+      Order[]
+    >(
+      []
+    );
+
+  const [
+    orderSearch,
+    setOrderSearch,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    updatingOrderId,
+    setUpdatingOrderId,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+  const [
+    selectedOrder,
+    setSelectedOrder,
+  ] =
+    useState<Order | null>(
+      null
+    );
+
+  // ==========================================================
+  // SUBSCRIPTIONS
+  // ==========================================================
+
+  const [
+    subscriptions,
+    setSubscriptions,
+  ] =
+    useState<
+      StoreSubscription[]
+    >(
+      []
+    );
+
+  const [
+    subscriptionSearch,
+    setSubscriptionSearch,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    updatingSubscriptionId,
+    setUpdatingSubscriptionId,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+  const [
+    subscriptionBeneficiaries,
+    setSubscriptionBeneficiaries,
+  ] =
+    useState<
+      StoreSubscriptionBeneficiary[]
+    >(
+      []
+    );
 
   // ==========================================================
   // DISCOUNTS
   // ==========================================================
 
   const [
-    discountCode,
-    setDiscountCode,
+    discounts,
+    setDiscounts,
   ] =
-    useState("");
+    useState<
+      Discount[]
+    >(
+      []
+    );
 
   const [
-    appliedDiscountCode,
-    setAppliedDiscountCode,
+    discountSearch,
+    setDiscountSearch,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
   const [
-    discountMessage,
-    setDiscountMessage,
+    showDiscountModal,
+    setShowDiscountModal,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    discountForm,
+    setDiscountForm,
+  ] =
+    useState<DiscountForm>({
+      ...EMPTY_DISCOUNT_FORM,
+    });
+
+  const [
+    savingDiscount,
+    setSavingDiscount,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    deletingDiscountId,
+    setDeletingDiscountId,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+  // ==========================================================
+  // LOCAL OPTIONS
+  // ==========================================================
+
+  const [
+    currency,
+    setCurrency,
+  ] =
+    useState(
+      "GBP"
+    );
+
+  const [
+    orderNotifications,
+    setOrderNotifications,
+  ] =
+    useState(
+      true
+    );
+
+  const [
+    autoCreateContacts,
+    setAutoCreateContacts,
+  ] =
+    useState(
+      true
+    );
+
+
+  // ==========================================================
+  // STRIPE CONNECT / PAYMENTS
+  // ==========================================================
+
+  const [
+    stripeStatus,
+    setStripeStatus,
+  ] =
+    useState<StripeAccountStatus>({
+      connected:
+        false,
+
+      accountId:
+        null,
+
+      chargesEnabled:
+        false,
+
+      payoutsEnabled:
+        false,
+
+      detailsSubmitted:
+        false,
+
+      availableBalance:
+        0,
+
+      pendingBalance:
+        0,
+
+      currency:
+        "GBP",
+    });
+
+  const [
+    loadingStripe,
+    setLoadingStripe,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    connectingStripe,
+    setConnectingStripe,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    openingStripeDashboard,
+    setOpeningStripeDashboard,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    requestingPayout,
+    setRequestingPayout,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    refundForm,
+    setRefundForm,
+  ] =
+    useState<RefundFormState | null>(
+      null
+    );
+
+  const [
+    refundingOrderId,
+    setRefundingOrderId,
   ] =
     useState<string | null>(
       null
     );
 
   // ==========================================================
-  // LOAD STORE
+  // LOAD DATA
   // ==========================================================
 
-  const loadStore =
+  const loadData =
     useCallback(
-      async () => {
+      async (
+        quiet = false
+      ) => {
         if (
-          !slug ||
-          !slug.trim()
+          quiet
         ) {
-          setStore(null);
-          setProducts([]);
-
-          setError(
-            "No store was specified."
+          setRefreshing(
+            true
           );
-
-          setLoading(false);
-
-          return;
+        } else {
+          setLoading(
+            true
+          );
         }
 
-        requestControllerRef.current?.abort();
-
-        const controller =
-          new AbortController();
-
-        requestControllerRef.current =
-          controller;
-
-        setLoading(true);
-
-        setError(null);
-
-        setProductLoadWarning(
+        setPageError(
           null
         );
 
-        const safeSlug =
-          slug
-            .trim()
-            .toLowerCase();
-
-        let timeoutId:
-          ReturnType<
-            typeof setTimeout
-          > | null =
-          null;
-
         try {
-          timeoutId =
-            setTimeout(
-              () => {
-                controller.abort();
-              },
-              STOREFRONT_REQUEST_TIMEOUT_MS
-            );
+          // ===================================================
+          // ORGANISATION
+          // ===================================================
 
-          const response =
-            await fetch(
-              `/api/storefront/${encodeURIComponent(
-                safeSlug
-              )}?t=${Date.now()}`,
-              {
-                method:
-                  "GET",
+          const context =
+            await resolveOrganisationContext();
 
-                headers: {
-                  Accept:
-                    "application/json",
-                },
+          const orgId =
+            context.organisationId;
 
-                cache:
-                  "no-store",
+          setOrganisationId(
+            orgId
+          );
 
-                signal:
-                  controller.signal,
-              }
-            );
+          setOrganisationName(
+            context.organisationName
+          );
 
-          const contentType =
-            response.headers.get(
-              "content-type"
-            );
 
-          let data:
-            StorefrontApiResponse | null =
-            null;
+          // ===================================================
+          // STORE SETTINGS
+          // ===================================================
+
+          const {
+            data:
+              settingsRows,
+            error:
+              settingsError,
+          } =
+            await supabase
+              .from(
+                "store_settings"
+              )
+              .select("*")
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .limit(
+                1
+              );
 
           if (
-            contentType?.includes(
-              "application/json"
+            settingsError
+          ) {
+            throw settingsError;
+          }
+
+          const settings =
+            (
+              settingsRows?.[0] ||
+              null
+            ) as StoreSettingsRow | null;
+
+          setStoreSettings(
+            settings
+          );
+
+          setStoreName(
+            settings
+              ?.store_name ||
+              context
+                .organisationName ||
+              ""
+          );
+
+          setStoreDescription(
+            settings
+              ?.store_description ||
+              ""
+          );
+
+          setHeroTitle(
+            settings
+              ?.hero_title ||
+              ""
+          );
+
+          setHeroText(
+            settings
+              ?.hero_text ||
+              ""
+          );
+
+          setAnnouncement(
+            settings
+              ?.announcement ||
+              ""
+          );
+
+          setAccentColour(
+            settings
+              ?.accent_colour ||
+              "#A9B897"
+          );
+
+          setStorefrontMode(
+            settings
+              ?.storefront_mode ===
+              "external"
+              ? "external"
+              : "hosted"
+          );
+
+          setExternalStorefrontUrl(
+            settings
+              ?.external_storefront_url ||
+              ""
+          );
+
+          setLogoUrl(
+            settings
+              ?.logo_url ||
+              ""
+          );
+
+          setFaviconUrl(
+            settings
+              ?.favicon_url ||
+              ""
+          );
+
+          setHeroImageUrl(
+            settings
+              ?.hero_image_url ||
+              ""
+          );
+
+          setBackgroundColour(
+            settings
+              ?.background_colour ||
+              "#FAF8F5"
+          );
+
+          setTextColour(
+            settings
+              ?.text_colour ||
+              "#1c1917"
+          );
+
+          setButtonColour(
+            settings
+              ?.button_colour ||
+              "#1c1917"
+          );
+
+          setButtonTextColour(
+            settings
+              ?.button_text_colour ||
+              "#ffffff"
+          );
+
+          setHeadingFont(
+            settings
+              ?.heading_font ||
+              "Poppins"
+          );
+
+          setBodyFont(
+            settings
+              ?.body_font ||
+              "Poppins"
+          );
+
+          setLayoutStyle(
+            settings
+              ?.layout_style ||
+              "minimal"
+          );
+
+          setCardStyle(
+            settings
+              ?.card_style ||
+              "soft"
+          );
+
+          setBorderRadius(
+            String(
+              settings
+                ?.border_radius ??
+                18
             )
-          ) {
-            data =
-              (await response.json()) as StorefrontApiResponse;
-          } else {
-            const text =
-              await response.text();
+          );
 
-            console.error(
-              "[TOTS STORE] API returned a non-JSON response:",
-              text.slice(
-                0,
-                500
+          setShowCategories(
+            settings
+              ?.show_categories !==
+              false
+          );
+
+          setShowSearch(
+            settings
+              ?.show_search !==
+              false
+          );
+
+          setShowStock(
+            settings
+              ?.show_stock ===
+              true
+          );
+
+          setShowPrices(
+            settings
+              ?.show_prices !==
+              false
+          );
+
+          setFooterText(
+            settings
+              ?.footer_text ||
+              ""
+          );
+
+          setInstagramUrl(
+            settings
+              ?.instagram_url ||
+              ""
+          );
+
+          setFacebookUrl(
+            settings
+              ?.facebook_url ||
+              ""
+          );
+
+          setTiktokUrl(
+            settings
+              ?.tiktok_url ||
+              ""
+          );
+
+          setCustomCss(
+            settings
+              ?.custom_css ||
+              ""
+          );
+
+          setShippingText(
+            settings
+              ?.shipping_text ||
+              ""
+          );
+
+          setSupportEmail(
+            settings
+              ?.support_email ||
+              ""
+          );
+
+          setSlug(
+            settings?.slug ||
+              createSlug(
+                context
+                  .organisationName
               )
-            );
+          );
 
-            throw new Error(
-              "The store server returned an unexpected response."
-            );
-          }
+          setStoreLive(
+            settings
+              ?.is_live ===
+              true
+          );
 
-          if (
-            !response.ok
-          ) {
-            throw new Error(
-              data?.error ||
-                "The store could not be loaded."
-            );
-          }
+          // ===================================================
+          // PRODUCTS
+          // ===================================================
 
-          if (
-            !data?.store
-          ) {
-            throw new Error(
-              "This store could not be found."
-            );
-          }
-
-          const incomingProducts =
-            Array.isArray(
-              data.products
-            )
-              ? data.products
-              : [];
-
-          const cleanedProducts =
-            incomingProducts
-              .filter(
-                (product) =>
-                  Boolean(
-                    product?.id
-                  )
+          const {
+            data:
+              productRows,
+            error:
+              productError,
+          } =
+            await supabase
+              .from(
+                "store_products"
               )
-              .filter(
-                (product) =>
-                  typeof product.name ===
-                    "string" &&
-                  Boolean(
-                    product.name.trim()
-                  )
+              .select("*")
+              .eq(
+                "organisation_id",
+                orgId
               )
-              .filter(
-                (product) =>
-                  product.is_active !==
-                  false
-              )
-              .filter(
-                (product) =>
-                  !product.status ||
-                  product.status ===
-                    "active"
-              )
-              .sort(
-                (
-                  first,
-                  second
-                ) => {
-                  const firstFeatured =
-                    first.featured ===
-                    true
-                      ? 1
-                      : 0;
-
-                  const secondFeatured =
-                    second.featured ===
-                    true
-                      ? 1
-                      : 0;
-
-                  if (
-                    firstFeatured !==
-                    secondFeatured
-                  ) {
-                    return (
-                      secondFeatured -
-                      firstFeatured
-                    );
-                  }
-
-                  const firstOrder =
-                    typeof first.sort_order ===
-                    "number"
-                      ? first.sort_order
-                      : 999999;
-
-                  const secondOrder =
-                    typeof second.sort_order ===
-                    "number"
-                      ? second.sort_order
-                      : 999999;
-
-                  if (
-                    firstOrder !==
-                    secondOrder
-                  ) {
-                    return (
-                      firstOrder -
-                      secondOrder
-                    );
-                  }
-
-                  return first.name.localeCompare(
-                    second.name
-                  );
+              .order(
+                "sort_order",
+                {
+                  ascending:
+                    true,
                 }
               );
 
-          setStore(
-            data.store
+          if (
+            productError
+          ) {
+            throw productError;
+          }
+
+         // ===================================================
+// ORDERS
+// ===================================================
+
+const {
+  data: orderRows,
+  error: orderError,
+} = await supabase
+  .from("store_orders")
+  .select(`
+    id,
+    organisation_id,
+    order_number,
+    customer_name,
+    customer_email,
+    customer_phone,
+    subtotal,
+    discount_amount,
+    shipping_amount,
+    total,
+    payment_status,
+    fulfilment_status,
+    created_at,
+    updated_at
+  `)
+  .eq("organisation_id", orgId)
+  .order("created_at", {
+    ascending: false,
+  });
+
+console.log(
+  "[TOTS COMMERCE] organisation:",
+  orgId
+);
+
+console.log(
+  "[TOTS COMMERCE] order rows:",
+  orderRows
+);
+
+console.log(
+  "[TOTS COMMERCE] order error:",
+  orderError
+);
+
+if (orderError) {
+  throw orderError;
+}
+          // ===================================================
+          // SUBSCRIPTIONS
+          // ===================================================
+
+          const {
+            data:
+              subscriptionRows,
+            error:
+              subscriptionError,
+          } =
+            await supabase
+              .from(
+                "store_subscriptions"
+              )
+              .select("*")
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .order(
+                "created_at",
+                {
+                  ascending:
+                    false,
+                }
+              );
+
+          if (
+            subscriptionError
+          ) {
+            throw subscriptionError;
+          }
+
+          setSubscriptions(
+            (
+              subscriptionRows ||
+              []
+            ).map(
+              (
+                row:
+                  Record<
+                    string,
+                    unknown
+                  >
+              ) => ({
+                id:
+                  String(
+                    row.id
+                  ),
+
+                organisation_id:
+                  String(
+                    row.organisation_id ||
+                      orgId
+                  ),
+
+                order_id:
+                  firstString(
+                    row.order_id
+                  ),
+
+                product_id:
+                  firstString(
+                    row.product_id
+                  ),
+
+                customer_name:
+                  firstString(
+                    row.customer_name
+                  ),
+
+                customer_email:
+                  firstString(
+                    row.customer_email
+                  ),
+
+                customer_phone:
+                  firstString(
+                    row.customer_phone
+                  ),
+
+                stripe_account_id:
+                  firstString(
+                    row.stripe_account_id
+                  ) ||
+                  "",
+
+                stripe_customer_id:
+                  firstString(
+                    row.stripe_customer_id
+                  ),
+
+                stripe_subscription_id:
+                  firstString(
+                    row.stripe_subscription_id
+                  ) ||
+                  "",
+
+                stripe_price_id:
+                  firstString(
+                    row.stripe_price_id
+                  ),
+
+                status:
+                  firstString(
+                    row.status
+                  ) ||
+                  "incomplete",
+
+                quantity:
+                  firstNumber(
+                    row.quantity,
+                    1
+                  ),
+
+                currency:
+                  firstString(
+                    row.currency
+                  ) ||
+                  "gbp",
+
+                unit_amount_pence:
+                  row.unit_amount_pence ===
+                    null ||
+                  row.unit_amount_pence ===
+                    undefined
+                    ? null
+                    : firstNumber(
+                        row.unit_amount_pence
+                      ),
+
+                billing_interval:
+                  row.billing_interval
+                    ? normaliseBillingInterval(
+                        row.billing_interval
+                      )
+                    : null,
+
+                current_period_start:
+                  firstString(
+                    row.current_period_start
+                  ),
+
+                current_period_end:
+                  firstString(
+                    row.current_period_end
+                  ),
+
+                cancel_at_period_end:
+                  safeBoolean(
+                    row.cancel_at_period_end,
+                    false
+                  ),
+
+                cancelled_at:
+                  firstString(
+                    row.cancelled_at
+                  ),
+
+                metadata:
+                  row.metadata &&
+                  typeof row.metadata ===
+                    "object" &&
+                  !Array.isArray(
+                    row.metadata
+                  )
+                    ? (
+                        row.metadata as Record<
+                          string,
+                          unknown
+                        >
+                      )
+                    : {},
+
+                created_at:
+                  firstString(
+                    row.created_at
+                  ) ||
+                  "",
+
+                updated_at:
+                  firstString(
+                    row.updated_at
+                  ) ||
+                  "",
+              })
+            )
           );
+
+          // ===================================================
+          // ORDER ITEMS
+          // ===================================================
+
+          let orderItems:
+            Record<
+              string,
+              unknown
+            >[] = [];
+
+          const orderIds =
+            (
+              orderRows ||
+              []
+            )
+              .map(
+                (
+                  row
+                ) =>
+                  firstString(
+                    row.id
+                  )
+              )
+              .filter(
+                (
+                  value
+                ): value is string =>
+                  Boolean(
+                    value
+                  )
+              );
+
+          if (
+            orderIds.length >
+            0
+          ) {
+            const {
+              data:
+                itemRows,
+              error:
+                orderItemsError,
+            } =
+              await supabase
+                .from(
+                  "store_order_items"
+                )
+                .select("*")
+                .in(
+                  "order_id",
+                  orderIds
+                );
+
+            if (
+              orderItemsError
+            ) {
+              console.warn(
+                "Order item stats unavailable:",
+                orderItemsError
+              );
+            } else {
+              orderItems =
+                (
+                  itemRows ||
+                  []
+                ) as Record<
+                  string,
+                  unknown
+                >[];
+            }
+          }
+
+          // ===================================================
+          // DISCOUNTS
+          // ===================================================
+
+          const {
+            data:
+              discountRows,
+            error:
+              discountError,
+          } =
+            await supabase
+              .from(
+                "store_discounts"
+              )
+              .select("*")
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .order(
+                "created_at",
+                {
+                  ascending:
+                    false,
+                }
+              );
+
+          if (
+            discountError
+          ) {
+            throw discountError;
+          }
+
+          // ===================================================
+          // CLEAN PRODUCTS
+          // ===================================================
+
+          const cleanedProducts:
+            Product[] =
+            (
+              productRows ||
+              []
+            ).map(
+              (
+                row:
+                  Record<
+                    string,
+                    unknown
+                  >
+              ) => {
+                const id =
+                  String(
+                    row.id
+                  );
+
+                const related =
+                  orderItems.filter(
+                    (
+                      item
+                    ) =>
+                      firstString(
+                        item.product_id
+                      ) ===
+                      id
+                  );
+
+                const orders =
+                  related.reduce(
+                    (
+                      total,
+                      item
+                    ) =>
+                      total +
+                      firstNumber(
+                        item.quantity,
+                        1
+                      ),
+                    0
+                  );
+
+                const revenue =
+                  related.reduce(
+                    (
+                      total,
+                      item
+                    ) => {
+                      const quantity =
+                        firstNumber(
+                          item.quantity,
+                          1
+                        );
+
+                      const unit =
+                        firstNumber(
+                          item.unit_price
+                        );
+
+                      const lineTotal =
+                        firstNumber(
+                          item.total
+                        );
+
+                      return (
+                        total +
+                        (
+                          lineTotal ||
+                          unit *
+                            quantity
+                        )
+                      );
+                    },
+                    0
+                  );
+
+                const rawStatus =
+                  firstString(
+                    row.status
+                  );
+
+                let status:
+                  ProductStatus =
+                  "active";
+
+                if (
+                  rawStatus ===
+                  "draft"
+                ) {
+                  status =
+                    "draft";
+                }
+
+                if (
+                  rawStatus ===
+                  "archived"
+                ) {
+                  status =
+                    "archived";
+                }
+
+                if (
+                  row.is_active ===
+                    false &&
+                  !rawStatus
+                ) {
+                  status =
+                    "draft";
+                }
+
+                const name =
+                  firstString(
+                    row.name
+                  ) ||
+                  "Untitled product";
+
+                const inventoryQuantity =
+                  firstNumber(
+                    row.inventory_quantity,
+                    row.stock
+                  );
+
+                const stock =
+                  firstNumber(
+                    row.stock,
+                    row.inventory_quantity
+                  );
+
+                return {
+                  id,
+
+                  organisation_id:
+                    String(
+                      row.organisation_id ||
+                        orgId
+                    ),
+
+                  name,
+
+                  slug:
+                    firstString(
+                      row.slug
+                    ) ||
+                    createSlug(
+                      name
+                    ),
+
+                  sku:
+                    firstString(
+                      row.sku
+                    ) ||
+                    "—",
+
+                  category:
+                    firstString(
+                      row.category
+                    ) ||
+                    "General",
+
+                  selling_model:
+                    normaliseSellingModel(
+                      row.selling_model,
+                      safeBoolean(
+                        row.track_inventory,
+                        true
+                      )
+                        ? "physical"
+                        : "service"
+                    ),
+
+                  purchase_type:
+                    normalisePurchaseType(
+                      row.purchase_type
+                    ),
+
+                  billing_interval:
+                    row.billing_interval
+                      ? normaliseBillingInterval(
+                          row.billing_interval
+                        )
+                      : null,
+
+                  stripe_product_id:
+                    firstString(
+                      row.stripe_product_id
+                    ),
+
+                  stripe_price_id:
+                    firstString(
+                      row.stripe_price_id
+                    ),
+
+                  external_system:
+                    firstString(
+                      row.external_system
+                    ),
+
+                  external_plan_code:
+                    firstString(
+                      row.external_plan_code
+                    ),
+
+                  beneficiary_mode:
+                    normaliseBeneficiaryMode(
+                      row.beneficiary_mode
+                    ),
+
+                  description:
+                    firstString(
+                      row.description
+                    ) ||
+                    "",
+
+                  price:
+                    firstNumber(
+                      row.price
+                    ),
+
+                  compare_at_price:
+                    row.compare_at_price ===
+                      null ||
+                    row.compare_at_price ===
+                      undefined
+                      ? null
+                      : firstNumber(
+                          row.compare_at_price
+                        ),
+
+                  cost:
+                    firstNumber(
+                      row.cost_price
+                    ),
+
+                  stock,
+
+                  inventory_quantity:
+                    inventoryQuantity,
+
+                  low_stock_threshold:
+                    firstNumber(
+                      row.low_stock_threshold,
+                      5
+                    ),
+
+                  track_inventory:
+                    safeBoolean(
+                      row.track_inventory,
+                      true
+                    ),
+
+                  status,
+
+                  image_url:
+                    firstString(
+                      row.image_url
+                    ),
+
+                  images:
+                    safeStringArray(
+                      row.images
+                    ),
+
+                  featured:
+                    safeBoolean(
+                      row.featured,
+                      false
+                    ),
+
+                  sort_order:
+                    typeof row.sort_order ===
+                    "number"
+                      ? row.sort_order
+                      : null,
+
+                  is_active:
+                    row.is_active !==
+                    false,
+
+                  created_at:
+                    firstString(
+                      row.created_at
+                    ),
+
+                  orders,
+
+                  revenue,
+                };
+              }
+            );
 
           setProducts(
             cleanedProducts
           );
 
-          setProductLoadWarning(
-            typeof data.productLoadWarning ===
-              "string"
-              ? data.productLoadWarning
-              : null
-          );
+          // ===================================================
+          // SUBSCRIPTION BENEFICIARIES
+          // ===================================================
 
-          setError(null);
-        } catch (
-          loadError: unknown
-        ) {
+          const {
+            data:
+              beneficiaryRows,
+            error:
+              beneficiaryError,
+          } =
+            await supabase
+              .from(
+                "store_subscription_beneficiaries"
+              )
+              .select(
+                `
+                  id,
+                  organisation_id,
+                  subscription_id,
+                  customer_id,
+                  beneficiary_type,
+                  first_name,
+                  last_name,
+                  email,
+                  phone,
+                  relationship_to_payer,
+                  external_user_id,
+                  is_primary,
+                  is_active,
+                  metadata,
+                  created_at,
+                  updated_at
+                `
+              )
+              .eq(
+                "organisation_id",
+                orgId
+              )
+              .order(
+                "created_at",
+                {
+                  ascending:
+                    true,
+                }
+              );
+
           if (
-            controller.signal.aborted
+            beneficiaryError
           ) {
-            if (
-              requestControllerRef.current !==
-              controller
-            ) {
-              return;
-            }
-
-            setStore(null);
-
-            setProducts([]);
-
-            setError(
-              "The store is taking longer than expected. Please try again."
+            console.warn(
+              "[TOTS COMMERCE] Subscription beneficiaries could not be loaded:",
+              beneficiaryError
             );
 
-            return;
+            setSubscriptionBeneficiaries(
+              []
+            );
+          } else {
+            setSubscriptionBeneficiaries(
+              (
+                beneficiaryRows ||
+                []
+              ).map(
+                (
+                  row:
+                    Record<
+                      string,
+                      unknown
+                    >
+                ) => ({
+                  id:
+                    String(
+                      row.id
+                    ),
+
+                  organisation_id:
+                    String(
+                      row.organisation_id ||
+                        orgId
+                    ),
+
+                  subscription_id:
+                    String(
+                      row.subscription_id
+                    ),
+
+                  customer_id:
+                    firstString(
+                      row.customer_id
+                    ),
+
+                  beneficiary_type:
+                    firstString(
+                      row.beneficiary_type
+                    ),
+
+                  first_name:
+                    firstString(
+                      row.first_name
+                    ),
+
+                  last_name:
+                    firstString(
+                      row.last_name
+                    ),
+
+                  email:
+                    firstString(
+                      row.email
+                    ),
+
+                  phone:
+                    firstString(
+                      row.phone
+                    ),
+
+                  relationship_to_payer:
+                    firstString(
+                      row.relationship_to_payer
+                    ),
+
+                  external_user_id:
+                    firstString(
+                      row.external_user_id
+                    ),
+
+                  is_primary:
+                    row.is_primary ===
+                    true,
+
+                  is_active:
+                    row.is_active !==
+                    false,
+
+                  metadata:
+                    row.metadata &&
+                    typeof row.metadata ===
+                      "object" &&
+                    !Array.isArray(
+                      row.metadata
+                    )
+                      ? (
+                          row.metadata as
+                            Record<
+                              string,
+                              unknown
+                            >
+                        )
+                      : null,
+
+                  created_at:
+                    firstString(
+                      row.created_at
+                    ),
+
+                  updated_at:
+                    firstString(
+                      row.updated_at
+                    ),
+                })
+              )
+            );
           }
 
-          console.error(
-            "[TOTS STORE] Storefront request failed:",
-            loadError
+          // ===================================================
+          // CLEAN ORDERS
+          // ===================================================
+
+          const cleanedOrders:
+            Order[] =
+            (
+              orderRows ||
+              []
+            ).map(
+              (
+                row:
+                  Record<
+                    string,
+                    unknown
+                  >
+              ) => {
+                const orderId =
+                  String(
+                    row.id
+                  );
+
+                const relatedItems =
+                  orderItems.filter(
+                    (
+                      item
+                    ) =>
+                      firstString(
+                        item.order_id
+                      ) ===
+                      orderId
+                  );
+
+                const itemCount =
+                  relatedItems.reduce(
+                    (
+                      total,
+                      item
+                    ) =>
+                      total +
+                      firstNumber(
+                        item.quantity,
+                        1
+                      ),
+                    0
+                  );
+
+                return {
+                  id:
+                    orderId,
+
+                  organisation_id:
+                    String(
+                      row.organisation_id ||
+                        orgId
+                    ),
+
+                  number:
+                    firstString(
+                      row.order_number
+                    ) ||
+                    `#${orderId
+                      .slice(
+                        0,
+                        6
+                      )
+                      .toUpperCase()}`,
+
+                  customer:
+                    firstString(
+                      row.customer_name
+                    ) ||
+                    "Customer",
+
+                  email:
+                    firstString(
+                      row.customer_email
+                    ) ||
+                    "—",
+
+                  total:
+                    firstNumber(
+                      row.total
+                    ),
+
+                  status:
+                    normaliseOrderStatus(
+                      row.fulfilment_status
+                    ),
+
+                  paymentStatus:
+                    normalisePaymentStatus(
+                      row.payment_status
+                    ),
+
+                  items:
+                    itemCount,
+
+                  createdAt:
+                    formatDate(
+                      row.created_at
+                    ),
+
+                  raw:
+                    row,
+                };
+              }
+            );
+
+          setOrders(
+            cleanedOrders
           );
 
-          setStore(null);
+          // ===================================================
+          // CLEAN DISCOUNTS
+          // ===================================================
 
-          setProducts([]);
+          const cleanedDiscounts:
+            Discount[] =
+            (
+              discountRows ||
+              []
+            ).map(
+              (
+                row:
+                  Record<
+                    string,
+                    unknown
+                  >
+              ) => {
+                const discountType:
+                  DiscountType =
+                  row.discount_type ===
+                  "fixed"
+                    ? "fixed"
+                    : "percentage";
 
-          setError(
-            loadError instanceof
+                return {
+                  id:
+                    String(
+                      row.id
+                    ),
+
+                  organisation_id:
+                    String(
+                      row.organisation_id ||
+                        orgId
+                    ),
+
+                  code:
+                    firstString(
+                      row.code
+                    ) ||
+                    "",
+
+                  description:
+                    "",
+
+                  discount_type:
+                    discountType,
+
+                  value:
+                    firstNumber(
+                      row.value
+                    ),
+
+                  minimum_order_amount:
+                    firstNumber(
+                      row.minimum_order_amount
+                    ),
+
+                  maximum_discount_amount:
+                    row.maximum_discount_amount ===
+                      null ||
+                    row.maximum_discount_amount ===
+                      undefined
+                      ? null
+                      : firstNumber(
+                          row.maximum_discount_amount
+                        ),
+
+                  usage_limit:
+                    row.usage_limit ===
+                      null ||
+                    row.usage_limit ===
+                      undefined
+                      ? null
+                      : Math.max(
+                          0,
+                          Math.floor(
+                            firstNumber(
+                              row.usage_limit
+                            )
+                          )
+                        ),
+
+                  usage_count:
+                    Math.max(
+                      0,
+                      Math.floor(
+                        firstNumber(
+                          row.times_used
+                        )
+                      )
+                    ),
+
+                  starts_at:
+                    firstString(
+                      row.starts_at
+                    ),
+
+                  expires_at:
+                    firstString(
+                      row.expires_at
+                    ),
+
+                  is_active:
+                    row.is_active !==
+                    false,
+
+                  created_at:
+                    firstString(
+                      row.created_at
+                    ),
+
+                  updated_at:
+                    firstString(
+                      row.updated_at
+                    ),
+                };
+              }
+            );
+
+          setDiscounts(
+            cleanedDiscounts
+          );
+        } catch (
+          error: unknown
+        ) {
+          console.error(
+            "Store load failed:",
+            error
+          );
+
+          setPageError(
+            error instanceof
               Error
-              ? loadError.message
-              : "We couldn't load this store right now."
+              ? error.message
+              : "We couldn't load your commerce workspace."
           );
         } finally {
-          if (
-            timeoutId
-          ) {
-            clearTimeout(
-              timeoutId
-            );
-          }
+          setLoading(
+            false
+          );
 
-          if (
-            requestControllerRef.current ===
-            controller
-          ) {
-            setLoading(false);
-          }
+          setRefreshing(
+            false
+          );
         }
       },
-      [
-        slug,
-      ]
+      []
     );
 
   // ==========================================================
@@ -1621,99 +3575,464 @@ export default function ShopFrontPage() {
 
   useEffect(
     () => {
-      void loadStore();
-
-      return () => {
-        requestControllerRef.current?.abort();
-
-        contactControllerRef.current?.abort();
-      };
+      void loadData();
     },
     [
-      loadStore,
+      loadData,
     ]
   );
 
   // ==========================================================
-  // CONTACT
+  // SUBSCRIPTION MANAGEMENT
   // ==========================================================
 
-  async function sendContactMessage() {
+  const updateSubscriptionCancellation =
+    useCallback(
+      async (
+        subscription:
+          StoreSubscription,
+        cancelAtPeriodEnd:
+          boolean
+      ) => {
+        if (
+          !organisationId
+        ) {
+          setPageError(
+            "Your organisation could not be resolved."
+          );
+
+          return;
+        }
+
+        setUpdatingSubscriptionId(
+          subscription.id
+        );
+
+        setPageError(
+          null
+        );
+
+        try {
+          const {
+            data:
+              sessionData,
+          } =
+            await supabase.auth.getSession();
+
+          const accessToken =
+            sessionData
+              .session
+              ?.access_token;
+
+          if (
+            !accessToken
+          ) {
+            throw new Error(
+              "Your session has expired. Please sign in again."
+            );
+          }
+
+          const response =
+            await fetch(
+              "/api/store/subscriptions/cancel",
+              {
+                method:
+                  "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+
+                  Authorization:
+                    `Bearer ${accessToken}`,
+                },
+
+                body:
+                  JSON.stringify({
+                    organisationId,
+
+                    subscriptionId:
+                      subscription.id,
+
+                    cancelAtPeriodEnd,
+                  }),
+
+                cache:
+                  "no-store",
+              }
+            );
+
+          const result =
+            await response
+              .json()
+              .catch(
+                () =>
+                  null
+              );
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              result?.error ||
+                "The subscription could not be updated."
+            );
+          }
+
+          setSubscriptions(
+            (
+              current
+            ) =>
+              current.map(
+                (
+                  item
+                ) =>
+                  item.id ===
+                  subscription.id
+                    ? {
+                        ...item,
+
+                        status:
+                          typeof result
+                            ?.subscription
+                            ?.status ===
+                          "string"
+                            ? result.subscription.status
+                            : item.status,
+
+                        cancel_at_period_end:
+                          result
+                            ?.subscription
+                            ?.cancel_at_period_end ===
+                          true,
+
+                        cancelled_at:
+                          typeof result
+                            ?.subscription
+                            ?.cancelled_at ===
+                          "string"
+                            ? result.subscription.cancelled_at
+                            : result
+                                ?.subscription
+                                ?.cancelled_at ===
+                              null
+                              ? null
+                              : item.cancelled_at,
+
+                        current_period_start:
+                          typeof result
+                            ?.subscription
+                            ?.current_period_start ===
+                          "string"
+                            ? result.subscription.current_period_start
+                            : item.current_period_start,
+
+                        current_period_end:
+                          typeof result
+                            ?.subscription
+                            ?.current_period_end ===
+                          "string"
+                            ? result.subscription.current_period_end
+                            : item.current_period_end,
+
+                        updated_at:
+                          new Date()
+                            .toISOString(),
+                      }
+                    : item
+              )
+          );
+
+          await loadData(
+            true
+          );
+        } catch (
+          error:
+            unknown
+        ) {
+          console.error(
+            "Subscription update failed:",
+            error
+          );
+
+          setPageError(
+            error instanceof
+              Error
+              ? error.message
+              : "The subscription could not be updated."
+          );
+        } finally {
+          setUpdatingSubscriptionId(
+            null
+          );
+        }
+      },
+      [
+        organisationId,
+        loadData,
+      ]
+    );
+
+  // ==========================================================
+  // REALTIME DATABASE SYNC
+  // ==========================================================
+
+  useEffect(
+    () => {
+      if (
+        !organisationId
+      ) {
+        return;
+      }
+
+      const channel =
+        supabase
+          .channel(
+            `commerce-${organisationId}`
+          )
+
+          .on(
+            "postgres_changes",
+            {
+              event:
+                "*",
+
+              schema:
+                "public",
+
+              table:
+                "store_products",
+
+              filter:
+                `organisation_id=eq.${organisationId}`,
+            },
+            () => {
+              void loadData(
+                true
+              );
+            }
+          )
+
+          .on(
+            "postgres_changes",
+            {
+              event:
+                "*",
+
+              schema:
+                "public",
+
+              table:
+                "store_settings",
+
+              filter:
+                `organisation_id=eq.${organisationId}`,
+            },
+            () => {
+              void loadData(
+                true
+              );
+            }
+          )
+
+          .on(
+            "postgres_changes",
+            {
+              event:
+                "*",
+
+              schema:
+                "public",
+
+              table:
+                "store_orders",
+
+              filter:
+                `organisation_id=eq.${organisationId}`,
+            },
+            () => {
+              void loadData(
+                true
+              );
+            }
+          )
+
+          .on(
+            "postgres_changes",
+            {
+              event:
+                "*",
+
+              schema:
+                "public",
+
+              table:
+                "store_discounts",
+
+              filter:
+                `organisation_id=eq.${organisationId}`,
+            },
+            () => {
+              void loadData(
+                true
+              );
+            }
+          )
+
+          .subscribe();
+
+      return () => {
+        void supabase.removeChannel(
+          channel
+        );
+      };
+    },
+    [
+      organisationId,
+      loadData,
+    ]
+  );
+
+  // ==========================================================
+  // STRIPE CONNECT HELPERS
+  // ==========================================================
+
+  const loadStripeStatus =
+    useCallback(
+      async () => {
+        if (
+          !organisationId
+        ) {
+          return;
+        }
+
+        setLoadingStripe(
+          true
+        );
+
+        try {
+          const response =
+            await fetch(
+              `/api/store/stripe/status?organisationId=${encodeURIComponent(
+                organisationId
+              )}`,
+              {
+                method:
+                  "GET",
+
+                cache:
+                  "no-store",
+              }
+            );
+
+          const result =
+            await response
+              .json()
+              .catch(
+                () =>
+                  null
+              );
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              result?.error ||
+                "Stripe status could not be loaded."
+            );
+          }
+
+          setStripeStatus({
+            connected:
+              result?.connected ===
+              true,
+
+            accountId:
+              typeof result?.accountId ===
+              "string"
+                ? result.accountId
+                : null,
+
+            chargesEnabled:
+              result?.chargesEnabled ===
+              true,
+
+            payoutsEnabled:
+              result?.payoutsEnabled ===
+              true,
+
+            detailsSubmitted:
+              result?.detailsSubmitted ===
+              true,
+
+            availableBalance:
+              Number(
+                result?.availableBalance ||
+                  0
+              ),
+
+            pendingBalance:
+              Number(
+                result?.pendingBalance ||
+                  0
+              ),
+
+            currency:
+              typeof result?.currency ===
+              "string"
+                ? result.currency.toUpperCase()
+                : "GBP",
+          });
+        } catch (
+          error: unknown
+        ) {
+          console.error(
+            "Stripe status load failed:",
+            error
+          );
+        } finally {
+          setLoadingStripe(
+            false
+          );
+        }
+      },
+      [
+        organisationId,
+      ]
+    );
+
+  useEffect(
+    () => {
+      if (
+        !organisationId
+      ) {
+        return;
+      }
+
+      void loadStripeStatus();
+    },
+    [
+      organisationId,
+      loadStripeStatus,
+    ]
+  );
+
+  async function connectStripeAccount() {
     if (
-      sendingMessage ||
-      !store
+      !organisationId ||
+      connectingStripe
     ) {
       return;
     }
 
-    const name =
-      contactName.trim();
-
-    const email =
-      contactEmail.trim();
-
-    const message =
-      contactMessage.trim();
-
-    if (
-      !name
-    ) {
-      setMessageError(
-        "Please enter your name."
-      );
-
-      return;
-    }
-
-    if (
-      !email ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        email
-      )
-    ) {
-      setMessageError(
-        "Please enter a valid email address."
-      );
-
-      return;
-    }
-
-    if (
-      !message
-    ) {
-      setMessageError(
-        "Please enter a message."
-      );
-
-      return;
-    }
-
-    contactControllerRef.current?.abort();
-
-    const controller =
-      new AbortController();
-
-    contactControllerRef.current =
-      controller;
-
-    setSendingMessage(true);
-
-    setMessageError(null);
-
-    setMessageSent(false);
-
-    const timeoutId =
-      setTimeout(
-        () => {
-          controller.abort();
-        },
-        CONTACT_REQUEST_TIMEOUT_MS
-      );
+    setConnectingStripe(
+      true
+    );
 
     try {
       const response =
         await fetch(
-          "/api/store-contact",
+          "/api/store/stripe/connect",
           {
             method:
               "POST",
@@ -1721,1171 +4040,3244 @@ export default function ShopFrontPage() {
             headers: {
               "Content-Type":
                 "application/json",
-
-              Accept:
-                "application/json",
             },
-
-            cache:
-              "no-store",
-
-            signal:
-              controller.signal,
 
             body:
               JSON.stringify({
-                organisationId:
-                  store.organisation_id,
-
-                storeId:
-                  store.id,
-
-                storeSlug:
-                  store.slug,
-
-                storeName:
-                  store.store_name,
-
-                name,
-                email,
-                message,
-
-                source:
-                  "storefront",
+                organisationId,
               }),
           }
         );
 
-      const contentType =
-        response.headers.get(
-          "content-type"
-        );
-
-      let data:
-        ContactApiResponse | null =
-        null;
+      const result =
+        await response
+          .json()
+          .catch(
+            () =>
+              null
+          );
 
       if (
-        contentType?.includes(
-          "application/json"
-        )
+        !response.ok ||
+        !result?.url
       ) {
-        data =
-          (await response.json()) as ContactApiResponse;
-      } else {
-        const text =
-          await response.text();
-
-        console.error(
-          "[TOTS STORE] Contact endpoint returned non-JSON:",
-          text.slice(
-            0,
-            500
-          )
+        throw new Error(
+          result?.error ||
+            "Stripe onboarding could not be started."
         );
       }
+
+      window.location.href =
+        result.url;
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Stripe connection failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+        Error
+          ? error.message
+          : "Stripe could not be connected."
+      );
+
+      setConnectingStripe(
+        false
+      );
+    }
+  }
+
+  async function openStripeDashboard() {
+    if (
+      !organisationId ||
+      openingStripeDashboard
+    ) {
+      return;
+    }
+
+    setOpeningStripeDashboard(
+      true
+    );
+
+    try {
+      const response =
+        await fetch(
+          "/api/store/stripe/dashboard-link",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                organisationId,
+              }),
+          }
+        );
+
+      const result =
+        await response
+          .json()
+          .catch(
+            () =>
+              null
+          );
+
+      if (
+        !response.ok ||
+        !result?.url
+      ) {
+        throw new Error(
+          result?.error ||
+            "Stripe dashboard could not be opened."
+        );
+      }
+
+      window.open(
+        result.url,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Stripe dashboard link failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+        Error
+          ? error.message
+          : "Stripe dashboard could not be opened."
+      );
+    } finally {
+      setOpeningStripeDashboard(
+        false
+      );
+    }
+  }
+
+  async function requestStripePayout() {
+    if (
+      !organisationId ||
+      requestingPayout
+    ) {
+      return;
+    }
+
+    if (
+      stripeStatus.availableBalance <=
+      0
+    ) {
+      alert(
+        "There is no available Stripe balance to withdraw yet."
+      );
+
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Withdraw ${money(
+          stripeStatus.availableBalance
+        )} from the available Stripe balance?`
+      )
+    ) {
+      return;
+    }
+
+    setRequestingPayout(
+      true
+    );
+
+    try {
+      const response =
+        await fetch(
+          "/api/store/stripe/payout",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                organisationId,
+              }),
+          }
+        );
+
+      const result =
+        await response
+          .json()
+          .catch(
+            () =>
+              null
+          );
 
       if (
         !response.ok
       ) {
         throw new Error(
-          data?.error ||
-            data?.message ||
-            "Your message could not be sent."
+          result?.error ||
+            "Payout could not be requested."
         );
       }
 
-      setMessageSent(true);
-
-      setContactName("");
-
-      setContactEmail("");
-
-      setContactMessage("");
-    } catch (
-      sendError: unknown
-    ) {
-      if (
-        controller.signal.aborted
-      ) {
-        setMessageError(
-          "Sending took too long. Please try again."
-        );
-      } else {
-        setMessageError(
-          sendError instanceof
-            Error
-            ? sendError.message
-            : "Your message could not be sent."
-        );
-      }
-    } finally {
-      clearTimeout(
-        timeoutId
+      alert(
+        "Payout request submitted to Stripe."
       );
 
-      if (
-        contactControllerRef.current ===
-        controller
-      ) {
-        setSendingMessage(false);
-      }
+      await loadStripeStatus();
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Stripe payout failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+        Error
+          ? error.message
+          : "Payout could not be requested."
+      );
+    } finally {
+      setRequestingPayout(
+        false
+      );
     }
   }
 
-  function openContactDrawer() {
-    setMessageSent(false);
+  function contactOrderCustomer(
+    order:
+      Order
+  ) {
+    if (
+      !order.email ||
+      order.email ===
+        "—"
+    ) {
+      alert(
+        "This order does not have a customer email address."
+      );
 
-    setMessageError(null);
+      return;
+    }
 
-    setContactOpen(true);
+    const subject =
+      encodeURIComponent(
+        `Your order ${order.number}`
+      );
+
+    window.location.href =
+      `mailto:${order.email}?subject=${subject}`;
+  }
+
+  function openRefund(
+    order:
+      Order
+  ) {
+    if (
+      order.paymentStatus !==
+      "paid"
+    ) {
+      alert(
+        "Only paid orders can be refunded."
+      );
+
+      return;
+    }
+
+    if (
+      !stripeStatus.connected
+    ) {
+      alert(
+        "Connect Stripe before processing refunds."
+      );
+
+      return;
+    }
+
+    setRefundForm({
+      order,
+
+      amount:
+        order.total.toFixed(
+          2
+        ),
+
+      reason:
+        "requested_by_customer",
+    });
+  }
+
+  async function submitRefund() {
+    if (
+      !refundForm ||
+      refundingOrderId
+    ) {
+      return;
+    }
+
+    const amount =
+      Number(
+        refundForm.amount
+      );
+
+    if (
+      !Number.isFinite(
+        amount
+      ) ||
+      amount <=
+        0
+    ) {
+      alert(
+        "Enter a valid refund amount."
+      );
+
+      return;
+    }
+
+    if (
+      amount >
+      refundForm.order.total
+    ) {
+      alert(
+        "The refund cannot be more than the order total."
+      );
+
+      return;
+    }
+
+    setRefundingOrderId(
+      refundForm.order.id
+    );
+
+    try {
+      const response =
+        await fetch(
+          "/api/store/stripe/refund",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                organisationId,
+
+                orderId:
+                  refundForm.order.id,
+
+                amount,
+
+                reason:
+                  refundForm.reason,
+              }),
+          }
+        );
+
+      const result =
+        await response
+          .json()
+          .catch(
+            () =>
+              null
+          );
+
+      if (
+        !response.ok
+      ) {
+        throw new Error(
+          result?.error ||
+            "Refund could not be processed."
+        );
+      }
+
+      setRefundForm(
+        null
+      );
+
+      await loadData(
+        true
+      );
+
+      await loadStripeStatus();
+
+      alert(
+        "Refund processed successfully."
+      );
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Refund failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+        Error
+          ? error.message
+          : "Refund could not be processed."
+      );
+    } finally {
+      setRefundingOrderId(
+        null
+      );
+    }
   }
 
   // ==========================================================
-  // CATEGORIES
+  // METRICS
   // ==========================================================
 
-  const categories =
+  const totalRevenue =
     useMemo(
-      () => [
-        "All",
-
-        ...Array.from(
-          new Set(
-            products
-              .map(
-                (product) =>
-                  product.category?.trim()
-              )
-              .filter(
-                (
-                  value
-                ):
-                  value is string =>
-                    Boolean(
-                      value
-                    )
-              )
-          )
-        ).sort(
+      () =>
+        products.reduce(
           (
-            first,
-            second
+            total,
+            product
           ) =>
-            first.localeCompare(
-              second
-            )
+            total +
+            product.revenue,
+          0
         ),
-      ],
       [
         products,
       ]
     );
 
-  // ==========================================================
-  // VISIBLE PRODUCTS
-  // ==========================================================
+ const totalOrders =
+  orders.length;
 
-  const visibleProducts =
+  const paidOrders =
     useMemo(
-      () => {
-        const query =
-          search
-            .trim()
-            .toLowerCase();
+      () =>
+        orders.filter(
+          (
+            order
+          ) =>
+            order.paymentStatus ===
+            "paid"
+        ),
+      [
+        orders,
+      ]
+    );
 
-        return products.filter(
-          (product) => {
+  const orderRevenue =
+    useMemo(
+      () =>
+        paidOrders.reduce(
+          (
+            total,
+            order
+          ) =>
+            total +
+            order.total,
+          0
+        ),
+      [
+        paidOrders,
+      ]
+    );
+
+  const displayRevenue =
+  paidOrders.length > 0
+    ? orderRevenue
+    : totalRevenue;
+
+  const averageOrderValue =
+    paidOrders.length >
+    0
+      ? orderRevenue /
+        paidOrders.length
+      : totalOrders >
+          0
+        ? totalRevenue /
+          totalOrders
+        : 0;
+
+  const lowStockProducts =
+    useMemo(
+      () =>
+        products.filter(
+          (
+            product
+          ) => {
             if (
-              category !==
-                "All" &&
-              product.category !==
-                category
+              product.track_inventory ===
+              false
             ) {
               return false;
             }
 
-            if (
-              !query
-            ) {
-              return true;
+            return (
+              product.inventory_quantity <=
+                Number(
+                  lowStockThreshold ||
+                    0
+                ) &&
+              product.status ===
+                "active"
+            );
+          }
+        ),
+      [
+        products,
+        lowStockThreshold,
+      ]
+    );
+
+  const openOrders =
+    useMemo(
+      () =>
+        orders.filter(
+          (
+            order
+          ) =>
+            ![
+              "delivered",
+              "cancelled",
+            ].includes(
+              order.status
+            )
+        ),
+      [
+        orders,
+      ]
+    );
+
+  const bestSellers =
+    useMemo(
+      () =>
+        [
+          ...products,
+        ]
+          .sort(
+            (
+              first,
+              second
+            ) => {
+              if (
+                second.orders !==
+                first.orders
+              ) {
+                return (
+                  second.orders -
+                  first.orders
+                );
+              }
+
+              return (
+                second.revenue -
+                first.revenue
+              );
             }
+          )
+          .slice(
+            0,
+            4
+          ),
+      [
+        products,
+      ]
+    );
+
+  const filteredProducts =
+    useMemo(
+      () => {
+        const value =
+          productSearch
+            .trim()
+            .toLowerCase();
+
+        if (
+          !value
+        ) {
+          return products;
+        }
+
+        return products.filter(
+          (
+            product
+          ) =>
+            product.name
+              .toLowerCase()
+              .includes(
+                value
+              ) ||
+            product.sku
+              .toLowerCase()
+              .includes(
+                value
+              ) ||
+            product.category
+              .toLowerCase()
+              .includes(
+                value
+              )
+        );
+      },
+      [
+        products,
+        productSearch,
+      ]
+    );
+
+  const filteredOrders =
+    useMemo(
+      () => {
+        const value =
+          orderSearch
+            .trim()
+            .toLowerCase();
+
+        if (
+          !value
+        ) {
+          return orders;
+        }
+
+        return orders.filter(
+          (
+            order
+          ) =>
+            order.number
+              .toLowerCase()
+              .includes(
+                value
+              ) ||
+            order.customer
+              .toLowerCase()
+              .includes(
+                value
+              ) ||
+            order.email
+              .toLowerCase()
+              .includes(
+                value
+              )
+        );
+      },
+      [
+        orders,
+        orderSearch,
+      ]
+    );
+
+  const filteredSubscriptions =
+    useMemo(
+      () => {
+        const value =
+          subscriptionSearch
+            .trim()
+            .toLowerCase();
+
+        if (
+          !value
+        ) {
+          return subscriptions;
+        }
+
+        return subscriptions.filter(
+          (
+            subscription
+          ) => {
+            const product =
+              products.find(
+                (
+                  item
+                ) =>
+                  item.id ===
+                  subscription.product_id
+              );
 
             return [
-              product.name,
-              product.description,
-              product.category,
-              product.sku,
+              subscription.customer_name,
+              subscription.customer_email,
+              subscription.stripe_subscription_id,
+              subscription.status,
+              product?.name,
             ]
               .filter(
                 Boolean
               )
               .some(
-                (value) =>
+                (
+                  item
+                ) =>
                   String(
-                    value
+                    item
                   )
                     .toLowerCase()
                     .includes(
-                      query
+                      value
                     )
               );
           }
         );
       },
       [
+        subscriptions,
+        subscriptionSearch,
         products,
-        search,
-        category,
       ]
     );
 
-  // ==========================================================
-  // FEATURED
-  // ==========================================================
-
-  const featuredProducts =
+  const filteredDiscounts =
     useMemo(
       () => {
-        const explicit =
-          products.filter(
-            (product) =>
-              product.featured ===
-              true
-          );
+        const value =
+          discountSearch
+            .trim()
+            .toLowerCase();
 
-        return (
-          explicit.length
-            ? explicit
-            : products
-        ).slice(
-          0,
-          3
+        if (
+          !value
+        ) {
+          return discounts;
+        }
+
+        return discounts.filter(
+          (
+            discount
+          ) =>
+            discount.code
+              .toLowerCase()
+              .includes(
+                value
+              ) ||
+            discount.description
+              .toLowerCase()
+              .includes(
+                value
+              ) ||
+            discount.discount_type
+              .toLowerCase()
+              .includes(
+                value
+              )
         );
       },
       [
-        products,
+        discounts,
+        discountSearch,
       ]
     );
 
-  // ==========================================================
-  // CART
-  // ==========================================================
-
-  const cartLines =
+  const activeDiscounts =
     useMemo(
       () =>
-        Object.values(
-          cart
+        discounts.filter(
+          (
+            discount
+          ) =>
+            getDiscountStatus(
+              discount
+            ) ===
+            "Active"
         ),
       [
-        cart,
+        discounts,
       ]
     );
 
-  const cartCount =
+  const expiredDiscounts =
     useMemo(
       () =>
-        cartLines.reduce(
+        discounts.filter(
+          (
+            discount
+          ) =>
+            getDiscountStatus(
+              discount
+            ) ===
+            "Expired"
+        ),
+      [
+        discounts,
+      ]
+    );
+
+  const totalDiscountRedemptions =
+    useMemo(
+      () =>
+        discounts.reduce(
           (
             total,
-            line
+            discount
           ) =>
             total +
-            line.quantity,
+            discount.usage_count,
           0
         ),
       [
-        cartLines,
+        discounts,
       ]
     );
 
-  const cartTotal =
-    useMemo(
-      () =>
-        cartLines.reduce(
-          (
-            total,
-            line
-          ) =>
-            total +
-            Number(
-              line.product.price ||
-                0
-            ) *
-              line.quantity,
+  // ==========================================================
+  // MONEY
+  // ==========================================================
+
+  function money(
+    value:
+      | number
+      | string
+  ) {
+    try {
+      return new Intl.NumberFormat(
+        "en-GB",
+        {
+          style:
+            "currency",
+
+          currency:
+            currency ||
+            "GBP",
+
+          maximumFractionDigits:
+            2,
+        }
+      ).format(
+        Number(
+          value ||
+            0
+        )
+      );
+    } catch {
+      return `£${Number(
+        value ||
           0
-        ),
-      [
-        cartLines,
-      ]
-    );
-
-  const cartContainsPhysicalProduct =
-    useMemo(
-      () =>
-        cartLines.some(
-          (
-            line
-          ) =>
-            requiresShipping(
-              line.product
-            )
-        ),
-      [
-        cartLines,
-      ]
-    );
-
-  const cartContainsCollectionProduct =
-    useMemo(
-      () =>
-        cartLines.some(
-          (
-            line
-          ) =>
-            isCollectionProduct(
-              line.product
-            )
-        ),
-      [
-        cartLines,
-      ]
-    );
-
-  const cartContainsDigitalProduct =
-    useMemo(
-      () =>
-        cartLines.some(
-          (
-            line
-          ) =>
-            isDigitalProduct(
-              line.product
-            )
-        ),
-      [
-        cartLines,
-      ]
-    );
-
-  const cartContainsServiceProduct =
-    useMemo(
-      () =>
-        cartLines.some(
-          (
-            line
-          ) =>
-            isServiceProduct(
-              line.product
-            )
-        ),
-      [
-        cartLines,
-      ]
-    );
-
-  const membershipLines =
-    useMemo(
-      () =>
-        cartLines.filter(
-          (
-            line
-          ) =>
-            isMembershipProduct(
-              line.product
-            )
-        ),
-      [
-        cartLines,
-      ]
-    );
-
-  const requiredBeneficiarySpecs =
-    useMemo(
-      () =>
-        membershipLines.flatMap(
-          (
-            line
-          ) =>
-            getBeneficiarySpecs(
-              line
-            ).map(
-              (
-                spec
-              ) => ({
-                ...spec,
-                productId:
-                  line.product.id,
-                productName:
-                  line.product.name,
-                planCode:
-                  String(
-                    line.product
-                      .external_plan_code ||
-                      ""
-                  ).trim(),
-              })
-            )
-        ),
-      [
-        membershipLines,
-      ]
-    );
+      ).toFixed(
+        2
+      )}`;
+    }
+  }
 
   // ==========================================================
-  // CART ACTIONS
+  // SELLING MODELS
+  //
+  // These presets let the same Store work for much more than
+  // traditional shipped stock. They intentionally reuse the
+  // existing product schema so this page does not require a
+  // database migration just to become useful for digital,
+  // collection, custom and request-led businesses.
   // ==========================================================
 
-  function addToCart(
+  const sellingModelOptions: Array<{
+    value: SellingModel;
+    label: string;
+    description: string;
+    defaultCategory: string;
+    tracksInventory: boolean;
+  }> = [
+    {
+      value: "physical",
+      label: "Physical product",
+      description: "Stocked items that can be packed, dispatched or handed over.",
+      defaultCategory: "General",
+      tracksInventory: true,
+    },
+    {
+      value: "digital_download",
+      label: "Digital download",
+      description: "Files, guides, templates, ebooks or other instant-download products.",
+      defaultCategory: "Digital Downloads",
+      tracksInventory: false,
+    },
+    {
+      value: "digital_delivery",
+      label: "Digitally delivered",
+      description: "Products you deliver manually by email, link, portal or another digital method.",
+      defaultCategory: "Digital Delivery",
+      tracksInventory: false,
+    },
+    {
+      value: "collect",
+      label: "Order to collect",
+      description: "Perfect for food, cakes, flowers, local retail and click-and-collect orders.",
+      defaultCategory: "Collection",
+      tracksInventory: true,
+    },
+    {
+      value: "customisable",
+      label: "Customisable product",
+      description: "Made-to-order or personalised products where customers need to provide details.",
+      defaultCategory: "Custom Orders",
+      tracksInventory: false,
+    },
+    {
+      value: "request_to_order",
+      label: "Request to order",
+      description: "Take an enquiry or order request first when pricing, availability or scope needs confirmed.",
+      defaultCategory: "Request to Order",
+      tracksInventory: false,
+    },
+    {
+      value: "service",
+      label: "Service",
+      description: "Sell sessions, packages, consultations, bookings or other non-stock offers.",
+      defaultCategory: "Services",
+      tracksInventory: false,
+    },
+  ];
+
+  function inferSellingModel(
     product: Product
+  ): SellingModel {
+    if (
+      product.selling_model
+    ) {
+      return normaliseSellingModel(
+        product.selling_model,
+        product.track_inventory
+          ? "physical"
+          : "service"
+      );
+    }
+
+    /*
+     * Legacy fallback for older rows that pre-date the
+     * selling_model database column.
+     */
+    const category =
+      product.category
+        .trim()
+        .toLowerCase();
+
+    if (
+      category.includes("digital download") ||
+      category.includes("download") ||
+      category.includes("template") ||
+      category.includes("ebook")
+    ) {
+      return "digital_download";
+    }
+
+    if (
+      category.includes("digital delivery") ||
+      category.includes("digitally delivered")
+    ) {
+      return "digital_delivery";
+    }
+
+    if (
+      category.includes("collect") ||
+      category.includes("collection") ||
+      category.includes("click and collect")
+    ) {
+      return "collect";
+    }
+
+    if (
+      category.includes("custom") ||
+      category.includes("personalised") ||
+      category.includes("personalized") ||
+      category.includes("made to order")
+    ) {
+      return "customisable";
+    }
+
+    if (
+      category.includes("request") ||
+      category.includes("quote") ||
+      category.includes("enquiry")
+    ) {
+      return "request_to_order";
+    }
+
+    if (
+      category.includes("service") ||
+      category.includes("consult") ||
+      category.includes("session") ||
+      category.includes("booking")
+    ) {
+      return "service";
+    }
+
+    return product.track_inventory
+      ? "physical"
+      : "service";
+  }
+
+  function applySellingModel(
+    model: SellingModel
+  ) {
+    const option =
+      sellingModelOptions.find(
+        (item) =>
+          item.value === model
+      );
+
+    if (!option) {
+      return;
+    }
+
+    setProductForm(
+      (previous) => {
+        const currentCategory =
+          previous.category.trim();
+
+        const previousPresetCategories =
+          sellingModelOptions.map(
+            (item) =>
+              item.defaultCategory
+          );
+
+        const shouldReplaceCategory =
+          !currentCategory ||
+          currentCategory === "General" ||
+          previousPresetCategories.includes(
+            currentCategory
+          );
+
+        return {
+          ...previous,
+          sellingModel: model,
+          trackInventory:
+            option.tracksInventory,
+          category:
+            shouldReplaceCategory
+              ? option.defaultCategory
+              : previous.category,
+          stock:
+            option.tracksInventory
+              ? previous.stock
+              : "",
+        };
+      }
+    );
+  }
+
+  // ==========================================================
+  // PRODUCT MODAL
+  // ==========================================================
+
+  function openNewProduct() {
+    setProductForm({
+      ...EMPTY_PRODUCT_FORM,
+    });
+
+    setShowProductModal(
+      true
+    );
+  }
+
+  function openEditProduct(
+    product:
+      Product
+  ) {
+    setProductForm({
+      id:
+        product.id,
+
+      sellingModel:
+        normaliseSellingModel(
+          product.selling_model,
+          inferSellingModel(
+            product
+          )
+        ),
+
+      purchaseType:
+        normalisePurchaseType(
+          product.purchase_type
+        ),
+
+      billingInterval:
+        normaliseBillingInterval(
+          product.billing_interval
+        ),
+
+      externalSystem:
+        product.external_system ||
+        "",
+
+      externalPlanCode:
+        product.external_plan_code ||
+        "",
+
+      beneficiaryMode:
+        normaliseBeneficiaryMode(
+          product.beneficiary_mode
+        ),
+
+      name:
+        product.name,
+
+      slug:
+        product.slug,
+
+      sku:
+        product.sku ===
+        "—"
+          ? ""
+          : product.sku,
+
+      category:
+        product.category,
+
+      description:
+        product.description,
+
+      price:
+        String(
+          product.price
+        ),
+
+      compareAtPrice:
+        product.compare_at_price ===
+        null
+          ? ""
+          : String(
+              product.compare_at_price
+            ),
+
+      cost:
+        String(
+          product.cost
+        ),
+
+      stock:
+        String(
+          product.inventory_quantity
+        ),
+
+      imageUrl:
+        product.image_url ||
+        "",
+
+      featured:
+        product.featured,
+
+      trackInventory:
+        product.track_inventory,
+
+      status:
+        product.status,
+    });
+
+    setShowProductModal(
+      true
+    );
+  }
+
+  // ==========================================================
+  // SAVE PRODUCT
+  // ==========================================================
+
+  async function saveProduct() {
+    if (
+      savingProduct
+    ) {
+      return;
+    }
+
+    if (
+      !organisationId
+    ) {
+      alert(
+        "Organisation could not be found."
+      );
+
+      return;
+    }
+
+    const name =
+      productForm.name.trim();
+
+    if (
+      !name
+    ) {
+      alert(
+        "Enter a product name."
+      );
+
+      return;
+    }
+
+    const productSlug =
+      createSlug(
+        productForm.slug ||
+          name
+      );
+
+    if (
+      !productSlug
+    ) {
+      alert(
+        "The product needs a valid slug."
+      );
+
+      return;
+    }
+
+    const price =
+      Number(
+        productForm.price
+      );
+
+    if (
+      !Number.isFinite(
+        price
+      ) ||
+      price <
+        0
+    ) {
+      alert(
+        "Enter a valid price."
+      );
+
+      return;
+    }
+
+    if (
+      productForm.purchaseType ===
+        "subscription" &&
+      ![
+        "week",
+        "month",
+        "year",
+      ].includes(
+        productForm.billingInterval
+      )
+    ) {
+      alert(
+        "Choose a valid billing interval."
+      );
+
+      return;
+    }
+
+    if (
+      productForm.externalSystem ===
+        "mtc" &&
+      !productForm.externalPlanCode
+    ) {
+      alert(
+        "Choose which MTC membership plan this product represents."
+      );
+
+      return;
+    }
+
+    const compareAtPrice =
+      productForm.compareAtPrice.trim()
+        ? Number(
+            productForm.compareAtPrice
+          )
+        : null;
+
+    if (
+      compareAtPrice !==
+        null &&
+      (
+        !Number.isFinite(
+          compareAtPrice
+        ) ||
+        compareAtPrice <
+          0
+      )
+    ) {
+      alert(
+        "Enter a valid compare-at price."
+      );
+
+      return;
+    }
+
+    const costPrice =
+      productForm.cost.trim()
+        ? Number(
+            productForm.cost
+          )
+        : 0;
+
+    if (
+      !Number.isFinite(
+        costPrice
+      ) ||
+      costPrice <
+        0
+    ) {
+      alert(
+        "Enter a valid cost price."
+      );
+
+      return;
+    }
+
+    const stock =
+      productForm.trackInventory
+        ? Math.max(
+            0,
+            Math.floor(
+              Number(
+                productForm.stock ||
+                  0
+              )
+            )
+          )
+        : 0;
+
+    setSavingProduct(
+      true
+    );
+
+    try {
+      let slugQuery =
+        supabase
+          .from(
+            "store_products"
+          )
+          .select(
+            "id"
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .eq(
+            "slug",
+            productSlug
+          );
+
+      if (
+        productForm.id
+      ) {
+        slugQuery =
+          slugQuery.neq(
+            "id",
+            productForm.id
+          );
+      }
+
+      const {
+        data:
+          existingSlugRows,
+        error:
+          slugCheckError,
+      } =
+        await slugQuery.limit(
+          1
+        );
+
+      if (
+        slugCheckError
+      ) {
+        throw slugCheckError;
+      }
+
+      if (
+        existingSlugRows &&
+        existingSlugRows.length >
+          0
+      ) {
+        alert(
+          "Another product already uses this product URL. Change the product slug."
+        );
+
+        return;
+      }
+
+      const payload = {
+        organisation_id:
+          organisationId,
+
+        name,
+
+        slug:
+          productSlug,
+
+        sku:
+          productForm.sku.trim() ||
+          generateSku(
+            name
+          ),
+
+        category:
+          productForm.category.trim() ||
+          "General",
+
+        selling_model:
+          productForm.sellingModel,
+
+        purchase_type:
+          productForm.purchaseType,
+
+        billing_interval:
+          productForm.purchaseType ===
+          "subscription"
+            ? productForm.billingInterval
+            : null,
+
+        external_system:
+          productForm.externalSystem ||
+          null,
+
+        external_plan_code:
+          productForm.externalSystem
+            ? productForm.externalPlanCode ||
+              null
+            : null,
+
+        beneficiary_mode:
+          productForm.externalSystem
+            ? productForm.beneficiaryMode
+            : "none",
+
+        description:
+          productForm.description.trim() ||
+          null,
+
+        price,
+
+        compare_at_price:
+          compareAtPrice,
+
+        cost_price:
+          costPrice,
+
+        stock,
+
+        inventory_quantity:
+          stock,
+
+        track_inventory:
+          productForm.trackInventory,
+
+        image_url:
+          productForm.imageUrl.trim() ||
+          null,
+
+        featured:
+          productForm.featured,
+
+        status:
+          productForm.status,
+
+        is_active:
+          productForm.status ===
+          "active",
+
+        updated_at:
+          new Date().toISOString(),
+      };
+
+      if (
+        productForm.id
+      ) {
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "store_products"
+            )
+            .update(
+              payload
+            )
+            .eq(
+              "id",
+              productForm.id
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            )
+            .select(
+              "id"
+            )
+            .maybeSingle();
+
+        if (
+          error
+        ) {
+          throw error;
+        }
+
+        if (
+          !data
+        ) {
+          throw new Error(
+            "The product was not updated. Check your store_products RLS UPDATE policy."
+          );
+        }
+      } else {
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "store_products"
+            )
+            .insert(
+              payload
+            )
+            .select(
+              "id"
+            )
+            .single();
+
+        if (
+          error
+        ) {
+          throw error;
+        }
+
+        if (
+          !data
+        ) {
+          throw new Error(
+            "The product was not created."
+          );
+        }
+      }
+
+      setShowProductModal(
+        false
+      );
+
+      setProductForm({
+        ...EMPTY_PRODUCT_FORM,
+      });
+
+      await loadData(
+        true
+      );
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Product save failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+          Error
+          ? error.message
+          : "Product could not be saved."
+      );
+    } finally {
+      setSavingProduct(
+        false
+      );
+    }
+  }
+
+  // ==========================================================
+  // DELETE PRODUCT
+  // ==========================================================
+
+  async function deleteProduct(
+    product:
+      Product
   ) {
     if (
-      isOutOfStock(
-        product
+      !window.confirm(
+        `Delete "${product.name}"? This cannot be undone.`
       )
     ) {
       return;
     }
 
-    setCheckoutError(null);
-
-    setCart(
-      (previous) => {
-        const existing =
-          previous[
-            product.id
-          ];
-
-        let nextQuantity =
-          existing
-            ? existing.quantity +
-              1
-            : 1;
-
-        const available =
-          getAvailableQuantity(
-            product
-          );
-
-        if (
-          available !==
-          null
-        ) {
-          nextQuantity =
-            Math.min(
-              nextQuantity,
-              Math.max(
-                available,
-                0
-              )
-            );
-        }
-
-        if (
-          nextQuantity <=
-          0
-        ) {
-          return previous;
-        }
-
-        return {
-          ...previous,
-
-          [product.id]: {
-            product,
-
-            quantity:
-              nextQuantity,
-          },
-        };
-      }
+    setDeletingProductId(
+      product.id
     );
 
-    setCartOpen(true);
-  }
+    try {
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            "store_products"
+          )
+          .delete()
+          .eq(
+            "id",
+            product.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .select(
+            "id"
+          );
 
-  function requestProduct(
-    product: Product
-  ) {
-    setCartOpen(false);
+      if (
+        error
+      ) {
+        throw error;
+      }
 
-    setMessageSent(false);
-    setMessageError(null);
+      if (
+        !data?.length
+      ) {
+        throw new Error(
+          "The product was not deleted. Check your store_products RLS DELETE policy."
+        );
+      }
 
-    const model =
-      inferSellingModel(
-        product
+      await loadData(
+        true
+      );
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Delete product failed:",
+        error
       );
 
-    const intro =
-      model ===
-      "customisable"
-        ? `Hi, I'd like to customise and order "${product.name}". My customisation details are: `
-        : model ===
-            "request_to_order"
-          ? `Hi, I'd like to request to order "${product.name}". Please can you let me know the next steps?`
-          : `Hi, I'm interested in "${product.name}". Please can you send me more information?`;
-
-    setContactMessage(
-      intro
-    );
-
-    setContactOpen(true);
-  }
-
-  function setQuantity(
-    productId: string,
-    quantity: number
-  ) {
-    setCheckoutError(null);
-
-    setCart(
-      (previous) => {
-        if (
-          quantity <=
-          0
-        ) {
-          const next = {
-            ...previous,
-          };
-
-          delete next[
-            productId
-          ];
-
-          return next;
-        }
-
-        const existing =
-          previous[
-            productId
-          ];
-
-        if (
-          !existing
-        ) {
-          return previous;
-        }
-
-        let safeQuantity =
-          quantity;
-
-        const available =
-          getAvailableQuantity(
-            existing.product
-          );
-
-        if (
-          available !==
-          null
-        ) {
-          safeQuantity =
-            Math.min(
-              safeQuantity,
-              Math.max(
-                available,
-                0
-              )
-            );
-        }
-
-        return {
-          ...previous,
-
-          [productId]: {
-            ...existing,
-
-            quantity:
-              safeQuantity,
-          },
-        };
-      }
-    );
-  }
-
-  function removeFromCart(
-    productId: string
-  ) {
-    setCheckoutError(null);
-
-    setCart(
-      (previous) => {
-        const next = {
-          ...previous,
-        };
-
-        delete next[
-          productId
-        ];
-
-        return next;
-      }
-    );
+      alert(
+        error instanceof
+          Error
+          ? error.message
+          : "Product could not be deleted."
+      );
+    } finally {
+      setDeletingProductId(
+        null
+      );
+    }
   }
 
   // ==========================================================
-  // MEMBERSHIP BENEFICIARIES
+  // STOCK
   // ==========================================================
 
-  function updateBeneficiaryDraft(
-    spec: BeneficiarySpec & {
-      productId: string;
-    },
-    field:
-      | "firstName"
-      | "lastName"
-      | "email"
-      | "phone",
-    value: string
+  function openStockAdjust(
+    product:
+      Product
   ) {
-    setCheckoutError(
-      null
-    );
+    setStockAdjust({
+      product,
 
-    setBeneficiaryDrafts(
-      (
-        previous
-      ) => {
-        const existing =
-          previous[
-            spec.key
-          ];
-
-        const base:
-          BeneficiaryDraft =
-          existing || {
-            productId:
-              spec.productId,
-            slotKey:
-              spec.key,
-            beneficiaryType:
-              spec.beneficiaryType,
-            isPrimary:
-              spec.isPrimary,
-            firstName:
-              "",
-            lastName:
-              "",
-            email:
-              "",
-            phone:
-              "",
-            relationshipToPayer:
-              spec.relationshipToPayer,
-          };
-
-        return {
-          ...previous,
-
-          [spec.key]: {
-            ...base,
-            [field]:
-              value,
-          },
-        };
-      }
-    );
+      quantity:
+        String(
+          product.inventory_quantity
+        ),
+    });
   }
 
-  function buildCheckoutBeneficiaries() {
-    const payload:
-      Array<{
-        productId: string;
-        slotKey: string;
-        beneficiaryType: BeneficiaryType;
-        isPrimary: boolean;
-        firstName: string;
-        lastName: string;
-        email: string | null;
-        phone: string | null;
-        relationshipToPayer: string | null;
-      }> = [];
-
-    for (
-      const spec of
-      requiredBeneficiarySpecs
+  async function saveStockAdjustment() {
+    if (
+      !stockAdjust ||
+      savingStock
     ) {
-      const draft =
-        beneficiaryDrafts[
-          spec.key
-        ];
-
-      const firstName =
-        String(
-          draft?.firstName ||
-            ""
-        ).trim();
-
-      const lastName =
-        String(
-          draft?.lastName ||
-            ""
-        ).trim();
-
-      const email =
-        String(
-          draft?.email ||
-            ""
-        )
-          .trim()
-          .toLowerCase();
-
-      const phone =
-        String(
-          draft?.phone ||
-            ""
-        ).trim();
-
-      if (
-        !firstName ||
-        !lastName
-      ) {
-        throw new Error(
-          `Enter the first and last name for ${spec.title} on ${spec.productName}.`
-        );
-      }
-
-      if (
-        spec.emailRequired &&
-        !email
-      ) {
-        throw new Error(
-          `Enter an email address for ${spec.title} on ${spec.productName}.`
-        );
-      }
-
-      if (
-        email &&
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-          email
-        )
-      ) {
-        throw new Error(
-          `Enter a valid email address for ${spec.title} on ${spec.productName}.`
-        );
-      }
-
-      payload.push({
-        productId:
-          spec.productId,
-
-        slotKey:
-          spec.key,
-
-        beneficiaryType:
-          spec.beneficiaryType,
-
-        isPrimary:
-          spec.isPrimary,
-
-        firstName,
-
-        lastName,
-
-        email:
-          email ||
-          null,
-
-        phone:
-          phone ||
-          null,
-
-        relationshipToPayer:
-          spec.relationshipToPayer ||
-          null,
-      });
+      return;
     }
 
-    return payload;
+    const quantity =
+      Math.max(
+        0,
+        Math.floor(
+          Number(
+            stockAdjust.quantity ||
+              0
+          )
+        )
+      );
+
+    setSavingStock(
+      true
+    );
+
+    try {
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            "store_products"
+          )
+          .update({
+            stock:
+              quantity,
+
+            inventory_quantity:
+              quantity,
+
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "id",
+            stockAdjust.product.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .select(
+            "id"
+          )
+          .maybeSingle();
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      if (
+        !data
+      ) {
+        throw new Error(
+          "Stock was not updated. Check your store_products RLS UPDATE policy."
+        );
+      }
+
+      setStockAdjust(
+        null
+      );
+
+      await loadData(
+        true
+      );
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Stock update failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+          Error
+          ? error.message
+          : "Stock could not be updated."
+      );
+    } finally {
+      setSavingStock(
+        false
+      );
+    }
   }
 
   // ==========================================================
-  // DISCOUNT
+  // ORDERS
   // ==========================================================
 
-  function applyDiscountCode() {
-    const code =
-      normaliseDiscountCode(
-        discountCode
+  async function advanceOrder(
+    order:
+      Order
+  ) {
+    if (
+      [
+        "delivered",
+        "cancelled",
+      ].includes(
+        order.status
+      )
+    ) {
+      return;
+    }
+
+    let nextStatus:
+      OrderStatus =
+      order.status;
+
+    if (
+      order.status ===
+      "new"
+    ) {
+      nextStatus =
+        "processing";
+    } else if (
+      order.status ===
+      "processing"
+    ) {
+      nextStatus =
+        "dispatched";
+    } else if (
+      order.status ===
+      "dispatched"
+    ) {
+      nextStatus =
+        "delivered";
+    }
+
+    setUpdatingOrderId(
+      order.id
+    );
+
+    try {
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            "store_orders"
+          )
+          .update({
+            fulfilment_status:
+              nextStatus,
+
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "id",
+            order.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .select(
+            "id, fulfilment_status"
+          )
+          .maybeSingle();
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      if (
+        !data
+      ) {
+        throw new Error(
+          "The order status was not changed. Supabase did not return the updated order. Check the store_orders UPDATE RLS policy."
+        );
+      }
+
+      setOrders(
+        (previous) =>
+          previous.map(
+            (existingOrder) =>
+              existingOrder.id ===
+              order.id
+                ? {
+                    ...existingOrder,
+                    status:
+                      nextStatus,
+                  }
+                : existingOrder
+          )
       );
 
-    setCheckoutError(null);
+      setSelectedOrder(
+        (previous) =>
+          previous?.id ===
+          order.id
+            ? {
+                ...previous,
+                status:
+                  nextStatus,
+              }
+            : previous
+      );
 
-    setDiscountMessage(null);
+      await loadData(
+        true
+      );
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Order update failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+          Error
+          ? error.message
+          : "Order could not be updated."
+      );
+    } finally {
+      setUpdatingOrderId(
+        null
+      );
+    }
+  }
+
+  // ==========================================================
+  // DISCOUNTS
+  // ==========================================================
+
+  function openNewDiscount() {
+    setDiscountForm({
+      ...EMPTY_DISCOUNT_FORM,
+    });
+
+    setShowDiscountModal(
+      true
+    );
+  }
+
+  function openEditDiscount(
+    discount:
+      Discount
+  ) {
+    setDiscountForm({
+      id:
+        discount.id,
+
+      code:
+        discount.code,
+
+      description:
+        discount.description,
+
+      discountType:
+        discount.discount_type,
+
+      value:
+        String(
+          discount.value
+        ),
+
+      minimumOrderAmount:
+        discount.minimum_order_amount >
+        0
+          ? String(
+              discount.minimum_order_amount
+            )
+          : "",
+
+      maximumDiscountAmount:
+        discount.maximum_discount_amount ===
+        null
+          ? ""
+          : String(
+              discount.maximum_discount_amount
+            ),
+
+      usageLimit:
+        discount.usage_limit ===
+        null
+          ? ""
+          : String(
+              discount.usage_limit
+            ),
+
+      startsAt:
+        formatDateTimeLocal(
+          discount.starts_at
+        ),
+
+      expiresAt:
+        formatDateTimeLocal(
+          discount.expires_at
+        ),
+
+      active:
+        discount.is_active,
+    });
+
+    setShowDiscountModal(
+      true
+    );
+  }
+
+  async function saveDiscount() {
+    if (
+      savingDiscount
+    ) {
+      return;
+    }
+
+    if (
+      !organisationId
+    ) {
+      alert(
+        "Organisation could not be found."
+      );
+
+      return;
+    }
+
+    const code =
+      discountForm.code
+        .trim()
+        .toUpperCase()
+        .replace(
+          /\s+/g,
+          ""
+        );
 
     if (
       !code
     ) {
-      setAppliedDiscountCode("");
-
-      setDiscountMessage(
-        "Enter a discount code first."
+      alert(
+        "Enter a discount code."
       );
 
       return;
     }
 
-    setDiscountCode(code);
-
-    setAppliedDiscountCode(
-      code
-    );
-
-    setDiscountMessage(
-      "We'll verify this code securely when you continue."
-    );
-  }
-
-  function removeDiscountCode() {
-    setDiscountCode("");
-
-    setAppliedDiscountCode("");
-
-    setDiscountMessage(null);
-
-    setCheckoutError(null);
-  }
-
-  // ==========================================================
-  // CHECKOUT
-  // ==========================================================
-
-  async function startCheckout() {
     if (
-      checkingOut ||
-      !store ||
-      cartLines.length ===
+      !/^[A-Z0-9_-]+$/.test(
+        code
+      )
+    ) {
+      alert(
+        "Discount codes can only contain letters, numbers, hyphens and underscores."
+      );
+
+      return;
+    }
+
+    const value =
+      Number(
+        discountForm.value
+      );
+
+    if (
+      !Number.isFinite(
+        value
+      ) ||
+      value <=
         0
     ) {
+      alert(
+        "Enter a valid discount value."
+      );
+
       return;
     }
 
-    setCheckingOut(true);
+    if (
+      discountForm.discountType ===
+        "percentage" &&
+      value >
+        100
+    ) {
+      alert(
+        "Percentage discounts cannot be more than 100%."
+      );
 
-    setCheckoutError(null);
+      return;
+    }
+
+    const minimumOrder =
+      discountForm.minimumOrderAmount.trim()
+        ? Number(
+            discountForm.minimumOrderAmount
+          )
+        : 0;
+
+    if (
+      !Number.isFinite(
+        minimumOrder
+      ) ||
+      minimumOrder <
+        0
+    ) {
+      alert(
+        "Enter a valid minimum order value."
+      );
+
+      return;
+    }
+
+    const maximumDiscount =
+      discountForm.maximumDiscountAmount.trim()
+        ? Number(
+            discountForm.maximumDiscountAmount
+          )
+        : null;
+
+    if (
+      maximumDiscount !==
+        null &&
+      (
+        !Number.isFinite(
+          maximumDiscount
+        ) ||
+        maximumDiscount <
+          0
+      )
+    ) {
+      alert(
+        "Enter a valid maximum discount amount."
+      );
+
+      return;
+    }
+
+    let usageLimit:
+      | number
+      | null =
+      null;
+
+    if (
+      discountForm.usageLimit.trim()
+    ) {
+      const parsedUsageLimit =
+        Number(
+          discountForm.usageLimit
+        );
+
+      if (
+        !Number.isFinite(
+          parsedUsageLimit
+        ) ||
+        parsedUsageLimit <
+          1
+      ) {
+        alert(
+          "Usage limit must be at least 1."
+        );
+
+        return;
+      }
+
+      usageLimit =
+        Math.floor(
+          parsedUsageLimit
+        );
+    }
+
+    if (
+      discountForm.startsAt &&
+      discountForm.expiresAt
+    ) {
+      const start =
+        new Date(
+          discountForm.startsAt
+        ).getTime();
+
+      const end =
+        new Date(
+          discountForm.expiresAt
+        ).getTime();
+
+      if (
+        Number.isNaN(
+          start
+        ) ||
+        Number.isNaN(
+          end
+        ) ||
+        end <=
+          start
+      ) {
+        alert(
+          "Expiry must be after the start date."
+        );
+
+        return;
+      }
+    }
+
+    setSavingDiscount(
+      true
+    );
 
     try {
-      const items =
-        cartLines.map(
-          (
-            line
-          ) => ({
-            productId:
-              line.product.id,
+      // =======================================================
+      // CHECK FOR DUPLICATE CODE
+      // =======================================================
 
-            quantity:
-              line.quantity,
-          })
-        );
-
-      const resolvedDiscountCode =
-        normaliseDiscountCode(
-          discountCode ||
-            appliedDiscountCode
-        );
-
-      const beneficiaries =
-        buildCheckoutBeneficiaries();
-
-      const response =
-        await fetch(
-          "/api/store-checkout",
-          {
-            method:
-              "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-
-              Accept:
-                "application/json",
-            },
-
-            cache:
-              "no-store",
-
-            body:
-              JSON.stringify({
-                storeSlug:
-                  store.slug,
-
-                items,
-
-                discountCode:
-                  resolvedDiscountCode ||
-                  undefined,
-
-                beneficiaries:
-                  beneficiaries.length >
-                  0
-                    ? beneficiaries
-                    : undefined,
-              }),
-          }
-        );
-
-      const contentType =
-        response.headers.get(
-          "content-type"
-        );
-
-      let data:
-        CheckoutApiResponse | null =
-        null;
-
-      if (
-        contentType?.includes(
-          "application/json"
-        )
-      ) {
-        data =
-          (await response.json()) as CheckoutApiResponse;
-      } else {
-        const text =
-          await response.text();
-
-        console.error(
-          "[TOTS STORE] Checkout returned non-JSON:",
-          text.slice(
-            0,
-            500
+      let duplicateQuery =
+        supabase
+          .from(
+            "store_discounts"
           )
+          .select(
+            "id"
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .ilike(
+            "code",
+            code
+          );
+
+      if (
+        discountForm.id
+      ) {
+        duplicateQuery =
+          duplicateQuery.neq(
+            "id",
+            discountForm.id
+          );
+      }
+
+      const {
+        data:
+          duplicateRows,
+        error:
+          duplicateError,
+      } =
+        await duplicateQuery.limit(
+          1
         );
 
-        throw new Error(
-          "Checkout returned an unexpected response."
-        );
+      if (
+        duplicateError
+      ) {
+        throw duplicateError;
       }
 
       if (
-        !response.ok
+        duplicateRows &&
+        duplicateRows.length >
+          0
       ) {
-        throw new Error(
-          data?.error ||
-            data?.message ||
-            "Checkout could not be started."
+        alert(
+          "That discount code already exists."
         );
+
+        return;
       }
 
-      const checkoutUrl =
-        data?.url ||
-        data?.checkoutUrl ||
-        data?.sessionUrl;
+      const payload = {
+        organisation_id:
+          organisationId,
+
+        code,
+
+        discount_type:
+          discountForm.discountType,
+
+        value,
+
+        minimum_order_amount:
+          minimumOrder > 0
+            ? minimumOrder
+            : null,
+
+        maximum_discount_amount:
+          maximumDiscount,
+
+        usage_limit:
+          usageLimit,
+
+        starts_at:
+          discountForm.startsAt
+            ? new Date(
+                discountForm.startsAt
+              ).toISOString()
+            : null,
+
+        expires_at:
+          discountForm.expiresAt
+            ? new Date(
+                discountForm.expiresAt
+              ).toISOString()
+            : null,
+
+        is_active:
+          discountForm.active,
+
+        updated_at:
+          new Date().toISOString(),
+      };
 
       if (
-        !checkoutUrl
+        discountForm.id
       ) {
-        throw new Error(
-          "Stripe checkout was created, but no checkout URL was returned."
-        );
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "store_discounts"
+            )
+            .update(
+              payload
+            )
+            .eq(
+              "id",
+              discountForm.id
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            )
+            .select(
+              "id"
+            )
+            .maybeSingle();
+
+        if (
+          error
+        ) {
+          throw error;
+        }
+
+        if (
+          !data
+        ) {
+          throw new Error(
+            "Discount was not updated. Check the store_discounts RLS UPDATE policy."
+          );
+        }
+      } else {
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "store_discounts"
+            )
+            .insert(
+              payload
+            )
+            .select(
+              "id"
+            )
+            .single();
+
+        if (
+          error
+        ) {
+          throw error;
+        }
+
+        if (
+          !data
+        ) {
+          throw new Error(
+            "Discount was not created."
+          );
+        }
       }
 
-      window.location.href =
-        checkoutUrl;
+      setShowDiscountModal(
+        false
+      );
+
+      setDiscountForm({
+        ...EMPTY_DISCOUNT_FORM,
+      });
+
+      await loadData(
+        true
+      );
     } catch (
-      checkoutFailure: unknown
+      error: unknown
     ) {
       console.error(
-        "[TOTS STORE] Checkout failed:",
-        checkoutFailure
+        "Discount save failed:",
+        error
       );
 
-      setCheckoutError(
-        checkoutFailure instanceof
+      alert(
+        error instanceof
           Error
-          ? checkoutFailure.message
-          : "Checkout could not be started."
+          ? error.message
+          : "Discount could not be saved."
       );
     } finally {
-      setCheckingOut(false);
+      setSavingDiscount(
+        false
+      );
+    }
+  }
+
+  async function deleteDiscount(
+    discount:
+      Discount
+  ) {
+    if (
+      !window.confirm(
+        `Delete discount "${discount.code}"? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingDiscountId(
+      discount.id
+    );
+
+    try {
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            "store_discounts"
+          )
+          .delete()
+          .eq(
+            "id",
+            discount.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .select(
+            "id"
+          );
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      if (
+        !data?.length
+      ) {
+        throw new Error(
+          "Discount was not deleted. Check the store_discounts RLS DELETE policy."
+        );
+      }
+
+      await loadData(
+        true
+      );
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Discount delete failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+          Error
+          ? error.message
+          : "Discount could not be deleted."
+      );
+    } finally {
+      setDeletingDiscountId(
+        null
+      );
+    }
+  }
+
+  async function toggleDiscount(
+    discount:
+      Discount
+  ) {
+    try {
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            "store_discounts"
+          )
+          .update({
+            is_active:
+              !discount.is_active,
+
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "id",
+            discount.id
+          )
+          .eq(
+            "organisation_id",
+            organisationId
+          )
+          .select(
+            "id"
+          )
+          .maybeSingle();
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      if (
+        !data
+      ) {
+        throw new Error(
+          "Discount status could not be updated."
+        );
+      }
+
+      await loadData(
+        true
+      );
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Discount status update failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+          Error
+          ? error.message
+          : "Discount status could not be updated."
+      );
     }
   }
 
   // ==========================================================
-  // BRAND
+  // STORE SETTINGS
   // ==========================================================
 
-  const primary =
-    normaliseColour(
-      store?.accent_colour,
-      "#a9b897"
-    );
+  async function uploadStoreAsset({
+    file,
+    assetType,
+  }: {
+    file:
+      File;
 
-  const secondary =
-    `${primary}12`;
+    assetType:
+      "logo" | "hero" | "favicon";
+  }) {
+    if (
+      !organisationId
+    ) {
+      alert(
+        "Your organisation could not be resolved."
+      );
 
-  const strongerSecondary =
-    `${primary}20`;
+      return;
+    }
 
-  const storeName =
-    store?.store_name ||
-    store?.company_name ||
-    "Online Store";
-
-  const pageBackground =
-    normaliseColour(
-      store?.background_colour,
-      "#f8f7f3"
-    );
-
-  const pageText =
-    normaliseColour(
-      store?.text_colour,
-      "#1c1917"
-    );
-
-  const buttonColour =
-    normaliseColour(
-      store?.button_colour,
-      primary
-    );
-
-  const buttonTextColour =
-    normaliseColour(
-      store?.button_text_colour,
-      "#ffffff"
-    );
-
-  const configuredRadius =
-    Math.max(
-      0,
-      Math.min(
-        48,
-        Number(
-          store?.border_radius ??
-          18
-        ) || 18
+    if (
+      !file.type.startsWith(
+        "image/"
       )
+    ) {
+      alert(
+        "Please choose an image file."
+      );
+
+      return;
+    }
+
+    const maxBytes =
+      assetType ===
+        "favicon"
+        ? 2 * 1024 * 1024
+        : 8 * 1024 * 1024;
+
+    const fileSizeBytes =
+      Number(
+        file.size
+      );
+
+    const fileSizeMb =
+      Number.isFinite(
+        fileSizeBytes
+      )
+        ? fileSizeBytes /
+          (
+            1024 *
+            1024
+          )
+        : 0;
+
+    /*
+     * File.size is already measured in bytes by the browser.
+     * Keep the comparison entirely in bytes so a normal image
+     * such as 300 KB is never mistaken for an 8 MB+ file.
+     */
+    if (
+      Number.isFinite(
+        fileSizeBytes
+      ) &&
+      fileSizeBytes >
+        maxBytes
+    ) {
+      const maxMb =
+        maxBytes /
+        (
+          1024 *
+          1024
+        );
+
+      alert(
+        `This image is ${fileSizeMb.toFixed(
+          2
+        )} MB. Please choose a file under ${maxMb.toFixed(
+          0
+        )} MB.`
+      );
+
+      return;
+    }
+
+    setUploadingStoreAsset(
+      assetType
     );
 
-  const cardStyle =
-    store?.card_style ||
-    "soft";
+    try {
+      const extension =
+        file.type ===
+          "image/png"
+          ? "png"
+          : file.type ===
+              "image/webp"
+            ? "webp"
+            : file.type ===
+                "image/svg+xml"
+              ? "svg"
+              : file.type ===
+                  "image/x-icon"
+                ? "ico"
+                : "jpg";
 
-  const storeRadius =
-    cardStyle ===
-      "square"
-      ? 0
-      : configuredRadius;
+      const fileName =
+        `${assetType}.${extension}`;
 
-  const darkTheme =
-    colourLuminance(
-      pageBackground
-    ) <
-    125;
+      const storagePath =
+        `${organisationId}/${fileName}`;
 
-  const storeSurface =
-    darkTheme
-      ? mixColours(
-          pageBackground,
+      const {
+        error:
+          uploadError,
+      } =
+        await supabase
+          .storage
+          .from(
+            "store-assets"
+          )
+          .upload(
+            storagePath,
+            file,
+            {
+              cacheControl:
+                "3600",
+
+              upsert:
+                true,
+
+              contentType:
+                file.type,
+            }
+          );
+
+      if (
+        uploadError
+      ) {
+        const message =
+          uploadError.message ||
+          "The image could not be uploaded.";
+
+        if (
+          message
+            .toLowerCase()
+            .includes(
+              "maximum allowed size"
+            ) ||
+          message
+            .toLowerCase()
+            .includes(
+              "payload too large"
+            ) ||
+          message
+            .toLowerCase()
+            .includes(
+              "file size"
+            )
+        ) {
+          throw new Error(
+            `Supabase rejected this ${fileSizeMb.toFixed(
+              2
+            )} MB image because of the Storage bucket file-size limit. Check the store-assets bucket is set to at least 8 MB.`
+          );
+        }
+
+        throw uploadError;
+      }
+
+      const {
+        data:
+          publicUrlData,
+      } =
+        supabase
+          .storage
+          .from(
+            "store-assets"
+          )
+          .getPublicUrl(
+            storagePath
+          );
+
+      const publicUrl =
+        publicUrlData
+          .publicUrl;
+
+      if (
+        !publicUrl
+      ) {
+        throw new Error(
+          "The image uploaded, but its public URL could not be created."
+        );
+      }
+
+      /*
+       * Add a cache-busting query value. We use fixed storage
+       * filenames with upsert so replacing a logo/hero does not
+       * leave old URLs scattered throughout the database.
+       */
+      const url =
+        `${publicUrl}?v=${Date.now()}`;
+
+      if (
+        assetType ===
+        "logo"
+      ) {
+        setLogoUrl(
+          url
+        );
+      } else if (
+        assetType ===
+        "hero"
+      ) {
+        setHeroImageUrl(
+          url
+        );
+      } else {
+        setFaviconUrl(
+          url
+        );
+      }
+    } catch (
+      error:
+        unknown
+    ) {
+      console.error(
+        "[TOTS STORE] Store asset upload failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+          Error
+          ? error.message
+          : "The image could not be uploaded."
+      );
+    } finally {
+      setUploadingStoreAsset(
+        null
+      );
+    }
+  }
+
+  async function saveStoreSettings() {
+    if (
+      savingSettings
+    ) {
+      return;
+    }
+
+    if (
+      !organisationId
+    ) {
+      return;
+    }
+
+    if (
+      !storeName.trim()
+    ) {
+      alert(
+        "Give your store a name."
+      );
+
+      return;
+    }
+
+    const resolvedSlug =
+      createSlug(
+        slug ||
+          storeName
+      );
+
+    if (
+      !resolvedSlug
+    ) {
+      alert(
+        "Enter a valid store URL slug."
+      );
+
+      return;
+    }
+
+    if (
+      storefrontMode ===
+        "external" &&
+      !/^https?:\/\//i.test(
+        externalStorefrontUrl.trim()
+      )
+    ) {
+      alert(
+        "Enter a full external storefront URL beginning with http:// or https://."
+      );
+
+      return;
+    }
+
+    setSavingSettings(
+      true
+    );
+
+    try {
+      let slugQuery =
+        supabase
+          .from(
+            "store_settings"
+          )
+          .select(
+            "id, organisation_id"
+          )
+          .eq(
+            "slug",
+            resolvedSlug
+          );
+
+      if (
+        storeSettings?.id
+      ) {
+        slugQuery =
+          slugQuery.neq(
+            "id",
+            storeSettings.id
+          );
+      }
+
+      const {
+        data:
+          slugRows,
+        error:
+          slugError,
+      } =
+        await slugQuery.limit(
+          1
+        );
+
+      if (
+        slugError
+      ) {
+        throw slugError;
+      }
+
+      if (
+        slugRows &&
+        slugRows.length >
+          0
+      ) {
+        alert(
+          "That storefront URL is already being used. Choose another store URL."
+        );
+
+        return;
+      }
+
+      const payload = {
+        organisation_id:
+          organisationId,
+
+        slug:
+          resolvedSlug,
+
+        store_name:
+          storeName.trim(),
+
+        store_description:
+          storeDescription.trim() ||
+          null,
+
+        hero_title:
+          heroTitle.trim() ||
+          null,
+
+        hero_text:
+          heroText.trim() ||
+          null,
+
+        announcement:
+          announcement.trim() ||
+          null,
+
+        accent_colour:
+          accentColour.trim() ||
+          "#A9B897",
+
+        storefront_mode:
+          storefrontMode,
+
+        external_storefront_url:
+          storefrontMode ===
+            "external"
+            ? externalStorefrontUrl.trim() ||
+              null
+            : null,
+
+        logo_url:
+          logoUrl.trim() ||
+          null,
+
+        favicon_url:
+          faviconUrl.trim() ||
+          null,
+
+        hero_image_url:
+          heroImageUrl.trim() ||
+          null,
+
+        background_colour:
+          backgroundColour.trim() ||
+          "#FAF8F5",
+
+        text_colour:
+          textColour.trim() ||
+          "#1c1917",
+
+        button_colour:
+          buttonColour.trim() ||
+          "#1c1917",
+
+        button_text_colour:
+          buttonTextColour.trim() ||
           "#ffffff",
-          0.08
-        )
-      : "#ffffff";
 
-  const storeSurfaceSoft =
-    darkTheme
-      ? mixColours(
-          pageBackground,
-          "#ffffff",
-          0.13
-        )
-      : mixColours(
-          pageBackground,
-          "#ffffff",
-          0.62
-        );
+        heading_font:
+          headingFont.trim() ||
+          "Poppins",
 
-  const storeSurfaceStrong =
-    darkTheme
-      ? mixColours(
-          pageBackground,
-          "#ffffff",
-          0.18
-        )
-      : mixColours(
-          pageBackground,
-          "#000000",
-          0.04
-        );
+        body_font:
+          bodyFont.trim() ||
+          "Poppins",
 
-  const storeMutedText =
-    darkTheme
-      ? mixColours(
-          pageText,
-          pageBackground,
-          0.38
-        )
-      : mixColours(
-          pageText,
-          pageBackground,
-          0.44
-        );
+        layout_style:
+          layoutStyle,
 
-  const storeFaintText =
-    darkTheme
-      ? mixColours(
-          pageText,
-          pageBackground,
-          0.58
-        )
-      : mixColours(
-          pageText,
-          pageBackground,
-          0.6
-        );
+        card_style:
+          cardStyle,
 
-  const storeBorder =
-    darkTheme
-      ? mixColours(
-          pageBackground,
-          pageText,
-          0.2
-        )
-      : mixColours(
-          pageBackground,
-          pageText,
-          0.14
-        );
+        border_radius:
+          Math.max(
+            0,
+            Math.min(
+              48,
+              Number(
+                borderRadius
+              ) ||
+                18
+            )
+          ),
 
-  const storeOverlay =
-    darkTheme
-      ? "rgba(0,0,0,0.72)"
-      : "rgba(255,255,255,0.88)";
+        show_categories:
+          showCategories,
 
-  const headingFont =
-    store?.heading_font ||
-    "Poppins";
+        show_search:
+          showSearch,
 
-  const bodyFont =
-    store?.body_font ||
-    "Poppins";
+        show_stock:
+          showStock,
 
-  const layoutStyle =
-    store?.layout_style ||
-    "minimal";
+        show_prices:
+          showPrices,
 
-  const membershipLayout =
-    layoutStyle ===
-    "memberships";
+        footer_text:
+          footerText.trim() ||
+          null,
 
-  const showCategories =
-    store?.show_categories !==
-    false;
+        instagram_url:
+          instagramUrl.trim() ||
+          null,
 
-  const showSearch =
-    store?.show_search !==
-    false;
+        facebook_url:
+          facebookUrl.trim() ||
+          null,
 
-  const showStock =
-    store?.show_stock ===
-    true;
+        tiktok_url:
+          tiktokUrl.trim() ||
+          null,
 
-  const showPrices =
-    store?.show_prices !==
-    false;
+        custom_css:
+          customCss.trim() ||
+          null,
+
+        shipping_text:
+          shippingText.trim() ||
+          null,
+
+        support_email:
+          supportEmail.trim() ||
+          null,
+
+        is_live:
+          storeLive,
+
+        updated_at:
+          new Date().toISOString(),
+      };
+
+      if (
+        storeSettings?.id
+      ) {
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "store_settings"
+            )
+            .update(
+              payload
+            )
+            .eq(
+              "id",
+              storeSettings.id
+            )
+            .eq(
+              "organisation_id",
+              organisationId
+            )
+            .select("*")
+            .maybeSingle();
+
+        if (
+          error
+        ) {
+          throw error;
+        }
+
+        if (
+          !data
+        ) {
+          throw new Error(
+            "Store settings were not updated. Check the store_settings RLS UPDATE policy."
+          );
+        }
+      } else {
+        const {
+          data,
+          error,
+        } =
+          await supabase
+            .from(
+              "store_settings"
+            )
+            .insert(
+              payload
+            )
+            .select("*")
+            .single();
+
+        if (
+          error
+        ) {
+          throw error;
+        }
+
+        if (
+          !data
+        ) {
+          throw new Error(
+            "Store settings were not created."
+          );
+        }
+      }
+
+      setSlug(
+        resolvedSlug
+      );
+
+      await loadData(
+        true
+      );
+
+      alert(
+        "Store settings saved. Your storefront is now using the updated settings."
+      );
+    } catch (
+      error: unknown
+    ) {
+      console.error(
+        "Store settings save failed:",
+        error
+      );
+
+      alert(
+        error instanceof
+          Error
+          ? error.message
+          : "Store settings could not be saved."
+      );
+    } finally {
+      setSavingSettings(
+        false
+      );
+    }
+  }
+
+  // ==========================================================
+  // STOREFRONT
+  // ==========================================================
+
+  const hostedStorefrontUrl =
+    slug
+      ? `/shop/${slug}`
+      : null;
+
+  const storefrontUrl =
+    storefrontMode ===
+      "external" &&
+    externalStorefrontUrl.trim()
+      ? externalStorefrontUrl.trim()
+      : hostedStorefrontUrl;
+
+  const storefrontIsExternal =
+    storefrontMode ===
+      "external" &&
+    Boolean(
+      externalStorefrontUrl.trim()
+    );
+
+  async function copyStorefrontUrl() {
+    if (
+      !storefrontUrl
+    ) {
+      return;
+    }
+
+    const url =
+      storefrontIsExternal
+        ? storefrontUrl
+        : typeof window !==
+            "undefined"
+          ? `${window.location.origin}${storefrontUrl}`
+          : storefrontUrl;
+
+    try {
+      await navigator.clipboard.writeText(
+        url
+      );
+
+      alert(
+        "Store URL copied."
+      );
+    } catch {
+      alert(
+        url
+      );
+    }
+  }
+
+  // ==========================================================
+  // TABS
+  // ==========================================================
+
+  const tabs: {
+    label:
+      StoreTab;
+
+    icon:
+      any;
+  }[] = [
+    {
+      label:
+        "Overview",
+
+      icon:
+        Store,
+    },
+
+    {
+      label:
+        "Products",
+
+      icon:
+        Package,
+    },
+
+    {
+      label:
+        "Orders",
+
+      icon:
+        ShoppingBag,
+    },
+
+    {
+      label:
+        "Subscriptions",
+
+      icon:
+        CreditCard,
+    },
+
+    {
+      label:
+        "Payments",
+
+      icon:
+        WalletCards,
+    },
+
+    {
+      label:
+        "Inventory",
+
+      icon:
+        Boxes,
+    },
+
+    {
+      label:
+        "Discounts",
+
+      icon:
+        BadgePercent,
+    },
+
+    {
+      label:
+        "Settings",
+
+      icon:
+        Settings,
+    },
+  ];
+
+  // ==========================================================
+  // STORE ADD-ON CHECKOUT
+  // ==========================================================
 
   // ==========================================================
   // LOADING
@@ -2895,24 +7287,18 @@ export default function ShopFrontPage() {
     loading
   ) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f8f7f3] px-5">
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2]">
         <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
-            <Loader2
-              className="animate-spin text-stone-400"
-              size={22}
-            />
-          </div>
+          <Loader2
+            size={28}
+            className="mx-auto animate-spin text-[#829473]"
+          />
 
-          <p className="mt-5 text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">
-            Opening store
-          </p>
-
-          <p className="mt-2 text-xs text-stone-400">
-            Getting everything ready for you.
+          <p className="mt-4 text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">
+            Loading commerce
           </p>
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -2921,438 +7307,3726 @@ export default function ShopFrontPage() {
   // ==========================================================
 
   if (
-    !store ||
-    error
+    pageError
   ) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f8f7f3] px-5">
-        <div className="w-full max-w-lg rounded-[2rem] border border-stone-200 bg-white p-10 text-center shadow-sm">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-500">
-            <Store
-              size={22}
-            />
-          </div>
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-5">
+        <div className="w-full max-w-lg rounded-[2rem] border border-stone-200 bg-white p-10 text-center">
+          <AlertTriangle
+            size={26}
+            className="mx-auto text-amber-500"
+          />
 
-          <h1 className="mt-6 font-serif text-4xl italic text-stone-900">
-            We couldn&apos;t open this store.
+          <h1 className="mt-5 font-serif text-4xl italic">
+            Commerce couldn&apos;t load
           </h1>
 
-          <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-stone-500">
-            {error ||
-              "This store could not be found."}
+          <p className="mt-3 text-sm leading-6 text-stone-500">
+            {pageError}
           </p>
 
           <button
             type="button"
             onClick={() =>
-              void loadStore()
+              void loadData()
             }
-            className="mt-7 inline-flex items-center gap-2 rounded-full bg-stone-900 px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-stone-800"
+            className="mt-7 inline-flex items-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-white"
           >
-            Try again
-
-            <ArrowRight
+            <RefreshCw
               size={13}
             />
+
+            Try again
           </button>
         </div>
-
-        <StorefrontGlobalStyles />
-      </div>
+      </main>
     );
   }
 
   // ==========================================================
-  // PAGE
+  // RENDER
   // ==========================================================
 
   return (
-    <div
-      className={`tots-store min-h-screen ${
-        membershipLayout
-          ? "tots-store-memberships"
-          : ""
-      }`}
-      style={
-        {
-          "--brand":
-            primary,
-          "--store-bg":
-            pageBackground,
-          "--store-text":
-            pageText,
-          "--store-button":
-            buttonColour,
-          "--store-button-text":
-            buttonTextColour,
-          "--store-radius":
-            `${storeRadius}px`,
-          "--store-surface":
-            storeSurface,
-          "--store-surface-soft":
-            storeSurfaceSoft,
-          "--store-surface-strong":
-            storeSurfaceStrong,
-          "--store-muted":
-            storeMutedText,
-          "--store-faint":
-            storeFaintText,
-          "--store-border":
-            storeBorder,
-          "--store-overlay":
-            storeOverlay,
-          "--store-heading-font":
-            headingFont,
-          "--store-body-font":
-            bodyFont,
-          background:
-            pageBackground,
-          color:
-            pageText,
-          fontFamily:
-            bodyFont,
-        } as CSSProperties
-      }
-    >
-      {store.custom_css && (
-        <style
-          dangerouslySetInnerHTML={{
-            __html:
-              store.custom_css,
-          }}
-        />
-      )}
-      <style>{`
-        .tots-store {
-          background: var(--store-bg);
-          color: var(--store-text);
-        }
-
-        .tots-store,
-        .tots-store * {
-          border-color: var(--store-border);
-        }
-
-        .tots-store h1,
-        .tots-store h2,
-        .tots-store h3,
-        .tots-store h4,
-        .tots-store h5 {
-          font-family: var(--store-heading-font);
-          color: var(--store-text);
-        }
-
-        .tots-store p,
-        .tots-store span,
-        .tots-store label,
-        .tots-store a,
-        .tots-store button,
-        .tots-store input,
-        .tots-store select,
-        .tots-store textarea {
-          font-family: var(--store-body-font);
-        }
-
-        /* Turn the original generic white/stone storefront into the
-           saved business theme without having to duplicate every component. */
-        .tots-store .bg-white {
-          background-color: var(--store-surface) !important;
-        }
-
-        .tots-store .bg-white\/95,
-        .tots-store .bg-white\/90 {
-          background-color: var(--store-overlay) !important;
-        }
-
-        .tots-store .bg-white\/55 {
-          background-color: var(--store-surface-soft) !important;
-          opacity: .72;
-        }
-
-        .tots-store .bg-stone-50,
-        .tots-store .bg-stone-50\/70,
-        .tots-store .bg-stone-100 {
-          background-color: var(--store-surface-soft) !important;
-        }
-
-        .tots-store .bg-stone-900 {
-          background-color: var(--store-surface-strong) !important;
-        }
-
-        .tots-store .text-stone-900,
-        .tots-store .text-stone-800,
-        .tots-store .text-stone-700 {
-          color: var(--store-text) !important;
-        }
-
-        .tots-store .text-stone-600,
-        .tots-store .text-stone-500 {
-          color: var(--store-muted) !important;
-        }
-
-        .tots-store .text-stone-400,
-        .tots-store .text-stone-300 {
-          color: var(--store-faint) !important;
-        }
-
-        .tots-store .border-stone-100,
-        .tots-store .border-stone-200,
-        .tots-store .border-stone-200\/80,
-        .tots-store .border-stone-300 {
-          border-color: var(--store-border) !important;
-        }
-
-        .tots-store input,
-        .tots-store select,
-        .tots-store textarea {
-          background: var(--store-surface) !important;
-          color: var(--store-text) !important;
-          border-color: var(--store-border) !important;
-        }
-
-        .tots-store input::placeholder,
-        .tots-store textarea::placeholder {
-          color: var(--store-faint) !important;
-        }
-
-        .tots-store button:not(:disabled) {
-          border-color: var(--store-border);
-        }
-
-        .tots-store [class*="rounded"] {
-          border-radius: var(--store-radius) !important;
-        }
-
-        .tots-store .rounded-full {
-          border-radius: 9999px !important;
-        }
-
-        /* Main commerce action buttons use the saved button palette. */
-        .tots-store .store-primary-action,
-        .tots-store button[data-store-primary="true"],
-        .tots-store a[data-store-primary="true"] {
-          background: var(--store-button) !important;
-          color: var(--store-button-text) !important;
-          border-color: var(--store-button) !important;
-        }
-
-        /* Product cards and major storefront panels. */
-        .tots-store article,
-        .tots-store .store-card-radius {
-          background: var(--store-surface);
-          color: var(--store-text);
-          border-color: var(--store-border);
-          border-radius: var(--store-radius);
-        }
-
-        .tots-store article:hover {
-          border-color: var(--brand);
-        }
-
-        .tots-store-memberships article {
-          min-height: 100%;
-        }
-
-        .tots-store-memberships #shop [class*="grid-cols"] {
-          align-items: stretch;
-        }
-      `}</style>
-
-      {/* =====================================================
-          ANNOUNCEMENT
-      ===================================================== */}
-
-      <div
-        className="px-4 py-2.5 text-center text-[8px] font-black uppercase tracking-[0.2em] text-white"
-        style={{
-          background:
-            buttonColour,
-          color:
-            buttonTextColour,
-        }}
-      >
-        {store.announcement ||
-          "Shop securely with us online"}
-      </div>
-
+    <main className="min-h-screen bg-[#f7f5f2] pb-28 text-stone-900">
       {/* =====================================================
           HEADER
       ===================================================== */}
 
-      <header className="sticky top-0 z-40 border-b border-stone-200/80 backdrop-blur-xl" style={{ background: `${pageBackground}F2` }}>
-        <div className="mx-auto flex h-[72px] max-w-[1360px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      <header className="mx-auto max-w-[1400px] px-4 pb-7 pt-10 sm:px-6 lg:px-8 lg:pt-14">
+        <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2">
+              <ShoppingBag
+                size={13}
+                className="text-[#829473]"
+              />
 
-          <button
-            type="button"
-            aria-label="Open menu"
-            onClick={() =>
-              setMobileMenuOpen(
-                true
-              )
-            }
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-stone-200 bg-white lg:hidden"
-          >
-            <Menu
-              size={16}
-            />
-          </button>
-
-          <a
-            href="#top"
-            className="flex min-w-0 items-center gap-3 no-underline"
-          >
-            {store.logo_url ? (
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-white">
-                <img
-                  src={
-                    store.logo_url
-                  }
-                  alt={`${storeName} logo`}
-                  className="h-full w-full object-contain p-1"
-                />
-              </div>
-            ) : (
-              <div
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white"
-                style={{
-                  background:
-                    primary,
-                }}
-              >
-                <Store
-                  size={17}
-                />
-              </div>
-            )}
-
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black tracking-[-0.01em] text-stone-900">
-                {
-                  storeName
-                }
-              </p>
-
-              <p className="mt-0.5 hidden text-[9px] text-stone-400 sm:block">
-                Online store
-              </p>
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                TOTS Commerce
+              </span>
             </div>
-          </a>
 
-          <nav className="hidden items-center gap-8 lg:flex">
-            <a
-              href="#shop"
-              className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
-            >
-              Shop
-            </a>
+            <h1 className="max-w-4xl font-serif text-5xl italic leading-none tracking-tight text-stone-900 sm:text-6xl lg:text-7xl">
+              Your store, connected to your business.
+            </h1>
 
-            {featuredProducts.length >
-              0 && (
+            <p className="mt-5 max-w-2xl text-sm leading-6 text-stone-500">
+              Manage products, orders, stock and your public storefront alongside the rest of TOTS-OS.
+            </p>
+
+            {organisationName && (
+              <p className="mt-3 text-[9px] font-black uppercase tracking-[0.16em] text-stone-400">
+                {organisationName}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {storefrontUrl && (
               <a
-                href="#featured"
-                className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
+                href={
+                  storefrontUrl
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500 no-underline"
               >
-                Featured
+                <ExternalLink
+                  size={13}
+                />
+
+                View storefront
               </a>
             )}
 
-            <a
-              href="#about"
-              className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
+            <button
+              type="button"
+              disabled={
+                refreshing
+              }
+              onClick={() =>
+                void loadData(
+                  true
+                )
+              }
+              className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500 disabled:opacity-50"
             >
-              About
-            </a>
+              <RefreshCw
+                size={13}
+                className={
+                  refreshing
+                    ? "animate-spin"
+                    : ""
+                }
+              />
+
+              Refresh
+            </button>
 
             <button
               type="button"
               onClick={
-                openContactDrawer
+                openNewProduct
               }
-              className="text-xs font-semibold text-stone-500 transition hover:text-stone-900"
+              className="flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#a9b897]"
             >
-              Contact
+              <Plus
+                size={14}
+              />
+
+              New Product
             </button>
-          </nav>
-
-          <button
-            type="button"
-            aria-label={`Open basket with ${cartCount} items`}
-            onClick={() =>
-              setCartOpen(
-                true
-              )
-            }
-            className="relative flex h-11 items-center gap-2 rounded-full border border-stone-200 bg-white px-4 text-xs font-bold text-stone-700 shadow-sm transition hover:border-stone-300 hover:shadow-md"
-          >
-            <ShoppingBag
-              size={15}
-            />
-
-            <span className="hidden sm:inline">
-              Basket
-            </span>
-
-            {cartCount >
-              0 && (
-              <span
-                className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[8px] font-black text-white"
-                style={{
-                  background:
-                    primary,
-                }}
-              >
-                {
-                  cartCount
-                }
-              </span>
-            )}
-          </button>
+          </div>
         </div>
       </header>
 
       {/* =====================================================
-          MOBILE MENU
+          NAV
       ===================================================== */}
 
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[150] bg-stone-950/40 backdrop-blur-sm lg:hidden">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+        <div className="no-scrollbar overflow-x-auto">
+          <div className="flex min-w-max gap-1 rounded-2xl border border-stone-200 bg-white p-1.5">
+            {tabs.map(
+              (
+                tab
+              ) => {
+                const Icon =
+                  tab.icon;
 
-          <button
-            type="button"
-            aria-label="Close menu"
-            className="absolute inset-0"
-            onClick={() =>
-              setMobileMenuOpen(
-                false
+                const active =
+                  tab.label ===
+                  activeTab;
+
+                return (
+                  <button
+                    key={
+                      tab.label
+                    }
+                    type="button"
+                    onClick={() =>
+                      setActiveTab(
+                        tab.label
+                      )
+                    }
+                    className={`flex items-center gap-2 rounded-xl px-4 py-3 text-[9px] font-black uppercase tracking-[0.13em] transition ${
+                      active
+                        ? "bg-stone-900 text-white"
+                        : "text-stone-400 hover:bg-stone-50 hover:text-stone-700"
+                    }`}
+                  >
+                    <Icon
+                      size={14}
+                    />
+
+                    {
+                      tab.label
+                    }
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* =====================================================
+          CONTENT
+      ===================================================== */}
+
+      <section className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
+        <AnimatePresence
+          mode="wait"
+        >
+          {/* ==================================================
+              OVERVIEW
+          ================================================== */}
+
+          {activeTab ===
+            "Overview" && (
+            <motion.div
+              key="overview"
+              initial={{
+                opacity:
+                  0,
+
+                y:
+                  8,
+              }}
+              animate={{
+                opacity:
+                  1,
+
+                y:
+                  0,
+              }}
+              exit={{
+                opacity:
+                  0,
+              }}
+              className="space-y-6"
+            >
+              <Panel>
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#a9b897]/10 text-[#829473]">
+                    <Sparkles
+                      size={18}
+                    />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <SectionEyebrow>
+                      TOTS Commerce Summary
+                    </SectionEyebrow>
+
+                    {orders.length ||
+                    products.length ? (
+                      <p className="mt-2 max-w-4xl text-lg leading-8 text-stone-700">
+                        Your store currently has{" "}
+
+                        <strong>
+                          {
+                            products.length
+                          }{" "}
+                          products
+                        </strong>
+
+                        ,{" "}
+
+                        <strong>
+                          {
+                            openOrders.length
+                          }{" "}
+                          active orders
+                        </strong>
+
+                        {" "}and{" "}
+
+                        <strong>
+                          {
+                            lowStockProducts.length
+                          }{" "}
+                          stock warnings
+                        </strong>
+
+                        . Paid order value currently visible is{" "}
+
+                        <strong>
+                          {money(
+                            displayRevenue
+                          )}
+                        </strong>
+
+                        .
+                      </p>
+                    ) : (
+                      <p className="mt-2 max-w-4xl text-lg leading-8 text-stone-700">
+                        Your commerce workspace is ready. Start by adding your first product and finishing your storefront settings.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </Panel>
+
+              {!storeSettings && (
+                <div className="rounded-[2rem] border border-[#dce4d2] bg-[#f1f5ec] p-6 md:p-8">
+                  <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <SectionEyebrow>
+                        Storefront setup
+                      </SectionEyebrow>
+
+                      <h2 className="mt-2 font-serif text-3xl italic">
+                        Finish setting up your online store.
+                      </h2>
+
+                      <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
+                        Add your store name, public URL, description and branding before putting the storefront live.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveTab(
+                          "Settings"
+                        )
+                      }
+                      className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
+                    >
+                      Set up store
+
+                      <ArrowRight
+                        size={13}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <StoreMetric
+                  icon={
+                    CircleDollarSign
+                  }
+                  label="Revenue"
+                  value={money(
+                    displayRevenue
+                  )}
+                />
+
+                <StoreMetric
+                  icon={
+                    ShoppingCart
+                  }
+                  label="Orders"
+                  value={String(
+                    orders.length
+                  )}
+                />
+
+                <StoreMetric
+                  icon={
+                    TrendingUp
+                  }
+                  label="Avg Order"
+                  value={money(
+                    averageOrderValue
+                  )}
+                />
+
+                <StoreMetric
+                  icon={
+                    AlertTriangle
+                  }
+                  label="Low Stock"
+                  value={String(
+                    lowStockProducts.length
+                  )}
+                />
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-12">
+                <Panel className="lg:col-span-7">
+                  <div className="mb-6 flex items-center justify-between">
+                    <div>
+                      <SectionEyebrow>
+                        Fulfilment
+                      </SectionEyebrow>
+
+                      <h2 className="mt-1 font-serif text-2xl italic">
+                        Orders needing attention
+                      </h2>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveTab(
+                          "Orders"
+                        )
+                      }
+                      className="text-xs font-semibold text-[#829473]"
+                    >
+                      View all
+                    </button>
+                  </div>
+
+                  {!openOrders.length ? (
+                    <EmptyState
+                      icon={
+                        PackageCheck
+                      }
+                      title="No open orders"
+                      text="New storefront orders will appear here ready for fulfilment."
+                    />
+                  ) : (
+                    <div className="space-y-3">
+                      {openOrders
+                        .slice(
+                          0,
+                          4
+                        )
+                        .map(
+                          (
+                            order
+                          ) => (
+                            <OrderRow
+                              key={
+                                order.id
+                              }
+                              order={
+                                order
+                              }
+                              money={
+                                money
+                              }
+                              loading={
+                                updatingOrderId ===
+                                order.id
+                              }
+                              onAdvance={() =>
+                                void advanceOrder(
+                                  order
+                                )
+                              }
+                            />
+                          )
+                        )}
+                    </div>
+                  )}
+                </Panel>
+
+                <Panel className="lg:col-span-5">
+                  <SectionEyebrow>
+                    Store Snapshot
+                  </SectionEyebrow>
+
+                  <h2 className="mt-1 font-serif text-2xl italic">
+                    Current position
+                  </h2>
+
+                  <div className="mt-6 space-y-4">
+                    <DetailRow
+                      label="Storefront"
+                      value={
+                        storeLive
+                          ? "Live"
+                          : "Hidden"
+                      }
+                    />
+
+                    <DetailRow
+                      label="Open orders"
+                      value={String(
+                        openOrders.length
+                      )}
+                    />
+
+                    <DetailRow
+                      label="Paid orders"
+                      value={String(
+                        paidOrders.length
+                      )}
+                    />
+
+                    <DetailRow
+                      label="Order value"
+                      value={money(
+                        orderRevenue
+                      )}
+                    />
+
+                    <DetailRow
+                      label="Active products"
+                      value={String(
+                        products.filter(
+                          (
+                            product
+                          ) =>
+                            product.status ===
+                            "active"
+                        ).length
+                      )}
+                    />
+
+                    <DetailRow
+                      label="Active discount codes"
+                      value={String(
+                        activeDiscounts.length
+                      )}
+                    />
+                  </div>
+                </Panel>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <Panel>
+                  <div className="mb-6 flex items-center justify-between">
+                    <div>
+                      <SectionEyebrow>
+                        Performance
+                      </SectionEyebrow>
+
+                      <h2 className="mt-1 font-serif text-2xl italic">
+                        Best sellers
+                      </h2>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveTab(
+                          "Products"
+                        )
+                      }
+                      className="text-xs font-semibold text-[#829473]"
+                    >
+                      Products
+                    </button>
+                  </div>
+
+                  {!bestSellers.length ? (
+                    <EmptyState
+                      icon={
+                        TrendingUp
+                      }
+                      title="No sales data yet"
+                      text="Once customers begin ordering, your best sellers will appear here."
+                    />
+                  ) : (
+                    <div className="space-y-3">
+                      {bestSellers.map(
+                        (
+                          product,
+                          index
+                        ) => (
+                          <div
+                            key={
+                              product.id
+                            }
+                            className="flex items-center gap-4 rounded-2xl bg-stone-50 p-4"
+                          >
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-stone-400">
+                              <span className="font-serif text-lg italic">
+                                #
+                                {
+                                  index +
+                                  1
+                                }
+                              </span>
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold">
+                                {
+                                  product.name
+                                }
+                              </p>
+
+                              <p className="mt-1 text-[10px] text-stone-400">
+                                {
+                                  product.orders
+                                }{" "}
+                                items sold
+                              </p>
+                            </div>
+
+                            <p className="font-serif text-lg italic">
+                              {money(
+                                product.revenue
+                              )}
+                            </p>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+                </Panel>
+
+                <Panel>
+                  <SectionEyebrow>
+                    Inventory
+                  </SectionEyebrow>
+
+                  <h2 className="mt-1 font-serif text-2xl italic">
+                    Stock warnings
+                  </h2>
+
+                  <div className="mt-6">
+                    {!lowStockProducts.length ? (
+                      <EmptyState
+                        icon={
+                          Check
+                        }
+                        title="Stock looks healthy"
+                        text="Nothing is currently below your low-stock threshold."
+                      />
+                    ) : (
+                      <div className="space-y-3">
+                        {lowStockProducts.map(
+                          (
+                            product
+                          ) => (
+                            <button
+                              type="button"
+                              key={
+                                product.id
+                              }
+                              onClick={() =>
+                                openStockAdjust(
+                                  product
+                                )
+                              }
+                              className="flex w-full items-center justify-between rounded-2xl border border-amber-100 bg-amber-50 p-4 text-left"
+                            >
+                              <div>
+                                <p className="text-sm font-semibold text-stone-700">
+                                  {
+                                    product.name
+                                  }
+                                </p>
+
+                                <p className="mt-1 text-[10px] text-amber-700">
+                                  {
+                                    product.inventory_quantity
+                                  }{" "}
+                                  left in stock
+                                </p>
+                              </div>
+
+                              <AlertTriangle
+                                size={16}
+                                className="text-amber-500"
+                              />
+                            </button>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </Panel>
+              </div>
+
+              <Panel>
+                <SectionEyebrow>
+                  Connected Business
+                </SectionEyebrow>
+
+                <h2 className="mt-1 font-serif text-2xl italic">
+                  Commerce inside the rest of TOTS-OS
+                </h2>
+
+                <div className="mt-6 grid gap-3 md:grid-cols-4">
+                  <ConnectionCard
+                    icon={
+                      Users
+                    }
+                    title="Customers"
+                    text="Store customers can become CRM contacts instead of living in another system."
+                  />
+
+                  <ConnectionCard
+                    icon={
+                      CircleDollarSign
+                    }
+                    title="Finance"
+                    text="Store revenue can feed directly into the wider financial picture."
+                  />
+
+                  <ConnectionCard
+                    icon={
+                      PackageCheck
+                    }
+                    title="Fulfilment"
+                    text="Orders and dispatch become trackable operational work."
+                  />
+
+                  <ConnectionCard
+                    icon={
+                      Sparkles
+                    }
+                    title="Clarity"
+                    text="Use sales, stock and customer activity as business context."
+                  />
+                </div>
+              </Panel>
+            </motion.div>
+          )}
+
+          {/* ==================================================
+              PRODUCTS
+          ================================================== */}
+
+          {activeTab ===
+            "Products" && (
+            <motion.div
+              key="products"
+              initial={{
+                opacity:
+                  0,
+              }}
+              animate={{
+                opacity:
+                  1,
+              }}
+            >
+              <Panel>
+                <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <SectionEyebrow>
+                      Catalogue
+                    </SectionEyebrow>
+
+                    <h2 className="mt-1 font-serif text-3xl italic">
+                      Products
+                    </h2>
+
+                    <p className="mt-2 text-sm text-stone-500">
+                      Products created here are the same database products used by your public TOTS storefront.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <div className="relative">
+                      <Search
+                        size={14}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
+                      />
+
+                      <input
+                        value={
+                          productSearch
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setProductSearch(
+                            event.target.value
+                          )
+                        }
+                        placeholder="Search products..."
+                        className="w-full rounded-xl border border-stone-200 bg-stone-50 py-3 pl-10 pr-4 text-xs outline-none sm:w-64"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={
+                        openNewProduct
+                      }
+                      className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase text-white"
+                    >
+                      <Plus
+                        size={13}
+                      />
+
+                      New Product
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-8 overflow-hidden rounded-2xl border border-stone-100">
+                  <div className="hidden grid-cols-[minmax(0,1.7fr)_1fr_.7fr_.7fr_.8fr_90px] gap-4 border-b bg-stone-50 px-5 py-4 text-[8px] font-black uppercase tracking-wider text-stone-400 md:grid">
+                    <span>
+                      Product
+                    </span>
+
+                    <span>
+                      Category
+                    </span>
+
+                    <span>
+                      Price
+                    </span>
+
+                    <span>
+                      Stock
+                    </span>
+
+                    <span>
+                      Status
+                    </span>
+
+                    <span />
+                  </div>
+
+                  {!filteredProducts.length ? (
+                    <div className="p-12">
+                      <EmptyState
+                        icon={
+                          Package
+                        }
+                        title="No products yet"
+                        text="Create your first product and it will be available to your storefront."
+                      />
+
+                      {!productSearch && (
+                        <div className="mt-5 text-center">
+                          <button
+                            type="button"
+                            onClick={
+                              openNewProduct
+                            }
+                            className="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-wider text-white"
+                          >
+                            <Plus
+                              size={13}
+                            />
+
+                            Add first product
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    filteredProducts.map(
+                      (
+                        product
+                      ) => (
+                        <div
+                          key={
+                            product.id
+                          }
+                          className="grid gap-4 border-b border-stone-100 px-5 py-5 last:border-0 md:grid-cols-[minmax(0,1.7fr)_1fr_.7fr_.7fr_.8fr_90px] md:items-center"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-stone-50 text-stone-300">
+                              {product.image_url ? (
+                                <img
+                                  src={
+                                    product.image_url
+                                  }
+                                  alt={
+                                    product.name
+                                  }
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <ImageIcon
+                                  size={17}
+                                />
+                              )}
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="truncate text-sm font-semibold text-stone-700">
+                                  {
+                                    product.name
+                                  }
+                                </p>
+
+                                {product.featured && (
+                                  <span className="rounded-full bg-[#edf1e8] px-2 py-1 text-[7px] font-black uppercase text-[#82936b]">
+                                    Featured
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="mt-1 text-[10px] text-stone-400">
+                                {
+                                  product.sku
+                                }
+                              </p>
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-stone-500">
+                            {
+                              product.category
+                            }
+                          </p>
+
+                          <p className="text-xs font-semibold">
+                            {money(
+                              product.price
+                            )}
+                          </p>
+
+                          {product.track_inventory ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openStockAdjust(
+                                  product
+                                )
+                              }
+                              className="w-fit text-left"
+                            >
+                              <p className="text-xs font-semibold">
+                                {
+                                  product.inventory_quantity
+                                }
+                              </p>
+
+                              {product.inventory_quantity <=
+                                Number(
+                                  lowStockThreshold
+                                ) && (
+                                <p className="mt-1 text-[9px] text-amber-600">
+                                  Low stock
+                                </p>
+                              )}
+                            </button>
+                          ) : (
+                            <p className="text-[9px] font-semibold uppercase tracking-wide text-stone-400">
+                              Unlimited
+                            </p>
+                          )}
+
+                          <StatusBadge
+                            status={
+                              product.status
+                            }
+                          />
+
+                          <div className="flex gap-1 md:justify-end">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openEditProduct(
+                                  product
+                                )
+                              }
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-50 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
+                            >
+                              <Edit3
+                                size={13}
+                              />
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={
+                                deletingProductId ===
+                                product.id
+                              }
+                              onClick={() =>
+                                void deleteProduct(
+                                  product
+                                )
+                              }
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-400 disabled:opacity-50"
+                            >
+                              {deletingProductId ===
+                              product.id ? (
+                                <Loader2
+                                  size={13}
+                                  className="animate-spin"
+                                />
+                              ) : (
+                                <Trash2
+                                  size={13}
+                                />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    )
+                  )}
+                </div>
+              </Panel>
+            </motion.div>
+          )}
+
+          {/* ==================================================
+              ORDERS
+          ================================================== */}
+
+          {activeTab ===
+            "Orders" && (
+            <motion.div
+              key="orders"
+              initial={{
+                opacity:
+                  0,
+              }}
+              animate={{
+                opacity:
+                  1,
+              }}
+              className="space-y-6"
+            >
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <StoreMetric
+                  icon={
+                    ShoppingBag
+                  }
+                  label="Orders"
+                  value={String(
+                    orders.length
+                  )}
+                />
+
+                <StoreMetric
+                  icon={
+                    Package
+                  }
+                  label="Open"
+                  value={String(
+                    openOrders.length
+                  )}
+                />
+
+                <StoreMetric
+                  icon={
+                    CreditCard
+                  }
+                  label="Paid"
+                  value={String(
+                    paidOrders.length
+                  )}
+                />
+
+                <StoreMetric
+                  icon={
+                    CircleDollarSign
+                  }
+                  label="Paid Value"
+                  value={money(
+                    orderRevenue
+                  )}
+                />
+              </div>
+
+              <Panel>
+                <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <SectionEyebrow>
+                      Fulfilment
+                    </SectionEyebrow>
+
+                    <h2 className="mt-1 font-serif text-3xl italic">
+                      Orders
+                    </h2>
+
+                    <p className="mt-2 text-sm text-stone-500">
+                      Orders placed through the TOTS storefront will appear here.
+                    </p>
+                  </div>
+
+                  <div className="relative">
+                    <Search
+                      size={14}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
+                    />
+
+                    <input
+                      value={
+                        orderSearch
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setOrderSearch(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Search orders..."
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 py-3 pl-10 pr-4 text-xs outline-none sm:w-72"
+                    />
+                  </div>
+                </div>
+
+                {!filteredOrders.length ? (
+                  <div className="mt-8">
+                    <EmptyState
+                      icon={
+                        ShoppingBag
+                      }
+                      title="No orders yet"
+                      text="Once customers place orders on your storefront, they will appear here for fulfilment."
+                    />
+                  </div>
+                ) : (
+                  <div className="mt-8 space-y-3">
+                    {filteredOrders.map(
+                      (
+                        order
+                      ) => (
+                        <div
+                          key={
+                            order.id
+                          }
+                          className="rounded-2xl border border-stone-100 bg-stone-50 p-5"
+                        >
+                          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                            <div className="flex items-start gap-4">
+                              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-stone-400">
+                                <ShoppingBag
+                                  size={16}
+                                />
+                              </div>
+
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-semibold">
+                                    {
+                                      order.number
+                                    }
+                                  </p>
+
+                                  <OrderStatusBadge
+                                    status={
+                                      order.status
+                                    }
+                                  />
+
+                                  <PaymentBadge
+                                    status={
+                                      order.paymentStatus
+                                    }
+                                  />
+                                </div>
+
+                                <p className="mt-2 text-xs font-medium text-stone-600">
+                                  {
+                                    order.customer
+                                  }
+                                </p>
+
+                                <p className="mt-1 text-[10px] text-stone-400">
+                                  {
+                                    order.email
+                                  }{" "}
+                                  ·{" "}
+                                  {
+                                    order.items
+                                  }{" "}
+                                  items ·{" "}
+                                  {
+                                    order.createdAt
+                                  }
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-4 md:justify-end">
+                              <p className="font-serif text-2xl italic">
+                                {money(
+                                  order.total
+                                )}
+                              </p>
+
+                              {![
+                                "delivered",
+                                "cancelled",
+                              ].includes(
+                                order.status
+                              ) && (
+                                <button
+                                  type="button"
+                                  disabled={
+                                    updatingOrderId ===
+                                    order.id
+                                  }
+                                  onClick={() =>
+                                    void advanceOrder(
+                                      order
+                                    )
+                                  }
+                                  className="rounded-xl bg-stone-900 px-4 py-3 text-[8px] font-black uppercase tracking-wider text-white disabled:opacity-50"
+                                >
+                                  {updatingOrderId ===
+                                  order.id
+                                    ? "Saving..."
+                                    : order.status ===
+                                        "new"
+                                      ? "Start"
+                                      : order.status ===
+                                          "processing"
+                                        ? "Dispatch"
+                                        : "Delivered"}
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  contactOrderCustomer(
+                                    order
+                                  )
+                                }
+                                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 text-[8px] font-black uppercase tracking-[0.1em] text-stone-500 transition hover:border-[#a9b897] hover:text-stone-800"
+                              >
+                                <Mail
+                                  size={12}
+                                />
+
+                                Contact
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={
+                                  order.paymentStatus !==
+                                    "paid" ||
+                                  !stripeStatus.connected
+                                }
+                                onClick={() =>
+                                  openRefund(
+                                    order
+                                  )
+                                }
+                                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 text-[8px] font-black uppercase tracking-[0.1em] text-stone-500 transition hover:border-[#a9b897] hover:text-stone-800 disabled:cursor-not-allowed disabled:opacity-35"
+                              >
+                                <RotateCcw
+                                  size={12}
+                                />
+
+                                Refund
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedOrder(
+                                    order
+                                  )
+                                }
+                                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
+                                aria-label={`View ${order.number}`}
+                              >
+                                <Eye
+                                  size={14}
+                                />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
+              </Panel>
+            </motion.div>
+          )}
+
+          {/* ==================================================
+              SUBSCRIPTIONS
+          ================================================== */}
+
+          {activeTab ===
+            "Subscriptions" && (
+            <motion.div
+              key="subscriptions"
+              initial={{
+                opacity:
+                  0,
+              }}
+              animate={{
+                opacity:
+                  1,
+              }}
+              className="space-y-6"
+            >
+              <Panel>
+                <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <SectionEyebrow>
+                      Recurring revenue
+                    </SectionEyebrow>
+
+                    <h2 className="mt-1 font-serif text-3xl italic">
+                      Subscriptions
+                    </h2>
+
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-500">
+                      Stripe remains the payment source of truth. This view mirrors the latest subscription status, renewal period and customer details inside TOTS-OS.
+                    </p>
+                  </div>
+
+                  <div className="relative">
+                    <Search
+                      size={14}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+                    />
+
+                    <input
+                      value={
+                        subscriptionSearch
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setSubscriptionSearch(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Search subscriptions..."
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 py-3 pl-10 pr-4 text-xs outline-none sm:w-72"
+                    />
+                  </div>
+                </div>
+              </Panel>
+
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Panel>
+                  <SectionEyebrow>
+                    Active
+                  </SectionEyebrow>
+
+                  <p className="mt-3 font-serif text-5xl italic">
+                    {subscriptions.filter(
+                      (subscription) =>
+                        [
+                          "active",
+                          "trialing",
+                        ].includes(
+                          subscription.status
+                        )
+                    ).length}
+                  </p>
+                </Panel>
+
+                <Panel>
+                  <SectionEyebrow>
+                    Past due
+                  </SectionEyebrow>
+
+                  <p className="mt-3 font-serif text-5xl italic">
+                    {subscriptions.filter(
+                      (subscription) =>
+                        subscription.status ===
+                        "past_due"
+                    ).length}
+                  </p>
+                </Panel>
+
+                <Panel>
+                  <SectionEyebrow>
+                    Cancelling
+                  </SectionEyebrow>
+
+                  <p className="mt-3 font-serif text-5xl italic">
+                    {subscriptions.filter(
+                      (subscription) =>
+                        subscription.cancel_at_period_end
+                    ).length}
+                  </p>
+                </Panel>
+
+                <Panel>
+                  <SectionEyebrow>
+                    Monthly value
+                  </SectionEyebrow>
+
+                  <p className="mt-3 font-serif text-4xl italic">
+                    {money(
+                      subscriptions
+                        .filter(
+                          (subscription) =>
+                            [
+                              "active",
+                              "trialing",
+                            ].includes(
+                              subscription.status
+                            )
+                        )
+                        .reduce(
+                          (
+                            total,
+                            subscription
+                          ) => {
+                            const amount =
+                              ((
+                                subscription.unit_amount_pence ||
+                                0
+                              ) /
+                                100) *
+                              Math.max(
+                                1,
+                                subscription.quantity
+                              );
+
+                            if (
+                              subscription.billing_interval ===
+                              "week"
+                            ) {
+                              return (
+                                total +
+                                amount *
+                                  52 /
+                                  12
+                              );
+                            }
+
+                            if (
+                              subscription.billing_interval ===
+                              "year"
+                            ) {
+                              return (
+                                total +
+                                amount /
+                                  12
+                              );
+                            }
+
+                            return (
+                              total +
+                              amount
+                            );
+                          },
+                          0
+                        )
+                    )}
+                  </p>
+                </Panel>
+              </div>
+
+              <Panel>
+                {!filteredSubscriptions.length ? (
+                  <EmptyState
+                    icon={
+                      CreditCard
+                    }
+                    title="No subscriptions yet"
+                    text="Recurring memberships will appear here once they are created in TOTS-OS or synced from Stripe."
+                  />
+                ) : (
+                  <div className="space-y-4">
+                    {filteredSubscriptions.map(
+                      (
+                        subscription
+                      ) => {
+                        const product =
+                          products.find(
+                            (
+                              item
+                            ) =>
+                              item.id ===
+                              subscription.product_id
+                          );
+
+                        const beneficiaries =
+                          subscriptionBeneficiaries.filter(
+                            (
+                              beneficiary
+                            ) =>
+                              beneficiary.subscription_id ===
+                                subscription.id &&
+                              beneficiary.is_active
+                          );
+
+                        const amount =
+                          ((
+                            subscription.unit_amount_pence ||
+                            0
+                          ) /
+                            100) *
+                          Math.max(
+                            1,
+                            subscription.quantity
+                          );
+
+                        const statusLabel =
+                          subscription.status
+                            .replace(
+                              /_/g,
+                              " "
+                            )
+                            .replace(
+                              /\b\w/g,
+                              (letter) =>
+                                letter.toUpperCase()
+                            );
+
+                        const importedFromMtc =
+                          subscription.metadata
+                            ?.imported_from_mtc ===
+                            true;
+
+                        const explicitlyNotStripe =
+                          subscription.metadata
+                            ?.real_stripe_subscription ===
+                            false;
+
+                        const legacyStripeId =
+                          subscription.stripe_subscription_id
+                            ?.startsWith(
+                              "mtc_admin_"
+                            );
+
+                        const isLegacyImported =
+                          importedFromMtc ||
+                          explicitlyNotStripe ||
+                          legacyStripeId;
+
+                        const isMtcMembership =
+                          product?.external_system ===
+                            "mtc" ||
+                          subscription.metadata
+                            ?.external_system ===
+                            "mtc" ||
+                          isLegacyImported;
+
+                        const canManageStripe =
+                          !isLegacyImported &&
+                          Boolean(
+                            subscription.stripe_subscription_id
+                          ) &&
+                          Boolean(
+                            subscription.stripe_account_id
+                          );
+
+                        const primaryBeneficiary =
+                          beneficiaries.find(
+                            (
+                              beneficiary
+                            ) =>
+                              beneficiary.is_primary
+                          );
+
+                        const beneficiaryName =
+                          (
+                            beneficiary:
+                              StoreSubscriptionBeneficiary
+                          ) =>
+                            [
+                              beneficiary.first_name,
+                              beneficiary.last_name,
+                            ]
+                              .filter(
+                                Boolean
+                              )
+                              .join(
+                                " "
+                              ) ||
+                            beneficiary.email ||
+                            "Member";
+
+                        return (
+                          <div
+                            key={
+                              subscription.id
+                            }
+                            className="overflow-hidden rounded-[22px] border border-stone-200 bg-white shadow-sm"
+                          >
+                            <div className="flex flex-col gap-5 p-5 lg:flex-row lg:items-start lg:justify-between">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-base font-semibold text-stone-900">
+                                    {product?.name ||
+                                      "Membership"}
+                                  </p>
+
+                                  <span className={`rounded-full px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] ${
+                                    [
+                                      "active",
+                                      "trialing",
+                                    ].includes(
+                                      subscription.status
+                                    )
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : subscription.status ===
+                                          "past_due"
+                                        ? "bg-amber-100 text-amber-700"
+                                        : "bg-stone-200 text-stone-600"
+                                  }`}>
+                                    {statusLabel}
+                                  </span>
+
+                                  {isLegacyImported && (
+                                    <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-stone-600">
+                                      Legacy / imported
+                                    </span>
+                                  )}
+
+                                  {isMtcMembership && (
+                                    <span className="rounded-full bg-[#edf2e8] px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-[#657457]">
+                                      MTC linked
+                                    </span>
+                                  )}
+
+                                  {subscription.cancel_at_period_end && (
+                                    <span className="rounded-full bg-rose-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-rose-700">
+                                      Cancels at period end
+                                    </span>
+                                  )}
+                                </div>
+
+                                <p className="mt-2 text-sm font-semibold text-stone-700">
+                                  {subscription.customer_name ||
+                                    primaryBeneficiary
+                                      ? subscription.customer_name ||
+                                        beneficiaryName(
+                                          primaryBeneficiary as
+                                            StoreSubscriptionBeneficiary
+                                        )
+                                      : "Store customer"}
+                                </p>
+
+                                <p className="mt-1 text-[10px] text-stone-400">
+                                  {subscription.customer_email ||
+                                    primaryBeneficiary?.email ||
+                                    "No customer email"}
+                                  {subscription.customer_phone
+                                    ? ` · ${subscription.customer_phone}`
+                                    : ""}
+                                </p>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2">
+                                {canManageStripe &&
+                                  [
+                                    "active",
+                                    "trialing",
+                                    "past_due",
+                                  ].includes(
+                                    subscription.status
+                                  ) && (
+                                    <button
+                                      type="button"
+                                      disabled={
+                                        updatingSubscriptionId ===
+                                        subscription.id
+                                      }
+                                      onClick={() => {
+                                        const cancelling =
+                                          !subscription.cancel_at_period_end;
+
+                                        const confirmed =
+                                          window.confirm(
+                                            cancelling
+                                              ? `Cancel ${product?.name || "this membership"} at the end of the current billing period? Access will remain active until ${formatDate(
+                                                  subscription.current_period_end
+                                                )}.`
+                                              : `Keep ${product?.name || "this membership"} active and continue future renewals?`
+                                          );
+
+                                        if (
+                                          confirmed
+                                        ) {
+                                          void updateSubscriptionCancellation(
+                                            subscription,
+                                            cancelling
+                                          );
+                                        }
+                                      }}
+                                      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-[9px] font-black uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                                        subscription.cancel_at_period_end
+                                          ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                          : "border-rose-200 bg-white text-rose-600 hover:bg-rose-50"
+                                      }`}
+                                    >
+                                      {updatingSubscriptionId ===
+                                      subscription.id ? (
+                                        <Loader2
+                                          size={
+                                            14
+                                          }
+                                          className="animate-spin"
+                                        />
+                                      ) : subscription.cancel_at_period_end ? (
+                                        <RotateCcw
+                                          size={
+                                            14
+                                          }
+                                        />
+                                      ) : (
+                                        <X
+                                          size={
+                                            14
+                                          }
+                                        />
+                                      )}
+
+                                      {subscription.cancel_at_period_end
+                                        ? "Keep membership"
+                                        : "Cancel membership"}
+                                    </button>
+                                  )}
+                              </div>
+                            </div>
+
+                            <div className="grid border-t border-stone-100 sm:grid-cols-2 xl:grid-cols-5">
+                              <div className="border-b border-stone-100 p-4 sm:border-r xl:border-b-0">
+                                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                                  Price
+                                </p>
+
+                                <p className="mt-1 text-sm font-bold text-stone-800">
+                                  {money(
+                                    amount
+                                  )}
+                                  <span className="ml-1 text-[9px] font-medium text-stone-400">
+                                    /{subscription.billing_interval ||
+                                      "period"}
+                                  </span>
+                                </p>
+                              </div>
+
+                              <div className="border-b border-stone-100 p-4 xl:border-b-0 xl:border-r">
+                                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                                  {subscription.cancel_at_period_end
+                                    ? "Access ends"
+                                    : "Next renewal"}
+                                </p>
+
+                                <p className="mt-1 text-sm font-bold text-stone-800">
+                                  {isLegacyImported
+                                    ? "Legacy billing"
+                                    : formatDate(
+                                        subscription.current_period_end
+                                      )}
+                                </p>
+                              </div>
+
+                              <div className="border-b border-stone-100 p-4 sm:border-r xl:border-b-0">
+                                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                                  MTC plan
+                                </p>
+
+                                <p className="mt-1 font-mono text-[10px] font-bold text-stone-700">
+                                  {product?.external_plan_code ||
+                                    "—"}
+                                </p>
+                              </div>
+
+                              <div className="border-b border-stone-100 p-4 xl:border-b-0 xl:border-r">
+                                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                                  Billing source
+                                </p>
+
+                                <p className="mt-1 text-sm font-bold text-stone-800">
+                                  {isLegacyImported
+                                    ? "Legacy / imported"
+                                    : subscription.stripe_subscription_id
+                                      ? "Stripe"
+                                      : "TOTS-OS"}
+                                </p>
+                              </div>
+
+                              <div className="p-4">
+                                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                                  MTC access
+                                </p>
+
+                                <p className="mt-1 text-sm font-bold text-stone-800">
+                                  {isMtcMembership
+                                    ? "Synced from TOTS-OS"
+                                    : "Not linked"}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="grid gap-5 border-t border-stone-100 bg-stone-50/70 p-5 xl:grid-cols-[1.35fr_1fr]">
+                              <div>
+                                <div className="flex items-center justify-between gap-3">
+                                  <div>
+                                    <p className="text-[8px] font-black uppercase tracking-[0.14em] text-stone-500">
+                                      Members / beneficiaries
+                                    </p>
+
+                                    <p className="mt-1 text-xs text-stone-400">
+                                      People included in this membership.
+                                    </p>
+                                  </div>
+
+                                  <span className="rounded-full bg-white px-2.5 py-1 text-[8px] font-black text-stone-500 shadow-sm ring-1 ring-stone-200">
+                                    {beneficiaries.length}
+                                  </span>
+                                </div>
+
+                                {beneficiaries.length ? (
+                                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                    {beneficiaries.map(
+                                      (
+                                        beneficiary
+                                      ) => (
+                                        <div
+                                          key={
+                                            beneficiary.id
+                                          }
+                                          className="rounded-xl border border-stone-200 bg-white p-3"
+                                        >
+                                          <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                              <p className="truncate text-xs font-bold text-stone-800">
+                                                {beneficiaryName(
+                                                  beneficiary
+                                                )}
+                                              </p>
+
+                                              <p className="mt-1 truncate text-[9px] text-stone-400">
+                                                {beneficiary.email ||
+                                                  beneficiary.external_user_id ||
+                                                  "No linked email"}
+                                              </p>
+                                            </div>
+
+                                            {beneficiary.is_primary && (
+                                              <span className="rounded-full bg-[#edf2e8] px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-[#657457]">
+                                                Primary
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          <div className="mt-3 flex flex-wrap gap-1.5">
+                                            <span className="rounded-full bg-stone-100 px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-stone-500">
+                                              {(
+                                                beneficiary.relationship_to_payer ||
+                                                beneficiary.beneficiary_type ||
+                                                "member"
+                                              )
+                                                .replace(
+                                                  /_/g,
+                                                  " "
+                                                )}
+                                            </span>
+
+                                            {beneficiary.external_user_id && (
+                                              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-emerald-700">
+                                                MTC linked
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="mt-3 rounded-xl border border-dashed border-stone-200 bg-white p-4 text-xs text-stone-400">
+                                    No beneficiary records are linked to this subscription yet.
+                                  </div>
+                                )}
+                              </div>
+
+                              <div>
+                                <p className="text-[8px] font-black uppercase tracking-[0.14em] text-stone-500">
+                                  Subscription details
+                                </p>
+
+                                <div className="mt-3 space-y-2 rounded-xl border border-stone-200 bg-white p-4">
+                                  <div className="flex items-start justify-between gap-4">
+                                    <span className="text-[9px] font-semibold text-stone-400">
+                                      TOTS subscription
+                                    </span>
+
+                                    <span className="max-w-[220px] truncate font-mono text-[9px] font-semibold text-stone-600">
+                                      {subscription.id}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-start justify-between gap-4">
+                                    <span className="text-[9px] font-semibold text-stone-400">
+                                      Stripe subscription
+                                    </span>
+
+                                    <span
+                                      title={
+                                        subscription.stripe_subscription_id
+                                      }
+                                      className="max-w-[220px] truncate font-mono text-[9px] font-semibold text-stone-600"
+                                    >
+                                      {isLegacyImported
+                                        ? "Not connected (legacy)"
+                                        : subscription.stripe_subscription_id ||
+                                          "—"}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-start justify-between gap-4">
+                                    <span className="text-[9px] font-semibold text-stone-400">
+                                      Beneficiary mode
+                                    </span>
+
+                                    <span className="text-right text-[9px] font-bold uppercase tracking-[0.08em] text-stone-600">
+                                      {product?.beneficiary_mode
+                                        ?.replace(
+                                          /_/g,
+                                          " "
+                                        ) ||
+                                        "—"}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-start justify-between gap-4">
+                                    <span className="text-[9px] font-semibold text-stone-400">
+                                      Management
+                                    </span>
+
+                                    <span className="text-right text-[9px] font-bold text-stone-600">
+                                      {isLegacyImported
+                                        ? "TOTS-OS access management · no live Stripe billing"
+                                        : "TOTS-OS + Stripe"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                )}
+              </Panel>
+            </motion.div>
+          )}
+
+          {/* ==================================================
+              PAYMENTS
+          ================================================== */}
+
+          {activeTab ===
+            "Payments" && (
+            <motion.div
+              key="payments"
+              initial={{
+                opacity:
+                  0,
+              }}
+              animate={{
+                opacity:
+                  1,
+              }}
+              className="space-y-6"
+            >
+              <Panel>
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-stone-900 text-[#a9b897]">
+                      <WalletCards
+                        size={19}
+                      />
+                    </div>
+
+                    <div>
+                      <SectionEyebrow>
+                        Stripe Connect
+                      </SectionEyebrow>
+
+                      <h2 className="mt-1 font-serif text-3xl italic text-stone-900">
+                        Store payments & payouts
+                      </h2>
+
+                      <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-500">
+                        Connect your own Stripe account so customer payments are processed for your business. TOTS-OS gives you a simpler control panel while Stripe securely holds and pays out your funds.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {!stripeStatus.connected ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void connectStripeAccount()
+                        }
+                        disabled={
+                          connectingStripe
+                        }
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 text-[9px] font-black uppercase tracking-[0.13em] text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:opacity-50"
+                      >
+                        {connectingStripe ? (
+                          <Loader2
+                            size={13}
+                            className="animate-spin"
+                          />
+                        ) : (
+                          <CreditCard
+                            size={13}
+                          />
+                        )}
+
+                        Connect Stripe account
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void loadStripeStatus()
+                          }
+                          disabled={
+                            loadingStripe
+                          }
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-[8px] font-black uppercase tracking-[0.12em] text-stone-500 transition hover:text-stone-900 disabled:opacity-50"
+                        >
+                          <RefreshCw
+                            size={12}
+                            className={
+                              loadingStripe
+                                ? "animate-spin"
+                                : ""
+                            }
+                          />
+
+                          Refresh
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void openStripeDashboard()
+                          }
+                          disabled={
+                            openingStripeDashboard
+                          }
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 text-[8px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:opacity-50"
+                        >
+                          {openingStripeDashboard ? (
+                            <Loader2
+                              size={12}
+                              className="animate-spin"
+                            />
+                          ) : (
+                            <ExternalLink
+                              size={12}
+                            />
+                          )}
+
+                          Stripe dashboard
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-7 grid overflow-hidden rounded-2xl border border-stone-100 bg-stone-50 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="border-b border-stone-100 p-5 sm:border-r xl:border-b-0">
+                    <p className="text-[7px] font-black uppercase tracking-[0.15em] text-stone-400">
+                      Connection
+                    </p>
+
+                    <p className="mt-2 text-sm font-bold text-stone-700">
+                      {stripeStatus.connected
+                        ? "Connected"
+                        : "Not connected"}
+                    </p>
+                  </div>
+
+                  <div className="border-b border-stone-100 p-5 sm:border-r xl:border-b-0">
+                    <p className="text-[7px] font-black uppercase tracking-[0.15em] text-stone-400">
+                      Payments
+                    </p>
+
+                    <p className="mt-2 text-sm font-bold text-stone-700">
+                      {stripeStatus.chargesEnabled
+                        ? "Enabled"
+                        : "Not enabled"}
+                    </p>
+                  </div>
+
+                  <div className="border-b border-stone-100 p-5 sm:border-r xl:border-b-0">
+                    <p className="text-[7px] font-black uppercase tracking-[0.15em] text-stone-400">
+                      Payouts
+                    </p>
+
+                    <p className="mt-2 text-sm font-bold text-stone-700">
+                      {stripeStatus.payoutsEnabled
+                        ? "Enabled"
+                        : "Not enabled"}
+                    </p>
+                  </div>
+
+                  <div className="p-5">
+                    <p className="text-[7px] font-black uppercase tracking-[0.15em] text-stone-400">
+                      Stripe account
+                    </p>
+
+                    <p className="mt-2 truncate text-sm font-bold text-stone-700">
+                      {stripeStatus.accountId ||
+                        "—"}
+                    </p>
+                  </div>
+                </div>
+              </Panel>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Panel>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <SectionEyebrow>
+                        Available
+                      </SectionEyebrow>
+
+                      <p className="mt-3 font-serif text-5xl italic text-stone-900">
+                        {money(
+                          stripeStatus.availableBalance
+                        )}
+                      </p>
+
+                      <p className="mt-2 text-xs leading-5 text-stone-500">
+                        Funds Stripe currently reports as available for payout.
+                      </p>
+                    </div>
+
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#a9b897]/15 text-[#829473]">
+                      <Banknote
+                        size={17}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void requestStripePayout()
+                    }
+                    disabled={
+                      !stripeStatus.connected ||
+                      !stripeStatus.payoutsEnabled ||
+                      stripeStatus.availableBalance <=
+                        0 ||
+                      requestingPayout
+                    }
+                    className="mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#a9b897] px-4 text-[8px] font-black uppercase tracking-[0.13em] text-white transition hover:bg-[#98aa85] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {requestingPayout ? (
+                      <Loader2
+                        size={12}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <Banknote
+                        size={12}
+                      />
+                    )}
+
+                    Withdraw available balance
+                  </button>
+                </Panel>
+
+                <Panel>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
+                        Pending
+                      </p>
+
+                      <p className="mt-3 font-serif text-5xl italic text-stone-900">
+                        {money(
+                          stripeStatus.pendingBalance
+                        )}
+                      </p>
+
+                      <p className="mt-2 text-xs leading-5 text-stone-500">
+                        Payments still clearing through Stripe before they become available.
+                      </p>
+                    </div>
+
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-stone-100 text-stone-500">
+                      <CreditCard
+                        size={17}
+                      />
+                    </div>
+                  </div>
+                </Panel>
+              </div>
+
+              <Panel>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <SectionEyebrow>
+                      Account management
+                    </SectionEyebrow>
+
+                    <h3 className="mt-1 font-serif text-2xl italic text-stone-800">
+                      Bank details, payouts & verification
+                    </h3>
+
+                    <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-500">
+                      Bank account changes, identity verification and Stripe payout schedules are managed securely through Stripe rather than being stored inside TOTS-OS.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void openStripeDashboard()
+                    }
+                    disabled={
+                      !stripeStatus.connected ||
+                      openingStripeDashboard
+                    }
+                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-[8px] font-black uppercase tracking-[0.12em] text-stone-600 transition hover:border-[#a9b897] hover:text-stone-900 disabled:opacity-40"
+                  >
+                    {openingStripeDashboard ? (
+                      <Loader2
+                        size={12}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <ExternalLink
+                        size={12}
+                      />
+                    )}
+
+                    Manage in Stripe
+                  </button>
+                </div>
+              </Panel>
+            </motion.div>
+          )}
+
+          {/* ==================================================
+              INVENTORY
+          ================================================== */}
+
+          {activeTab ===
+            "Inventory" && (
+            <motion.div
+              key="inventory"
+              initial={{
+                opacity:
+                  0,
+              }}
+              animate={{
+                opacity:
+                  1,
+              }}
+              className="space-y-6"
+            >
+              <Panel>
+                <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <SectionEyebrow>
+                      Stock Control
+                    </SectionEyebrow>
+
+                    <h2 className="mt-1 font-serif text-3xl italic">
+                      Inventory
+                    </h2>
+
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
+                      Stock levels here are written directly to the same products used by the public storefront.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-stone-50 px-5 py-4">
+                    <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                      Low stock threshold
+                    </p>
+
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        value={
+                          lowStockThreshold
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setLowStockThreshold(
+                            event.target.value
+                          )
+                        }
+                        className="w-20 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs outline-none"
+                      />
+
+                      <span className="text-xs text-stone-400">
+                        units
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </Panel>
+
+              {!products.length ? (
+                <EmptyState
+                  icon={
+                    Boxes
+                  }
+                  title="Nothing to track yet"
+                  text="Create products first and their inventory will appear here."
+                />
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {products.map(
+                    (
+                      product
+                    ) => {
+                      const inventoryTracked =
+                        product.track_inventory !==
+                        false;
+
+                      const low =
+                        inventoryTracked &&
+                        product.inventory_quantity <=
+                          Number(
+                            lowStockThreshold
+                          );
+
+                      const soldOut =
+                        inventoryTracked &&
+                        product.inventory_quantity <=
+                          0;
+
+                      return (
+                        <div
+                          key={
+                            product.id
+                          }
+                          className={`rounded-[1.7rem] border bg-white p-6 ${
+                            soldOut
+                              ? "border-red-200"
+                              : low
+                                ? "border-amber-200"
+                                : "border-stone-200"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-stone-50 text-stone-400">
+                              <Boxes
+                                size={17}
+                              />
+                            </div>
+
+                            {!inventoryTracked ? (
+                              <span className="rounded-full bg-blue-50 px-3 py-1 text-[8px] font-black uppercase text-blue-500">
+                                Unlimited
+                              </span>
+                            ) : soldOut ? (
+                              <span className="rounded-full bg-red-50 px-3 py-1 text-[8px] font-black uppercase text-red-500">
+                                Sold out
+                              </span>
+                            ) : low ? (
+                              <span className="rounded-full bg-amber-50 px-3 py-1 text-[8px] font-black uppercase text-amber-600">
+                                Low stock
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-[#edf1e8] px-3 py-1 text-[8px] font-black uppercase text-[#82936b]">
+                                Healthy
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 className="mt-6 text-sm font-semibold">
+                            {
+                              product.name
+                            }
+                          </h3>
+
+                          <p className="mt-1 text-[10px] text-stone-400">
+                            {
+                              product.sku
+                            }
+                          </p>
+
+                          <div className="mt-7 flex items-end justify-between">
+                            <div>
+                              <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                                Available
+                              </p>
+
+                              <p className="mt-1 font-serif text-4xl italic">
+                                {inventoryTracked
+                                  ? product.inventory_quantity
+                                  : "∞"}
+                              </p>
+                            </div>
+
+                            {inventoryTracked && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openStockAdjust(
+                                    product
+                                  )
+                                }
+                                className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-[8px] font-black uppercase text-stone-500"
+                              >
+                                Adjust
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+                  )}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ==================================================
+              DISCOUNTS
+          ================================================== */}
+
+          {activeTab ===
+            "Discounts" && (
+            <motion.div
+              key="discounts"
+              initial={{
+                opacity:
+                  0,
+              }}
+              animate={{
+                opacity:
+                  1,
+              }}
+              className="space-y-6"
+            >
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <StoreMetric
+                  icon={
+                    BadgePercent
+                  }
+                  label="Discount Codes"
+                  value={String(
+                    discounts.length
+                  )}
+                />
+
+                <StoreMetric
+                  icon={
+                    Check
+                  }
+                  label="Active"
+                  value={String(
+                    activeDiscounts.length
+                  )}
+                />
+
+                <StoreMetric
+                  icon={
+                    ShoppingCart
+                  }
+                  label="Redemptions"
+                  value={String(
+                    totalDiscountRedemptions
+                  )}
+                />
+
+                <StoreMetric
+                  icon={
+                    Tag
+                  }
+                  label="Expired"
+                  value={String(
+                    expiredDiscounts.length
+                  )}
+                />
+              </div>
+
+              <Panel>
+                <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <SectionEyebrow>
+                      Promotions
+                    </SectionEyebrow>
+
+                    <h2 className="mt-1 font-serif text-3xl italic">
+                      Discount codes
+                    </h2>
+
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
+                      Create percentage or fixed-value offers for your storefront, set limits and control exactly when they can be used.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <div className="relative">
+                      <Search
+                        size={14}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
+                      />
+
+                      <input
+                        value={
+                          discountSearch
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setDiscountSearch(
+                            event.target.value
+                          )
+                        }
+                        placeholder="Search codes..."
+                        className="w-full rounded-xl border border-stone-200 bg-stone-50 py-3 pl-10 pr-4 text-xs outline-none sm:w-60"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={
+                        openNewDiscount
+                      }
+                      className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-wider text-white"
+                    >
+                      <Plus
+                        size={13}
+                      />
+
+                      New Code
+                    </button>
+                  </div>
+                </div>
+
+                {!discounts.length ? (
+                  <div className="mt-8">
+                    <EmptyState
+                      icon={
+                        BadgePercent
+                      }
+                      title="No discount codes"
+                      text="Create your first promotion and it will be ready for your storefront checkout."
+                    />
+
+                    <div className="mt-5 text-center">
+                      <button
+                        type="button"
+                        onClick={
+                          openNewDiscount
+                        }
+                        className="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-wider text-white"
+                      >
+                        <Plus
+                          size={13}
+                        />
+
+                        Create discount
+                      </button>
+                    </div>
+                  </div>
+                ) : !filteredDiscounts.length ? (
+                  <div className="mt-8">
+                    <EmptyState
+                      icon={
+                        Search
+                      }
+                      title="No matching codes"
+                      text="Try a different search."
+                    />
+                  </div>
+                ) : (
+                  <div className="mt-8 space-y-3">
+                    {filteredDiscounts.map(
+                      (
+                        discount
+                      ) => {
+                        const status =
+                          getDiscountStatus(
+                            discount
+                          );
+
+                        return (
+                          <div
+                            key={
+                              discount.id
+                            }
+                            className="rounded-2xl border border-stone-100 bg-stone-50 p-5"
+                          >
+                            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                              <div className="flex min-w-0 items-start gap-4">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#829473]">
+                                  <BadgePercent
+                                    size={17}
+                                  />
+                                </div>
+
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-black tracking-[0.08em] text-stone-800">
+                                      {
+                                        discount.code
+                                      }
+                                    </p>
+
+                                    <DiscountStatusBadge
+                                      status={
+                                        status
+                                      }
+                                    />
+                                  </div>
+
+                                  <p className="mt-2 font-serif text-2xl italic text-stone-800">
+                                    {discount.discount_type ===
+                                    "percentage"
+                                      ? `${discount.value}% off`
+                                      : `${money(
+                                          discount.value
+                                        )} off`}
+                                  </p>
+
+                                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[9px] text-stone-400">
+                                    {discount.minimum_order_amount >
+                                      0 && (
+                                      <span>
+                                        Min.{" "}
+                                        {money(
+                                          discount.minimum_order_amount
+                                        )}
+                                      </span>
+                                    )}
+
+                                    {discount.maximum_discount_amount !==
+                                      null && (
+                                      <span>
+                                        Max. discount{" "}
+                                        {money(
+                                          discount.maximum_discount_amount
+                                        )}
+                                      </span>
+                                    )}
+
+                                    <span>
+                                      {
+                                        discount.usage_count
+                                      }
+                                      {discount.usage_limit !==
+                                      null
+                                        ? ` / ${discount.usage_limit}`
+                                        : ""}{" "}
+                                      uses
+                                    </span>
+
+                                    {discount.starts_at && (
+                                      <span>
+                                        Starts{" "}
+                                        {formatDate(
+                                          discount.starts_at
+                                        )}
+                                      </span>
+                                    )}
+
+                                    {discount.expires_at && (
+                                      <span>
+                                        Ends{" "}
+                                        {formatDate(
+                                          discount.expires_at
+                                        )}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {discount.description && (
+                                    <p className="mt-3 max-w-2xl text-[10px] leading-5 text-stone-400">
+                                      {
+                                        discount.description
+                                      }
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex shrink-0 items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void toggleDiscount(
+                                      discount
+                                    )
+                                  }
+                                  className={`relative h-8 w-14 shrink-0 rounded-full transition ${
+                                    discount.is_active
+                                      ? "bg-[#a9b897]"
+                                      : "bg-stone-200"
+                                  }`}
+                                  aria-label={
+                                    discount.is_active
+                                      ? "Disable discount"
+                                      : "Enable discount"
+                                  }
+                                >
+                                  <span
+                                    className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition ${
+                                      discount.is_active
+                                        ? "left-7"
+                                        : "left-1"
+                                    }`}
+                                  />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openEditDiscount(
+                                      discount
+                                    )
+                                  }
+                                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-stone-400 transition hover:text-stone-700"
+                                >
+                                  <Edit3
+                                    size={13}
+                                  />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={
+                                    deletingDiscountId ===
+                                    discount.id
+                                  }
+                                  onClick={() =>
+                                    void deleteDiscount(
+                                      discount
+                                    )
+                                  }
+                                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-400 disabled:opacity-50"
+                                >
+                                  {deletingDiscountId ===
+                                  discount.id ? (
+                                    <Loader2
+                                      size={13}
+                                      className="animate-spin"
+                                    />
+                                  ) : (
+                                    <Trash2
+                                      size={13}
+                                    />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                )}
+              </Panel>
+
+              <Panel>
+                <SectionEyebrow>
+                  How discounts work
+                </SectionEyebrow>
+
+                <h2 className="mt-1 font-serif text-2xl italic">
+                  Flexible promotions without managing them in Stripe.
+                </h2>
+
+                <div className="mt-6 grid gap-3 md:grid-cols-3">
+                  <DiscountInfoCard
+                    icon={
+                      BadgePercent
+                    }
+                    title="Percentage"
+                    text="Use codes such as WELCOME10 to offer a percentage off the basket."
+                  />
+
+                  <DiscountInfoCard
+                    icon={
+                      Tag
+                    }
+                    title="Fixed amount"
+                    text="Offer a set amount off, such as £10 off an eligible order."
+                  />
+
+                  <DiscountInfoCard
+                    icon={
+                      ShoppingCart
+                    }
+                    title="Control usage"
+                    text="Add minimum spend, usage limits, start dates and expiry dates."
+                  />
+                </div>
+              </Panel>
+            </motion.div>
+          )}
+
+          {/* ==================================================
+              SETTINGS
+          ================================================== */}
+
+          {activeTab ===
+            "Settings" && (
+            <motion.div
+              key="settings"
+              initial={{
+                opacity:
+                  0,
+              }}
+              animate={{
+                opacity:
+                  1,
+              }}
+              className="space-y-6"
+            >
+              <Panel>
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <SectionEyebrow>
+                      Public Storefront
+                    </SectionEyebrow>
+
+                    <h2 className="mt-1 font-serif text-3xl italic">
+                      Your store. Your way.
+                    </h2>
+
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-500">
+                      Use the TOTS hosted storefront, point customers to your own website, and customise how your hosted store looks without changing the commerce backend.
+                    </p>
+                  </div>
+
+                  {storefrontUrl && (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void copyStorefrontUrl()
+                        }
+                        className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-[8px] font-black uppercase tracking-wider text-stone-500"
+                      >
+                        <Copy
+                          size={12}
+                        />
+                        Copy URL
+                      </button>
+
+                      <a
+                        href={
+                          storefrontUrl
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-3 text-[8px] font-black uppercase tracking-wider text-white no-underline"
+                      >
+                        {storefrontIsExternal
+                          ? "Open external store"
+                          : "Preview store"}
+                        <ExternalLink
+                          size={12}
+                        />
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-8 rounded-2xl border border-stone-200 bg-stone-50 p-5">
+                  <p className="text-[8px] font-black uppercase tracking-[0.16em] text-stone-500">
+                    Storefront destination
+                  </p>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setStorefrontMode(
+                          "hosted"
+                        )
+                      }
+                      className={`rounded-2xl border p-5 text-left transition ${
+                        storefrontMode ===
+                        "hosted"
+                          ? "border-stone-900 bg-white shadow-sm"
+                          : "border-stone-200 bg-white/60"
+                      }`}
+                    >
+                      <p className="text-sm font-bold text-stone-800">
+                        TOTS hosted storefront
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-stone-400">
+                        Use your branded TOTS shop at /shop/{slug || "your-store"}. Products, checkout and customer data remain connected to TOTS.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setStorefrontMode(
+                          "external"
+                        )
+                      }
+                      className={`rounded-2xl border p-5 text-left transition ${
+                        storefrontMode ===
+                        "external"
+                          ? "border-stone-900 bg-white shadow-sm"
+                          : "border-stone-200 bg-white/60"
+                      }`}
+                    >
+                      <p className="text-sm font-bold text-stone-800">
+                        My own website / storefront
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-stone-400">
+                        Keep TOTS as your commerce backend but send customers to an existing website, Shopify store, WooCommerce shop or custom storefront.
+                      </p>
+                    </button>
+                  </div>
+
+                  {storefrontMode ===
+                    "external" && (
+                    <div className="mt-4">
+                      <Field
+                        label="External storefront URL"
+                      >
+                        <input
+                          value={
+                            externalStorefrontUrl
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setExternalStorefrontUrl(
+                              event.target.value
+                            )
+                          }
+                          className="store-input"
+                          placeholder="https://yourbusiness.co.uk/shop"
+                        />
+                      </Field>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-8">
+                  <div>
+                    <SectionEyebrow>
+                      Identity
+                    </SectionEyebrow>
+                    <h3 className="mt-1 font-serif text-2xl italic">
+                      Store details
+                    </h3>
+                  </div>
+
+                  <div className="mt-5 grid gap-5 md:grid-cols-2">
+                    <Field
+                      label="Store Name"
+                    >
+                      <input
+                        value={
+                          storeName
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setStoreName(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="My Business Store"
+                      />
+                    </Field>
+
+                    <Field
+                      label="Hosted Store URL"
+                    >
+                      <div className="flex overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+                        <span className="flex items-center border-r border-stone-200 px-3 text-[10px] text-stone-400">
+                          /shop/
+                        </span>
+                        <input
+                          value={
+                            slug
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setSlug(
+                              createSlug(
+                                event.target.value
+                              )
+                            )
+                          }
+                          className="min-w-0 flex-1 bg-transparent px-3 py-3 text-xs outline-none"
+                          placeholder="my-business"
+                        />
+                      </div>
+                    </Field>
+
+                    <Field
+                      label="Support Email"
+                    >
+                      <input
+                        type="email"
+                        value={
+                          supportEmail
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setSupportEmail(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="hello@business.com"
+                      />
+                    </Field>
+
+                    <Field
+                      label="Layout"
+                    >
+                      <select
+                        value={
+                          layoutStyle
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setLayoutStyle(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                      >
+                        <option value="minimal">Minimal</option>
+                        <option value="editorial">Editorial</option>
+                        <option value="catalogue">Catalogue</option>
+                        <option value="memberships">Memberships</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </Field>
+
+                    <Field
+                      label="Store Description"
+                      className="md:col-span-2"
+                    >
+                      <textarea
+                        value={
+                          storeDescription
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setStoreDescription(
+                            event.target.value
+                          )
+                        }
+                        rows={3}
+                        className="store-input resize-none"
+                        placeholder="Tell customers about your business..."
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="mt-8 border-t border-stone-100 pt-8">
+                  <SectionEyebrow>
+                    Branding
+                  </SectionEyebrow>
+                  <h3 className="mt-1 font-serif text-2xl italic">
+                    Make it feel like your brand.
+                  </h3>
+
+                  <div className="mt-5 grid gap-5 md:grid-cols-2">
+                    {[
+                      ["Accent Colour", accentColour, setAccentColour],
+                      ["Background Colour", backgroundColour, setBackgroundColour],
+                      ["Text Colour", textColour, setTextColour],
+                      ["Button Colour", buttonColour, setButtonColour],
+                      ["Button Text Colour", buttonTextColour, setButtonTextColour],
+                    ].map(
+                      ([
+                        label,
+                        value,
+                        setter,
+                      ]) => (
+                        <Field
+                          key={
+                            label as string
+                          }
+                          label={
+                            label as string
+                          }
+                        >
+                          <div className="flex gap-2">
+                            <input
+                              type="color"
+                              value={
+                                value as string
+                              }
+                              onChange={(
+                                event
+                              ) =>
+                                (
+                                  setter as
+                                    React.Dispatch<
+                                      React.SetStateAction<string>
+                                    >
+                                )(
+                                  event.target.value
+                                )
+                              }
+                              className="h-[48px] w-14 cursor-pointer rounded-xl border border-stone-200 bg-white p-1"
+                            />
+                            <input
+                              value={
+                                value as string
+                              }
+                              onChange={(
+                                event
+                              ) =>
+                                (
+                                  setter as
+                                    React.Dispatch<
+                                      React.SetStateAction<string>
+                                    >
+                                )(
+                                  event.target.value
+                                )
+                              }
+                              className="store-input"
+                            />
+                          </div>
+                        </Field>
+                      )
+                    )}
+
+                    <Field
+                      label="Card Style"
+                    >
+                      <select
+                        value={
+                          cardStyle
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setCardStyle(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                      >
+                        <option value="soft">Soft</option>
+                        <option value="square">Square</option>
+                        <option value="outline">Outline</option>
+                        <option value="elevated">Elevated</option>
+                      </select>
+                    </Field>
+
+                    <Field
+                      label="Border Radius"
+                    >
+                      <input
+                        type="number"
+                        min="0"
+                        max="48"
+                        value={
+                          borderRadius
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setBorderRadius(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                      />
+                    </Field>
+
+                    <Field
+                      label="Heading Font"
+                    >
+                      <select
+                        value={
+                          headingFont
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setHeadingFont(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                      >
+                        <option value="Poppins">Poppins</option>
+                        <option value="Inter">Inter</option>
+                        <option value="Montserrat">Montserrat</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Arial">Arial</option>
+                      </select>
+                    </Field>
+
+                    <Field
+                      label="Body Font"
+                    >
+                      <select
+                        value={
+                          bodyFont
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setBodyFont(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                      >
+                        <option value="Poppins">Poppins</option>
+                        <option value="Inter">Inter</option>
+                        <option value="Montserrat">Montserrat</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Arial">Arial</option>
+                      </select>
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="mt-8 border-t border-stone-100 pt-8">
+                  <SectionEyebrow>
+                    Images
+                  </SectionEyebrow>
+
+                  <h3 className="mt-1 font-serif text-2xl italic">
+                    Brand assets
+                  </h3>
+
+                  <p className="mt-2 text-xs leading-5 text-stone-400">
+                    Upload your branding directly. Files are stored securely in your organisation&apos;s Store assets folder.
+                  </p>
+
+                  <div className="mt-5 grid gap-5 lg:grid-cols-3">
+                    <StoreAssetUploader
+                      label="Logo"
+                      description="Used in your storefront header. PNG, JPG, WebP or SVG."
+                      value={
+                        logoUrl
+                      }
+                      uploading={
+                        uploadingStoreAsset ===
+                        "logo"
+                      }
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      onUpload={(
+                        file
+                      ) =>
+                        void uploadStoreAsset({
+                          file,
+                          assetType:
+                            "logo",
+                        })
+                      }
+                      onRemove={() =>
+                        setLogoUrl(
+                          ""
+                        )
+                      }
+                    />
+
+                    <StoreAssetUploader
+                      label="Hero image"
+                      description="Large storefront image. Landscape or portrait both work."
+                      value={
+                        heroImageUrl
+                      }
+                      uploading={
+                        uploadingStoreAsset ===
+                        "hero"
+                      }
+                      accept="image/png,image/jpeg,image/webp"
+                      onUpload={(
+                        file
+                      ) =>
+                        void uploadStoreAsset({
+                          file,
+                          assetType:
+                            "hero",
+                        })
+                      }
+                      onRemove={() =>
+                        setHeroImageUrl(
+                          ""
+                        )
+                      }
+                    />
+
+                    <StoreAssetUploader
+                      label="Favicon"
+                      description="Small browser/store icon. Square PNG, JPG, WebP or SVG works best."
+                      value={
+                        faviconUrl
+                      }
+                      uploading={
+                        uploadingStoreAsset ===
+                        "favicon"
+                      }
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon"
+                      onUpload={(
+                        file
+                      ) =>
+                        void uploadStoreAsset({
+                          file,
+                          assetType:
+                            "favicon",
+                        })
+                      }
+                      onRemove={() =>
+                        setFaviconUrl(
+                          ""
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-8 border-t border-stone-100 pt-8">
+                  <SectionEyebrow>
+                    Content
+                  </SectionEyebrow>
+
+                  <div className="mt-5 grid gap-5 md:grid-cols-2">
+                    <Field
+                      label="Hero Title"
+                    >
+                      <input
+                        value={
+                          heroTitle
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setHeroTitle(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="Shop our collection."
+                      />
+                    </Field>
+
+                    <Field
+                      label="Announcement"
+                    >
+                      <input
+                        value={
+                          announcement
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setAnnouncement(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="Free UK delivery over £50"
+                      />
+                    </Field>
+
+                    <Field
+                      label="Hero Text"
+                      className="md:col-span-2"
+                    >
+                      <textarea
+                        value={
+                          heroText
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setHeroText(
+                            event.target.value
+                          )
+                        }
+                        rows={3}
+                        className="store-input resize-none"
+                      />
+                    </Field>
+
+                    <Field
+                      label="Shipping Text"
+                      className="md:col-span-2"
+                    >
+                      <input
+                        value={
+                          shippingText
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setShippingText(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="UK delivery available."
+                      />
+                    </Field>
+
+                    <Field
+                      label="Footer Text"
+                      className="md:col-span-2"
+                    >
+                      <input
+                        value={footerText}
+                        onChange={(event) =>
+                          setFooterText(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="Independent business · Powered by TOTS-OS"
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="mt-8 border-t border-stone-100 pt-8">
+                  <SectionEyebrow>
+                    Store controls
+                  </SectionEyebrow>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {[
+                      ["Show categories", showCategories, setShowCategories],
+                      ["Show search", showSearch, setShowSearch],
+                      ["Show stock", showStock, setShowStock],
+                      ["Show prices", showPrices, setShowPrices],
+                    ].map(
+                      ([
+                        label,
+                        value,
+                        setter,
+                      ]) => (
+                        <button
+                          key={label as string}
+                          type="button"
+                          onClick={() =>
+                            (
+                              setter as
+                                React.Dispatch<
+                                  React.SetStateAction<boolean>
+                                >
+                            )(
+                              !(value as boolean)
+                            )
+                          }
+                          className={`flex items-center justify-between rounded-2xl border p-4 text-left ${
+                            value
+                              ? "border-[#a9b897] bg-[#f3f6f0]"
+                              : "border-stone-200 bg-white"
+                          }`}
+                        >
+                          <span className="text-xs font-bold text-stone-700">
+                            {label as string}
+                          </span>
+                          <span className={`h-3 w-3 rounded-full ${
+                            value
+                              ? "bg-[#a9b897]"
+                              : "bg-stone-200"
+                          }`} />
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-8 border-t border-stone-100 pt-8">
+                  <SectionEyebrow>
+                    Social links
+                  </SectionEyebrow>
+
+                  <div className="mt-5 grid gap-5 md:grid-cols-3">
+                    <Field label="Instagram">
+                      <input
+                        value={instagramUrl}
+                        onChange={(event) =>
+                          setInstagramUrl(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="https://instagram.com/..."
+                      />
+                    </Field>
+
+                    <Field label="Facebook">
+                      <input
+                        value={facebookUrl}
+                        onChange={(event) =>
+                          setFacebookUrl(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="https://facebook.com/..."
+                      />
+                    </Field>
+
+                    <Field label="TikTok">
+                      <input
+                        value={tiktokUrl}
+                        onChange={(event) =>
+                          setTiktokUrl(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="https://tiktok.com/@..."
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="mt-8 border-t border-stone-100 pt-8">
+                  <SectionEyebrow>
+                    Advanced
+                  </SectionEyebrow>
+
+                  <div className="mt-5 grid gap-5 md:grid-cols-2">
+                    <Field label="Currency">
+                      <select
+                        value={currency}
+                        onChange={(event) =>
+                          setCurrency(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                      >
+                        <option value="GBP">GBP — £</option>
+                        <option value="EUR">EUR — €</option>
+                        <option value="USD">USD — $</option>
+                      </select>
+                    </Field>
+
+                    <Field label="Low Stock Warning">
+                      <input
+                        type="number"
+                        min="0"
+                        value={lowStockThreshold}
+                        onChange={(event) =>
+                          setLowStockThreshold(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                      />
+                    </Field>
+
+                    <Field
+                      label="Custom CSS"
+                      className="md:col-span-2"
+                    >
+                      <textarea
+                        value={customCss}
+                        onChange={(event) =>
+                          setCustomCss(
+                            event.target.value
+                          )
+                        }
+                        rows={7}
+                        className="store-input resize-y font-mono text-[11px]"
+                        placeholder=".tots-store { ... }"
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="mt-8 flex flex-col gap-4 rounded-2xl bg-stone-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-stone-700">
+                      Public hosted storefront
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-stone-400">
+                      This controls whether the hosted /shop/{slug || "your-store"} page is publicly available.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setStoreLive(
+                        (
+                          previous
+                        ) =>
+                          !previous
+                      )
+                    }
+                    className={`relative h-8 w-14 shrink-0 rounded-full transition ${
+                      storeLive
+                        ? "bg-[#a9b897]"
+                        : "bg-stone-200"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition ${
+                        storeLive
+                          ? "left-7"
+                          : "left-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    savingSettings
+                  }
+                  onClick={() =>
+                    void saveStoreSettings()
+                  }
+                  className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white disabled:opacity-50 sm:w-auto sm:px-7"
+                >
+                  {savingSettings ? (
+                    <Loader2
+                      size={14}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Check
+                      size={14}
+                    />
+                  )}
+
+                  {savingSettings
+                    ? "Saving..."
+                    : storeSettings
+                      ? "Save Store"
+                      : "Create Store"}
+                </button>
+              </Panel>
+
+              <Panel>
+                <SectionEyebrow>
+                  TOTS Integration
+                </SectionEyebrow>
+
+                <h2 className="mt-1 font-serif text-2xl italic">
+                  Connect commerce to the rest of the business
+                </h2>
+
+                <div className="mt-7 space-y-4">
+                  <ToggleSetting
+                    title="Create CRM contacts from customers"
+                    text="When a new customer places an order, create or match them inside Contacts."
+                    enabled={
+                      autoCreateContacts
+                    }
+                    onChange={() =>
+                      setAutoCreateContacts(
+                        (
+                          previous
+                        ) =>
+                          !previous
+                      )
+                    }
+                  />
+
+                  <ToggleSetting
+                    title="Order notifications"
+                    text="Surface new and important orders inside the TOTS workspace."
+                    enabled={
+                      orderNotifications
+                    }
+                    onChange={() =>
+                      setOrderNotifications(
+                        (
+                          previous
+                        ) =>
+                          !previous
+                      )
+                    }
+                  />
+                </div>
+              </Panel>
+
+              <Panel>
+                <SectionEyebrow>
+                  TOTS Storefront
+                </SectionEyebrow>
+
+                <h2 className="mt-1 font-serif text-2xl italic">
+                  Your selling channel
+                </h2>
+
+                <div className="mt-6 grid gap-3 md:grid-cols-3">
+                  <IntegrationCard
+                    name="TOTS Storefront"
+                    text="Your hosted storefront is built directly into TOTS-OS."
+                    connected={
+                      !!storeSettings
+                    }
+                  />
+
+                  <IntegrationCard
+                    name="Stripe"
+                    text="Stripe Checkout is used for secure storefront payments."
+                    connected
+                  />
+
+                  <IntegrationCard
+                    name="Custom Domain"
+                    text="Let businesses point their own domain at their TOTS storefront."
+                    comingSoon
+                  />
+                </div>
+              </Panel>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
+
+      {/* =====================================================
+          ORDER DETAILS MODAL
+      ===================================================== */}
+
+      <AnimatePresence>
+        {selectedOrder && (
+          <ModalShell
+            onClose={() =>
+              setSelectedOrder(
+                null
               )
             }
-          />
-
-          <aside
-            className="absolute left-0 top-0 h-full w-[88%] max-w-sm p-6 shadow-2xl"
-            style={{
-              background:
-                storeSurface,
-              color:
-                pageText,
-            }}
           >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <SectionEyebrow>
+                  Order details
+                </SectionEyebrow>
 
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-black text-stone-900">
-                {
-                  storeName
-                }
-              </p>
+                <h2 className="mt-1 font-serif text-3xl italic">
+                  {selectedOrder.number}
+                </h2>
+
+                <p className="mt-2 text-xs text-stone-400">
+                  {selectedOrder.createdAt}
+                </p>
+              </div>
 
               <button
                 type="button"
                 onClick={() =>
-                  setMobileMenuOpen(
-                    false
+                  setSelectedOrder(
+                    null
                   )
                 }
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-100"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-50 text-stone-500"
               >
                 <X
                   size={15}
@@ -3360,2704 +11034,2743 @@ export default function ShopFrontPage() {
               </button>
             </div>
 
-            <div className="mt-8 space-y-2">
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl bg-stone-50 p-4">
+                <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                  Customer
+                </p>
 
-              <MobileMenuLink
-                href="#shop"
-                label="Shop everything"
-                onClick={() =>
-                  setMobileMenuOpen(
-                    false
-                  )
-                }
+                <p className="mt-2 text-sm font-semibold text-stone-700">
+                  {selectedOrder.customer}
+                </p>
+
+                <p className="mt-1 break-all text-xs text-stone-400">
+                  {selectedOrder.email}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-stone-50 p-4">
+                <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                  Order total
+                </p>
+
+                <p className="mt-2 font-serif text-3xl italic text-stone-900">
+                  {money(
+                    selectedOrder.total
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-stone-50 p-4">
+                <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                  Payment
+                </p>
+
+                <div className="mt-2">
+                  <PaymentBadge
+                    status={
+                      selectedOrder.paymentStatus
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-stone-50 p-4">
+                <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                  Fulfilment
+                </p>
+
+                <div className="mt-2">
+                  <OrderStatusBadge
+                    status={
+                      selectedOrder.status
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-stone-100 bg-white p-5">
+              <DetailRow
+                label="Items"
+                value={String(
+                  selectedOrder.items
+                )}
               />
 
-              {featuredProducts.length >
-                0 && (
-                <MobileMenuLink
-                  href="#featured"
-                  label="Featured"
-                  onClick={() =>
-                    setMobileMenuOpen(
-                      false
-                    )
-                  }
+              <DetailRow
+                label="Subtotal"
+                value={money(
+                  firstNumber(
+                    selectedOrder.raw.subtotal
+                  )
+                )}
+              />
+
+              <DetailRow
+                label="Discount"
+                value={money(
+                  firstNumber(
+                    selectedOrder.raw.discount_amount
+                  )
+                )}
+              />
+
+              <DetailRow
+                label="Shipping"
+                value={money(
+                  firstNumber(
+                    selectedOrder.raw.shipping_amount
+                  )
+                )}
+              />
+
+              <DetailRow
+                label="Total"
+                value={money(
+                  selectedOrder.total
+                )}
+              />
+            </div>
+
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() =>
+                  contactOrderCustomer(
+                    selectedOrder
+                  )
+                }
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-[8px] font-black uppercase tracking-[0.12em] text-stone-600 transition hover:border-[#a9b897] hover:text-stone-900"
+              >
+                <Mail
+                  size={12}
                 />
-              )}
 
-              <MobileMenuLink
-                href="#about"
-                label="About us"
-                onClick={() =>
-                  setMobileMenuOpen(
-                    false
-                  )
-                }
-              />
+                Contact customer
+              </button>
 
               <button
                 type="button"
-                onClick={() => {
-                  setMobileMenuOpen(
-                    false
-                  );
-
-                  openContactDrawer();
-                }}
-                data-store-primary="true"
-                className="store-primary-action mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-4 text-left text-sm font-bold"
-                style={{
-                  background:
-                    primary,
-                }}
+                disabled={
+                  selectedOrder.paymentStatus !==
+                    "paid" ||
+                  !stripeStatus.connected
+                }
+                onClick={() =>
+                  openRefund(
+                    selectedOrder
+                  )
+                }
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-[8px] font-black uppercase tracking-[0.12em] text-stone-600 transition hover:border-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-35"
               >
-                Get in touch
+                <RotateCcw
+                  size={12}
+                />
 
-                <MessageCircle
+                Refund order
+              </button>
+            </div>
+
+            {![
+              "delivered",
+              "cancelled",
+            ].includes(
+              selectedOrder.status
+            ) && (
+              <button
+                type="button"
+                disabled={
+                  updatingOrderId ===
+                  selectedOrder.id
+                }
+                onClick={() =>
+                  void advanceOrder(
+                    selectedOrder
+                  )
+                }
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white disabled:opacity-50"
+              >
+                {updatingOrderId ===
+                selectedOrder.id ? (
+                  <>
+                    <Loader2
+                      size={14}
+                      className="animate-spin"
+                    />
+                    Saving...
+                  </>
+                ) : selectedOrder.status ===
+                  "new" ? (
+                  <>
+                    Start processing
+                    <ArrowRight
+                      size={13}
+                    />
+                  </>
+                ) : selectedOrder.status ===
+                  "processing" ? (
+                  <>
+                    Mark dispatched
+                    <ArrowRight
+                      size={13}
+                    />
+                  </>
+                ) : (
+                  <>
+                    Mark delivered
+                    <Check
+                      size={13}
+                    />
+                  </>
+                )}
+              </button>
+            )}
+
+            {selectedOrder.status ===
+              "delivered" && (
+              <div className="mt-6 rounded-2xl bg-[#edf1e8] p-4 text-center">
+                <p className="text-xs font-semibold text-[#687a59]">
+                  This order has been marked as delivered.
+                </p>
+              </div>
+            )}
+          </ModalShell>
+        )}
+      </AnimatePresence>
+
+      {/* =====================================================
+          REFUND MODAL
+      ===================================================== */}
+
+      <AnimatePresence>
+        {refundForm && (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+            <motion.button
+              type="button"
+              aria-label="Close refund"
+              initial={{
+                opacity:
+                  0,
+              }}
+              animate={{
+                opacity:
+                  1,
+              }}
+              exit={{
+                opacity:
+                  0,
+              }}
+              onClick={() => {
+                if (
+                  !refundingOrderId
+                ) {
+                  setRefundForm(
+                    null
+                  );
+                }
+              }}
+              className="absolute inset-0 bg-stone-950/60 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{
+                opacity:
+                  0,
+
+                scale:
+                  0.96,
+
+                y:
+                  12,
+              }}
+              animate={{
+                opacity:
+                  1,
+
+                scale:
+                  1,
+
+                y:
+                  0,
+              }}
+              exit={{
+                opacity:
+                  0,
+
+                scale:
+                  0.96,
+
+                y:
+                  12,
+              }}
+              className="relative z-10 w-full max-w-md rounded-[2rem] border border-stone-200 bg-white p-6 shadow-2xl sm:p-8"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <SectionEyebrow>
+                    Stripe refund
+                  </SectionEyebrow>
+
+                  <h3 className="mt-1 font-serif text-3xl italic text-stone-900">
+                    Refund {refundForm.order.number}
+                  </h3>
+
+                  <p className="mt-2 text-xs leading-5 text-stone-500">
+                    Customer: {refundForm.order.customer} · Order total {money(
+                      refundForm.order.total
+                    )}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    Boolean(
+                      refundingOrderId
+                    )
+                  }
+                  onClick={() =>
+                    setRefundForm(
+                      null
+                    )
+                  }
+                  className="rounded-full p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-800 disabled:opacity-40"
+                >
+                  <X
+                    size={17}
+                  />
+                </button>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
+                    Refund amount
+                  </label>
+
+                  <input
+                    type="number"
+                    min="0.01"
+                    max={
+                      refundForm.order.total
+                    }
+                    step="0.01"
+                    value={
+                      refundForm.amount
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setRefundForm(
+                        (
+                          current
+                        ) =>
+                          current
+                            ? {
+                                ...current,
+
+                                amount:
+                                  event.target.value,
+                              }
+                            : current
+                      )
+                    }
+                    className="w-full rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm outline-none focus:border-[#a9b897] focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
+                    Reason
+                  </label>
+
+                  <select
+                    value={
+                      refundForm.reason
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setRefundForm(
+                        (
+                          current
+                        ) =>
+                          current
+                            ? {
+                                ...current,
+
+                                reason:
+                                  event.target.value as RefundFormState["reason"],
+                              }
+                            : current
+                      )
+                    }
+                    className="w-full rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm outline-none focus:border-[#a9b897] focus:bg-white"
+                  >
+                    <option value="requested_by_customer">
+                      Requested by customer
+                    </option>
+
+                    <option value="duplicate">
+                      Duplicate payment
+                    </option>
+
+                    <option value="fraudulent">
+                      Fraudulent payment
+                    </option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    void submitRefund()
+                  }
+                  disabled={
+                    Boolean(
+                      refundingOrderId
+                    )
+                  }
+                  className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 text-[9px] font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:opacity-50"
+                >
+                  {refundingOrderId ? (
+                    <Loader2
+                      size={13}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <RotateCcw
+                      size={13}
+                    />
+                  )}
+
+                  Process refund
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =====================================================
+          PRODUCT MODAL
+      ===================================================== */}
+
+      <AnimatePresence>
+        {showProductModal && (
+          <ModalShell
+            onClose={() => {
+              if (
+                !savingProduct
+              ) {
+                setShowProductModal(
+                  false
+                );
+              }
+            }}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <SectionEyebrow>
+                  Catalogue
+                </SectionEyebrow>
+
+                <h2 className="mt-1 font-serif text-3xl italic">
+                  {productForm.id
+                    ? "Edit product"
+                    : "New product"}
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                disabled={
+                  savingProduct
+                }
+                onClick={() =>
+                  setShowProductModal(
+                    false
+                  )
+                }
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-50 disabled:opacity-50"
+              >
+                <X
                   size={15}
                 />
               </button>
             </div>
 
-          </aside>
-        </div>
-      )}
+            <div className="mt-7 grid gap-4 md:grid-cols-2">
+              <Field
+                label="What are you selling?"
+                className="md:col-span-2"
+              >
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {sellingModelOptions.map(
+                    (option) => {
+                      const selected =
+                        productForm.sellingModel ===
+                        option.value;
 
-      {/* =====================================================
-          HERO
-      ===================================================== */}
-
-      <section
-        id="top"
-        className="px-4 pb-8 pt-5 sm:px-6 lg:px-8 lg:pt-7"
-      >
-        <div className="mx-auto max-w-[1360px] overflow-hidden border shadow-[0_16px_50px_rgba(0,0,0,0.12)]" style={{ borderRadius: `${storeRadius}px`, background: storeSurface, borderColor: storeBorder }}>
-
-          <div className="grid lg:grid-cols-[1.08fr_.92fr]">
-
-            <div className="flex min-h-[490px] items-center p-7 sm:p-10 lg:p-14 xl:p-16">
-
-              <div className="max-w-2xl">
-
-                <div
-                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[8px] font-black uppercase tracking-[0.18em]"
-                  style={{
-                    background:
-                      strongerSecondary,
-
-                    color:
-                      primary,
-                  }}
-                >
-                  <Sparkles
-                    size={11}
-                  />
-
-                  Welcome to{" "}
-                  {
-                    storeName
-                  }
-                </div>
-
-                <h1 className="mt-6 max-w-[720px] text-[3.4rem] font-semibold leading-[0.92] tracking-[-0.035em] sm:text-6xl lg:text-[4.5rem]" style={{ fontFamily: headingFont, color: pageText }}>
-                  {store.hero_title ||
-                    `Everything you need, all in one place.`}
-                </h1>
-
-                <p className="mt-6 max-w-xl text-sm leading-7 text-stone-500 sm:text-[15px]">
-                  {store.hero_text ||
-                    store.store_description ||
-                    `Explore products and services from ${storeName}.`}
-                </p>
-
-                <div className="mt-8 flex flex-wrap gap-3">
-
-                  <a
-                    href="#shop"
-                    className="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-white no-underline shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                    style={{
-                      background:
-                        buttonColour,
-                      color:
-                        buttonTextColour,
-                    }}
-                  >
-                    Shop now
-
-                    <ArrowRight
-                      size={13}
-                    />
-                  </a>
-
-                  <button
-                    type="button"
-                    onClick={
-                      openContactDrawer
-                    }
-                    className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
-                  >
-                    Ask a question
-                  </button>
-
-                </div>
-
-                <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 border-t border-stone-100 pt-6">
-
-                  <TrustItem
-                    icon={
-                      <ShieldCheck
-                        size={13}
-                      />
-                    }
-                    text="Secure payment"
-                    primary={
-                      primary
-                    }
-                  />
-
-                  <TrustItem
-                    icon={
-                      <MessageCircle
-                        size={13}
-                      />
-                    }
-                    text="Direct support"
-                    primary={
-                      primary
-                    }
-                  />
-
-                  <TrustItem
-                    icon={
-                      <ShoppingBag
-                        size={13}
-                      />
-                    }
-                    text="Independent business"
-                    primary={
-                      primary
-                    }
-                  />
-
-                </div>
-              </div>
-            </div>
-
-            <div
-              className="relative min-h-[340px] overflow-hidden lg:min-h-[520px]"
-              style={{
-                background:
-                  secondary,
-              }}
-            >
-              <div
-                className="absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-40 blur-3xl"
-                style={{
-                  background:
-                    primary,
-                }}
-              />
-
-              <div className="absolute inset-0 flex items-center justify-center p-7 sm:p-10 lg:p-12">
-
-                {(store.hero_image_url ||
-                  (
-                    featuredProducts[0] &&
-                    getProductImage(
-                      featuredProducts[0]
-                    )
-                  )) ? (
-                  <div className="relative w-full max-w-[390px]">
-
-                    <div className="absolute -left-6 top-10 h-[82%] w-full rotate-[-4deg] rounded-[2rem] bg-white/55" />
-
-                    <div className="relative aspect-[4/5] overflow-hidden bg-white shadow-[0_30px_90px_rgba(28,25,23,0.16)]" style={{ borderRadius: `${storeRadius}px` }}>
-
-                      <img
-                        src={
-                          store.hero_image_url ||
-                          getProductImage(
-                            featuredProducts[0]!
-                          )!
-                        }
-                        alt={
-                          store.hero_image_url
-                            ? `${storeName} hero`
-                            : featuredProducts[0]!
-                                .name
-                        }
-                        className="h-full w-full object-cover"
-                      />
-
-                      {featuredProducts[0] && (
-                        <div className="absolute inset-x-4 bottom-4 rounded-2xl bg-white/95 p-4 shadow-lg backdrop-blur">
-
-                          <p className="text-[8px] font-black uppercase tracking-[0.16em] text-stone-400">
-                            Featured
-                          </p>
-
-                          <div className="mt-1 flex items-end justify-between gap-3">
-
-                            <p className="line-clamp-1 text-sm font-bold text-stone-800">
-                              {
-                                featuredProducts[0]
-                                  .name
-                              }
-                            </p>
-
-                            <p className="shrink-0 font-serif text-xl italic">
-                              {formatCurrency(
-                                featuredProducts[0]
-                                  .price
-                              )}
-                            </p>
-
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center">
-
-                    <div
-                      className="mx-auto flex h-28 w-28 items-center justify-center rounded-[2rem] text-white shadow-xl"
-                      style={{
-                        background:
-                          primary,
-                      }}
-                    >
-                      {store.logo_url ? (
-                        <img
-                          src={
-                            store.logo_url
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() =>
+                            applySellingModel(
+                              option.value
+                            )
                           }
-                          alt={`${storeName} logo`}
-                          className="h-20 w-20 object-contain"
-                        />
-                      ) : (
-                        <ShoppingBag
-                          size={38}
-                        />
-                      )}
-                    </div>
+                          className={`rounded-2xl border p-4 text-left transition ${
+                            selected
+                              ? "border-[#a9b897] bg-[#a9b897]/10 ring-1 ring-[#a9b897]/30"
+                              : "border-stone-200 bg-stone-50 hover:border-stone-300 hover:bg-white"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-black text-stone-800">
+                                {option.label}
+                              </p>
 
-                    <p className="mt-5 text-sm font-bold text-stone-700">
+                              <p className="mt-1 text-[10px] leading-4 text-stone-500">
+                                {option.description}
+                              </p>
+                            </div>
+
+                            <span
+                              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                                selected
+                                  ? "border-[#829473] bg-[#829473] text-white"
+                                  : "border-stone-300 bg-white text-transparent"
+                              }`}
+                            >
+                              <Check size={11} />
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+
+                <div className="mt-3 rounded-xl bg-stone-50 px-4 py-3 text-[10px] leading-5 text-stone-500">
+                  TOTS-OS adapts the product setup to the way you sell. Use stocked products for traditional retail, turn inventory off for unlimited digital or service offers, or use collection, custom and request-led presets for businesses that do not fit a standard ecommerce model.
+                </div>
+              </Field>
+
+              <Field
+                label="How is this paid for?"
+                className="md:col-span-2"
+              >
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {[
+                    {
+                      value: "one_off" as const,
+                      label: "One-off payment",
+                      description:
+                        "The customer pays once for this product or service.",
+                    },
+                    {
+                      value: "subscription" as const,
+                      label: "Subscription",
+                      description:
+                        "The customer is billed automatically on a recurring schedule.",
+                    },
+                  ].map((option) => {
+                    const selected =
+                      productForm.purchaseType ===
+                      option.value;
+
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() =>
+                          setProductForm(
+                            (previous) => ({
+                              ...previous,
+                              purchaseType:
+                                option.value,
+                            })
+                          )
+                        }
+                        className={`rounded-2xl border p-4 text-left transition ${
+                          selected
+                            ? "border-[#a9b897] bg-[#a9b897]/10 ring-1 ring-[#a9b897]/30"
+                            : "border-stone-200 bg-stone-50 hover:border-stone-300 hover:bg-white"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-black text-stone-800">
+                              {option.label}
+                            </p>
+                            <p className="mt-1 text-[10px] leading-4 text-stone-500">
+                              {option.description}
+                            </p>
+                          </div>
+                          <span
+                            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                              selected
+                                ? "border-[#829473] bg-[#829473] text-white"
+                                : "border-stone-300 bg-white text-transparent"
+                            }`}
+                          >
+                            <Check size={11} />
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
+
+              {productForm.purchaseType ===
+                "subscription" && (
+                <Field
+                  label="Billing interval"
+                  className="md:col-span-2"
+                >
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
                       {
-                        storeName
-                      }
-                    </p>
+                        value: "week" as const,
+                        label: "Weekly",
+                      },
+                      {
+                        value: "month" as const,
+                        label: "Monthly",
+                      },
+                      {
+                        value: "year" as const,
+                        label: "Yearly",
+                      },
+                    ].map((option) => {
+                      const selected =
+                        productForm.billingInterval ===
+                        option.value;
+
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() =>
+                            setProductForm(
+                              (previous) => ({
+                                ...previous,
+                                billingInterval:
+                                  option.value,
+                              })
+                            )
+                          }
+                          className={`rounded-xl border px-4 py-3 text-xs font-black transition ${
+                            selected
+                              ? "border-[#a9b897] bg-[#a9b897]/10 text-stone-900"
+                              : "border-stone-200 bg-stone-50 text-stone-500 hover:bg-white"
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
                   </div>
+
+                  <p className="mt-2 text-[10px] leading-4 text-stone-500">
+                    This saves the recurring billing setup on the Store product. Stripe subscription creation is the next step.
+                  </p>
+                </Field>
+              )}
+
+              {productForm.purchaseType ===
+                "subscription" && (
+                <Field
+                  label="Membership integration"
+                  className="md:col-span-2"
+                >
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {[
+                      {
+                        value: "",
+                        label: "No membership integration",
+                        description:
+                          "Use this for normal recurring products that do not control access in another system.",
+                      },
+                      {
+                        value: "mtc",
+                        label: "Moray Training Club",
+                        description:
+                          "Connect this subscription product to an MTC membership plan.",
+                      },
+                    ].map((option) => {
+                      const selected =
+                        productForm.externalSystem ===
+                        option.value;
+
+                      return (
+                        <button
+                          key={
+                            option.value ||
+                            "none"
+                          }
+                          type="button"
+                          onClick={() =>
+                            setProductForm(
+                              (previous) => ({
+                                ...previous,
+                                externalSystem:
+                                  option.value,
+                                externalPlanCode:
+                                  option.value ===
+                                  "mtc"
+                                    ? previous.externalPlanCode
+                                    : "",
+                                beneficiaryMode:
+                                  option.value ===
+                                  "mtc"
+                                    ? previous.beneficiaryMode
+                                    : "none",
+                              })
+                            )
+                          }
+                          className={`rounded-2xl border p-4 text-left transition ${
+                            selected
+                              ? "border-[#a9b897] bg-[#a9b897]/10 ring-1 ring-[#a9b897]/30"
+                              : "border-stone-200 bg-stone-50 hover:border-stone-300 hover:bg-white"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-black text-stone-800">
+                                {option.label}
+                              </p>
+                              <p className="mt-1 text-[10px] leading-4 text-stone-500">
+                                {option.description}
+                              </p>
+                            </div>
+                            <span
+                              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                                selected
+                                  ? "border-[#829473] bg-[#829473] text-white"
+                                  : "border-stone-300 bg-white text-transparent"
+                              }`}
+                            >
+                              <Check size={11} />
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+              )}
+
+              {productForm.purchaseType ===
+                "subscription" &&
+                productForm.externalSystem ===
+                  "mtc" && (
+                  <>
+                    <Field
+                      label="MTC membership plan"
+                      className="md:col-span-2"
+                    >
+                      <select
+                        value={
+                          productForm.externalPlanCode
+                        }
+                        onChange={(event) => {
+                          const code =
+                            event.target.value;
+
+                          const selectedPlan =
+                            MTC_MEMBERSHIP_PLANS.find(
+                              (plan) =>
+                                plan.code ===
+                                code
+                            );
+
+                          setProductForm(
+                            (previous) => ({
+                              ...previous,
+                              externalPlanCode:
+                                code,
+                              beneficiaryMode:
+                                selectedPlan
+                                  ?.beneficiaryMode ||
+                                previous.beneficiaryMode,
+                            })
+                          );
+                        }}
+                        className="w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm font-semibold text-stone-800 outline-none transition focus:border-[#a9b897] focus:bg-white"
+                      >
+                        <option value="">
+                          Choose an MTC membership...
+                        </option>
+
+                        {MTC_MEMBERSHIP_PLANS.map(
+                          (plan) => (
+                            <option
+                              key={
+                                plan.code
+                              }
+                              value={
+                                plan.code
+                              }
+                            >
+                              {
+                                plan.label
+                              }
+                            </option>
+                          )
+                        )}
+                      </select>
+
+                      <p className="mt-2 text-[10px] leading-4 text-stone-500">
+                        TOTS-OS stores the MTC plan code. MTC remains responsible for class limits and access rules.
+                      </p>
+                    </Field>
+
+                    <Field
+                      label="Who does this membership cover?"
+                      className="md:col-span-2"
+                    >
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                        {[
+                          {
+                            value:
+                              "single_adult" as const,
+                            label:
+                              "One adult",
+                            description:
+                              "One adult beneficiary.",
+                          },
+                          {
+                            value:
+                              "couple" as const,
+                            label:
+                              "Two adults",
+                            description:
+                              "One payer with two adult beneficiaries.",
+                          },
+                          {
+                            value:
+                              "child" as const,
+                            label:
+                              "Child",
+                            description:
+                              "Parent or guardian pays; child receives access.",
+                          },
+                          {
+                            value:
+                              "child_plus_adult" as const,
+                            label:
+                              "Child + adult",
+                            description:
+                              "Child receives kids access and linked adult receives Open Gym access.",
+                          },
+                        ].map((option) => {
+                          const selected =
+                            productForm.beneficiaryMode ===
+                            option.value;
+
+                          return (
+                            <button
+                              key={
+                                option.value
+                              }
+                              type="button"
+                              onClick={() =>
+                                setProductForm(
+                                  (previous) => ({
+                                    ...previous,
+                                    beneficiaryMode:
+                                      option.value,
+                                  })
+                                )
+                              }
+                              className={`rounded-xl border px-4 py-3 text-left transition ${
+                                selected
+                                  ? "border-[#a9b897] bg-[#a9b897]/10"
+                                  : "border-stone-200 bg-stone-50 hover:bg-white"
+                              }`}
+                            >
+                              <p className="text-xs font-black text-stone-800">
+                                {
+                                  option.label
+                                }
+                              </p>
+                              <p className="mt-1 text-[10px] leading-4 text-stone-500">
+                                {
+                                  option.description
+                                }
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <p className="mt-2 text-[10px] leading-4 text-stone-500">
+                        Choosing an MTC plan sets the recommended coverage automatically, but you can change it here if needed.
+                      </p>
+                    </Field>
+                  </>
                 )}
 
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* =====================================================
-          CATEGORY BAR
-      ===================================================== */}
-
-      {showCategories &&
-        categories.length >
-          1 && (
-        <section className="px-4 sm:px-6 lg:px-8">
-
-          <div className="mx-auto max-w-[1360px]">
-
-            <div className="no-scrollbar flex gap-2 overflow-x-auto py-3">
-
-              {categories.map(
-                (
-                  item
-                ) => (
-                  <button
-                    type="button"
-                    key={
-                      item
-                    }
-                    onClick={() => {
-                      setCategory(
-                        item
-                      );
-
-                      document
-                        .getElementById(
-                          "shop"
-                        )
-                        ?.scrollIntoView({
-                          behavior:
-                            "smooth",
-                        });
-                    }}
-                    className="shrink-0 rounded-full border px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] transition"
-                    style={
-                      category ===
-                      item
-                        ? {
-                            borderColor:
-                              primary,
-
-                            background:
-                              primary,
-
-                            color:
-                              "#ffffff",
-                          }
-                        : {
-                            borderColor:
-                              "#e7e5e4",
-
-                            background:
-                              "#ffffff",
-
-                            color:
-                              "#78716c",
-                          }
-                    }
-                  >
-                    {
-                      item
-                    }
-                  </button>
-                )
-              )}
-
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* =====================================================
-          FEATURED
-      ===================================================== */}
-
-      {!membershipLayout &&
-        featuredProducts.length >
-          0 && (
-        <section
-          id="featured"
-          className="px-4 py-12 sm:px-6 lg:px-8 lg:py-16"
-        >
-          <div className="mx-auto max-w-[1360px]">
-
-            <SectionHeading
-              eyebrow="Popular right now"
-              title="Featured picks."
-              description={`A few popular choices from ${storeName}.`}
-              primary={
-                primary
-              }
-            />
-
-            <div className="mt-8 grid gap-5 lg:grid-cols-3">
-
-              {featuredProducts.map(
-                (
-                  product
-                ) => (
-                  <ProductCard
-                    key={
-                      product.id
-                    }
-                    product={
-                      product
-                    }
-                    primary={
-                      primary
-                    }
-                    onAdd={() =>
-                      addToCart(
-                        product
-                      )
-                    }
-                    onRequest={() =>
-                      requestProduct(
-                        product
-                      )
-                    }
-                    featuredLayout
-                  />
-                )
-              )}
-
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* =====================================================
-          SHOP
-      ===================================================== */}
-
-      <section
-        id="shop"
-        className="px-4 py-12 sm:px-6 lg:px-8 lg:py-16"
-      >
-        <div className="mx-auto max-w-[1360px]">
-
-          <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
-
-            <SectionHeading
-              eyebrow={
-                membershipLayout
-                  ? "Memberships"
-                  : "Browse the store"
-              }
-              title={
-                membershipLayout
-                  ? "Choose your membership."
-                  : "Find what you need."
-              }
-              description={
-                membershipLayout
-                  ? "Pick the membership that best suits you. TOTS handles the membership setup and keeps your access connected."
-                  : "Browse everything available, or use the filters to narrow things down."
-              }
-              primary={
-                primary
-              }
-            />
-
-            <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
-
-              {showSearch && (
-              <div className="relative flex-1 lg:w-[300px]">
-
-                <Search
-                  size={14}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
-                />
-
+              <Field
+                label="Product Name"
+                className="md:col-span-2"
+              >
                 <input
                   value={
-                    search
+                    productForm.name
                   }
                   onChange={(
                     event
-                  ) =>
-                    setSearch(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Search products..."
-                  className="h-12 w-full rounded-2xl border border-stone-200 bg-white pl-11 pr-4 text-xs text-stone-700 outline-none transition focus:border-stone-400 focus:shadow-sm"
+                  ) => {
+                    const value =
+                      event.target.value;
+
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        name:
+                          value,
+
+                        slug:
+                          !previous.id &&
+                          (
+                            !previous.slug ||
+                            previous.slug ===
+                              createSlug(
+                                previous.name
+                              )
+                          )
+                            ? createSlug(
+                                value
+                              )
+                            : previous.slug,
+                      })
+                    );
+                  }}
+                  placeholder="Classic Canvas Tote"
+                  className="store-input"
                 />
+              </Field>
 
-                {search && (
-                  <button
-                    type="button"
-                    aria-label="Clear search"
-                    onClick={() =>
-                      setSearch(
-                        ""
-                      )
-                    }
-                    className="absolute right-3 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-stone-100 text-stone-400"
-                  >
-                    <X
-                      size={11}
-                    />
-                  </button>
-                )}
+              <Field
+                label="Product URL"
+                className="md:col-span-2"
+              >
+                <div className="flex overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+                  <span className="flex items-center border-r border-stone-200 px-3 text-[10px] text-stone-400">
+                    product/
+                  </span>
 
-              </div>
-              )}
-
-              {showCategories &&
-                categories.length >
-                1 && (
-                <div className="relative">
-
-                  <select
+                  <input
                     value={
-                      category
+                      productForm.slug
                     }
                     onChange={(
                       event
                     ) =>
-                      setCategory(
-                        event.target.value
+                      setProductForm(
+                        (
+                          previous
+                        ) => ({
+                          ...previous,
+
+                          slug:
+                            createSlug(
+                              event.target.value
+                            ),
+                        })
                       )
                     }
-                    className="h-12 w-full appearance-none rounded-2xl border border-stone-200 bg-white pl-4 pr-10 text-xs font-semibold text-stone-600 outline-none sm:w-52"
-                  >
-                    {categories.map(
-                      (
-                        item
-                      ) => (
-                        <option
-                          key={
-                            item
-                          }
-                          value={
-                            item
-                          }
-                        >
-                          {
-                            item
-                          }
-                        </option>
-                      )
-                    )}
-                  </select>
-
-                  <ChevronDown
-                    size={12}
-                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-stone-400"
+                    placeholder="classic-canvas-tote"
+                    className="min-w-0 flex-1 bg-transparent px-3 py-3 text-xs outline-none"
                   />
-
                 </div>
-              )}
+              </Field>
 
-            </div>
-          </div>
-
-          <div className="mt-6 flex items-center justify-between border-b border-stone-200 pb-4">
-
-            <p className="text-xs text-stone-400">
-              <strong className="font-bold text-stone-700">
-                {
-                  visibleProducts.length
-                }
-              </strong>{" "}
-              {visibleProducts.length ===
-              1
-                ? "result"
-                : "results"}
-            </p>
-
-            {(search ||
-              category !==
-                "All") && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("");
-
-                  setCategory(
-                    "All"
-                  );
-                }}
-                className="text-[9px] font-black uppercase tracking-[0.12em] text-stone-500"
+              <Field
+                label="SKU"
               >
-                Reset filters
-              </button>
-            )}
+                <input
+                  value={
+                    productForm.sku
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
 
-          </div>
-
-          {productLoadWarning && (
-            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
-
-              <p className="text-xs font-semibold text-amber-700">
-                {
-                  productLoadWarning
-                }
-              </p>
-
-              <button
-                type="button"
-                onClick={() =>
-                  void loadStore()
-                }
-                className="mt-2 text-[9px] font-black uppercase tracking-[0.12em] text-amber-700 underline"
-              >
-                Try again
-              </button>
-
-            </div>
-          )}
-
-          {visibleProducts.length >
-          0 ? (
-            <div className={`mt-8 grid gap-5 sm:grid-cols-2 ${
-              membershipLayout
-                ? "lg:grid-cols-2 xl:grid-cols-3"
-                : "lg:grid-cols-3 xl:grid-cols-4"
-            }`}>
-
-              {visibleProducts.map(
-                (
-                  product
-                ) => (
-                  <ProductCard
-                    key={
-                      product.id
-                    }
-                    product={
-                      product
-                    }
-                    primary={
-                      primary
-                    }
-                    onAdd={() =>
-                      addToCart(
-                        product
-                      )
-                    }
-                    onRequest={() =>
-                      requestProduct(
-                        product
-                      )
-                    }
-                  />
-                )
-              )}
-
-            </div>
-          ) : products.length ===
-            0 ? (
-            <EmptyState
-              icon={
-                <Package
-                  size={26}
+                        sku:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  placeholder="Leave blank to generate"
+                  className="store-input"
                 />
-              }
-              title="Nothing here yet."
-              description="New products and services will appear here when they're published."
-            />
-          ) : (
-            <EmptyState
-              icon={
-                <Search
-                  size={26}
-                />
-              }
-              title="No matches found."
-              description="Try another search term or clear your filters."
-            />
-          )}
+              </Field>
 
-        </div>
-      </section>
-
-      {/* =====================================================
-          ABOUT
-      ===================================================== */}
-
-      <section
-        id="about"
-        className="px-4 py-12 sm:px-6 lg:px-8 lg:py-16"
-      >
-        <div
-          className="mx-auto max-w-[1360px] overflow-hidden border"
-          style={{
-            background:
-              storeSurface,
-            borderColor:
-              storeBorder,
-            borderRadius:
-              `${storeRadius}px`,
-          }}
-        >
-
-          <div className="grid lg:grid-cols-[1.1fr_.9fr]">
-
-            <div className="p-8 sm:p-10 lg:p-14">
-
-              <p
-                className="text-[8px] font-black uppercase tracking-[0.22em]"
-                style={{
-                  color:
-                    primary,
-                }}
+              <Field
+                label="Category"
               >
-                About us
-              </p>
+                <input
+                  value={
+                    productForm.category
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
 
-              <h2 className="mt-4 max-w-xl font-serif text-4xl italic tracking-[-0.02em] text-stone-900 sm:text-5xl">
-                The people behind{" "}
-                {
-                  storeName
-                }.
-              </h2>
+                        category:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  className="store-input"
+                />
+              </Field>
 
-              <p className="mt-5 max-w-xl whitespace-pre-line text-sm leading-7 text-stone-500">
-                {store.store_description ||
-                  `Welcome to ${storeName}. We're an independent business creating products and services designed to make things easier for our customers.`}
-              </p>
+              <Field
+                label={
+                  productForm.sellingModel ===
+                  "request_to_order"
+                    ? "Guide / Starting Price"
+                    : productForm.sellingModel ===
+                        "service"
+                      ? "Service Price"
+                      : "Sale Price"
+                }
+              >
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={
+                    productForm.price
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
 
-              <div className="mt-7 flex flex-wrap gap-2">
+                        price:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  placeholder="29.00"
+                  className="store-input"
+                />
+              </Field>
 
-                {store.website_url && (
-                  <a
-                    href={
-                      store.website_url
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full border border-stone-200 px-5 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-stone-600 no-underline transition hover:bg-stone-50"
-                  >
-                    Visit website
+              <Field
+                label="Compare At Price"
+              >
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={
+                    productForm.compareAtPrice
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
 
-                    <ExternalLink
-                      size={12}
-                    />
-                  </a>
-                )}
+                        compareAtPrice:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  placeholder="39.00"
+                  className="store-input"
+                />
+              </Field>
+
+              <Field
+                label="Cost Price"
+              >
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={
+                    productForm.cost
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        cost:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  placeholder="8.00"
+                  className="store-input"
+                />
+              </Field>
+
+              <Field
+                label={
+                  productForm.sellingModel ===
+                  "collect"
+                    ? "Available Quantity"
+                    : "Stock"
+                }
+              >
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  disabled={
+                    !productForm.trackInventory
+                  }
+                  value={
+                    productForm.stock
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        stock:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  placeholder="20"
+                  className="store-input disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </Field>
+
+              <Field
+                label="Status"
+              >
+                <select
+                  value={
+                    productForm.status
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        status:
+                          event.target.value as ProductStatus,
+                      })
+                    )
+                  }
+                  className="store-input"
+                >
+                  <option value="active">
+                    Active
+                  </option>
+
+                  <option value="draft">
+                    Draft
+                  </option>
+
+                  <option value="archived">
+                    Archived
+                  </option>
+                </select>
+              </Field>
+
+              <div className="flex items-center justify-between rounded-xl bg-stone-50 p-4">
+                <div>
+                  <p className="text-sm font-semibold text-stone-700">
+                    Track inventory
+                  </p>
+
+                  <p className="mt-1 text-[10px] text-stone-400">
+                    {productForm.sellingModel ===
+                    "physical" ||
+                  productForm.sellingModel ===
+                    "collect"
+                    ? "Keep this on when availability should reduce as orders are placed."
+                    : "Inventory is normally off for digital, service, custom and request-led offers."}
+                  </p>
+                </div>
 
                 <button
                   type="button"
-                  onClick={
-                    openContactDrawer
-                  }
-                  className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-white"
-                  style={{
-                    background:
-                      primary,
-                  }}
-                >
-                  Contact us
+                  onClick={() =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
 
-                  <MessageCircle
-                    size={12}
+                        trackInventory:
+                          !previous.trackInventory,
+                      })
+                    )
+                  }
+                  className={`relative h-8 w-14 shrink-0 rounded-full transition ${
+                    productForm.trackInventory
+                      ? "bg-[#a9b897]"
+                      : "bg-stone-200"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition ${
+                      productForm.trackInventory
+                        ? "left-7"
+                        : "left-1"
+                    }`}
                   />
                 </button>
-
               </div>
-            </div>
 
-            <div
-              className="flex min-h-[300px] items-center justify-center p-10"
-              style={{
-                background:
-                  secondary,
-              }}
-            >
+              {productForm.sellingModel !==
+                "physical" && (
+                <div className="rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-4 md:col-span-2">
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#6f8062]">
+                    {productForm.sellingModel ===
+                    "digital_download"
+                      ? "Digital download"
+                      : productForm.sellingModel ===
+                          "digital_delivery"
+                        ? "Digital fulfilment"
+                        : productForm.sellingModel ===
+                            "collect"
+                          ? "Collection order"
+                          : productForm.sellingModel ===
+                              "customisable"
+                            ? "Custom order"
+                            : productForm.sellingModel ===
+                                "request_to_order"
+                              ? "Request-led sale"
+                              : "Service"}
+                  </p>
 
-              <div className="text-center">
-
-                {store.logo_url ? (
-                  <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-[2rem] bg-white p-4 shadow-sm">
-                    <img
-                      src={
-                        store.logo_url
-                      }
-                      alt={`${storeName} logo`}
-                      className="max-h-full max-w-full object-contain"
-                    />
-                  </div>
-                ) : (
-                  <div
-                    className="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] text-white"
-                    style={{
-                      background:
-                        primary,
-                    }}
-                  >
-                    <Store
-                      size={30}
-                    />
-                  </div>
-                )}
-
-                <p className="mt-5 text-base font-bold text-stone-700">
-                  {
-                    storeName
-                  }
-                </p>
-
-                <p className="mt-1 text-[8px] font-black uppercase tracking-[0.17em] text-stone-400">
-                  Independent business
-                </p>
-
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* =====================================================
-          CONTACT CTA
-      ===================================================== */}
-
-      <section className="px-4 pb-16 pt-4 sm:px-6 lg:px-8">
-
-        <div className="mx-auto max-w-[1360px] overflow-hidden rounded-[2rem] bg-stone-900 p-8 text-white sm:p-10 lg:p-14">
-
-          <div className="grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
-
-            <div>
-
-              <p
-                className="text-[8px] font-black uppercase tracking-[0.22em]"
-                style={{
-                  color:
-                    primary,
-                }}
-              >
-                Need some help?
-              </p>
-
-              <h2 className="mt-4 max-w-2xl font-serif text-4xl italic tracking-[-0.02em] sm:text-5xl">
-                Not sure what to choose?
-              </h2>
-
-              <p className="mt-4 max-w-xl text-sm leading-7 text-stone-400">
-                Send us a message before you order and we&apos;ll help point you in the right direction.
-              </p>
-
-              <button
-                type="button"
-                onClick={
-                  openContactDrawer
-                }
-                className="mt-7 inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.15em] text-white"
-                style={{
-                  background:
-                    primary,
-                }}
-              >
-                Talk to us
-
-                <ArrowRight
-                  size={13}
-                />
-              </button>
-            </div>
-
-            <div className="grid gap-2 sm:grid-cols-2 lg:w-[440px]">
-
-              {store.email && (
-                <ContactItem
-                  href={`mailto:${store.email}`}
-                  icon={
-                    <Mail
-                      size={15}
-                    />
-                  }
-                  label={
-                    store.email
-                  }
-                  primary={
-                    primary
-                  }
-                />
-              )}
-
-              {store.phone && (
-                <ContactItem
-                  href={`tel:${store.phone}`}
-                  icon={
-                    <Phone
-                      size={15}
-                    />
-                  }
-                  label={
-                    store.phone
-                  }
-                  primary={
-                    primary
-                  }
-                />
-              )}
-
-              {store.address && (
-                <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-4">
-                  <MapPin
-                    size={15}
-                    style={{
-                      color:
-                        primary,
-                    }}
-                  />
-
-                  <span className="text-xs text-stone-300">
-                    {
-                      store.address
-                    }
-                  </span>
+                  <p className="mt-1 text-[10px] leading-5 text-stone-600">
+                    {productForm.sellingModel ===
+                    "digital_download"
+                      ? "Use this for templates, guides, files and other digital products. Inventory is unlimited by default."
+                      : productForm.sellingModel ===
+                          "digital_delivery"
+                        ? "Use this when you personally send access, files, links, codes or other digital fulfilment after an order."
+                        : productForm.sellingModel ===
+                            "collect"
+                          ? "Use this for local pickup and made-for-collection orders such as food, cakes, flowers and retail items."
+                          : productForm.sellingModel ===
+                              "customisable"
+                            ? "Use the description to make the customisation process clear and explain what details you need from the customer."
+                            : productForm.sellingModel ===
+                                "request_to_order"
+                              ? "Ideal where you need to confirm availability, scope or final pricing before fulfilling the order."
+                              : "Use this for consultations, sessions, packages and other offers that do not use physical stock."}
+                  </p>
                 </div>
               )}
 
-              {store.instagram_url && (
-                <ContactItem
-                  href={
-                    store.instagram_url
+              <Field
+                label="Image URL"
+                className="md:col-span-2"
+              >
+                <input
+                  value={
+                    productForm.imageUrl
                   }
-                  external
-                  icon={
-                    <Instagram
-                      size={15}
-                    />
-                  }
-                  label="Instagram"
-                  primary={
-                    primary
-                  }
-                />
-              )}
+                  onChange={(
+                    event
+                  ) =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
 
+                        imageUrl:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  placeholder="https://..."
+                  className="store-input"
+                />
+
+                {productForm.imageUrl && (
+                  <div className="mt-3 overflow-hidden rounded-2xl border border-stone-100 bg-stone-50">
+                    <img
+                      src={
+                        productForm.imageUrl
+                      }
+                      alt="Product preview"
+                      className="h-52 w-full object-cover"
+                    />
+                  </div>
+                )}
+              </Field>
+
+              <Field
+                label="Description"
+                className="md:col-span-2"
+              >
+                <textarea
+                  value={
+                    productForm.description
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        description:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  rows={4}
+                  placeholder={
+                    productForm.sellingModel ===
+                    "digital_download"
+                      ? "Explain what the customer receives, file format, access and any usage notes..."
+                      : productForm.sellingModel ===
+                          "digital_delivery"
+                        ? "Explain what will be delivered digitally and how/when the customer receives it..."
+                        : productForm.sellingModel ===
+                            "collect"
+                          ? "Describe the item and tell customers anything important about collection..."
+                          : productForm.sellingModel ===
+                              "customisable"
+                            ? "Describe the product and what personalisation or custom details you need from the customer..."
+                            : productForm.sellingModel ===
+                                "request_to_order"
+                              ? "Explain what customers can request, what happens next and whether the shown price is a guide..."
+                              : productForm.sellingModel ===
+                                  "service"
+                                ? "Describe the service, what is included and what happens after purchase..."
+                                : "Tell customers about this product..."
+                  }
+                  className="store-input resize-none"
+                />
+              </Field>
+
+              <div className="flex items-center justify-between rounded-xl bg-stone-50 p-4 md:col-span-2">
+                <div>
+                  <p className="text-sm font-semibold text-stone-700">
+                    Featured product
+                  </p>
+
+                  <p className="mt-1 text-[10px] text-stone-400">
+                    Highlight this product on the storefront.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setProductForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        featured:
+                          !previous.featured,
+                      })
+                    )
+                  }
+                  className={`relative h-8 w-14 rounded-full transition ${
+                    productForm.featured
+                      ? "bg-[#a9b897]"
+                      : "bg-stone-200"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition ${
+                      productForm.featured
+                        ? "left-7"
+                        : "left-1"
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
 
-          </div>
-        </div>
-      </section>
-
-      {/* =====================================================
-          FOOTER
-      ===================================================== */}
-
-      <footer className="border-t border-stone-200 px-4 py-8 sm:px-6 lg:px-8" style={{ background: pageBackground }}>
-
-        <div className="mx-auto flex max-w-[1360px] flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-
-          <div className="flex items-center gap-3">
-
-            {store.logo_url ? (
-              <img
-                src={
-                  store.logo_url
-                }
-                alt={`${storeName} logo`}
-                className="h-9 w-9 rounded-xl object-contain"
-              />
-            ) : (
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-white"
-                style={{
-                  background:
-                    primary,
-                }}
-              >
-                <Store
+            <button
+              type="button"
+              onClick={() =>
+                void saveProduct()
+              }
+              disabled={
+                savingProduct
+              }
+              className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white disabled:opacity-50"
+            >
+              {savingProduct ? (
+                <Loader2
+                  size={14}
+                  className="animate-spin"
+                />
+              ) : productForm.id ? (
+                <Check
                   size={14}
                 />
-              </div>
-            )}
-
-            <div>
-
-              <p className="text-xs font-bold text-stone-700">
-                {
-                  storeName
-                }
-              </p>
-
-              <p className="mt-0.5 text-[8px] text-stone-400">
-                ©{" "}
-                {new Date().getFullYear()}{" "}
-                {
-                  storeName
-                }
-              </p>
-
-              {store.footer_text && (
-                <p className="mt-1 max-w-md text-[8px] leading-4 text-stone-400">
-                  {store.footer_text}
-                </p>
+              ) : (
+                <Plus
+                  size={14}
+                />
               )}
 
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[8px] text-stone-400">
-
-            {store.instagram_url && (
-              <a
-                href={store.instagram_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-stone-400 no-underline hover:text-stone-700"
-              >
-                <Instagram size={10} />
-                Instagram
-              </a>
-            )}
-
-            {store.facebook_url && (
-              <a
-                href={store.facebook_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-stone-400 no-underline hover:text-stone-700"
-              >
-                Facebook
-              </a>
-            )}
-
-            {store.tiktok_url && (
-              <a
-                href={store.tiktok_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-stone-400 no-underline hover:text-stone-700"
-              >
-                TikTok
-              </a>
-            )}
-
-            <span className="flex items-center gap-1.5">
-              <LockKeyhole
-                size={10}
-              />
-
-              Secure checkout
-            </span>
-
-            <span className="flex items-center gap-1.5">
-              <Sparkles
-                size={10}
-                style={{
-                  color:
-                    primary,
-                }}
-              />
-
-              Powered by TOTS-OS
-            </span>
-
-          </div>
-
-        </div>
-      </footer>
+              {savingProduct
+                ? "Saving..."
+                : productForm.id
+                  ? "Save Product"
+                  : "Create Product"}
+            </button>
+          </ModalShell>
+        )}
+      </AnimatePresence>
 
       {/* =====================================================
-          FLOATING CONTACT
+          DISCOUNT MODAL
       ===================================================== */}
 
-      {!contactOpen &&
-        !cartOpen && (
-        <button
-          type="button"
-          onClick={
-            openContactDrawer
-          }
-          className="fixed bottom-5 right-5 z-[80] flex h-12 items-center gap-2 rounded-full px-5 text-[9px] font-black uppercase tracking-[0.14em] text-white shadow-[0_16px_45px_rgba(0,0,0,0.2)] transition hover:-translate-y-0.5"
-          style={{
-            background:
-              primary,
-          }}
-        >
-          <MessageCircle
-            size={15}
-          />
-
-          <span className="hidden sm:inline">
-            Need help?
-          </span>
-        </button>
-      )}
-
-      {/* =====================================================
-          CONTACT DRAWER
-      ===================================================== */}
-
-      {contactOpen && (
-        <div className="fixed inset-0 z-[170] bg-stone-950/40 backdrop-blur-sm">
-
-          <button
-            type="button"
-            aria-label="Close contact panel"
-            className="absolute inset-0"
-            onClick={() => {
+      <AnimatePresence>
+        {showDiscountModal && (
+          <ModalShell
+            onClose={() => {
               if (
-                !sendingMessage
+                !savingDiscount
               ) {
-                setContactOpen(
+                setShowDiscountModal(
                   false
                 );
               }
             }}
-          />
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <SectionEyebrow>
+                  Promotion
+                </SectionEyebrow>
 
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col shadow-2xl"
-          style={{
-            background:
-              storeSurface,
-            color:
-              pageText,
-          }}>
+                <h2 className="mt-1 font-serif text-3xl italic">
+                  {discountForm.id
+                    ? "Edit discount"
+                    : "New discount"}
+                </h2>
 
-            <div
-              className="border-b border-stone-100 px-6 pb-7 pt-7"
-              style={{
-                background:
-                  secondary,
-              }}
-            >
-
-              <div className="flex items-start justify-between gap-5">
-
-                <div>
-
-                  <div
-                    className="flex h-11 w-11 items-center justify-center rounded-2xl text-white"
-                    style={{
-                      background:
-                        primary,
-                    }}
-                  >
-                    <MessageCircle
-                      size={19}
-                    />
-                  </div>
-
-                  <p
-                    className="mt-5 text-[8px] font-black uppercase tracking-[0.2em]"
-                    style={{
-                      color:
-                        primary,
-                    }}
-                  >
-                    Contact{" "}
-                    {
-                      storeName
-                    }
-                  </p>
-
-                  <h2 className="mt-2 font-serif text-4xl italic leading-none text-stone-900">
-                    How can we help?
-                  </h2>
-
-                  <p className="mt-3 max-w-sm text-xs leading-6 text-stone-500">
-                    Send us a message and we&apos;ll get back to you as soon as we can.
-                  </p>
-
-                </div>
-
-                <button
-                  type="button"
-                  disabled={
-                    sendingMessage
-                  }
-                  onClick={() =>
-                    setContactOpen(
-                      false
-                    )
-                  }
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-stone-500 shadow-sm disabled:opacity-50"
-                >
-                  <X
-                    size={15}
-                  />
-                </button>
-
+                <p className="mt-2 max-w-md text-sm leading-6 text-stone-500">
+                  Create a code customers can enter before checkout.
+                </p>
               </div>
+
+              <button
+                type="button"
+                disabled={
+                  savingDiscount
+                }
+                onClick={() =>
+                  setShowDiscountModal(
+                    false
+                  )
+                }
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-50 disabled:opacity-50"
+              >
+                <X
+                  size={15}
+                />
+              </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="mt-7 grid gap-4 md:grid-cols-2">
+              <Field
+                label="Discount Code"
+                className="md:col-span-2"
+              >
+                <input
+                  value={
+                    discountForm.code
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setDiscountForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
 
-              {messageSent ? (
-                <div className="flex min-h-[430px] flex-col items-center justify-center text-center">
+                        code:
+                          event.target.value
+                            .toUpperCase()
+                            .replace(
+                              /\s+/g,
+                              ""
+                            ),
+                      })
+                    )
+                  }
+                  placeholder="WELCOME10"
+                  className="store-input uppercase tracking-[0.08em]"
+                />
+              </Field>
 
-                  <div
-                    className="flex h-16 w-16 items-center justify-center rounded-2xl text-white"
-                    style={{
-                      background:
-                        primary,
-                    }}
-                  >
-                    <Check
-                      size={25}
-                    />
-                  </div>
+              <Field
+                label="Discount Type"
+              >
+                <select
+                  value={
+                    discountForm.discountType
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setDiscountForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
 
-                  <h3 className="mt-6 font-serif text-4xl italic text-stone-900">
-                    Message sent.
-                  </h3>
+                        discountType:
+                          event.target.value as DiscountType,
 
-                  <p className="mt-3 max-w-xs text-sm leading-6 text-stone-500">
-                    Thanks for getting in touch. We&apos;ll get back to you as soon as possible.
-                  </p>
+                        maximumDiscountAmount:
+                          event.target.value ===
+                          "fixed"
+                            ? ""
+                            : previous.maximumDiscountAmount,
+                      })
+                    )
+                  }
+                  className="store-input"
+                >
+                  <option value="percentage">
+                    Percentage
+                  </option>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMessageSent(
-                        false
-                      );
+                  <option value="fixed">
+                    Fixed amount
+                  </option>
+                </select>
+              </Field>
 
-                      setContactOpen(
-                        false
-                      );
-                    }}
-                    className="mt-7 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.15em] text-white"
-                    style={{
-                      background:
-                        primary,
-                    }}
-                  >
-                    Done
-                  </button>
+              <Field
+                label={
+                  discountForm.discountType ===
+                  "percentage"
+                    ? "Percentage Off"
+                    : "Amount Off"
+                }
+              >
+                <div className="relative">
+                  {discountForm.discountType ===
+                  "percentage" ? (
+                    <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-stone-400">
+                      %
+                    </span>
+                  ) : (
+                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs text-stone-400">
+                      £
+                    </span>
+                  )}
 
+                  <input
+                    type="number"
+                    min="0"
+                    max={
+                      discountForm.discountType ===
+                      "percentage"
+                        ? 100
+                        : undefined
+                    }
+                    step="0.01"
+                    value={
+                      discountForm.value
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setDiscountForm(
+                        (
+                          previous
+                        ) => ({
+                          ...previous,
+
+                          value:
+                            event.target.value,
+                        })
+                      )
+                    }
+                    placeholder={
+                      discountForm.discountType ===
+                      "percentage"
+                        ? "10"
+                        : "10.00"
+                    }
+                    className={`store-input ${
+                      discountForm.discountType ===
+                      "fixed"
+                        ? "pl-8"
+                        : "pr-8"
+                    }`}
+                  />
                 </div>
-              ) : (
-                <div className="space-y-5">
+              </Field>
 
-                  <StoreInput
-                    label="Your name"
-                    id="store-contact-name"
+              <Field
+                label="Minimum Order"
+              >
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs text-stone-400">
+                    £
+                  </span>
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
                     value={
-                      contactName
+                      discountForm.minimumOrderAmount
                     }
-                    onChange={
-                      setContactName
+                    onChange={(
+                      event
+                    ) =>
+                      setDiscountForm(
+                        (
+                          previous
+                        ) => ({
+                          ...previous,
+
+                          minimumOrderAmount:
+                            event.target.value,
+                        })
+                      )
                     }
-                    placeholder="Your name"
-                    autoComplete="name"
+                    placeholder="0.00"
+                    className="store-input pl-8"
                   />
+                </div>
+              </Field>
 
-                  <StoreInput
-                    label="Email address"
-                    id="store-contact-email"
-                    type="email"
-                    value={
-                      contactEmail
-                    }
-                    onChange={
-                      setContactEmail
-                    }
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                  />
+              {discountForm.discountType ===
+                "percentage" && (
+                <Field
+                  label="Maximum Discount"
+                >
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs text-stone-400">
+                      £
+                    </span>
 
-                  <div>
-
-                    <label
-                      htmlFor="store-contact-message"
-                      className="mb-2 block text-[8px] font-black uppercase tracking-[0.16em] text-stone-400"
-                    >
-                      How can we help?
-                    </label>
-
-                    <textarea
-                      id="store-contact-message"
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
                       value={
-                        contactMessage
+                        discountForm.maximumDiscountAmount
                       }
                       onChange={(
                         event
                       ) =>
-                        setContactMessage(
-                          event.target.value
+                        setDiscountForm(
+                          (
+                            previous
+                          ) => ({
+                            ...previous,
+
+                            maximumDiscountAmount:
+                              event.target.value,
+                          })
                         )
                       }
-                      placeholder="Tell us what you'd like to know..."
-                      rows={7}
-                      className="store-contact-input resize-none"
+                      placeholder="No maximum"
+                      className="store-input pl-8"
                     />
-
                   </div>
-
-                  {messageError && (
-                    <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-
-                      <p className="text-xs leading-5 text-red-600">
-                        {
-                          messageError
-                        }
-                      </p>
-
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    disabled={
-                      sendingMessage
-                    }
-                    onClick={() =>
-                      void sendContactMessage()
-                    }
-                    data-store-primary="true"
-                    className="store-primary-action flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[9px] font-black uppercase tracking-[0.16em] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                    style={{
-                      background:
-                        primary,
-                    }}
-                  >
-                    {sendingMessage ? (
-                      <>
-                        <Loader2
-                          size={14}
-                          className="animate-spin"
-                        />
-
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <Send
-                          size={14}
-                        />
-
-                        Send message
-                      </>
-                    )}
-                  </button>
-
-                  <div className="rounded-2xl bg-stone-50 p-4">
-
-                    <div className="flex items-start gap-3">
-
-                      <ShieldCheck
-                        size={14}
-                        className="mt-0.5 shrink-0"
-                        style={{
-                          color:
-                            primary,
-                        }}
-                      />
-
-                      <p className="text-[10px] leading-5 text-stone-400">
-                        Your message goes directly to{" "}
-                        <strong className="font-semibold text-stone-600">
-                          {
-                            storeName
-                          }
-                        </strong>
-                        .
-                      </p>
-
-                    </div>
-                  </div>
-
-                  {store.email && (
-                    <p className="text-center text-[9px] leading-5 text-stone-400">
-                      Prefer email?{" "}
-
-                      <a
-                        href={`mailto:${store.email}`}
-                        className="font-semibold underline"
-                        style={{
-                          color:
-                            primary,
-                        }}
-                      >
-                        {
-                          store.email
-                        }
-                      </a>
-                    </p>
-                  )}
-
-                </div>
+                </Field>
               )}
 
+              <Field
+                label="Usage Limit"
+              >
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={
+                    discountForm.usageLimit
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setDiscountForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        usageLimit:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  placeholder="Unlimited"
+                  className="store-input"
+                />
+              </Field>
+
+              <Field
+                label="Starts"
+              >
+                <input
+                  type="datetime-local"
+                  value={
+                    discountForm.startsAt
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setDiscountForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        startsAt:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  className="store-input"
+                />
+              </Field>
+
+              <Field
+                label="Expires"
+              >
+                <input
+                  type="datetime-local"
+                  value={
+                    discountForm.expiresAt
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setDiscountForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        expiresAt:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  className="store-input"
+                />
+              </Field>
+
+              <Field
+                label="Description"
+                className="md:col-span-2"
+              >
+                <textarea
+                  rows={3}
+                  value={
+                    discountForm.description
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setDiscountForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        description:
+                          event.target.value,
+                      })
+                    )
+                  }
+                  placeholder="Launch offer, returning customer discount, summer promotion..."
+                  className="store-input resize-none"
+                />
+              </Field>
+
+              <div className="flex items-center justify-between gap-5 rounded-xl bg-stone-50 p-4 md:col-span-2">
+                <div>
+                  <p className="text-sm font-semibold text-stone-700">
+                    Discount active
+                  </p>
+
+                  <p className="mt-1 max-w-md text-[10px] leading-5 text-stone-400">
+                    Customers can only use the code while it is active and within any dates you set.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDiscountForm(
+                      (
+                        previous
+                      ) => ({
+                        ...previous,
+
+                        active:
+                          !previous.active,
+                      })
+                    )
+                  }
+                  className={`relative h-8 w-14 shrink-0 rounded-full transition ${
+                    discountForm.active
+                      ? "bg-[#a9b897]"
+                      : "bg-stone-200"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition ${
+                      discountForm.active
+                        ? "left-7"
+                        : "left-1"
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
-          </aside>
-        </div>
-      )}
+
+            <div className="mt-6 rounded-2xl border border-[#dce4d2] bg-[#f5f7f2] p-5">
+              <div className="flex items-start gap-3">
+                <BadgePercent
+                  size={16}
+                  className="mt-0.5 shrink-0 text-[#829473]"
+                />
+
+                <div>
+                  <p className="text-xs font-semibold text-stone-700">
+                    Discount preview
+                  </p>
+
+                  <p className="mt-1 text-[10px] leading-5 text-stone-500">
+                    {discountForm.code.trim()
+                      ? discountForm.code.toUpperCase()
+                      : "YOURCODE"}{" "}
+                    will give customers{" "}
+                    <strong>
+                      {discountForm.discountType ===
+                      "percentage"
+                        ? `${Number(
+                            discountForm.value ||
+                              0
+                          )}% off`
+                        : money(
+                            Number(
+                              discountForm.value ||
+                                0
+                            )
+                          )}
+                    </strong>
+
+                    {Number(
+                      discountForm.minimumOrderAmount ||
+                        0
+                    ) >
+                    0
+                      ? ` on orders over ${money(
+                          Number(
+                            discountForm.minimumOrderAmount
+                          )
+                        )}`
+                      : ""}
+                    .
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={
+                savingDiscount
+              }
+              onClick={() =>
+                void saveDiscount()
+              }
+              className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white disabled:opacity-50"
+            >
+              {savingDiscount ? (
+                <Loader2
+                  size={14}
+                  className="animate-spin"
+                />
+              ) : (
+                <BadgePercent
+                  size={14}
+                />
+              )}
+
+              {savingDiscount
+                ? "Saving..."
+                : discountForm.id
+                  ? "Save Discount"
+                  : "Create Discount"}
+            </button>
+          </ModalShell>
+        )}
+      </AnimatePresence>
 
       {/* =====================================================
-          CART DRAWER
+          STOCK MODAL
       ===================================================== */}
 
-      {cartOpen && (
-        <div className="fixed inset-0 z-[160] bg-stone-950/40 backdrop-blur-sm">
-
-          <button
-            type="button"
-            aria-label="Close basket"
-            className="absolute inset-0"
-            onClick={() => {
+      <AnimatePresence>
+        {stockAdjust && (
+          <ModalShell
+            onClose={() => {
               if (
-                !checkingOut
+                !savingStock
               ) {
-                setCartOpen(
-                  false
+                setStockAdjust(
+                  null
                 );
               }
             }}
-          />
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <SectionEyebrow>
+                  Inventory
+                </SectionEyebrow>
 
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col shadow-2xl"
-          style={{
-            background:
-              storeSurface,
-            color:
-              pageText,
-          }}>
+                <h2 className="mt-1 font-serif text-3xl italic">
+                  Adjust stock
+                </h2>
 
-            {/* HEADER */}
-
-            <div className="border-b border-stone-100 px-5 py-5 sm:px-6">
-
-              <div className="flex items-center justify-between">
-
-                <div>
-
-                  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-stone-400">
-                    Your basket
-                  </p>
-
-                  <div className="mt-1 flex items-baseline gap-2">
-
-                    <h3 className="font-serif text-3xl italic">
-                      {
-                        cartCount
-                      }{" "}
-                      {cartCount ===
-                      1
-                        ? "item"
-                        : "items"}
-                    </h3>
-
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={
-                    checkingOut
+                <p className="mt-2 text-sm text-stone-500">
+                  {
+                    stockAdjust.product.name
                   }
-                  onClick={() =>
-                    setCartOpen(
-                      false
-                    )
-                  }
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-100 text-stone-500 disabled:opacity-50"
-                >
-                  <X
-                    size={16}
-                  />
-                </button>
-
+                </p>
               </div>
+
+              <button
+                type="button"
+                disabled={
+                  savingStock
+                }
+                onClick={() =>
+                  setStockAdjust(
+                    null
+                  )
+                }
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-50 disabled:opacity-50"
+              >
+                <X
+                  size={15}
+                />
+              </button>
             </div>
 
-            {/* ITEMS */}
+            <div className="mt-7 rounded-2xl bg-stone-50 p-5">
+              <p className="text-[8px] font-black uppercase tracking-wider text-stone-400">
+                Current stock
+              </p>
 
-            <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+              <p className="mt-2 font-serif text-4xl italic">
+                {
+                  stockAdjust.product.inventory_quantity
+                }
+              </p>
+            </div>
 
-              {cartLines.length ===
-              0 ? (
-                <div className="flex h-full min-h-[420px] flex-col items-center justify-center text-center">
+            <Field
+              label="New Stock Level"
+              className="mt-5"
+            >
+              <input
+                type="number"
+                min="0"
+                value={
+                  stockAdjust.quantity
+                }
+                onChange={(
+                  event
+                ) =>
+                  setStockAdjust(
+                    (
+                      previous
+                    ) =>
+                      previous
+                        ? {
+                            ...previous,
 
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-stone-100 text-stone-400">
-                    <ShoppingCart
-                      size={22}
-                    />
-                  </div>
+                            quantity:
+                              event.target.value,
+                          }
+                        : previous
+                  )
+                }
+                className="store-input"
+              />
+            </Field>
 
-                  <h4 className="mt-5 font-serif text-3xl italic text-stone-800">
-                    Your basket is empty.
-                  </h4>
-
-                  <p className="mt-2 max-w-xs text-xs leading-5 text-stone-400">
-                    Browse the store and add something you love.
-                  </p>
-
+            <div className="mt-4 grid grid-cols-4 gap-2">
+              {[
+                -5,
+                -1,
+                1,
+                5,
+              ].map(
+                (
+                  amount
+                ) => (
                   <button
                     type="button"
+                    key={
+                      amount
+                    }
                     onClick={() =>
-                      setCartOpen(
-                        false
-                      )
-                    }
-                    className="mt-6 rounded-full bg-stone-900 px-6 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
-                  >
-                    Continue shopping
-                  </button>
-
-                </div>
-              ) : (
-                <div className="space-y-3">
-
-                  {cartLines.map(
-                    (
-                      line
-                    ) => {
-                      const image =
-                        getProductImage(
-                          line.product
-                        );
-
-                      const maxStock =
-                        getAvailableQuantity(
-                          line.product
-                        );
-
-                      return (
-                        <div
-                          key={
-                            line.product.id
-                          }
-                          className="rounded-2xl border border-stone-100 bg-stone-50 p-3"
-                        >
-
-                          <div className="flex gap-3">
-
-                            <div className="h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-white">
-
-                              {image ? (
-                                <img
-                                  src={
-                                    image
-                                  }
-                                  alt={
-                                    line.product.name
-                                  }
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center text-stone-300">
-                                  <Package
-                                    size={18}
-                                  />
-                                </div>
-                              )}
-
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-
-                              <div className="flex items-start justify-between gap-3">
-
-                                <div className="min-w-0">
-
-                                  <p className="truncate text-xs font-bold text-stone-700">
-                                    {
-                                      line.product.name
-                                    }
-                                  </p>
-
-                                  <p className="mt-1 text-[9px] text-stone-400">
-                                    {getProductTypeLabel(
-                                      line.product
-                                    )}
-                                  </p>
-
-                                </div>
-
-                                <button
-                                  type="button"
-                                  aria-label={`Remove ${line.product.name}`}
-                                  disabled={
-                                    checkingOut
-                                  }
-                                  onClick={() =>
-                                    removeFromCart(
-                                      line.product.id
-                                    )
-                                  }
-                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-stone-400 transition hover:text-red-500 disabled:opacity-40"
-                                >
-                                  <Trash2
-                                    size={11}
-                                  />
-                                </button>
-
-                              </div>
-
-                              <div className="mt-3 flex items-center justify-between">
-
-                                <div className="flex items-center rounded-full border border-stone-200 bg-white p-1">
-
-                                  <button
-                                    type="button"
-                                    aria-label="Decrease quantity"
-                                    disabled={
-                                      checkingOut
-                                    }
-                                    onClick={() =>
-                                      setQuantity(
-                                        line.product.id,
-                                        line.quantity -
-                                          1
-                                      )
-                                    }
-                                    className="flex h-7 w-7 items-center justify-center rounded-full text-stone-500 hover:bg-stone-50 disabled:opacity-40"
-                                  >
-                                    <Minus
-                                      size={10}
-                                    />
-                                  </button>
-
-                                  <span className="min-w-7 text-center text-[10px] font-bold">
-                                    {
-                                      line.quantity
-                                    }
-                                  </span>
-
-                                  <button
-                                    type="button"
-                                    aria-label="Increase quantity"
-                                    disabled={
-                                      checkingOut ||
-                                      (
-                                        maxStock !==
-                                          null &&
-                                        line.quantity >=
-                                          maxStock
-                                      )
-                                    }
-                                    onClick={() =>
-                                      setQuantity(
-                                        line.product.id,
-                                        line.quantity +
-                                          1
-                                      )
-                                    }
-                                    className="flex h-7 w-7 items-center justify-center rounded-full text-stone-500 hover:bg-stone-50 disabled:opacity-30"
-                                  >
-                                    <Plus
-                                      size={10}
-                                    />
-                                  </button>
-
-                                </div>
-
-                                <div className="text-right">
-
-                                  <p className="font-serif text-xl italic text-stone-800">
-                                    {formatCurrency(
-                                      Number(
-                                        line.product.price ||
-                                          0
-                                      ) *
-                                        line.quantity
-                                    )}
-                                  </p>
-
-                                </div>
-
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                  )}
-
-                </div>
-              )}
-
-            </div>
-
-            {/* FOOTER */}
-
-            {cartLines.length >
-              0 && (
-              <div className="border-t border-stone-100 bg-white px-5 pb-5 pt-5 sm:px-6">
-
-                {/* MEMBERSHIP DETAILS */}
-
-                {requiredBeneficiarySpecs.length >
-                  0 && (
-                  <div className="mb-4 rounded-2xl border border-stone-200 bg-stone-50 p-4">
-
-                    <div className="flex items-start gap-3">
-
-                      <div
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white"
-                        style={{
-                          background:
-                            primary,
-                        }}
-                      >
-                        <ShieldCheck
-                          size={14}
-                        />
-                      </div>
-
-                      <div>
-
-                        <p className="text-[9px] font-black uppercase tracking-[0.15em] text-stone-700">
-                          Membership details
-                        </p>
-
-                        <p className="mt-1 text-[10px] leading-5 text-stone-500">
-                          Tell us who will use the membership. Payment details are entered securely with Stripe next.
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                    <div className="mt-4 space-y-4">
-
-                      {requiredBeneficiarySpecs.map(
+                      setStockAdjust(
                         (
-                          spec
-                        ) => {
-                          const draft =
-                            beneficiaryDrafts[
-                              spec.key
-                            ];
-
-                          return (
-                            <div
-                              key={
-                                spec.key
-                              }
-                              className="rounded-2xl border border-stone-200 bg-white p-4"
-                            >
-
-                              <div className="flex items-start justify-between gap-3">
-
-                                <div>
-
-                                  <p className="text-[10px] font-black text-stone-800">
-                                    {
-                                      spec.title
-                                    }
-                                  </p>
-
-                                  <p className="mt-1 text-[9px] leading-4 text-stone-400">
-                                    {
-                                      spec.productName
-                                    }
-                                    {spec.planCode
-                                      ? ` · ${spec.planCode}`
-                                      : ""}
-                                  </p>
-
-                                  <p className="mt-1 text-[9px] leading-4 text-stone-400">
-                                    {
-                                      spec.description
-                                    }
-                                  </p>
-
-                                </div>
-
-                                <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-stone-500">
-                                  {
-                                    spec.beneficiaryType
-                                  }
-                                </span>
-
-                              </div>
-
-                              <div className="mt-3 grid grid-cols-2 gap-2">
-
-                                <input
-                                  type="text"
-                                  value={
-                                    draft?.firstName ||
-                                    ""
-                                  }
-                                  disabled={
-                                    checkingOut
-                                  }
-                                  onChange={(
-                                    event
-                                  ) =>
-                                    updateBeneficiaryDraft(
-                                      spec,
-                                      "firstName",
-                                      event.target.value
-                                    )
-                                  }
-                                  placeholder="First name *"
-                                  autoComplete="given-name"
-                                  className="rounded-xl border border-stone-200 bg-white px-3 py-3 text-[10px] font-semibold text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
-                                />
-
-                                <input
-                                  type="text"
-                                  value={
-                                    draft?.lastName ||
-                                    ""
-                                  }
-                                  disabled={
-                                    checkingOut
-                                  }
-                                  onChange={(
-                                    event
-                                  ) =>
-                                    updateBeneficiaryDraft(
-                                      spec,
-                                      "lastName",
-                                      event.target.value
-                                    )
-                                  }
-                                  placeholder="Last name *"
-                                  autoComplete="family-name"
-                                  className="rounded-xl border border-stone-200 bg-white px-3 py-3 text-[10px] font-semibold text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
-                                />
-
-                                <input
-                                  type="email"
-                                  value={
-                                    draft?.email ||
-                                    ""
-                                  }
-                                  disabled={
-                                    checkingOut
-                                  }
-                                  onChange={(
-                                    event
-                                  ) =>
-                                    updateBeneficiaryDraft(
-                                      spec,
-                                      "email",
-                                      event.target.value
-                                    )
-                                  }
-                                  placeholder={
-                                    spec.emailRequired
-                                      ? "Email *"
-                                      : "Email (optional)"
-                                  }
-                                  autoComplete="email"
-                                  className="col-span-2 rounded-xl border border-stone-200 bg-white px-3 py-3 text-[10px] font-semibold text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
-                                />
-
-                                <input
-                                  type="tel"
-                                  value={
-                                    draft?.phone ||
-                                    ""
-                                  }
-                                  disabled={
-                                    checkingOut
-                                  }
-                                  onChange={(
-                                    event
-                                  ) =>
-                                    updateBeneficiaryDraft(
-                                      spec,
-                                      "phone",
-                                      event.target.value
-                                    )
-                                  }
-                                  placeholder="Phone (optional)"
-                                  autoComplete="tel"
-                                  className="col-span-2 rounded-xl border border-stone-200 bg-white px-3 py-3 text-[10px] font-semibold text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
-                                />
-
-                              </div>
-
-                            </div>
-                          );
-                        }
-                      )}
-
-                    </div>
-
-                  </div>
-                )}
-
-                {/* DISCOUNT */}
-
-                <div className="rounded-2xl border border-stone-100 bg-stone-50 p-4">
-
-                  <div className="flex items-center gap-2">
-
-                    <Tag
-                      size={13}
-                      style={{
-                        color:
-                          primary,
-                      }}
-                    />
-
-                    <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-500">
-                      Have a discount code?
-                    </p>
-
-                  </div>
-
-                  {appliedDiscountCode ? (
-                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-stone-100 bg-white px-4 py-3">
-
-                      <div className="min-w-0">
-
-                        <div className="flex items-center gap-2">
-
-                          <div
-                            className="flex h-5 w-5 items-center justify-center rounded-full text-white"
-                            style={{
-                              background:
-                                primary,
-                            }}
-                          >
-                            <Check
-                              size={10}
-                            />
-                          </div>
-
-                          <p className="truncate text-xs font-black text-stone-700">
-                            {
-                              appliedDiscountCode
-                            }
-                          </p>
-
-                        </div>
-
-                        <p className="mt-1 pl-7 text-[9px] text-stone-400">
-                          Ready to be verified at checkout.
-                        </p>
-
-                      </div>
-
-                      <button
-                        type="button"
-                        disabled={
-                          checkingOut
-                        }
-                        onClick={
-                          removeDiscountCode
-                        }
-                        className="text-[8px] font-black uppercase tracking-[0.12em] text-stone-400 underline disabled:opacity-40"
-                      >
-                        Remove
-                      </button>
-
-                    </div>
-                  ) : (
-                    <div className="mt-3 flex gap-2">
-
-                      <input
-                        type="text"
-                        value={
-                          discountCode
-                        }
-                        disabled={
-                          checkingOut
-                        }
-                        onChange={(
-                          event
-                        ) => {
-                          setDiscountCode(
-                            event.target.value.toUpperCase()
-                          );
-
-                          setCheckoutError(
-                            null
-                          );
-
-                          setDiscountMessage(
-                            null
-                          );
-                        }}
-                        onKeyDown={(
-                          event
+                          previous
                         ) => {
                           if (
-                            event.key ===
-                            "Enter"
+                            !previous
                           ) {
-                            event.preventDefault();
-
-                            applyDiscountCode();
+                            return previous;
                           }
-                        }}
-                        placeholder="Enter code"
-                        autoComplete="off"
-                        spellCheck={
-                          false
+
+                          return {
+                            ...previous,
+
+                            quantity:
+                              String(
+                                Math.max(
+                                  0,
+                                  Number(
+                                    previous.quantity ||
+                                      0
+                                  ) +
+                                    amount
+                                )
+                              ),
+                          };
                         }
-                        className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-4 py-3 text-xs font-bold uppercase tracking-[0.06em] text-stone-700 outline-none transition focus:border-stone-400 disabled:opacity-50"
-                      />
+                      )
+                    }
+                    className="rounded-xl border border-stone-200 bg-stone-50 py-3 text-xs font-semibold text-stone-500"
+                  >
+                    {amount >
+                    0
+                      ? `+${amount}`
+                      : amount}
+                  </button>
+                )
+              )}
+            </div>
 
-                      <button
-                        type="button"
-                        disabled={
-                          checkingOut ||
-                          !discountCode.trim()
-                        }
-                        onClick={
-                          applyDiscountCode
-                        }
-                        className="shrink-0 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.13em] text-white disabled:opacity-40"
-                      >
-                        Apply
-                      </button>
+            <button
+              type="button"
+              disabled={
+                savingStock
+              }
+              onClick={() =>
+                void saveStockAdjustment()
+              }
+              className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white disabled:opacity-50"
+            >
+              {savingStock ? (
+                <Loader2
+                  size={14}
+                  className="animate-spin"
+                />
+              ) : (
+                <Check
+                  size={14}
+                />
+              )}
 
-                    </div>
-                  )}
+              {savingStock
+                ? "Saving..."
+                : "Update Stock"}
+            </button>
+          </ModalShell>
+        )}
+      </AnimatePresence>
 
-                  {discountMessage && (
-                    <p className="mt-2 text-[9px] leading-4 text-stone-400">
-                      {
-                        discountMessage
-                      }
-                    </p>
-                  )}
+      {/* =====================================================
+          STYLES
+      ===================================================== */}
 
-                </div>
+      <style jsx global>{`
+        @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap");
 
-                {/* SHIPPING / DELIVERY */}
+        .font-serif {
+          font-family:
+            "Instrument Serif",
+            Georgia,
+            serif;
+        }
 
-                <div className="mt-4">
+        .store-input {
+          width: 100%;
+          border: 1px solid #eceae5;
+          background: #faf9f6;
+          border-radius: 0.8rem;
+          padding: 0.95rem 1rem;
+          font-size: 0.82rem;
+          color: #44403c;
+          outline: none;
+          transition: 0.2s ease;
+        }
 
-                  {store.shipping_text ? (
-                    <div className="flex items-start gap-3 rounded-2xl bg-stone-50 p-4">
+        .store-input:focus {
+          background: white;
+          border-color: #a9b897;
+          box-shadow:
+            0 0 0 3px
+            rgba(
+              169,
+              184,
+              151,
+              0.1
+            );
+        }
 
-                      <Truck
-                        size={14}
-                        className="mt-0.5 shrink-0"
-                        style={{
-                          color:
-                            primary,
-                        }}
-                      />
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
 
-                      <p className="text-[10px] leading-5 text-stone-500">
-                        {
-                          store.shipping_text
-                        }
-                      </p>
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+    </main>
+  );
+}
 
-                    </div>
-                  ) : (
-                    <div className="flex items-start gap-3 rounded-2xl bg-stone-50 p-4">
+// ============================================================
+// COMPONENTS
+// ============================================================
 
-                      {cartContainsPhysicalProduct ? (
-                        <Truck
-                          size={14}
-                          className="mt-0.5 shrink-0"
-                          style={{
-                            color:
-                              primary,
-                          }}
-                        />
-                      ) : (
-                        <Check
-                          size={14}
-                          className="mt-0.5 shrink-0"
-                          style={{
-                            color:
-                              primary,
-                          }}
-                        />
-                      )}
+function Panel({
+  children,
+  className = "",
+}: {
+  children:
+    ReactNode;
 
-                      <p className="text-[10px] leading-5 text-stone-500">
-                        {cartContainsPhysicalProduct
-                          ? "Your basket includes a physical product. Delivery details will be confirmed during checkout."
-                          : cartContainsCollectionProduct
-                            ? "This order includes collection items. The business will confirm collection details with you."
-                            : cartContainsDigitalProduct
-                              ? "No shipping required. Digital fulfilment details will be provided after purchase."
-                              : cartContainsServiceProduct
-                                ? "No shipping required. The business will confirm the next steps for your service."
-                                : "No shipping required for these items."}
-                      </p>
-
-                    </div>
-                  )}
-
-                </div>
-
-                {/* ERROR */}
-
-                {checkoutError && (
-                  <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-
-                    <p className="text-[10px] font-semibold leading-5 text-red-600">
-                      {
-                        checkoutError
-                      }
-                    </p>
-
-                    {appliedDiscountCode && (
-                      <button
-                        type="button"
-                        onClick={
-                          removeDiscountCode
-                        }
-                        className="mt-2 text-[8px] font-black uppercase tracking-[0.12em] text-red-500 underline"
-                      >
-                        Remove discount code
-                      </button>
-                    )}
-
-                  </div>
-                )}
-
-                {/* TOTAL */}
-
-                <div className="mt-5 border-t border-stone-100 pt-5">
-
-                  <div className="flex items-center justify-between">
-
-                    <div>
-
-                      <p className="text-[9px] font-semibold text-stone-400">
-                        Subtotal
-                      </p>
-
-                      <p className="mt-1 text-[8px] text-stone-300">
-                        Discounts applied at checkout
-                      </p>
-
-                    </div>
-
-                    <strong className="font-serif text-3xl italic text-stone-900">
-                      {formatCurrency(
-                        cartTotal
-                      )}
-                    </strong>
-
-                  </div>
-
-                </div>
-
-                {/* CHECKOUT */}
-
-                <button
-                  type="button"
-                  disabled={
-                    checkingOut
-                  }
-                  onClick={() =>
-                    void startCheckout()
-                  }
-                  data-store-primary="true"
-                  className="store-primary-action mt-5 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[9px] font-black uppercase tracking-[0.17em] shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                  style={{
-                    background:
-                      primary,
-                  }}
-                >
-                  {checkingOut ? (
-                    <>
-                      <Loader2
-                        size={13}
-                        className="animate-spin"
-                      />
-
-                      Preparing checkout...
-                    </>
-                  ) : (
-                    <>
-                      Checkout securely
-
-                      <ArrowRight
-                        size={13}
-                      />
-                    </>
-                  )}
-                </button>
-
-                <div className="mt-3 flex items-center justify-center gap-2 text-[8px] text-stone-400">
-
-                  <LockKeyhole
-                    size={10}
-                  />
-
-                  Secure payment powered by Stripe
-
-                </div>
-
-              </div>
-            )}
-
-          </aside>
-        </div>
-      )}
-
-      <StorefrontGlobalStyles />
+  className?:
+    string;
+}) {
+  return (
+    <div
+      className={`rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8 ${className}`}
+    >
+      {
+        children
+      }
     </div>
   );
 }
 
 // ============================================================
-// PRODUCT CARD
-// ============================================================
 
-function ProductCard({
-  product,
-  primary,
-  onAdd,
-  onRequest,
-  featuredLayout = false,
+function SectionEyebrow({
+  children,
+  className = "",
 }: {
-  product: Product;
-  primary: string;
-  onAdd: () => void;
-  onRequest: () => void;
-  featuredLayout?: boolean;
+  children:
+    ReactNode;
+
+  className?:
+    string;
 }) {
-  const image =
-    getProductImage(
-      product
-    );
-
-  const outOfStock =
-    isOutOfStock(
-      product
-    );
-
-  const lowStock =
-    isLowStock(
-      product
-    );
-
-  const available =
-    getAvailableQuantity(
-      product
-    );
-
-  const compareAt =
-    Number(
-      product.compare_at_price ||
-        0
-    );
-
-  const price =
-    Number(
-      product.price ||
-        0
-    );
-
-  const onSale =
-    compareAt >
-      price &&
-    price >
-      0;
-
-  const typeLabel =
-    getProductTypeLabel(
-      product
-    );
-
-  const sellingModel =
-    inferSellingModel(
-      product
-    );
-
-  const requestAction =
-    sellingModel ===
-      "customisable" ||
-    sellingModel ===
-      "request_to_order";
-
-  const saving =
-    onSale
-      ? compareAt -
-        price
-      : 0;
-
   return (
-    <article
-      className="group flex min-w-0 flex-col overflow-hidden border transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_55px_rgba(0,0,0,0.16)]"
-      style={{
-        borderRadius:
-          "var(--store-radius)",
-        background:
-          "var(--store-surface)",
-        borderColor:
-          "var(--store-border)",
-      }}
+    <p
+      className={`text-[9px] font-black uppercase tracking-[0.2em] text-[#829473] ${className}`}
     >
-
-      {/* IMAGE */}
-
-      <div
-        className={`relative overflow-hidden bg-[#f2f0ec] ${
-          featuredLayout
-            ? "aspect-[16/11]"
-            : "aspect-[4/3]"
-        }`}
-      >
-        {image ? (
-          <img
-            src={
-              image
-            }
-            alt={
-              product.name
-            }
-            loading="lazy"
-            className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.035]"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-stone-300">
-            <Package
-              size={30}
-            />
-          </div>
-        )}
-
-        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-
-          {product.featured && (
-            <span
-              className="rounded-full px-3 py-1.5 text-[6px] font-black uppercase tracking-[0.13em] text-white shadow-sm"
-              style={{
-                background:
-                  primary,
-              }}
-            >
-              Featured
-            </span>
-          )}
-
-          {onSale && (
-            <span className="rounded-full bg-stone-900 px-3 py-1.5 text-[6px] font-black uppercase tracking-[0.13em] text-white shadow-sm">
-              Save{" "}
-              {formatCurrency(
-                saving
-              )}
-            </span>
-          )}
-
-          {outOfStock && (
-            <span className="rounded-full bg-white px-3 py-1.5 text-[6px] font-black uppercase tracking-[0.13em] text-stone-500 shadow-sm">
-              Unavailable
-            </span>
-          )}
-
-        </div>
-
-        <div className="absolute bottom-3 right-3">
-
-          <span className="rounded-full bg-white/90 px-3 py-1.5 text-[6px] font-black uppercase tracking-[0.12em] text-stone-500 shadow-sm backdrop-blur">
-            {
-              typeLabel
-            }
-          </span>
-
-        </div>
-      </div>
-
-      {/* CONTENT */}
-
-      <div className="flex flex-1 flex-col p-5">
-
-        <p
-          className="text-[7px] font-black uppercase tracking-[0.16em]"
-          style={{
-            color:
-              primary,
-          }}
-        >
-          {product.category ||
-            "General"}
-        </p>
-
-        <h3 className="mt-2 line-clamp-2 text-[15px] font-bold leading-5 text-stone-800">
-          {
-            product.name
-          }
-        </h3>
-
-        {product.description ? (
-          <p className="mt-2 line-clamp-2 min-h-[42px] text-[10px] leading-5 text-stone-400">
-            {
-              product.description
-            }
-          </p>
-        ) : (
-          <div className="min-h-[50px]" />
-        )}
-
-        <div className="mt-3 flex items-start gap-2 rounded-xl bg-stone-50 px-3 py-2.5">
-          {sellingModel ===
-          "physical" ? (
-            <Truck
-              size={12}
-              className="mt-0.5 shrink-0"
-              style={{
-                color:
-                  primary,
-              }}
-            />
-          ) : sellingModel ===
-              "collect" ? (
-            <MapPin
-              size={12}
-              className="mt-0.5 shrink-0"
-              style={{
-                color:
-                  primary,
-              }}
-            />
-          ) : (
-            <Check
-              size={12}
-              className="mt-0.5 shrink-0"
-              style={{
-                color:
-                  primary,
-              }}
-            />
-          )}
-
-          <p className="text-[8px] leading-4 text-stone-500">
-            {getProductFulfilmentText(
-              product
-            )}
-          </p>
-        </div>
-
-        <div className="mt-auto pt-5">
-
-          <div className="flex items-end justify-between gap-3">
-
-            <div>
-
-              <div className="flex items-end gap-2">
-
-                <p className="font-serif text-[1.8rem] italic leading-none text-stone-900">
-                  {formatCurrency(
-                    product.price
-                  )}
-                </p>
-
-                {onSale && (
-                  <p className="pb-0.5 text-[9px] text-stone-400 line-through">
-                    {formatCurrency(
-                      compareAt
-                    )}
-                  </p>
-                )}
-
-              </div>
-
-              {lowStock &&
-                available !==
-                  null && (
-                  <p className="mt-2 text-[7px] font-black uppercase tracking-[0.12em] text-amber-600">
-                    Only{" "}
-                    {
-                      available
-                    }{" "}
-                    left
-                  </p>
-                )}
-
-            </div>
-          </div>
-
-          <button
-            type="button"
-            disabled={
-              outOfStock &&
-              !requestAction
-            }
-            onClick={
-              requestAction
-                ? onRequest
-                : onAdd
-            }
-            data-store-primary="true"
-            className="store-primary-action mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-3.5 text-left transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            style={{
-              background:
-                outOfStock &&
-                !requestAction
-                  ? "#d6d3d1"
-                  : primary,
-            }}
-          >
-            <span className="text-[8px] font-black uppercase tracking-[0.13em]">
-              {outOfStock &&
-              !requestAction
-                ? "Unavailable"
-                : getProductActionLabel(
-                    product
-                  )}
-            </span>
-
-            {(!outOfStock ||
-              requestAction) && (
-              <ArrowRight
-                size={12}
-              />
-            )}
-          </button>
-
-        </div>
-      </div>
-    </article>
+      {
+        children
+      }
+    </p>
   );
 }
 
 // ============================================================
-// SECTION HEADING
-// ============================================================
 
-function SectionHeading({
-  eyebrow,
-  title,
-  description,
-  primary,
+function StoreMetric({
+  icon:
+    Icon,
+  value,
+  label,
 }: {
-  eyebrow: string;
-  title: string;
-  description?: string;
-  primary: string;
+  icon:
+    any;
+
+  value:
+    string;
+
+  label:
+    string;
 }) {
   return (
-    <div>
+    <div className="rounded-[1.7rem] border border-stone-200 bg-white p-5">
+      <Icon
+        size={18}
+        className="mb-6 text-stone-300"
+      />
 
-      <p
-        className="text-[8px] font-black uppercase tracking-[0.22em]"
-        style={{
-          color:
-            primary,
-        }}
-      >
+      <p className="font-serif text-2xl italic text-stone-800 sm:text-3xl">
         {
-          eyebrow
+          value
         }
       </p>
 
-      <h2 className="mt-2 font-serif text-4xl italic tracking-[-0.025em] text-stone-900 sm:text-5xl">
+      <p className="mt-1 text-[8px] font-black uppercase tracking-wider text-stone-400">
         {
-          title
+          label
         }
-      </h2>
-
-      {description && (
-        <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
-          {
-            description
-          }
-        </p>
-      )}
-
+      </p>
     </div>
   );
 }
 
 // ============================================================
-// TRUST ITEM
-// ============================================================
 
-function TrustItem({
-  icon,
-  text,
-  primary,
-}: {
-  icon: React.ReactNode;
-  text: string;
-  primary: string;
-}) {
-  return (
-    <div className="flex items-center gap-2 text-[9px] font-semibold text-stone-400">
-
-      <span
-        style={{
-          color:
-            primary,
-        }}
-      >
-        {
-          icon
-        }
-      </span>
-
-      {
-        text
-      }
-
-    </div>
-  );
-}
-
-// ============================================================
-// CONTACT ITEM
-// ============================================================
-
-function ContactItem({
-  href,
-  icon,
+function DetailRow({
   label,
-  primary,
-  external = false,
+  value,
 }: {
-  href: string;
-  icon: React.ReactNode;
-  label: string;
-  primary: string;
-  external?: boolean;
+  label:
+    string;
+
+  value:
+    string;
 }) {
   return (
-    <a
-      href={
-        href
-      }
-      target={
-        external
-          ? "_blank"
-          : undefined
-      }
-      rel={
-        external
-          ? "noopener noreferrer"
-          : undefined
-      }
-      className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-4 no-underline transition hover:bg-white/10"
-    >
-      <span
-        style={{
-          color:
-            primary,
-        }}
-      >
-        {
-          icon
-        }
-      </span>
-
-      <span className="truncate text-xs text-stone-300">
+    <div className="flex items-center justify-between gap-4 border-b border-stone-100 pb-4 last:border-0">
+      <span className="text-xs text-stone-400">
         {
           label
         }
       </span>
-    </a>
+
+      <span className="text-right text-xs font-semibold text-stone-700">
+        {
+          value
+        }
+      </span>
+    </div>
   );
 }
 
 // ============================================================
-// MOBILE MENU LINK
-// ============================================================
 
-function MobileMenuLink({
-  href,
+function StoreAssetUploader({
   label,
-  onClick,
+  description,
+  value,
+  uploading,
+  accept,
+  onUpload,
+  onRemove,
 }: {
-  href: string;
-  label: string;
-  onClick: () => void;
+  label:
+    string;
+
+  description:
+    string;
+
+  value:
+    string;
+
+  uploading:
+    boolean;
+
+  accept:
+    string;
+
+  onUpload:
+    (
+      file:
+        File
+    ) =>
+      void;
+
+  onRemove:
+    () =>
+      void;
 }) {
   return (
-    <a
-      href={
-        href
-      }
-      onClick={
-        onClick
-      }
-      className="flex items-center justify-between rounded-2xl bg-stone-50 px-4 py-4 text-sm font-semibold text-stone-700 no-underline"
-    >
-      {
-        label
-      }
+    <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold text-stone-700">
+            {label}
+          </p>
 
-      <ArrowRight
-        size={14}
-      />
-    </a>
+          <p className="mt-1 text-[9px] leading-4 text-stone-400">
+            {description}
+          </p>
+        </div>
+
+        {value && (
+          <button
+            type="button"
+            onClick={
+              onRemove
+            }
+            className="rounded-lg border border-stone-200 bg-white p-2 text-stone-400 transition hover:text-rose-500"
+            title={`Remove ${label.toLowerCase()}`}
+          >
+            <Trash2
+              size={13}
+            />
+          </button>
+        )}
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-xl border border-dashed border-stone-200 bg-white">
+        {value ? (
+          <div className="relative flex min-h-[150px] items-center justify-center bg-stone-50 p-4">
+            <img
+              src={
+                value
+              }
+              alt={
+                label
+              }
+              className="max-h-[180px] max-w-full object-contain"
+            />
+          </div>
+        ) : (
+          <div className="flex min-h-[150px] flex-col items-center justify-center gap-2 p-5 text-center">
+            <ImageIcon
+              size={23}
+              className="text-stone-300"
+            />
+
+            <p className="text-[9px] font-semibold text-stone-400">
+              No {label.toLowerCase()} uploaded
+            </p>
+          </div>
+        )}
+
+        <label className="flex cursor-pointer items-center justify-center gap-2 border-t border-stone-100 px-4 py-3 text-[8px] font-black uppercase tracking-[0.13em] text-stone-600 transition hover:bg-stone-50">
+          {uploading ? (
+            <Loader2
+              size={13}
+              className="animate-spin"
+            />
+          ) : (
+            <Upload
+              size={13}
+            />
+          )}
+
+          {uploading
+            ? "Uploading..."
+            : value
+              ? "Replace image"
+              : "Upload image"}
+
+          <input
+            type="file"
+            accept={
+              accept
+            }
+            disabled={
+              uploading
+            }
+            className="hidden"
+            onChange={(
+              event
+            ) => {
+              const input =
+                event.currentTarget;
+
+              const fileList =
+                input.files;
+
+              const file =
+                fileList
+                  ? fileList.item(
+                      0
+                    )
+                  : null;
+
+              if (
+                file instanceof
+                  File
+              ) {
+                onUpload(
+                  file
+                );
+              }
+
+              input.value =
+                "";
+            }}
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+  className = "",
+}: {
+  label:
+    string;
+
+  children:
+    ReactNode;
+
+  className?:
+    string;
+}) {
+  return (
+    <div
+      className={
+        className
+      }
+    >
+      <label className="mb-2 block text-[8px] font-black uppercase tracking-wider text-stone-400">
+        {
+          label
+        }
+      </label>
+
+      {
+        children
+      }
+    </div>
   );
 }
 
 // ============================================================
-// EMPTY STATE
+
+function StatusBadge({
+  status,
+}: {
+  status:
+    ProductStatus;
+}) {
+  return (
+    <span
+      className={`w-fit rounded-full px-3 py-1 text-[8px] font-black uppercase ${
+        status ===
+        "active"
+          ? "bg-[#edf1e8] text-[#82936b]"
+          : status ===
+              "draft"
+            ? "bg-amber-50 text-amber-600"
+            : "bg-stone-100 text-stone-500"
+      }`}
+    >
+      {
+        status
+      }
+    </span>
+  );
+}
+
+// ============================================================
+
+function OrderStatusBadge({
+  status,
+}: {
+  status:
+    OrderStatus;
+}) {
+  return (
+    <span
+      className={`rounded-full px-3 py-1 text-[8px] font-black uppercase ${
+        status ===
+        "new"
+          ? "bg-blue-50 text-blue-600"
+          : status ===
+              "processing"
+            ? "bg-amber-50 text-amber-600"
+            : status ===
+                "dispatched"
+              ? "bg-violet-50 text-violet-600"
+              : status ===
+                  "delivered"
+                ? "bg-[#edf1e8] text-[#82936b]"
+                : "bg-red-50 text-red-500"
+      }`}
+    >
+      {status ===
+      "new"
+        ? "New"
+        : status ===
+            "processing"
+          ? "Processing"
+          : status ===
+              "dispatched"
+            ? "Dispatched"
+            : status ===
+                "delivered"
+              ? "Delivered"
+              : "Cancelled"}
+    </span>
+  );
+}
+
+// ============================================================
+
+function PaymentBadge({
+  status,
+}: {
+  status:
+    PaymentStatus;
+}) {
+  return (
+    <span
+      className={`rounded-full px-3 py-1 text-[8px] font-black uppercase ${
+        status ===
+        "paid"
+          ? "bg-emerald-50 text-emerald-600"
+          : status ===
+              "pending"
+            ? "bg-stone-100 text-stone-500"
+            : "bg-red-50 text-red-500"
+      }`}
+    >
+      {
+        status
+      }
+    </span>
+  );
+}
+
+// ============================================================
+
+function DiscountStatusBadge({
+  status,
+}: {
+  status:
+    DiscountStatus;
+}) {
+  let className =
+    "bg-stone-100 text-stone-500";
+
+  if (
+    status ===
+    "Active"
+  ) {
+    className =
+      "bg-[#edf1e8] text-[#82936b]";
+  }
+
+  if (
+    status ===
+    "Scheduled"
+  ) {
+    className =
+      "bg-blue-50 text-blue-600";
+  }
+
+  if (
+    status ===
+    "Expired"
+  ) {
+    className =
+      "bg-red-50 text-red-500";
+  }
+
+  if (
+    status ===
+    "Used up"
+  ) {
+    className =
+      "bg-amber-50 text-amber-600";
+  }
+
+  return (
+    <span
+      className={`rounded-full px-3 py-1 text-[7px] font-black uppercase ${className}`}
+    >
+      {
+        status
+      }
+    </span>
+  );
+}
+
+// ============================================================
+
+function OrderRow({
+  order,
+  money,
+  onAdvance,
+  loading = false,
+}: {
+  order:
+    Order;
+
+  money:
+    (
+      value:
+        | number
+        | string
+    ) => string;
+
+  onAdvance:
+    () => void;
+
+  loading?:
+    boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-4 rounded-2xl bg-stone-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold">
+            {
+              order.number
+            }
+          </p>
+
+          <OrderStatusBadge
+            status={
+              order.status
+            }
+          />
+        </div>
+
+        <p className="mt-2 text-xs text-stone-600">
+          {
+            order.customer
+          }
+        </p>
+
+        <p className="mt-1 text-[10px] text-stone-400">
+          {
+            order.items
+          }{" "}
+          items ·{" "}
+          {
+            order.createdAt
+          }
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between gap-4 sm:justify-end">
+        <p className="font-serif text-xl italic">
+          {money(
+            order.total
+          )}
+        </p>
+
+        <button
+          type="button"
+          disabled={
+            loading
+          }
+          onClick={
+            onAdvance
+          }
+          className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[8px] font-black uppercase text-stone-500 disabled:opacity-50"
+        >
+          {loading ? (
+            <Loader2
+              size={12}
+              className="animate-spin"
+            />
+          ) : (
+            <>
+              {order.status ===
+              "new"
+                ? "Process"
+                : order.status ===
+                    "processing"
+                  ? "Dispatch"
+                  : "Complete"}
+
+              <ChevronRight
+                size={12}
+              />
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ============================================================
 
 function EmptyState({
-  icon,
+  icon:
+    Icon,
   title,
-  description,
+  text,
 }: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
+  icon:
+    any;
+
+  title:
+    string;
+
+  text:
+    string;
 }) {
   return (
-    <div className="mt-8 rounded-[2rem] border border-dashed border-stone-200 bg-white py-20 text-center">
+    <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-10 text-center">
+      <Icon
+        size={24}
+        className="mx-auto text-stone-300"
+      />
 
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-50 text-stone-300">
-        {
-          icon
-        }
-      </div>
-
-      <p className="mt-5 text-sm font-bold text-stone-600">
+      <p className="mt-4 text-sm font-semibold text-stone-600">
         {
           title
         }
@@ -6065,161 +13778,280 @@ function EmptyState({
 
       <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-stone-400">
         {
-          description
+          text
+        }
+      </p>
+    </div>
+  );
+}
+
+// ============================================================
+
+function ConnectionCard({
+  icon:
+    Icon,
+  title,
+  text,
+}: {
+  icon:
+    any;
+
+  title:
+    string;
+
+  text:
+    string;
+}) {
+  return (
+    <div className="rounded-2xl bg-stone-50 p-5">
+      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#829473]">
+        <Icon
+          size={15}
+        />
+      </div>
+
+      <p className="mt-4 text-xs font-semibold">
+        {
+          title
         }
       </p>
 
+      <p className="mt-2 text-[10px] leading-5 text-stone-400">
+        {
+          text
+        }
+      </p>
     </div>
   );
 }
 
 // ============================================================
-// INPUT
-// ============================================================
 
-function StoreInput({
-  id,
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  autoComplete,
+function DiscountInfoCard({
+  icon:
+    Icon,
+  title,
+  text,
 }: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (
-    value: string
-  ) => void;
-  placeholder?: string;
-  type?: string;
-  autoComplete?: string;
+  icon:
+    any;
+
+  title:
+    string;
+
+  text:
+    string;
 }) {
   return (
-    <div>
+    <div className="rounded-2xl bg-stone-50 p-5">
+      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#829473]">
+        <Icon
+          size={15}
+        />
+      </div>
 
-      <label
-        htmlFor={
-          id
-        }
-        className="mb-2 block text-[8px] font-black uppercase tracking-[0.16em] text-stone-400"
-      >
+      <p className="mt-4 text-xs font-semibold text-stone-700">
         {
-          label
+          title
         }
-      </label>
+      </p>
 
-      <input
-        id={
-          id
+      <p className="mt-2 text-[10px] leading-5 text-stone-400">
+        {
+          text
         }
-        type={
-          type
-        }
-        value={
-          value
-        }
-        onChange={(
-          event
-        ) =>
-          onChange(
-            event.target.value
-          )
-        }
-        placeholder={
-          placeholder
-        }
-        autoComplete={
-          autoComplete
-        }
-        className="store-contact-input"
-      />
-
+      </p>
     </div>
   );
 }
 
 // ============================================================
-// GLOBAL STYLES
+
+function ToggleSetting({
+  title,
+  text,
+  enabled,
+  onChange,
+}: {
+  title:
+    string;
+
+  text:
+    string;
+
+  enabled:
+    boolean;
+
+  onChange:
+    () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-5 rounded-2xl bg-stone-50 p-5">
+      <div>
+        <p className="text-sm font-semibold text-stone-700">
+          {
+            title
+          }
+        </p>
+
+        <p className="mt-1 max-w-xl text-xs leading-5 text-stone-400">
+          {
+            text
+          }
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={
+          onChange
+        }
+        className={`relative h-8 w-14 shrink-0 rounded-full transition ${
+          enabled
+            ? "bg-stone-900"
+            : "bg-stone-200"
+        }`}
+      >
+        <span
+          className={`absolute top-1 h-6 w-6 rounded-full bg-white transition ${
+            enabled
+              ? "left-7"
+              : "left-1"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
 // ============================================================
 
-function StorefrontGlobalStyles() {
+function IntegrationCard({
+  name,
+  text,
+  comingSoon = false,
+  connected = false,
+}: {
+  name:
+    string;
+
+  text:
+    string;
+
+  comingSoon?:
+    boolean;
+
+  connected?:
+    boolean;
+}) {
   return (
-    <style jsx global>{`
-      @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Inter:wght@400;500;600;700;800&display=swap");
+    <div className="rounded-2xl border border-stone-100 bg-stone-50 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white">
+          <Store
+            size={15}
+            className="text-stone-400"
+          />
+        </div>
 
-      html {
-        scroll-behavior: smooth;
-      }
+        {connected ? (
+          <span className="rounded-full bg-[#edf1e8] px-3 py-1 text-[7px] font-black uppercase text-[#82936b]">
+            Connected
+          </span>
+        ) : comingSoon ? (
+          <span className="rounded-full bg-stone-100 px-3 py-1 text-[7px] font-black uppercase text-stone-400">
+            Coming soon
+          </span>
+        ) : null}
+      </div>
 
-      body {
-        font-family:
-          "Inter",
-          Arial,
-          sans-serif;
-      }
-
-      .font-serif {
-        font-family:
-          "Instrument Serif",
-          Georgia,
-          serif;
-      }
-
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-
-      .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
-
-      .store-contact-input {
-        width: 100%;
-        border: 1px solid #e7e5e4;
-        background: #fafaf9;
-        border-radius: 1rem;
-        padding: 0.95rem 1rem;
-        font-size: 0.78rem;
-        color: #44403c;
-        outline: none;
-        transition:
-          border-color 0.2s ease,
-          background 0.2s ease,
-          box-shadow 0.2s ease;
-      }
-
-      .store-contact-input::placeholder {
-        color: #b9b4ae;
-      }
-
-      .store-contact-input:focus {
-        background: #ffffff;
-        border-color: var(--brand);
-        box-shadow:
-          0 0 0 3px
-          color-mix(
-            in srgb,
-            var(--brand) 12%,
-            transparent
-          );
-      }
-
-      button,
-      a,
-      input,
-      textarea,
-      select {
-        -webkit-tap-highlight-color: transparent;
-      }
-
-      @media (max-width: 640px) {
-        .font-serif {
-          text-wrap: balance;
+      <p className="mt-5 text-sm font-semibold">
+        {
+          name
         }
-      }
-    `}</style>
+      </p>
+
+      <p className="mt-2 text-[10px] leading-5 text-stone-400">
+        {
+          text
+        }
+      </p>
+    </div>
+  );
+}
+
+// ============================================================
+
+function ModalShell({
+  children,
+  onClose,
+}: {
+  children:
+    ReactNode;
+
+  onClose:
+    () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+      <motion.button
+        type="button"
+        aria-label="Close modal"
+        initial={{
+          opacity:
+            0,
+        }}
+        animate={{
+          opacity:
+            1,
+        }}
+        exit={{
+          opacity:
+            0,
+        }}
+        onClick={
+          onClose
+        }
+        className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
+      />
+
+      <motion.div
+        initial={{
+          opacity:
+            0,
+
+          scale:
+            0.97,
+
+          y:
+            12,
+        }}
+        animate={{
+          opacity:
+            1,
+
+          scale:
+            1,
+
+          y:
+            0,
+        }}
+        exit={{
+          opacity:
+            0,
+
+          scale:
+            0.97,
+
+          y:
+            12,
+        }}
+        className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-stone-100 bg-white p-6 shadow-2xl sm:p-8"
+      >
+        {
+          children
+        }
+      </motion.div>
+    </div>
   );
 }

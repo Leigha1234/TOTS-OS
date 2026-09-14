@@ -394,6 +394,100 @@ type StoreSettingsRow = {
     | string
     | null;
 
+  storefront_mode?:
+    | "hosted"
+    | "external"
+    | string
+    | null;
+
+  external_storefront_url?:
+    | string
+    | null;
+
+  logo_url?:
+    | string
+    | null;
+
+  favicon_url?:
+    | string
+    | null;
+
+  hero_image_url?:
+    | string
+    | null;
+
+  background_colour?:
+    | string
+    | null;
+
+  text_colour?:
+    | string
+    | null;
+
+  button_colour?:
+    | string
+    | null;
+
+  button_text_colour?:
+    | string
+    | null;
+
+  heading_font?:
+    | string
+    | null;
+
+  body_font?:
+    | string
+    | null;
+
+  layout_style?:
+    | string
+    | null;
+
+  card_style?:
+    | string
+    | null;
+
+  border_radius?:
+    | number
+    | null;
+
+  show_categories?:
+    | boolean
+    | null;
+
+  show_search?:
+    | boolean
+    | null;
+
+  show_stock?:
+    | boolean
+    | null;
+
+  show_prices?:
+    | boolean
+    | null;
+
+  footer_text?:
+    | string
+    | null;
+
+  instagram_url?:
+    | string
+    | null;
+
+  facebook_url?:
+    | string
+    | null;
+
+  tiktok_url?:
+    | string
+    | null;
+
+  custom_css?:
+    | string
+    | null;
+
   shipping_text:
     | string
     | null;
@@ -1516,6 +1610,192 @@ export default function StorePage() {
     );
 
   const [
+    storefrontMode,
+    setStorefrontMode,
+  ] =
+    useState<
+      "hosted" | "external"
+    >(
+      "hosted"
+    );
+
+  const [
+    externalStorefrontUrl,
+    setExternalStorefrontUrl,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    logoUrl,
+    setLogoUrl,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    faviconUrl,
+    setFaviconUrl,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    heroImageUrl,
+    setHeroImageUrl,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    backgroundColour,
+    setBackgroundColour,
+  ] =
+    useState(
+      "#FAF8F5"
+    );
+
+  const [
+    textColour,
+    setTextColour,
+  ] =
+    useState(
+      "#1c1917"
+    );
+
+  const [
+    buttonColour,
+    setButtonColour,
+  ] =
+    useState(
+      "#1c1917"
+    );
+
+  const [
+    buttonTextColour,
+    setButtonTextColour,
+  ] =
+    useState(
+      "#ffffff"
+    );
+
+  const [
+    headingFont,
+    setHeadingFont,
+  ] =
+    useState(
+      "Poppins"
+    );
+
+  const [
+    bodyFont,
+    setBodyFont,
+  ] =
+    useState(
+      "Poppins"
+    );
+
+  const [
+    layoutStyle,
+    setLayoutStyle,
+  ] =
+    useState(
+      "minimal"
+    );
+
+  const [
+    cardStyle,
+    setCardStyle,
+  ] =
+    useState(
+      "soft"
+    );
+
+  const [
+    borderRadius,
+    setBorderRadius,
+  ] =
+    useState(
+      "18"
+    );
+
+  const [
+    showCategories,
+    setShowCategories,
+  ] =
+    useState(
+      true
+    );
+
+  const [
+    showSearch,
+    setShowSearch,
+  ] =
+    useState(
+      true
+    );
+
+  const [
+    showStock,
+    setShowStock,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    showPrices,
+    setShowPrices,
+  ] =
+    useState(
+      true
+    );
+
+  const [
+    footerText,
+    setFooterText,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    instagramUrl,
+    setInstagramUrl,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    facebookUrl,
+    setFacebookUrl,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    tiktokUrl,
+    setTiktokUrl,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
+    customCss,
+    setCustomCss,
+  ] =
+    useState(
+      ""
+    );
+
+  const [
     shippingText,
     setShippingText,
   ] =
@@ -2008,6 +2288,148 @@ export default function StorePage() {
             settings
               ?.accent_colour ||
               "#A9B897"
+          );
+
+          setStorefrontMode(
+            settings
+              ?.storefront_mode ===
+              "external"
+              ? "external"
+              : "hosted"
+          );
+
+          setExternalStorefrontUrl(
+            settings
+              ?.external_storefront_url ||
+              ""
+          );
+
+          setLogoUrl(
+            settings
+              ?.logo_url ||
+              ""
+          );
+
+          setFaviconUrl(
+            settings
+              ?.favicon_url ||
+              ""
+          );
+
+          setHeroImageUrl(
+            settings
+              ?.hero_image_url ||
+              ""
+          );
+
+          setBackgroundColour(
+            settings
+              ?.background_colour ||
+              "#FAF8F5"
+          );
+
+          setTextColour(
+            settings
+              ?.text_colour ||
+              "#1c1917"
+          );
+
+          setButtonColour(
+            settings
+              ?.button_colour ||
+              "#1c1917"
+          );
+
+          setButtonTextColour(
+            settings
+              ?.button_text_colour ||
+              "#ffffff"
+          );
+
+          setHeadingFont(
+            settings
+              ?.heading_font ||
+              "Poppins"
+          );
+
+          setBodyFont(
+            settings
+              ?.body_font ||
+              "Poppins"
+          );
+
+          setLayoutStyle(
+            settings
+              ?.layout_style ||
+              "minimal"
+          );
+
+          setCardStyle(
+            settings
+              ?.card_style ||
+              "soft"
+          );
+
+          setBorderRadius(
+            String(
+              settings
+                ?.border_radius ??
+                18
+            )
+          );
+
+          setShowCategories(
+            settings
+              ?.show_categories !==
+              false
+          );
+
+          setShowSearch(
+            settings
+              ?.show_search !==
+              false
+          );
+
+          setShowStock(
+            settings
+              ?.show_stock ===
+              true
+          );
+
+          setShowPrices(
+            settings
+              ?.show_prices !==
+              false
+          );
+
+          setFooterText(
+            settings
+              ?.footer_text ||
+              ""
+          );
+
+          setInstagramUrl(
+            settings
+              ?.instagram_url ||
+              ""
+          );
+
+          setFacebookUrl(
+            settings
+              ?.facebook_url ||
+              ""
+          );
+
+          setTiktokUrl(
+            settings
+              ?.tiktok_url ||
+              ""
+          );
+
+          setCustomCss(
+            settings
+              ?.custom_css ||
+              ""
           );
 
           setShippingText(
@@ -6160,6 +6582,20 @@ if (orderError) {
       return;
     }
 
+    if (
+      storefrontMode ===
+        "external" &&
+      !/^https?:\/\//i.test(
+        externalStorefrontUrl.trim()
+      )
+    ) {
+      alert(
+        "Enter a full external storefront URL beginning with http:// or https://."
+      );
+
+      return;
+    }
+
     setSavingSettings(
       true
     );
@@ -6245,6 +6681,102 @@ if (orderError) {
         accent_colour:
           accentColour.trim() ||
           "#A9B897",
+
+        storefront_mode:
+          storefrontMode,
+
+        external_storefront_url:
+          storefrontMode ===
+            "external"
+            ? externalStorefrontUrl.trim() ||
+              null
+            : null,
+
+        logo_url:
+          logoUrl.trim() ||
+          null,
+
+        favicon_url:
+          faviconUrl.trim() ||
+          null,
+
+        hero_image_url:
+          heroImageUrl.trim() ||
+          null,
+
+        background_colour:
+          backgroundColour.trim() ||
+          "#FAF8F5",
+
+        text_colour:
+          textColour.trim() ||
+          "#1c1917",
+
+        button_colour:
+          buttonColour.trim() ||
+          "#1c1917",
+
+        button_text_colour:
+          buttonTextColour.trim() ||
+          "#ffffff",
+
+        heading_font:
+          headingFont.trim() ||
+          "Poppins",
+
+        body_font:
+          bodyFont.trim() ||
+          "Poppins",
+
+        layout_style:
+          layoutStyle,
+
+        card_style:
+          cardStyle,
+
+        border_radius:
+          Math.max(
+            0,
+            Math.min(
+              48,
+              Number(
+                borderRadius
+              ) ||
+                18
+            )
+          ),
+
+        show_categories:
+          showCategories,
+
+        show_search:
+          showSearch,
+
+        show_stock:
+          showStock,
+
+        show_prices:
+          showPrices,
+
+        footer_text:
+          footerText.trim() ||
+          null,
+
+        instagram_url:
+          instagramUrl.trim() ||
+          null,
+
+        facebook_url:
+          facebookUrl.trim() ||
+          null,
+
+        tiktok_url:
+          tiktokUrl.trim() ||
+          null,
+
+        custom_css:
+          customCss.trim() ||
+          null,
 
         shipping_text:
           shippingText.trim() ||
@@ -6365,10 +6897,24 @@ if (orderError) {
   // STOREFRONT
   // ==========================================================
 
-  const storefrontUrl =
+  const hostedStorefrontUrl =
     slug
       ? `/shop/${slug}`
       : null;
+
+  const storefrontUrl =
+    storefrontMode ===
+      "external" &&
+    externalStorefrontUrl.trim()
+      ? externalStorefrontUrl.trim()
+      : hostedStorefrontUrl;
+
+  const storefrontIsExternal =
+    storefrontMode ===
+      "external" &&
+    Boolean(
+      externalStorefrontUrl.trim()
+    );
 
   async function copyStorefrontUrl() {
     if (
@@ -6378,10 +6924,12 @@ if (orderError) {
     }
 
     const url =
-      typeof window !==
-      "undefined"
-        ? `${window.location.origin}${storefrontUrl}`
-        : storefrontUrl;
+      storefrontIsExternal
+        ? storefrontUrl
+        : typeof window !==
+            "undefined"
+          ? `${window.location.origin}${storefrontUrl}`
+          : storefrontUrl;
 
     try {
       await navigator.clipboard.writeText(
@@ -9287,21 +9835,11 @@ if (orderError) {
                     </SectionEyebrow>
 
                     <h2 className="mt-1 font-serif text-3xl italic">
-                      Store setup
+                      Your store. Your way.
                     </h2>
 
-                    <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
-                      These settings are stored in your store_settings row and control the public store at{" "}
-
-                      <strong>
-                        /shop/
-                        {
-                          slug ||
-                          "your-store"
-                        }
-                      </strong>
-
-                      .
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-500">
+                      Use the TOTS hosted storefront, point customers to your own website, and customise how your hosted store looks without changing the commerce backend.
                     </p>
                   </div>
 
@@ -9317,7 +9855,6 @@ if (orderError) {
                         <Copy
                           size={12}
                         />
-
                         Copy URL
                       </button>
 
@@ -9329,8 +9866,9 @@ if (orderError) {
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-3 text-[8px] font-black uppercase tracking-wider text-white no-underline"
                       >
-                        Open store
-
+                        {storefrontIsExternal
+                          ? "Open external store"
+                          : "Preview store"}
                         <ExternalLink
                           size={12}
                         />
@@ -9339,266 +9877,685 @@ if (orderError) {
                   )}
                 </div>
 
-                <div className="mt-8 grid gap-5 md:grid-cols-2">
-                  <Field
-                    label="Store Name"
-                  >
-                    <input
-                      value={
-                        storeName
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setStoreName(
-                          event.target.value
+                <div className="mt-8 rounded-2xl border border-stone-200 bg-stone-50 p-5">
+                  <p className="text-[8px] font-black uppercase tracking-[0.16em] text-stone-500">
+                    Storefront destination
+                  </p>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setStorefrontMode(
+                          "hosted"
                         )
                       }
-                      className="store-input"
-                      placeholder="My Business Store"
-                    />
-                  </Field>
+                      className={`rounded-2xl border p-5 text-left transition ${
+                        storefrontMode ===
+                        "hosted"
+                          ? "border-stone-900 bg-white shadow-sm"
+                          : "border-stone-200 bg-white/60"
+                      }`}
+                    >
+                      <p className="text-sm font-bold text-stone-800">
+                        TOTS hosted storefront
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-stone-400">
+                        Use your branded TOTS shop at /shop/{slug || "your-store"}. Products, checkout and customer data remain connected to TOTS.
+                      </p>
+                    </button>
 
-                  <Field
-                    label="Store URL"
-                  >
-                    <div className="flex overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
-                      <span className="flex items-center border-r border-stone-200 px-3 text-[10px] text-stone-400">
-                        /shop/
-                      </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setStorefrontMode(
+                          "external"
+                        )
+                      }
+                      className={`rounded-2xl border p-5 text-left transition ${
+                        storefrontMode ===
+                        "external"
+                          ? "border-stone-900 bg-white shadow-sm"
+                          : "border-stone-200 bg-white/60"
+                      }`}
+                    >
+                      <p className="text-sm font-bold text-stone-800">
+                        My own website / storefront
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-stone-400">
+                        Keep TOTS as your commerce backend but send customers to an existing website, Shopify store, WooCommerce shop or custom storefront.
+                      </p>
+                    </button>
+                  </div>
 
-                      <input
-                        value={
-                          slug
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setSlug(
-                            createSlug(
+                  {storefrontMode ===
+                    "external" && (
+                    <div className="mt-4">
+                      <Field
+                        label="External storefront URL"
+                      >
+                        <input
+                          value={
+                            externalStorefrontUrl
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setExternalStorefrontUrl(
                               event.target.value
                             )
-                          )
-                        }
-                        className="min-w-0 flex-1 bg-transparent px-3 py-3 text-xs outline-none"
-                        placeholder="my-business"
-                      />
+                          }
+                          className="store-input"
+                          placeholder="https://yourbusiness.co.uk/shop"
+                        />
+                      </Field>
                     </div>
-                  </Field>
+                  )}
+                </div>
 
-                  <Field
-                    label="Support Email"
-                  >
-                    <input
-                      type="email"
-                      value={
-                        supportEmail
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setSupportEmail(
-                          event.target.value
-                        )
-                      }
-                      className="store-input"
-                      placeholder="hello@business.com"
-                    />
-                  </Field>
+                <div className="mt-8">
+                  <div>
+                    <SectionEyebrow>
+                      Identity
+                    </SectionEyebrow>
+                    <h3 className="mt-1 font-serif text-2xl italic">
+                      Store details
+                    </h3>
+                  </div>
 
-                  <Field
-                    label="Accent Colour"
-                  >
-                    <div className="flex gap-2">
+                  <div className="mt-5 grid gap-5 md:grid-cols-2">
+                    <Field
+                      label="Store Name"
+                    >
                       <input
-                        type="color"
                         value={
-                          accentColour
+                          storeName
                         }
                         onChange={(
                           event
                         ) =>
-                          setAccentColour(
+                          setStoreName(
                             event.target.value
                           )
                         }
-                        className="h-[48px] w-14 cursor-pointer rounded-xl border border-stone-200 bg-white p-1"
+                        className="store-input"
+                        placeholder="My Business Store"
                       />
+                    </Field>
 
+                    <Field
+                      label="Hosted Store URL"
+                    >
+                      <div className="flex overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+                        <span className="flex items-center border-r border-stone-200 px-3 text-[10px] text-stone-400">
+                          /shop/
+                        </span>
+                        <input
+                          value={
+                            slug
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setSlug(
+                              createSlug(
+                                event.target.value
+                              )
+                            )
+                          }
+                          className="min-w-0 flex-1 bg-transparent px-3 py-3 text-xs outline-none"
+                          placeholder="my-business"
+                        />
+                      </div>
+                    </Field>
+
+                    <Field
+                      label="Support Email"
+                    >
                       <input
+                        type="email"
                         value={
-                          accentColour
+                          supportEmail
                         }
                         onChange={(
                           event
                         ) =>
-                          setAccentColour(
+                          setSupportEmail(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="hello@business.com"
+                      />
+                    </Field>
+
+                    <Field
+                      label="Layout"
+                    >
+                      <select
+                        value={
+                          layoutStyle
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setLayoutStyle(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                      >
+                        <option value="minimal">Minimal</option>
+                        <option value="editorial">Editorial</option>
+                        <option value="catalogue">Catalogue</option>
+                        <option value="memberships">Memberships</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </Field>
+
+                    <Field
+                      label="Store Description"
+                      className="md:col-span-2"
+                    >
+                      <textarea
+                        value={
+                          storeDescription
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setStoreDescription(
+                            event.target.value
+                          )
+                        }
+                        rows={3}
+                        className="store-input resize-none"
+                        placeholder="Tell customers about your business..."
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="mt-8 border-t border-stone-100 pt-8">
+                  <SectionEyebrow>
+                    Branding
+                  </SectionEyebrow>
+                  <h3 className="mt-1 font-serif text-2xl italic">
+                    Make it feel like your brand.
+                  </h3>
+
+                  <div className="mt-5 grid gap-5 md:grid-cols-2">
+                    {[
+                      ["Accent Colour", accentColour, setAccentColour],
+                      ["Background Colour", backgroundColour, setBackgroundColour],
+                      ["Text Colour", textColour, setTextColour],
+                      ["Button Colour", buttonColour, setButtonColour],
+                      ["Button Text Colour", buttonTextColour, setButtonTextColour],
+                    ].map(
+                      ([
+                        label,
+                        value,
+                        setter,
+                      ]) => (
+                        <Field
+                          key={
+                            label as string
+                          }
+                          label={
+                            label as string
+                          }
+                        >
+                          <div className="flex gap-2">
+                            <input
+                              type="color"
+                              value={
+                                value as string
+                              }
+                              onChange={(
+                                event
+                              ) =>
+                                (
+                                  setter as
+                                    React.Dispatch<
+                                      React.SetStateAction<string>
+                                    >
+                                )(
+                                  event.target.value
+                                )
+                              }
+                              className="h-[48px] w-14 cursor-pointer rounded-xl border border-stone-200 bg-white p-1"
+                            />
+                            <input
+                              value={
+                                value as string
+                              }
+                              onChange={(
+                                event
+                              ) =>
+                                (
+                                  setter as
+                                    React.Dispatch<
+                                      React.SetStateAction<string>
+                                    >
+                                )(
+                                  event.target.value
+                                )
+                              }
+                              className="store-input"
+                            />
+                          </div>
+                        </Field>
+                      )
+                    )}
+
+                    <Field
+                      label="Card Style"
+                    >
+                      <select
+                        value={
+                          cardStyle
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setCardStyle(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                      >
+                        <option value="soft">Soft</option>
+                        <option value="square">Square</option>
+                        <option value="outline">Outline</option>
+                        <option value="elevated">Elevated</option>
+                      </select>
+                    </Field>
+
+                    <Field
+                      label="Border Radius"
+                    >
+                      <input
+                        type="number"
+                        min="0"
+                        max="48"
+                        value={
+                          borderRadius
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setBorderRadius(
                             event.target.value
                           )
                         }
                         className="store-input"
                       />
-                    </div>
-                  </Field>
+                    </Field>
 
-                  <Field
-                    label="Store Description"
-                    className="md:col-span-2"
-                  >
-                    <textarea
-                      value={
-                        storeDescription
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setStoreDescription(
-                          event.target.value
-                        )
-                      }
-                      rows={4}
-                      className="store-input resize-none"
-                      placeholder="Tell customers about your business..."
-                    />
-                  </Field>
-
-                  <Field
-                    label="Hero Title"
-                  >
-                    <input
-                      value={
-                        heroTitle
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setHeroTitle(
-                          event.target.value
-                        )
-                      }
-                      className="store-input"
-                      placeholder="Shop our collection."
-                    />
-                  </Field>
-
-                  <Field
-                    label="Announcement"
-                  >
-                    <input
-                      value={
-                        announcement
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setAnnouncement(
-                          event.target.value
-                        )
-                      }
-                      className="store-input"
-                      placeholder="Free UK delivery over £50"
-                    />
-                  </Field>
-
-                  <Field
-                    label="Hero Text"
-                    className="md:col-span-2"
-                  >
-                    <textarea
-                      value={
-                        heroText
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setHeroText(
-                          event.target.value
-                        )
-                      }
-                      rows={3}
-                      className="store-input resize-none"
-                    />
-                  </Field>
-
-                  <Field
-                    label="Shipping Text"
-                    className="md:col-span-2"
-                  >
-                    <input
-                      value={
-                        shippingText
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setShippingText(
-                          event.target.value
-                        )
-                      }
-                      className="store-input"
-                      placeholder="UK delivery available."
-                    />
-                  </Field>
-
-                  <Field
-                    label="Currency"
-                  >
-                    <select
-                      value={
-                        currency
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setCurrency(
-                          event.target.value
-                        )
-                      }
-                      className="store-input"
+                    <Field
+                      label="Heading Font"
                     >
-                      <option value="GBP">
-                        GBP — £
-                      </option>
+                      <select
+                        value={
+                          headingFont
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setHeadingFont(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                      >
+                        <option value="Poppins">Poppins</option>
+                        <option value="Inter">Inter</option>
+                        <option value="Montserrat">Montserrat</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Arial">Arial</option>
+                      </select>
+                    </Field>
 
-                      <option value="EUR">
-                        EUR — €
-                      </option>
-
-                      <option value="USD">
-                        USD — $
-                      </option>
-                    </select>
-                  </Field>
-
-                  <Field
-                    label="Low Stock Warning"
-                  >
-                    <input
-                      type="number"
-                      min="0"
-                      value={
-                        lowStockThreshold
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setLowStockThreshold(
-                          event.target.value
-                        )
-                      }
-                      className="store-input"
-                    />
-                  </Field>
+                    <Field
+                      label="Body Font"
+                    >
+                      <select
+                        value={
+                          bodyFont
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setBodyFont(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                      >
+                        <option value="Poppins">Poppins</option>
+                        <option value="Inter">Inter</option>
+                        <option value="Montserrat">Montserrat</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Arial">Arial</option>
+                      </select>
+                    </Field>
+                  </div>
                 </div>
 
-                <div className="mt-7 flex flex-col gap-4 rounded-2xl bg-stone-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mt-8 border-t border-stone-100 pt-8">
+                  <SectionEyebrow>
+                    Images
+                  </SectionEyebrow>
+                  <h3 className="mt-1 font-serif text-2xl italic">
+                    Brand assets
+                  </h3>
+                  <p className="mt-2 text-xs leading-5 text-stone-400">
+                    For now paste image URLs. We can wire these fields to Supabase Storage uploads next.
+                  </p>
+
+                  <div className="mt-5 grid gap-5 md:grid-cols-2">
+                    <Field label="Logo URL">
+                      <input
+                        value={logoUrl}
+                        onChange={(event) =>
+                          setLogoUrl(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="https://..."
+                      />
+                    </Field>
+
+                    <Field label="Hero Image URL">
+                      <input
+                        value={heroImageUrl}
+                        onChange={(event) =>
+                          setHeroImageUrl(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="https://..."
+                      />
+                    </Field>
+
+                    <Field label="Favicon URL">
+                      <input
+                        value={faviconUrl}
+                        onChange={(event) =>
+                          setFaviconUrl(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="https://..."
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="mt-8 border-t border-stone-100 pt-8">
+                  <SectionEyebrow>
+                    Content
+                  </SectionEyebrow>
+
+                  <div className="mt-5 grid gap-5 md:grid-cols-2">
+                    <Field
+                      label="Hero Title"
+                    >
+                      <input
+                        value={
+                          heroTitle
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setHeroTitle(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="Shop our collection."
+                      />
+                    </Field>
+
+                    <Field
+                      label="Announcement"
+                    >
+                      <input
+                        value={
+                          announcement
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setAnnouncement(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="Free UK delivery over £50"
+                      />
+                    </Field>
+
+                    <Field
+                      label="Hero Text"
+                      className="md:col-span-2"
+                    >
+                      <textarea
+                        value={
+                          heroText
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setHeroText(
+                            event.target.value
+                          )
+                        }
+                        rows={3}
+                        className="store-input resize-none"
+                      />
+                    </Field>
+
+                    <Field
+                      label="Shipping Text"
+                      className="md:col-span-2"
+                    >
+                      <input
+                        value={
+                          shippingText
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setShippingText(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="UK delivery available."
+                      />
+                    </Field>
+
+                    <Field
+                      label="Footer Text"
+                      className="md:col-span-2"
+                    >
+                      <input
+                        value={footerText}
+                        onChange={(event) =>
+                          setFooterText(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="Independent business · Powered by TOTS-OS"
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="mt-8 border-t border-stone-100 pt-8">
+                  <SectionEyebrow>
+                    Store controls
+                  </SectionEyebrow>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {[
+                      ["Show categories", showCategories, setShowCategories],
+                      ["Show search", showSearch, setShowSearch],
+                      ["Show stock", showStock, setShowStock],
+                      ["Show prices", showPrices, setShowPrices],
+                    ].map(
+                      ([
+                        label,
+                        value,
+                        setter,
+                      ]) => (
+                        <button
+                          key={label as string}
+                          type="button"
+                          onClick={() =>
+                            (
+                              setter as
+                                React.Dispatch<
+                                  React.SetStateAction<boolean>
+                                >
+                            )(
+                              !(value as boolean)
+                            )
+                          }
+                          className={`flex items-center justify-between rounded-2xl border p-4 text-left ${
+                            value
+                              ? "border-[#a9b897] bg-[#f3f6f0]"
+                              : "border-stone-200 bg-white"
+                          }`}
+                        >
+                          <span className="text-xs font-bold text-stone-700">
+                            {label as string}
+                          </span>
+                          <span className={`h-3 w-3 rounded-full ${
+                            value
+                              ? "bg-[#a9b897]"
+                              : "bg-stone-200"
+                          }`} />
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-8 border-t border-stone-100 pt-8">
+                  <SectionEyebrow>
+                    Social links
+                  </SectionEyebrow>
+
+                  <div className="mt-5 grid gap-5 md:grid-cols-3">
+                    <Field label="Instagram">
+                      <input
+                        value={instagramUrl}
+                        onChange={(event) =>
+                          setInstagramUrl(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="https://instagram.com/..."
+                      />
+                    </Field>
+
+                    <Field label="Facebook">
+                      <input
+                        value={facebookUrl}
+                        onChange={(event) =>
+                          setFacebookUrl(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="https://facebook.com/..."
+                      />
+                    </Field>
+
+                    <Field label="TikTok">
+                      <input
+                        value={tiktokUrl}
+                        onChange={(event) =>
+                          setTiktokUrl(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                        placeholder="https://tiktok.com/@..."
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="mt-8 border-t border-stone-100 pt-8">
+                  <SectionEyebrow>
+                    Advanced
+                  </SectionEyebrow>
+
+                  <div className="mt-5 grid gap-5 md:grid-cols-2">
+                    <Field label="Currency">
+                      <select
+                        value={currency}
+                        onChange={(event) =>
+                          setCurrency(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                      >
+                        <option value="GBP">GBP — £</option>
+                        <option value="EUR">EUR — €</option>
+                        <option value="USD">USD — $</option>
+                      </select>
+                    </Field>
+
+                    <Field label="Low Stock Warning">
+                      <input
+                        type="number"
+                        min="0"
+                        value={lowStockThreshold}
+                        onChange={(event) =>
+                          setLowStockThreshold(
+                            event.target.value
+                          )
+                        }
+                        className="store-input"
+                      />
+                    </Field>
+
+                    <Field
+                      label="Custom CSS"
+                      className="md:col-span-2"
+                    >
+                      <textarea
+                        value={customCss}
+                        onChange={(event) =>
+                          setCustomCss(
+                            event.target.value
+                          )
+                        }
+                        rows={7}
+                        className="store-input resize-y font-mono text-[11px]"
+                        placeholder=".tots-store { ... }"
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="mt-8 flex flex-col gap-4 rounded-2xl bg-stone-50 p-5 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm font-semibold text-stone-700">
-                      Public storefront
+                      Public hosted storefront
                     </p>
-
                     <p className="mt-1 text-xs leading-5 text-stone-400">
-                      Save after changing this switch. The public storefront uses is_live to decide whether the store is accessible.
+                      This controls whether the hosted /shop/{slug || "your-store"} page is publicly available.
                     </p>
                   </div>
 

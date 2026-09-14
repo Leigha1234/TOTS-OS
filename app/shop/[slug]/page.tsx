@@ -60,6 +60,36 @@ type Storefront = {
 
   accent_colour?: string | null;
 
+  storefront_mode?: string | null;
+  external_storefront_url?: string | null;
+
+  favicon_url?: string | null;
+  hero_image_url?: string | null;
+
+  background_colour?: string | null;
+  text_colour?: string | null;
+  button_colour?: string | null;
+  button_text_colour?: string | null;
+
+  heading_font?: string | null;
+  body_font?: string | null;
+
+  layout_style?: string | null;
+  card_style?: string | null;
+  border_radius?: number | null;
+
+  show_categories?: boolean | null;
+  show_search?: boolean | null;
+  show_stock?: boolean | null;
+  show_prices?: boolean | null;
+
+  footer_text?: string | null;
+
+  facebook_url?: string | null;
+  tiktok_url?: string | null;
+
+  custom_css?: string | null;
+
   shipping_text?: string | null;
 
   support_email?: string | null;
@@ -2564,6 +2594,74 @@ export default function ShopFrontPage() {
     store?.company_name ||
     "Online Store";
 
+  const pageBackground =
+    normaliseColour(
+      store?.background_colour,
+      "#f8f7f3"
+    );
+
+  const pageText =
+    normaliseColour(
+      store?.text_colour,
+      "#1c1917"
+    );
+
+  const buttonColour =
+    normaliseColour(
+      store?.button_colour,
+      primary
+    );
+
+  const buttonTextColour =
+    normaliseColour(
+      store?.button_text_colour,
+      "#ffffff"
+    );
+
+  const storeRadius =
+    Math.max(
+      0,
+      Math.min(
+        48,
+        Number(
+          store?.border_radius ??
+          18
+        ) || 18
+      )
+    );
+
+  const headingFont =
+    store?.heading_font ||
+    "Poppins";
+
+  const bodyFont =
+    store?.body_font ||
+    "Poppins";
+
+  const layoutStyle =
+    store?.layout_style ||
+    "minimal";
+
+  const membershipLayout =
+    layoutStyle ===
+    "memberships";
+
+  const showCategories =
+    store?.show_categories !==
+    false;
+
+  const showSearch =
+    store?.show_search !==
+    false;
+
+  const showStock =
+    store?.show_stock ===
+    true;
+
+  const showPrices =
+    store?.show_prices !==
+    false;
+
   // ==========================================================
   // LOADING
   // ==========================================================
@@ -2645,14 +2743,69 @@ export default function ShopFrontPage() {
 
   return (
     <div
-      className="min-h-screen bg-[#f8f7f3] text-stone-900"
+      className={`tots-store min-h-screen ${
+        membershipLayout
+          ? "tots-store-memberships"
+          : ""
+      }`}
       style={
         {
           "--brand":
             primary,
+          "--store-bg":
+            pageBackground,
+          "--store-text":
+            pageText,
+          "--store-button":
+            buttonColour,
+          "--store-button-text":
+            buttonTextColour,
+          "--store-radius":
+            `${storeRadius}px`,
+          "--store-heading-font":
+            headingFont,
+          "--store-body-font":
+            bodyFont,
+          background:
+            pageBackground,
+          color:
+            pageText,
+          fontFamily:
+            bodyFont,
         } as CSSProperties
       }
     >
+      {store.custom_css && (
+        <style
+          dangerouslySetInnerHTML={{
+            __html:
+              store.custom_css,
+          }}
+        />
+      )}
+      <style>{`
+        .tots-store h1,
+        .tots-store h2,
+        .tots-store h3 {
+          font-family: var(--store-heading-font);
+        }
+
+        .tots-store button,
+        .tots-store input,
+        .tots-store select,
+        .tots-store textarea {
+          font-family: var(--store-body-font);
+        }
+
+        .tots-store .store-card-radius {
+          border-radius: var(--store-radius);
+        }
+
+        .tots-store-memberships #shop [class*="grid-cols"] {
+          align-items: stretch;
+        }
+      `}</style>
+
       {/* =====================================================
           ANNOUNCEMENT
       ===================================================== */}
@@ -2661,7 +2814,9 @@ export default function ShopFrontPage() {
         className="px-4 py-2.5 text-center text-[8px] font-black uppercase tracking-[0.2em] text-white"
         style={{
           background:
-            primary,
+            buttonColour,
+          color:
+            buttonTextColour,
         }}
       >
         {store.announcement ||
@@ -2672,7 +2827,7 @@ export default function ShopFrontPage() {
           HEADER
       ===================================================== */}
 
-      <header className="sticky top-0 z-40 border-b border-stone-200/80 bg-[#f8f7f3]/95 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-stone-200/80 backdrop-blur-xl" style={{ background: `${pageBackground}F2` }}>
         <div className="mx-auto flex h-[72px] max-w-[1360px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
 
           <button
@@ -2915,7 +3070,7 @@ export default function ShopFrontPage() {
         id="top"
         className="px-4 pb-8 pt-5 sm:px-6 lg:px-8 lg:pt-7"
       >
-        <div className="mx-auto max-w-[1360px] overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-[0_16px_50px_rgba(28,25,23,0.04)] lg:rounded-[2.5rem]">
+        <div className="mx-auto max-w-[1360px] overflow-hidden border border-stone-200 bg-white shadow-[0_16px_50px_rgba(28,25,23,0.04)]" style={{ borderRadius: `${storeRadius}px` }}>
 
           <div className="grid lg:grid-cols-[1.08fr_.92fr]">
 
@@ -2943,7 +3098,7 @@ export default function ShopFrontPage() {
                   }
                 </div>
 
-                <h1 className="mt-6 max-w-[720px] font-serif text-[3.4rem] italic leading-[0.92] tracking-[-0.035em] text-stone-900 sm:text-6xl lg:text-[4.5rem]">
+                <h1 className="mt-6 max-w-[720px] text-[3.4rem] font-semibold leading-[0.92] tracking-[-0.035em] sm:text-6xl lg:text-[4.5rem]" style={{ fontFamily: headingFont, color: pageText }}>
                   {store.hero_title ||
                     `Everything you need, all in one place.`}
                 </h1>
@@ -2961,7 +3116,9 @@ export default function ShopFrontPage() {
                     className="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-white no-underline shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                     style={{
                       background:
-                        primary,
+                        buttonColour,
+                      color:
+                        buttonTextColour,
                     }}
                   >
                     Shop now
@@ -3042,25 +3199,31 @@ export default function ShopFrontPage() {
 
               <div className="absolute inset-0 flex items-center justify-center p-7 sm:p-10 lg:p-12">
 
-                {featuredProducts[0] &&
-                getProductImage(
-                  featuredProducts[0]
-                ) ? (
+                {(store.hero_image_url ||
+                  (
+                    featuredProducts[0] &&
+                    getProductImage(
+                      featuredProducts[0]
+                    )
+                  )) ? (
                   <div className="relative w-full max-w-[390px]">
 
                     <div className="absolute -left-6 top-10 h-[82%] w-full rotate-[-4deg] rounded-[2rem] bg-white/55" />
 
-                    <div className="relative aspect-[4/5] overflow-hidden rounded-[2rem] bg-white shadow-[0_30px_90px_rgba(28,25,23,0.16)]">
+                    <div className="relative aspect-[4/5] overflow-hidden bg-white shadow-[0_30px_90px_rgba(28,25,23,0.16)]" style={{ borderRadius: `${storeRadius}px` }}>
 
                       <img
                         src={
+                          store.hero_image_url ||
                           getProductImage(
-                            featuredProducts[0]
+                            featuredProducts[0]!
                           )!
                         }
                         alt={
-                          featuredProducts[0]
-                            .name
+                          store.hero_image_url
+                            ? `${storeName} hero`
+                            : featuredProducts[0]!
+                                .name
                         }
                         className="h-full w-full object-cover"
                       />
@@ -3135,8 +3298,9 @@ export default function ShopFrontPage() {
           CATEGORY BAR
       ===================================================== */}
 
-      {categories.length >
-        1 && (
+      {showCategories &&
+        categories.length >
+          1 && (
         <section className="px-4 sm:px-6 lg:px-8">
 
           <div className="mx-auto max-w-[1360px]">
@@ -3208,8 +3372,9 @@ export default function ShopFrontPage() {
           FEATURED
       ===================================================== */}
 
-      {featuredProducts.length >
-        0 && (
+      {!membershipLayout &&
+        featuredProducts.length >
+          0 && (
         <section
           id="featured"
           className="px-4 py-12 sm:px-6 lg:px-8 lg:py-16"
@@ -3274,9 +3439,21 @@ export default function ShopFrontPage() {
           <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
 
             <SectionHeading
-              eyebrow="Browse the store"
-              title="Find what you need."
-              description="Browse everything available, or use the filters to narrow things down."
+              eyebrow={
+                membershipLayout
+                  ? "Memberships"
+                  : "Browse the store"
+              }
+              title={
+                membershipLayout
+                  ? "Choose your membership."
+                  : "Find what you need."
+              }
+              description={
+                membershipLayout
+                  ? "Pick the membership that best suits you. TOTS handles the membership setup and keeps your access connected."
+                  : "Browse everything available, or use the filters to narrow things down."
+              }
               primary={
                 primary
               }
@@ -3284,6 +3461,7 @@ export default function ShopFrontPage() {
 
             <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
 
+              {showSearch && (
               <div className="relative flex-1 lg:w-[300px]">
 
                 <Search
@@ -3324,8 +3502,10 @@ export default function ShopFrontPage() {
                 )}
 
               </div>
+              )}
 
-              {categories.length >
+              {showCategories &&
+                categories.length >
                 1 && (
                 <div className="relative">
 
@@ -3431,7 +3611,11 @@ export default function ShopFrontPage() {
 
           {visibleProducts.length >
           0 ? (
-            <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className={`mt-8 grid gap-5 sm:grid-cols-2 ${
+              membershipLayout
+                ? "lg:grid-cols-2 xl:grid-cols-3"
+                : "lg:grid-cols-3 xl:grid-cols-4"
+            }`}>
 
               {visibleProducts.map(
                 (
@@ -3746,7 +3930,7 @@ export default function ShopFrontPage() {
           FOOTER
       ===================================================== */}
 
-      <footer className="border-t border-stone-200 bg-white px-4 py-8 sm:px-6 lg:px-8">
+      <footer className="border-t border-stone-200 px-4 py-8 sm:px-6 lg:px-8" style={{ background: pageBackground }}>
 
         <div className="mx-auto flex max-w-[1360px] flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
 
@@ -3790,10 +3974,50 @@ export default function ShopFrontPage() {
                 }
               </p>
 
+              {store.footer_text && (
+                <p className="mt-1 max-w-md text-[8px] leading-4 text-stone-400">
+                  {store.footer_text}
+                </p>
+              )}
+
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[8px] text-stone-400">
+
+            {store.instagram_url && (
+              <a
+                href={store.instagram_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-stone-400 no-underline hover:text-stone-700"
+              >
+                <Instagram size={10} />
+                Instagram
+              </a>
+            )}
+
+            {store.facebook_url && (
+              <a
+                href={store.facebook_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-stone-400 no-underline hover:text-stone-700"
+              >
+                Facebook
+              </a>
+            )}
+
+            {store.tiktok_url && (
+              <a
+                href={store.tiktok_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-stone-400 no-underline hover:text-stone-700"
+              >
+                TikTok
+              </a>
+            )}
 
             <span className="flex items-center gap-1.5">
               <LockKeyhole

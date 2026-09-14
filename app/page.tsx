@@ -4101,6 +4101,162 @@ export default function TotsOSLanding() {
           background: #f5f2eb;
         }
 
+        /* ====================================================
+           DEMO VIDEO
+        ==================================================== */
+
+        .demo-video-wrap {
+          margin-top: 42px;
+        }
+
+        .demo-video-card {
+          position: relative;
+          overflow: hidden;
+          border: 1px solid rgba(43, 42, 39, 0.10);
+          border-radius: 28px;
+          background: #2b2a27;
+          box-shadow: 0 26px 70px rgba(43, 42, 39, 0.14);
+        }
+
+        .demo-video-card::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          z-index: 2;
+          border-radius: inherit;
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+        }
+
+        .demo-video-heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          padding: 18px 20px;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          color: #fffefd;
+        }
+
+        .demo-video-heading-left {
+          display: flex;
+          align-items: center;
+          min-width: 0;
+          gap: 12px;
+        }
+
+        .demo-video-play-icon {
+          display: inline-flex;
+          width: 38px;
+          height: 38px;
+          flex: 0 0 38px;
+          align-items: center;
+          justify-content: center;
+          border-radius: 12px;
+          background: #aabd96;
+          color: #2b2a27;
+        }
+
+        .demo-video-heading strong {
+          display: block;
+          font-family: "Manrope", sans-serif;
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: -0.01em;
+        }
+
+        .demo-video-heading span {
+          display: block;
+          margin-top: 2px;
+          color: rgba(255,255,255,0.52);
+          font-family: "DM Sans", sans-serif;
+          font-size: 10px;
+          line-height: 1.4;
+        }
+
+        .demo-video-badge {
+          flex: 0 0 auto;
+          border: 1px solid rgba(255,255,255,0.10);
+          border-radius: 999px;
+          background: rgba(255,255,255,0.06);
+          padding: 8px 11px;
+          color: rgba(255,255,255,0.68);
+          font-family: "Manrope", sans-serif;
+          font-size: 8px;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+
+        .demo-video-player {
+          position: relative;
+          width: 100%;
+          aspect-ratio: 16 / 9;
+          display: block;
+          background: #151513;
+          object-fit: cover;
+        }
+
+        .demo-video-caption {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 18px;
+          padding: 16px 20px 18px;
+          background: #fffefd;
+        }
+
+        .demo-video-caption p {
+          margin: 0;
+          max-width: 720px;
+          color: #78766f;
+          font-family: "DM Sans", sans-serif;
+          font-size: 11px;
+          line-height: 1.65;
+        }
+
+        .demo-video-caption strong {
+          color: #2b2a27;
+        }
+
+        .demo-video-caption a {
+          display: inline-flex;
+          flex: 0 0 auto;
+          align-items: center;
+          gap: 8px;
+          color: #2b2a27;
+          font-family: "Manrope", sans-serif;
+          font-size: 9px;
+          font-weight: 800;
+          text-decoration: none;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+
+        @media (max-width: 700px) {
+          .demo-video-wrap {
+            margin-top: 30px;
+          }
+
+          .demo-video-card {
+            border-radius: 20px;
+          }
+
+          .demo-video-heading {
+            padding: 14px;
+          }
+
+          .demo-video-badge {
+            display: none;
+          }
+
+          .demo-video-caption {
+            align-items: flex-start;
+            flex-direction: column;
+            padding: 14px 16px 16px;
+          }
+        }
+
         .tots-root {
           --cream: #f6f3ec;
           --cream-deep: #eae4d6;
@@ -15055,6 +15211,65 @@ export default function TotsOSLanding() {
                 of TOTS-OS work
                 together.
               </p>
+            </Reveal>
+
+            <Reveal
+              delay={0.08}
+              className="demo-video-wrap"
+            >
+              <div className="demo-video-card">
+                <div className="demo-video-heading">
+                  <div className="demo-video-heading-left">
+                    <span className="demo-video-play-icon">
+                      <Play
+                        size={16}
+                        fill="currentColor"
+                      />
+                    </span>
+
+                    <div>
+                      <strong>
+                        Watch TOTS-OS in action
+                      </strong>
+
+                      <span>
+                        A real walkthrough of the platform — from dashboard to day-to-day business management.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="demo-video-badge">
+                    2 min 48 sec demo
+                  </div>
+                </div>
+
+                <video
+                  className="demo-video-player"
+                  controls
+                  playsInline
+                  preload="metadata"
+                  aria-label="TOTS-OS product demonstration"
+                >
+                  <source
+                    src="/demo.mp4"
+                    type="video/mp4"
+                  />
+
+                  Your browser does not support embedded video.
+                </video>
+
+                <div className="demo-video-caption">
+                  <p>
+                    <strong>See how it actually works.</strong>{" "}
+                    Watch the walkthrough first, then use the interactive demo below to explore the workspace yourself.
+                  </p>
+
+                  <a href={SETUP_URL}>
+                    Build your setup
+                    <ArrowRight size={13} />
+                  </a>
+                </div>
+              </div>
             </Reveal>
 
             <div

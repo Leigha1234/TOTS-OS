@@ -309,6 +309,136 @@ function normaliseColour(
   return fallback;
 }
 
+
+function colourToRgb(
+  colour: string
+) {
+  const normalised =
+    normaliseColour(
+      colour,
+      "#ffffff"
+    )
+      .replace(
+        "#",
+        ""
+      );
+
+  return {
+    r:
+      parseInt(
+        normalised.slice(
+          0,
+          2
+        ),
+        16
+      ),
+
+    g:
+      parseInt(
+        normalised.slice(
+          2,
+          4
+        ),
+        16
+      ),
+
+    b:
+      parseInt(
+        normalised.slice(
+          4,
+          6
+        ),
+        16
+      ),
+  };
+}
+
+function colourLuminance(
+  colour: string
+) {
+  const {
+    r,
+    g,
+    b,
+  } =
+    colourToRgb(
+      colour
+    );
+
+  return (
+    0.2126 *
+      r +
+    0.7152 *
+      g +
+    0.0722 *
+      b
+  );
+}
+
+function mixColours(
+  first: string,
+  second: string,
+  amount: number
+) {
+  const a =
+    colourToRgb(
+      first
+    );
+
+  const b =
+    colourToRgb(
+      second
+    );
+
+  const mix = (
+    x: number,
+    y: number
+  ) =>
+    Math.round(
+      x +
+        (
+          y -
+          x
+        ) *
+          amount
+    );
+
+  const toHex = (
+    value: number
+  ) =>
+    Math.max(
+      0,
+      Math.min(
+        255,
+        value
+      )
+    )
+      .toString(
+        16
+      )
+      .padStart(
+        2,
+        "0"
+      );
+
+  return `#${toHex(
+    mix(
+      a.r,
+      b.r
+    )
+  )}${toHex(
+    mix(
+      a.g,
+      b.g
+    )
+  )}${toHex(
+    mix(
+      a.b,
+      b.b
+    )
+  )}`;
+}
+
 function normaliseDiscountCode(
   value: string
 ) {
@@ -2618,7 +2748,7 @@ export default function ShopFrontPage() {
       "#ffffff"
     );
 
-  const storeRadius =
+  const configuredRadius =
     Math.max(
       0,
       Math.min(
@@ -2629,6 +2759,101 @@ export default function ShopFrontPage() {
         ) || 18
       )
     );
+
+  const cardStyle =
+    store?.card_style ||
+    "soft";
+
+  const storeRadius =
+    cardStyle ===
+      "square"
+      ? 0
+      : configuredRadius;
+
+  const darkTheme =
+    colourLuminance(
+      pageBackground
+    ) <
+    125;
+
+  const storeSurface =
+    darkTheme
+      ? mixColours(
+          pageBackground,
+          "#ffffff",
+          0.08
+        )
+      : "#ffffff";
+
+  const storeSurfaceSoft =
+    darkTheme
+      ? mixColours(
+          pageBackground,
+          "#ffffff",
+          0.13
+        )
+      : mixColours(
+          pageBackground,
+          "#ffffff",
+          0.62
+        );
+
+  const storeSurfaceStrong =
+    darkTheme
+      ? mixColours(
+          pageBackground,
+          "#ffffff",
+          0.18
+        )
+      : mixColours(
+          pageBackground,
+          "#000000",
+          0.04
+        );
+
+  const storeMutedText =
+    darkTheme
+      ? mixColours(
+          pageText,
+          pageBackground,
+          0.38
+        )
+      : mixColours(
+          pageText,
+          pageBackground,
+          0.44
+        );
+
+  const storeFaintText =
+    darkTheme
+      ? mixColours(
+          pageText,
+          pageBackground,
+          0.58
+        )
+      : mixColours(
+          pageText,
+          pageBackground,
+          0.6
+        );
+
+  const storeBorder =
+    darkTheme
+      ? mixColours(
+          pageBackground,
+          pageText,
+          0.2
+        )
+      : mixColours(
+          pageBackground,
+          pageText,
+          0.14
+        );
+
+  const storeOverlay =
+    darkTheme
+      ? "rgba(0,0,0,0.72)"
+      : "rgba(255,255,255,0.88)";
 
   const headingFont =
     store?.heading_font ||
@@ -2762,6 +2987,20 @@ export default function ShopFrontPage() {
             buttonTextColour,
           "--store-radius":
             `${storeRadius}px`,
+          "--store-surface":
+            storeSurface,
+          "--store-surface-soft":
+            storeSurfaceSoft,
+          "--store-surface-strong":
+            storeSurfaceStrong,
+          "--store-muted":
+            storeMutedText,
+          "--store-faint":
+            storeFaintText,
+          "--store-border":
+            storeBorder,
+          "--store-overlay":
+            storeOverlay,
           "--store-heading-font":
             headingFont,
           "--store-body-font":
@@ -2784,12 +3023,29 @@ export default function ShopFrontPage() {
         />
       )}
       <style>{`
-        .tots-store h1,
-        .tots-store h2,
-        .tots-store h3 {
-          font-family: var(--store-heading-font);
+        .tots-store {
+          background: var(--store-bg);
+          color: var(--store-text);
         }
 
+        .tots-store,
+        .tots-store * {
+          border-color: var(--store-border);
+        }
+
+        .tots-store h1,
+        .tots-store h2,
+        .tots-store h3,
+        .tots-store h4,
+        .tots-store h5 {
+          font-family: var(--store-heading-font);
+          color: var(--store-text);
+        }
+
+        .tots-store p,
+        .tots-store span,
+        .tots-store label,
+        .tots-store a,
         .tots-store button,
         .tots-store input,
         .tots-store select,
@@ -2797,8 +3053,104 @@ export default function ShopFrontPage() {
           font-family: var(--store-body-font);
         }
 
+        /* Turn the original generic white/stone storefront into the
+           saved business theme without having to duplicate every component. */
+        .tots-store .bg-white {
+          background-color: var(--store-surface) !important;
+        }
+
+        .tots-store .bg-white\/95,
+        .tots-store .bg-white\/90 {
+          background-color: var(--store-overlay) !important;
+        }
+
+        .tots-store .bg-white\/55 {
+          background-color: var(--store-surface-soft) !important;
+          opacity: .72;
+        }
+
+        .tots-store .bg-stone-50,
+        .tots-store .bg-stone-50\/70,
+        .tots-store .bg-stone-100 {
+          background-color: var(--store-surface-soft) !important;
+        }
+
+        .tots-store .bg-stone-900 {
+          background-color: var(--store-surface-strong) !important;
+        }
+
+        .tots-store .text-stone-900,
+        .tots-store .text-stone-800,
+        .tots-store .text-stone-700 {
+          color: var(--store-text) !important;
+        }
+
+        .tots-store .text-stone-600,
+        .tots-store .text-stone-500 {
+          color: var(--store-muted) !important;
+        }
+
+        .tots-store .text-stone-400,
+        .tots-store .text-stone-300 {
+          color: var(--store-faint) !important;
+        }
+
+        .tots-store .border-stone-100,
+        .tots-store .border-stone-200,
+        .tots-store .border-stone-200\/80,
+        .tots-store .border-stone-300 {
+          border-color: var(--store-border) !important;
+        }
+
+        .tots-store input,
+        .tots-store select,
+        .tots-store textarea {
+          background: var(--store-surface) !important;
+          color: var(--store-text) !important;
+          border-color: var(--store-border) !important;
+        }
+
+        .tots-store input::placeholder,
+        .tots-store textarea::placeholder {
+          color: var(--store-faint) !important;
+        }
+
+        .tots-store button:not(:disabled) {
+          border-color: var(--store-border);
+        }
+
+        .tots-store [class*="rounded"] {
+          border-radius: var(--store-radius) !important;
+        }
+
+        .tots-store .rounded-full {
+          border-radius: 9999px !important;
+        }
+
+        /* Main commerce action buttons use the saved button palette. */
+        .tots-store .store-primary-action,
+        .tots-store button[data-store-primary="true"],
+        .tots-store a[data-store-primary="true"] {
+          background: var(--store-button) !important;
+          color: var(--store-button-text) !important;
+          border-color: var(--store-button) !important;
+        }
+
+        /* Product cards and major storefront panels. */
+        .tots-store article,
         .tots-store .store-card-radius {
+          background: var(--store-surface);
+          color: var(--store-text);
+          border-color: var(--store-border);
           border-radius: var(--store-radius);
+        }
+
+        .tots-store article:hover {
+          border-color: var(--brand);
+        }
+
+        .tots-store-memberships article {
+          min-height: 100%;
         }
 
         .tots-store-memberships #shop [class*="grid-cols"] {
@@ -2976,7 +3328,15 @@ export default function ShopFrontPage() {
             }
           />
 
-          <aside className="absolute left-0 top-0 h-full w-[88%] max-w-sm bg-white p-6 shadow-2xl">
+          <aside
+            className="absolute left-0 top-0 h-full w-[88%] max-w-sm p-6 shadow-2xl"
+            style={{
+              background:
+                storeSurface,
+              color:
+                pageText,
+            }}
+          >
 
             <div className="flex items-center justify-between">
               <p className="text-sm font-black text-stone-900">
@@ -3044,7 +3404,8 @@ export default function ShopFrontPage() {
 
                   openContactDrawer();
                 }}
-                className="mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-4 text-left text-sm font-bold text-white"
+                data-store-primary="true"
+                className="store-primary-action mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-4 text-left text-sm font-bold"
                 style={{
                   background:
                     primary,
@@ -3070,7 +3431,7 @@ export default function ShopFrontPage() {
         id="top"
         className="px-4 pb-8 pt-5 sm:px-6 lg:px-8 lg:pt-7"
       >
-        <div className="mx-auto max-w-[1360px] overflow-hidden border border-stone-200 bg-white shadow-[0_16px_50px_rgba(28,25,23,0.04)]" style={{ borderRadius: `${storeRadius}px` }}>
+        <div className="mx-auto max-w-[1360px] overflow-hidden border shadow-[0_16px_50px_rgba(0,0,0,0.12)]" style={{ borderRadius: `${storeRadius}px`, background: storeSurface, borderColor: storeBorder }}>
 
           <div className="grid lg:grid-cols-[1.08fr_.92fr]">
 
@@ -3680,7 +4041,17 @@ export default function ShopFrontPage() {
         id="about"
         className="px-4 py-12 sm:px-6 lg:px-8 lg:py-16"
       >
-        <div className="mx-auto max-w-[1360px] overflow-hidden rounded-[2rem] border border-stone-200 bg-white">
+        <div
+          className="mx-auto max-w-[1360px] overflow-hidden border"
+          style={{
+            background:
+              storeSurface,
+            borderColor:
+              storeBorder,
+            borderRadius:
+              `${storeRadius}px`,
+          }}
+        >
 
           <div className="grid lg:grid-cols-[1.1fr_.9fr]">
 
@@ -4093,7 +4464,13 @@ export default function ShopFrontPage() {
             }}
           />
 
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col bg-white shadow-2xl">
+          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col shadow-2xl"
+          style={{
+            background:
+              storeSurface,
+            color:
+              pageText,
+          }}>
 
             <div
               className="border-b border-stone-100 px-6 pb-7 pt-7"
@@ -4286,7 +4663,8 @@ export default function ShopFrontPage() {
                     onClick={() =>
                       void sendContactMessage()
                     }
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    data-store-primary="true"
+                    className="store-primary-action flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[9px] font-black uppercase tracking-[0.16em] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                     style={{
                       background:
                         primary,
@@ -4387,7 +4765,13 @@ export default function ShopFrontPage() {
             }}
           />
 
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col bg-white shadow-2xl">
+          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col shadow-2xl"
+          style={{
+            background:
+              storeSurface,
+            color:
+              pageText,
+          }}>
 
             {/* HEADER */}
 
@@ -5116,7 +5500,8 @@ export default function ShopFrontPage() {
                   onClick={() =>
                     void startCheckout()
                   }
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[9px] font-black uppercase tracking-[0.17em] text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  data-store-primary="true"
+                  className="store-primary-action mt-5 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[9px] font-black uppercase tracking-[0.17em] shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   style={{
                     background:
                       primary,
@@ -5242,7 +5627,17 @@ function ProductCard({
       : 0;
 
   return (
-    <article className="group flex min-w-0 flex-col overflow-hidden rounded-[1.65rem] border border-stone-200 bg-white transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_55px_rgba(28,25,23,0.08)]">
+    <article
+      className="group flex min-w-0 flex-col overflow-hidden border transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_55px_rgba(0,0,0,0.16)]"
+      style={{
+        borderRadius:
+          "var(--store-radius)",
+        background:
+          "var(--store-surface)",
+        borderColor:
+          "var(--store-border)",
+      }}
+    >
 
       {/* IMAGE */}
 
@@ -5434,7 +5829,8 @@ function ProductCard({
                 ? onRequest
                 : onAdd
             }
-            className="mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-3.5 text-left text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            data-store-primary="true"
+            className="store-primary-action mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-3.5 text-left transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             style={{
               background:
                 outOfStock &&

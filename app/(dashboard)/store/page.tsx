@@ -28,22 +28,17 @@ import {
   X,
 } from "lucide-react";
 
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 
 // ============================================================
 // SUPABASE
 // ============================================================
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const supabaseKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-  "";
-
-const supabase =
-  supabaseUrl && supabaseKey
-    ? createClient(supabaseUrl, supabaseKey)
-    : null;
+// IMPORTANT:
+// Use the app-wide @supabase/ssr browser client so Store shares the exact
+// same persisted PKCE auth session as the rest of TOTS-OS.
+// If your supabase client file lives somewhere else, only change the
+// import path above.
+// ============================================================
 
 // ============================================================
 // TYPES
@@ -341,10 +336,6 @@ export default function StoreDashboardPage() {
   const [savingProduct, setSavingProduct] = useState(false);
 
   const resolveOrganisationId = useCallback(async () => {
-    if (!supabase) {
-      throw new Error("Supabase environment variables are missing.");
-    }
-
     // 1. Prefer an already-selected organisation stored by TOTS-OS.
     const stored = getStoredOrganisationId();
     if (stored) return stored;
@@ -413,14 +404,6 @@ export default function StoreDashboardPage() {
 
   const loadStore = useCallback(
     async (silent = false) => {
-      if (!supabase) {
-        setError(
-          "Supabase is not configured. Check NEXT_PUBLIC_SUPABASE_URL and your public Supabase key.",
-        );
-        setLoading(false);
-        return;
-      }
-
       if (silent) {
         setRefreshing(true);
       } else {
@@ -628,7 +611,7 @@ export default function StoreDashboardPage() {
   async function saveProduct(event: FormEvent) {
     event.preventDefault();
 
-    if (!supabase || !organisation) return;
+    if (!organisation) return;
 
     if (!draft.name.trim()) {
       setError("Enter a product name.");
@@ -718,7 +701,7 @@ export default function StoreDashboardPage() {
   }
 
   async function deleteProduct(product: Product) {
-    if (!supabase || !organisation) return;
+    if (!organisation) return;
 
     const confirmed = window.confirm(
       `Delete "${product.name}"? This cannot be undone.`,

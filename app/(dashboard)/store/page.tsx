@@ -24,6 +24,10 @@ import {
   ShoppingBag,
   Store,
   Tag,
+  Upload,
+  ExternalLink,
+  Image as ImageIcon,
+  Settings2,
   Trash2,
   X,
 } from "lucide-react";
@@ -156,7 +160,46 @@ type ProductDraft = {
   is_active: boolean;
 };
 
-type Tab = "overview" | "products" | "orders" | "subscriptions" | "discounts";
+type Tab = "overview" | "products" | "orders" | "subscriptions" | "discounts" | "settings";
+
+type StoreSettings = {
+  id?: string;
+  organisation_id: string;
+  slug: string;
+  store_name: string;
+  store_description?: string | null;
+  hero_title?: string | null;
+  hero_text?: string | null;
+  announcement?: string | null;
+  accent_colour?: string | null;
+  shipping_text?: string | null;
+  support_email?: string | null;
+  is_live?: boolean | null;
+  storefront_mode?: string | null;
+  external_store_url?: string | null;
+  external_storefront_url?: string | null;
+  logo_url?: string | null;
+  hero_image_url?: string | null;
+  favicon_url?: string | null;
+  background_colour?: string | null;
+  text_colour?: string | null;
+  button_colour?: string | null;
+  button_text_colour?: string | null;
+  heading_font?: string | null;
+  body_font?: string | null;
+  layout_style?: string | null;
+  card_style?: string | null;
+  border_radius?: number | null;
+  show_search?: boolean | null;
+  show_categories?: boolean | null;
+  show_stock?: boolean | null;
+  show_prices?: boolean | null;
+  footer_text?: string | null;
+  facebook_url?: string | null;
+  instagram_url?: string | null;
+  tiktok_url?: string | null;
+  custom_css?: string | null;
+};
 
 // ============================================================
 // HELPERS
@@ -322,6 +365,9 @@ export default function StoreDashboardPage() {
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [discounts, setDiscounts] = useState<Discount[]>([]);
+  const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [uploadingAsset, setUploadingAsset] = useState<"logo" | "hero" | "favicon" | null>(null);
 
   const [tab, setTab] = useState<Tab>("overview");
   const [search, setSearch] = useState("");
@@ -421,6 +467,7 @@ export default function StoreDashboardPage() {
           ordersResult,
           subscriptionsResult,
           discountsResult,
+          settingsResult,
         ] = await Promise.all([
           supabase
             .from("organisations")
@@ -452,6 +499,12 @@ export default function StoreDashboardPage() {
             .select("*")
             .eq("organisation_id", organisationId)
             .order("created_at", { ascending: false }),
+
+          supabase
+            .from("store_settings")
+            .select("*")
+            .eq("organisation_id", organisationId)
+            .maybeSingle(),
         ]);
 
         if (organisationResult.error) throw organisationResult.error;
@@ -459,12 +512,38 @@ export default function StoreDashboardPage() {
         if (ordersResult.error) throw ordersResult.error;
         if (subscriptionsResult.error) throw subscriptionsResult.error;
         if (discountsResult.error) throw discountsResult.error;
+        if (settingsResult.error) throw settingsResult.error;
 
         setOrganisation(organisationResult.data as Organisation);
         setProducts((productsResult.data ?? []) as Product[]);
         setOrders((ordersResult.data ?? []) as StoreOrder[]);
         setSubscriptions((subscriptionsResult.data ?? []) as Subscription[]);
         setDiscounts((discountsResult.data ?? []) as Discount[]);
+        setStoreSettings(
+          settingsResult.data
+            ? (settingsResult.data as StoreSettings)
+            : {
+                organisation_id: organisationId,
+                slug: "",
+                store_name: organisationResult.data?.name || "Store",
+                background_colour: "#ffffff",
+                text_colour: "#1c1917",
+                accent_colour: "#A9B897",
+                button_colour: "#1c1917",
+                button_text_colour: "#ffffff",
+                heading_font: "Inter",
+                body_font: "Inter",
+                layout_style: "classic",
+                card_style: "rounded",
+                border_radius: 24,
+                show_search: true,
+                show_categories: true,
+                show_stock: true,
+                show_prices: true,
+                storefront_mode: "hosted",
+                is_live: false,
+              },
+        );
       } catch (loadError) {
         console.error("Store dashboard load error:", loadError);
 
@@ -734,6 +813,141 @@ export default function StoreDashboardPage() {
     }
   }
 
+  function updateStoreSetting<K extends keyof StoreSettings>(
+    key: K,
+    value: StoreSettings[K],
+  ) {
+    setStoreSettings((current) =>
+      current
+        ? {
+            ...current,
+            [key]: value,
+          }
+        : current,
+    );
+  }
+
+  async function saveStoreSettings() {
+    if (!organisation || !storeSettings) return;
+
+    const slug =
+      storeSettings.slug.trim() ||
+      slugify(storeSettings.store_name || organisation.name);
+
+    if (!slug) {
+      setError("Enter a store name or storefront slug.");
+      return;
+    }
+
+    setSavingSettings(true);
+    setError(null);
+
+    try {
+      const payload = {
+        ...storeSettings,
+        organisation_id: organisation.id,
+        slug,
+        store_name: storeSettings.store_name.trim() || organisation.name,
+        updated_at: new Date().toISOString(),
+      };
+
+      delete (payload as Partial<StoreSettings>).id;
+
+      const { data, error: settingsError } = await supabase
+        .from("store_settings")
+        .upsert(payload, {
+          onConflict: "organisation_id",
+        })
+        .select("*")
+        .single();
+
+      if (settingsError) throw settingsError;
+
+      setStoreSettings(data as StoreSettings);
+    } catch (settingsError) {
+      console.error("Store settings save error:", settingsError);
+      setError(
+        settingsError instanceof Error
+          ? settingsError.message
+          : "We couldn't save the storefront settings.",
+      );
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  async function uploadStoreAsset(
+    assetType: "logo" | "hero" | "favicon",
+    file: File,
+  ) {
+    if (!organisation || !storeSettings) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("Please choose an image file.");
+      return;
+    }
+
+    const maxBytes = assetType === "favicon" ? 2 * 1024 * 1024 : 8 * 1024 * 1024;
+
+    if (file.size > maxBytes) {
+      setError(
+        `This image is ${(file.size / 1024 / 1024).toFixed(2)} MB. Please choose a file under ${
+          assetType === "favicon" ? "2" : "8"
+        } MB.`,
+      );
+      return;
+    }
+
+    setUploadingAsset(assetType);
+    setError(null);
+
+    try {
+      const extension =
+        file.type === "image/png"
+          ? "png"
+          : file.type === "image/webp"
+            ? "webp"
+            : file.type === "image/svg+xml"
+              ? "svg"
+              : file.type === "image/x-icon"
+                ? "ico"
+                : "jpg";
+
+      const path = `${organisation.id}/${assetType}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("store-assets")
+        .upload(path, file, {
+          upsert: true,
+          contentType: file.type,
+          cacheControl: "3600",
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from("store-assets").getPublicUrl(path);
+      const url = `${data.publicUrl}?v=${Date.now()}`;
+
+      updateStoreSetting(
+        assetType === "logo"
+          ? "logo_url"
+          : assetType === "hero"
+            ? "hero_image_url"
+            : "favicon_url",
+        url,
+      );
+    } catch (uploadError) {
+      console.error("Store asset upload error:", uploadError);
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "We couldn't upload that image.",
+      );
+    } finally {
+      setUploadingAsset(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center">
@@ -897,6 +1111,16 @@ export default function StoreDashboardPage() {
               onClick={() => setTab("discounts")}
             >
               Discounts <CountBadge>{discounts.length}</CountBadge>
+            </TabButton>
+
+            <TabButton
+              active={tab === "settings"}
+              onClick={() => setTab("settings")}
+            >
+              <span className="inline-flex items-center gap-2">
+                <Settings2 className="h-4 w-4" />
+                Storefront
+              </span>
             </TabButton>
           </div>
         </div>
@@ -1356,6 +1580,396 @@ export default function StoreDashboardPage() {
             )}
           </section>
         )}
+
+        {tab === "settings" && storeSettings && (
+          <div className="mt-6 space-y-6">
+            <section className="rounded-[24px] border border-stone-200 bg-white shadow-sm">
+              <SectionHeader
+                title="Storefront"
+                description="Control how your public store looks and where customers shop."
+              >
+                {storeSettings.slug && storeSettings.storefront_mode !== "external" && (
+                  <a
+                    href={`/shop/${storeSettings.slug}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-stone-700 hover:bg-stone-50"
+                  >
+                    Preview store
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                )}
+              </SectionHeader>
+
+              <div className="grid gap-5 p-6 md:grid-cols-2">
+                <Field label="Storefront mode">
+                  <select
+                    value={storeSettings.storefront_mode || "hosted"}
+                    onChange={(event) =>
+                      updateStoreSetting("storefront_mode", event.target.value)
+                    }
+                    className={inputClass}
+                  >
+                    <option value="hosted">TOTS hosted storefront</option>
+                    <option value="external">External storefront</option>
+                  </select>
+                </Field>
+
+                <Field label="Store live">
+                  <label className="flex h-11 items-center justify-between rounded-xl border border-stone-200 px-4">
+                    <span className="text-sm text-stone-700">
+                      {storeSettings.is_live ? "Live" : "Hidden"}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={storeSettings.is_live === true}
+                      onChange={(event) =>
+                        updateStoreSetting("is_live", event.target.checked)
+                      }
+                      className="h-4 w-4"
+                    />
+                  </label>
+                </Field>
+
+                <Field label="Store name">
+                  <input
+                    value={storeSettings.store_name || ""}
+                    onChange={(event) =>
+                      updateStoreSetting("store_name", event.target.value)
+                    }
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Store slug">
+                  <input
+                    value={storeSettings.slug || ""}
+                    onChange={(event) =>
+                      updateStoreSetting("slug", slugify(event.target.value))
+                    }
+                    className={inputClass}
+                    placeholder="moray-training-club"
+                  />
+                </Field>
+
+                {storeSettings.storefront_mode === "external" && (
+                  <Field label="External store URL" className="md:col-span-2">
+                    <input
+                      value={
+                        storeSettings.external_store_url ||
+                        storeSettings.external_storefront_url ||
+                        ""
+                      }
+                      onChange={(event) =>
+                        updateStoreSetting("external_store_url", event.target.value)
+                      }
+                      className={inputClass}
+                      placeholder="https://..."
+                    />
+                  </Field>
+                )}
+
+                <Field label="Store description" className="md:col-span-2">
+                  <textarea
+                    value={storeSettings.store_description || ""}
+                    onChange={(event) =>
+                      updateStoreSetting("store_description", event.target.value)
+                    }
+                    rows={3}
+                    className={`${inputClass} h-auto resize-none py-3`}
+                  />
+                </Field>
+              </div>
+            </section>
+
+            <section className="rounded-[24px] border border-stone-200 bg-white p-6 shadow-sm">
+              <h2 className="font-semibold text-stone-950">Brand assets</h2>
+              <p className="mt-1 text-sm text-stone-500">
+                Upload images directly. No image URLs are required.
+              </p>
+
+              <div className="mt-5 grid gap-4 lg:grid-cols-3">
+                <StoreAssetUpload
+                  label="Logo"
+                  value={storeSettings.logo_url || ""}
+                  uploading={uploadingAsset === "logo"}
+                  onFile={(file) => void uploadStoreAsset("logo", file)}
+                  onRemove={() => updateStoreSetting("logo_url", "")}
+                />
+                <StoreAssetUpload
+                  label="Hero image"
+                  value={storeSettings.hero_image_url || ""}
+                  uploading={uploadingAsset === "hero"}
+                  onFile={(file) => void uploadStoreAsset("hero", file)}
+                  onRemove={() => updateStoreSetting("hero_image_url", "")}
+                />
+                <StoreAssetUpload
+                  label="Favicon"
+                  value={storeSettings.favicon_url || ""}
+                  uploading={uploadingAsset === "favicon"}
+                  onFile={(file) => void uploadStoreAsset("favicon", file)}
+                  onRemove={() => updateStoreSetting("favicon_url", "")}
+                />
+              </div>
+            </section>
+
+            <section className="rounded-[24px] border border-stone-200 bg-white p-6 shadow-sm">
+              <h2 className="font-semibold text-stone-950">Colours & typography</h2>
+              <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+                {([
+                  ["Background", "background_colour", "#ffffff"],
+                  ["Text", "text_colour", "#1c1917"],
+                  ["Accent", "accent_colour", "#A9B897"],
+                  ["Button", "button_colour", "#1c1917"],
+                  ["Button text", "button_text_colour", "#ffffff"],
+                ] as const).map(([label, key, fallback]) => (
+                  <Field key={key} label={label}>
+                    <div className="flex gap-2">
+                      <input
+                        type="color"
+                        value={(storeSettings[key] as string) || fallback}
+                        onChange={(event) => updateStoreSetting(key, event.target.value)}
+                        className="h-11 w-14 rounded-xl border border-stone-200 bg-white p-1"
+                      />
+                      <input
+                        value={(storeSettings[key] as string) || fallback}
+                        onChange={(event) => updateStoreSetting(key, event.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                  </Field>
+                ))}
+
+                <Field label="Heading font">
+                  <select
+                    value={storeSettings.heading_font || "Inter"}
+                    onChange={(event) =>
+                      updateStoreSetting("heading_font", event.target.value)
+                    }
+                    className={inputClass}
+                  >
+                    <option>Inter</option>
+                    <option>Poppins</option>
+                    <option>Montserrat</option>
+                    <option>Playfair Display</option>
+                    <option>DM Sans</option>
+                  </select>
+                </Field>
+
+                <Field label="Body font">
+                  <select
+                    value={storeSettings.body_font || "Inter"}
+                    onChange={(event) =>
+                      updateStoreSetting("body_font", event.target.value)
+                    }
+                    className={inputClass}
+                  >
+                    <option>Inter</option>
+                    <option>Poppins</option>
+                    <option>Montserrat</option>
+                    <option>DM Sans</option>
+                  </select>
+                </Field>
+              </div>
+            </section>
+
+            <section className="rounded-[24px] border border-stone-200 bg-white p-6 shadow-sm">
+              <h2 className="font-semibold text-stone-950">Layout & content</h2>
+              <div className="mt-5 grid gap-5 md:grid-cols-2">
+                <Field label="Layout">
+                  <select
+                    value={storeSettings.layout_style || "classic"}
+                    onChange={(event) =>
+                      updateStoreSetting("layout_style", event.target.value)
+                    }
+                    className={inputClass}
+                  >
+                    <option value="classic">Classic</option>
+                    <option value="minimal">Minimal</option>
+                    <option value="memberships">Memberships</option>
+                  </select>
+                </Field>
+
+                <Field label="Card style">
+                  <select
+                    value={storeSettings.card_style || "rounded"}
+                    onChange={(event) =>
+                      updateStoreSetting("card_style", event.target.value)
+                    }
+                    className={inputClass}
+                  >
+                    <option value="rounded">Rounded</option>
+                    <option value="soft">Soft</option>
+                    <option value="square">Square</option>
+                  </select>
+                </Field>
+
+                <Field label="Border radius">
+                  <input
+                    type="number"
+                    min="0"
+                    max="48"
+                    value={storeSettings.border_radius ?? 24}
+                    onChange={(event) =>
+                      updateStoreSetting("border_radius", Number(event.target.value))
+                    }
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Support email">
+                  <input
+                    type="email"
+                    value={storeSettings.support_email || ""}
+                    onChange={(event) =>
+                      updateStoreSetting("support_email", event.target.value)
+                    }
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Hero title">
+                  <input
+                    value={storeSettings.hero_title || ""}
+                    onChange={(event) =>
+                      updateStoreSetting("hero_title", event.target.value)
+                    }
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Announcement">
+                  <input
+                    value={storeSettings.announcement || ""}
+                    onChange={(event) =>
+                      updateStoreSetting("announcement", event.target.value)
+                    }
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Hero text" className="md:col-span-2">
+                  <textarea
+                    value={storeSettings.hero_text || ""}
+                    onChange={(event) =>
+                      updateStoreSetting("hero_text", event.target.value)
+                    }
+                    rows={3}
+                    className={`${inputClass} h-auto resize-none py-3`}
+                  />
+                </Field>
+
+                <Field label="Shipping text">
+                  <input
+                    value={storeSettings.shipping_text || ""}
+                    onChange={(event) =>
+                      updateStoreSetting("shipping_text", event.target.value)
+                    }
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Footer text">
+                  <input
+                    value={storeSettings.footer_text || ""}
+                    onChange={(event) =>
+                      updateStoreSetting("footer_text", event.target.value)
+                    }
+                    className={inputClass}
+                  />
+                </Field>
+
+                <div className="md:col-span-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {([
+                    ["Search", "show_search"],
+                    ["Categories", "show_categories"],
+                    ["Stock", "show_stock"],
+                    ["Prices", "show_prices"],
+                  ] as const).map(([label, key]) => (
+                    <label
+                      key={key}
+                      className="flex items-center justify-between rounded-xl border border-stone-200 px-4 py-3 text-sm text-stone-700"
+                    >
+                      {label}
+                      <input
+                        type="checkbox"
+                        checked={storeSettings[key] !== false}
+                        onChange={(event) =>
+                          updateStoreSetting(key, event.target.checked)
+                        }
+                        className="h-4 w-4"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[24px] border border-stone-200 bg-white p-6 shadow-sm">
+              <h2 className="font-semibold text-stone-950">Social & advanced</h2>
+              <div className="mt-5 grid gap-5 md:grid-cols-2">
+                <Field label="Instagram">
+                  <input
+                    value={storeSettings.instagram_url || ""}
+                    onChange={(event) =>
+                      updateStoreSetting("instagram_url", event.target.value)
+                    }
+                    className={inputClass}
+                    placeholder="https://instagram.com/..."
+                  />
+                </Field>
+                <Field label="Facebook">
+                  <input
+                    value={storeSettings.facebook_url || ""}
+                    onChange={(event) =>
+                      updateStoreSetting("facebook_url", event.target.value)
+                    }
+                    className={inputClass}
+                    placeholder="https://facebook.com/..."
+                  />
+                </Field>
+                <Field label="TikTok">
+                  <input
+                    value={storeSettings.tiktok_url || ""}
+                    onChange={(event) =>
+                      updateStoreSetting("tiktok_url", event.target.value)
+                    }
+                    className={inputClass}
+                    placeholder="https://tiktok.com/@..."
+                  />
+                </Field>
+                <Field label="Custom CSS" className="md:col-span-2">
+                  <textarea
+                    value={storeSettings.custom_css || ""}
+                    onChange={(event) =>
+                      updateStoreSetting("custom_css", event.target.value)
+                    }
+                    rows={7}
+                    className={`${inputClass} h-auto resize-y py-3 font-mono text-xs`}
+                    placeholder=".store-theme { ... }"
+                  />
+                </Field>
+              </div>
+
+              <div className="mt-6 flex justify-end border-t border-stone-100 pt-5">
+                <button
+                  type="button"
+                  onClick={() => void saveStoreSettings()}
+                  disabled={savingSettings}
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-stone-950 px-5 text-sm font-semibold text-white hover:bg-stone-800 disabled:opacity-50"
+                >
+                  {savingSettings ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  Save storefront settings
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+
       </div>
 
       {productModalOpen && (
@@ -1866,6 +2480,71 @@ function EmptyState({
       </p>
 
       {action}
+    </div>
+  );
+}
+
+function StoreAssetUpload({
+  label,
+  value,
+  uploading,
+  onFile,
+  onRemove,
+}: {
+  label: string;
+  value: string;
+  uploading: boolean;
+  onFile: (file: File) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-stone-50/60 p-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-stone-800">{label}</p>
+        {value && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-400 hover:text-red-500"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      <div className="mt-3 overflow-hidden rounded-xl border border-dashed border-stone-200 bg-white">
+        <div className="flex min-h-[150px] items-center justify-center p-4">
+          {value ? (
+            <img src={value} alt={label} className="max-h-[180px] max-w-full object-contain" />
+          ) : (
+            <div className="text-center text-stone-300">
+              <ImageIcon className="mx-auto h-7 w-7" />
+              <p className="mt-2 text-xs">No image uploaded</p>
+            </div>
+          )}
+        </div>
+
+        <label className="flex cursor-pointer items-center justify-center gap-2 border-t border-stone-100 px-4 py-3 text-xs font-semibold text-stone-700 hover:bg-stone-50">
+          {uploading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Upload className="h-4 w-4" />
+          )}
+          {uploading ? "Uploading..." : value ? "Replace image" : "Upload image"}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon"
+            disabled={uploading}
+            className="hidden"
+            onChange={(event) => {
+              const input = event.currentTarget;
+              const file = input.files?.item(0) ?? null;
+              if (file) onFile(file);
+              input.value = "";
+            }}
+          />
+        </label>
+      </div>
     </div>
   );
 }

@@ -3073,7 +3073,7 @@ export default function ShopFrontPage() {
 
   return (
     <div
-      className={`tots-store min-h-screen ${
+      className={`tots-store ${isMTC ? "mtc-app-store" : ""} min-h-screen ${
         membershipLayout
           ? "tots-store-memberships"
           : `tots-store-${layoutStyle}`
@@ -3269,6 +3269,48 @@ export default function ShopFrontPage() {
         .tots-store-memberships #top p { font-size: 1rem !important; max-width: 580px !important; }
         .tots-store-memberships #shop { padding-top: 5rem !important; }
         .tots-store-memberships #shop h2 { font-size: clamp(3rem, 5vw, 5.5rem) !important; line-height: .9 !important; font-style: normal !important; font-weight: 900 !important; text-transform: uppercase; letter-spacing: -.05em !important; }
+        /* ====================================================
+           MTC APP STORE — visually behaves like part of the MTC app
+        ==================================================== */
+        .mtc-app-store {
+          --mtc-navy: #07131f;
+          --mtc-card: #0d1c2a;
+          --mtc-border: rgba(255,255,255,.10);
+          --mtc-gold: #c9a84c;
+          background: var(--mtc-navy) !important;
+          color: #f8fafc !important;
+        }
+        .mtc-app-store header {
+          background: rgba(7,19,31,.96) !important;
+          border-color: var(--mtc-border) !important;
+          box-shadow: 0 10px 35px rgba(0,0,0,.18) !important;
+        }
+        .mtc-app-store header p,
+        .mtc-app-store header a,
+        .mtc-app-store header button { color: #f8fafc !important; }
+        .mtc-app-store header p:last-child { color: rgba(248,250,252,.45) !important; }
+        .mtc-app-store header button { background: rgba(255,255,255,.05) !important; border-color: var(--mtc-border) !important; }
+        .mtc-app-store .mtc-membership-active { background: rgba(201,168,76,.12); color: var(--mtc-gold) !important; border: 1px solid rgba(201,168,76,.28); }
+        .mtc-app-store .store-hero { background: var(--mtc-navy) !important; }
+        .mtc-app-store #top > div { background: var(--mtc-card) !important; border-color: var(--mtc-border) !important; box-shadow: 0 20px 60px rgba(0,0,0,.22) !important; }
+        .mtc-app-store #top h1,
+        .mtc-app-store #top h2,
+        .mtc-app-store #top h3 { color: #f8fafc !important; }
+        .mtc-app-store #top p { color: rgba(248,250,252,.58) !important; }
+        .mtc-app-store #top button { background: rgba(255,255,255,.04) !important; border-color: var(--mtc-border) !important; color: #f8fafc !important; }
+        .mtc-app-store #shop { background: var(--mtc-navy) !important; }
+        .mtc-app-store #shop h2,
+        .mtc-app-store #shop h3,
+        .mtc-app-store #shop p { color: #f8fafc !important; }
+        .mtc-app-store #shop p { opacity: .65; }
+        .mtc-app-store .store-product-card { background: var(--mtc-card) !important; border-color: var(--mtc-border) !important; box-shadow: none !important; }
+        .mtc-app-store .store-product-content { background: var(--mtc-card) !important; }
+        .mtc-app-store .store-product-content h3 { color: #f8fafc !important; }
+        .mtc-app-store .store-product-content p { color: rgba(248,250,252,.55) !important; }
+        .mtc-app-store footer { background: #050d15 !important; border-color: var(--mtc-border) !important; color: #f8fafc !important; }
+        .mtc-app-store footer p,
+        .mtc-app-store footer a { color: rgba(248,250,252,.55) !important; }
+
         @media (max-width: 1023px) { .tots-store-memberships #top h1 { font-size: clamp(3.8rem, 15vw, 6rem) !important; } }
 
         /* ====================================================
@@ -3444,7 +3486,7 @@ export default function ShopFrontPage() {
           </button>
 
           <a
-            href="#top"
+            href={isMTC ? MTC_APP_URL : "#top"}
             className="flex min-w-0 items-center gap-3 no-underline"
           >
             {store.logo_url ? (
@@ -3484,50 +3526,25 @@ export default function ShopFrontPage() {
             </div>
           </a>
 
-          <nav className="hidden items-center gap-8 lg:flex">
-            <a
-              href="#shop"
-              className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
-            >
-              Shop
-            </a>
-
-            {featuredProducts.length >
-              0 && (
-              <a
-                href="#featured"
-                className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
-              >
-                Featured
-              </a>
+          <nav className="hidden items-center gap-7 lg:flex">
+            {isMTC ? (
+              <>
+                <a href={MTC_APP_URL} className="text-xs font-semibold no-underline transition">Home</a>
+                <a href={`${MTC_APP_URL}/book`} className="text-xs font-semibold no-underline transition">Book</a>
+                <a href={`${MTC_APP_URL}/prs`} className="text-xs font-semibold no-underline transition">Progress</a>
+                <a href={`${MTC_APP_URL}/account`} className="text-xs font-semibold no-underline transition">Account</a>
+                <span className="mtc-membership-active rounded-full px-4 py-2 text-xs font-black">Memberships</span>
+              </>
+            ) : (
+              <>
+                <a href="#shop" className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900">Shop</a>
+                {featuredProducts.length > 0 && (
+                  <a href="#featured" className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900">Featured</a>
+                )}
+                <a href="#about" className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900">About</a>
+                <button type="button" onClick={openContactDrawer} className="text-xs font-semibold text-stone-500 transition hover:text-stone-900">Contact</button>
+              </>
             )}
-
-            <a
-              href="#about"
-              className="text-xs font-semibold text-stone-500 no-underline transition hover:text-stone-900"
-            >
-              About
-            </a>
-
-            {isMTC && (
-              <a
-                href={MTC_MEMBERSHIP_URL}
-                className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2 text-xs font-bold text-stone-700 no-underline transition hover:border-stone-300 hover:shadow-sm"
-              >
-                Back to MTC App
-                <ExternalLink size={13} />
-              </a>
-            )}
-
-            <button
-              type="button"
-              onClick={
-                openContactDrawer
-              }
-              className="text-xs font-semibold text-stone-500 transition hover:text-stone-900"
-            >
-              Contact
-            </button>
           </nav>
 
           <button
@@ -3725,11 +3742,11 @@ export default function ShopFrontPage() {
                 </div>
 
                 <h1 className="mt-6 max-w-[720px] text-[3.4rem] font-semibold leading-[0.92] tracking-[-0.035em] sm:text-6xl lg:text-[4.5rem]" style={{ fontFamily: headingFont, color: pageText }}>
-                  {isMTC ? "CHOOSE YOUR MEMBERSHIP." : membershipLayout ? "TRAIN YOUR WAY." : (store.hero_title || `Everything you need, all in one place.`)}
+                  {isMTC ? "YOUR MTC MEMBERSHIP." : membershipLayout ? "TRAIN YOUR WAY." : (store.hero_title || `Everything you need, all in one place.`)}
                 </h1>
 
                 <p className="mt-6 max-w-xl text-sm leading-7 text-stone-500 sm:text-[15px]">
-                  {isMTC ? "Choose the MTC membership that fits how you train. Once activated, return to the MTC app to book classes and manage your training." : membershipLayout ? "Choose a membership that fits how you train — from weekly sessions to unlimited access." : isOrganisedTypes ? "Websites, marketing, branding and practical business support — all in one place." : (store.hero_text || store.store_description || `Explore products and services from ${storeName}.`)}
+                  {isMTC ? "Choose the plan that fits your training. Your membership connects directly to your MTC account so you can get straight back to booking classes." : membershipLayout ? "Choose a membership that fits how you train — from weekly sessions to unlimited access." : isOrganisedTypes ? "Websites, marketing, branding and practical business support — all in one place." : (store.hero_text || store.store_description || `Explore products and services from ${storeName}.`)}
                 </p>
 
                 <div className="mt-8 flex flex-wrap gap-3">
@@ -3761,15 +3778,6 @@ export default function ShopFrontPage() {
                     Ask a question
                   </button>
 
-                  {isMTC && (
-                    <a
-                      href={MTC_MEMBERSHIP_URL}
-                      className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-stone-600 no-underline transition hover:border-stone-300 hover:bg-stone-50"
-                    >
-                      Back to MTC App
-                      <ExternalLink size={13} />
-                    </a>
-                  )}
 
                 </div>
 

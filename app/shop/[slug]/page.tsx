@@ -4094,36 +4094,25 @@ export default function ShopFrontPage() {
 
           {visibleProducts.length >
           0 ? (
-            <div className={`mt-8 grid gap-5 sm:grid-cols-2 ${
-              membershipLayout
-                ? "lg:grid-cols-2"
-                : "lg:grid-cols-3 xl:grid-cols-4"
-            }`}>
-
-              {visibleProducts.map(
-                (
-                  product
-                ) => (
-                  membershipLayout ? (
-                    <MembershipCard
-                      key={product.id}
-                      product={product}
-                      primary={primary}
-                      onChoose={() => addToCart(product)}
-                    />
-                  ) : (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      primary={primary}
-                      onAdd={() => addToCart(product)}
-                      onRequest={() => requestProduct(product)}
-                    />
-                  )
-                )
-              )}
-
-            </div>
+            membershipLayout ? (
+              <MembershipShopSections
+                products={visibleProducts}
+                primary={primary}
+                onChoose={addToCart}
+              />
+            ) : (
+              <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {visibleProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    primary={primary}
+                    onAdd={() => addToCart(product)}
+                    onRequest={() => requestProduct(product)}
+                  />
+                ))}
+              </div>
+            )
           ) : products.length ===
             0 ? (
             <EmptyState
@@ -5282,7 +5271,7 @@ export default function ShopFrontPage() {
                   )}
 
                   {discountMessage && (
-                    <p className="mt-2 text-[9px] leading-4 text-stone-400">
+                    <p className="mt-2 text-sm leading-5 text-white/55">
                       {
                         discountMessage
                       }
@@ -5357,9 +5346,9 @@ export default function ShopFrontPage() {
                 {/* ERROR */}
 
                 {checkoutError && (
-                  <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                  <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/15 px-4 py-4">
 
-                    <p className="text-[10px] font-semibold leading-5 text-red-600">
+                    <p className="text-sm font-semibold leading-6 text-red-200">
                       {
                         checkoutError
                       }
@@ -5428,7 +5417,7 @@ export default function ShopFrontPage() {
                     void startCheckout();
                   }}
                   data-store-primary="true"
-                  className="store-primary-action mt-5 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[9px] font-black uppercase tracking-[0.17em] shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="store-primary-action mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-4 text-base font-black uppercase tracking-[0.12em] shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   style={{
                     background:
                       primary,
@@ -5456,7 +5445,7 @@ export default function ShopFrontPage() {
                   )}
                 </button>
 
-                <div className="mt-3 flex items-center justify-center gap-2 text-[8px] text-stone-400">
+                <div className="mt-3 flex items-center justify-center gap-2 text-sm text-white/50">
 
                   <LockKeyhole
                     size={10}
@@ -5479,10 +5468,11 @@ export default function ShopFrontPage() {
 
       {membershipSetupOpen && requiredBeneficiarySpecs.length > 0 && (
         <div
-          className="fixed inset-0 z-[190] overflow-y-auto bg-[#0d0d0d] text-white"
+          className="fixed inset-0 z-[190] overflow-y-auto"
+          style={{ background: storeSurface, color: pageText }}
         >
-          <div className="sticky top-0 z-20 border-b border-white/10 bg-[#0d0d0d]/95 backdrop-blur-xl">
-            <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-4 px-5 py-5 sm:px-8 lg:px-10">
+          <div className="sticky top-0 z-20 border-b border-white/10 bg-black/95 backdrop-blur-xl">
+            <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
               <button
                 type="button"
                 disabled={checkingOut}
@@ -5490,22 +5480,17 @@ export default function ShopFrontPage() {
                   setMembershipSetupOpen(false);
                   setCartOpen(true);
                 }}
-                className="flex w-fit items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/70 transition hover:text-white disabled:opacity-40"
+                className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.12em] text-white/80 disabled:opacity-40"
               >
-                <ArrowRight size={14} className="rotate-180" />
-                <span className="hidden sm:inline">Back to basket</span>
-                <span className="sm:hidden">Back</span>
+                <ArrowRight size={13} className="rotate-180" />
+                Back to basket
               </button>
 
               <div className="text-center">
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white">
+                <p className="text-sm font-black uppercase tracking-[0.16em] text-stone-300">
                   Membership setup
                 </p>
-                <div className="mt-2 flex items-center justify-center gap-2">
-                  <span className="h-1.5 w-8 rounded-full" style={{ background: primary }} />
-                  <span className="h-1.5 w-8 rounded-full bg-white/15" />
-                </div>
-                <p className="mt-2 text-[10px] font-semibold text-white/55">
+                <p className="mt-1 text-sm font-bold text-white/80">
                   Step 1 of 2 · Member details
                 </p>
               </div>
@@ -5515,93 +5500,88 @@ export default function ShopFrontPage() {
                 aria-label="Close membership setup"
                 disabled={checkingOut}
                 onClick={() => setMembershipSetupOpen(false)}
-                className="ml-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/70 transition hover:bg-white/10 hover:text-white disabled:opacity-40"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/70 disabled:opacity-40"
               >
-                <X size={17} />
+                <X size={16} />
               </button>
             </div>
           </div>
 
-          <main className="mx-auto grid max-w-7xl gap-10 px-5 py-9 sm:px-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_390px] lg:gap-14 lg:px-10 lg:py-14">
+          <main className="mx-auto grid max-w-6xl gap-8 px-5 py-8 sm:px-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-12">
             <section>
               <div className="max-w-2xl">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="flex h-10 w-10 items-center justify-center rounded-full"
-                    style={{ background: primary, color: "var(--store-button-text)" }}
-                  >
-                    <ShieldCheck size={19} />
-                  </div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: primary }}>
-                    Almost there
-                  </p>
+                <div
+                  className="mb-5 flex h-12 w-12 items-center justify-center rounded-full text-white"
+                  style={{ background: primary }}
+                >
+                  <ShieldCheck size={20} />
                 </div>
 
-                <h2 className="mt-6 text-4xl font-black leading-[1.02] tracking-[-0.04em] text-white sm:text-5xl lg:text-[58px]">
+                <p className="text-sm font-black uppercase tracking-[0.16em]" style={{ color: primary }}>
+                  Almost there
+                </p>
+                <h2 className="mt-3 font-serif text-4xl italic text-white sm:text-5xl lg:text-6xl">
                   Who is this membership for?
                 </h2>
-                <p className="mt-5 max-w-xl text-[15px] leading-7 text-white/65">
-                  Add the details for each person covered by this membership. We’ll use them to connect the right access in the MTC app.
+                <p className="mt-4 max-w-2xl text-base leading-7 text-white/70 sm:text-lg">
+                  Add the details for each person covered by the membership. We use these details to connect the correct access in the MTC app. Payment is handled securely by Stripe on the next step.
                 </p>
               </div>
 
-              <div className="mt-9 space-y-5">
+              <div className="mt-8 space-y-5">
                 {requiredBeneficiarySpecs.map((spec, index) => {
                   const draft = beneficiaryDrafts[spec.key];
-                  const isChild = spec.beneficiaryType === "child";
 
                   return (
-                    <div
-                      key={spec.key}
-                      className="overflow-hidden rounded-[24px] border border-white/12 bg-[#151515] shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
-                    >
-                      <div className="flex items-start justify-between gap-4 border-b border-white/8 px-5 py-5 sm:px-7 sm:py-6">
+                    <div key={spec.key} className="rounded-2xl border border-white/15 bg-white/[0.045] p-6 shadow-sm sm:p-8">
+                      <div className="flex items-start justify-between gap-4">
                         <div className="flex min-w-0 items-start gap-4">
                           <div
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-black"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black"
                             style={{ background: primary, color: "var(--store-button-text)" }}
                           >
                             {index + 1}
                           </div>
                           <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-xl font-black tracking-[-0.02em] text-white">{spec.title}</h3>
-                              <span className="rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.14em] text-white/65">
-                                {isChild ? "Child member" : "Adult member"}
-                              </span>
-                            </div>
-                            <p className="mt-2 text-sm leading-6 text-white/55">{spec.description}</p>
+                            <h3 className="text-2xl font-black text-white">{spec.title}</h3>
+                            <p className="mt-1 text-sm font-bold uppercase tracking-[0.08em] text-white/55">
+                              {spec.productName}{spec.planCode ? ` · ${spec.planCode}` : ""}
+                            </p>
+                            <p className="mt-2 text-base leading-6 text-white/70">{spec.description}</p>
                           </div>
                         </div>
+                        <span className="shrink-0 rounded-full bg-white/10 px-3 py-2 text-xs font-black uppercase tracking-[0.1em] text-white/75">
+                          {spec.beneficiaryType}
+                        </span>
                       </div>
 
-                      <div className="grid gap-5 px-5 py-6 sm:grid-cols-2 sm:px-7 sm:py-7">
+                      <div className="mt-6 grid gap-3 sm:grid-cols-2">
                         <label className="block">
-                          <span className="mb-2.5 block text-[10px] font-black uppercase tracking-[0.13em] text-white/70">First name *</span>
+                          <span className="mb-2 block text-sm font-black uppercase tracking-[0.1em] text-white/75">First name *</span>
                           <input
                             type="text"
                             value={draft?.firstName || ""}
                             disabled={checkingOut}
                             onChange={(event) => updateBeneficiaryDraft(spec, "firstName", event.target.value)}
                             autoComplete="given-name"
-                            className="w-full rounded-xl border border-white/15 bg-[#0d0d0d] px-4 py-3.5 text-[15px] font-semibold text-white outline-none transition placeholder:text-white/25 focus:border-white/35 focus:bg-[#101010] disabled:opacity-50"
+                            className="w-full rounded-xl border border-white/20 bg-black/25 px-4 py-4 text-base font-semibold text-white outline-none transition placeholder:text-white/30 focus:border-white/45 focus:bg-black/35 disabled:opacity-50"
                           />
                         </label>
 
                         <label className="block">
-                          <span className="mb-2.5 block text-[10px] font-black uppercase tracking-[0.13em] text-white/70">Last name *</span>
+                          <span className="mb-2 block text-sm font-black uppercase tracking-[0.1em] text-white/75">Last name *</span>
                           <input
                             type="text"
                             value={draft?.lastName || ""}
                             disabled={checkingOut}
                             onChange={(event) => updateBeneficiaryDraft(spec, "lastName", event.target.value)}
                             autoComplete="family-name"
-                            className="w-full rounded-xl border border-white/15 bg-[#0d0d0d] px-4 py-3.5 text-[15px] font-semibold text-white outline-none transition focus:border-white/35 focus:bg-[#101010] disabled:opacity-50"
+                            className="w-full rounded-xl border border-white/20 bg-black/25 px-4 py-4 text-base font-semibold text-white outline-none transition placeholder:text-white/30 focus:border-white/45 focus:bg-black/35 disabled:opacity-50"
                           />
                         </label>
 
                         <label className="block sm:col-span-2">
-                          <span className="mb-2.5 block text-[10px] font-black uppercase tracking-[0.13em] text-white/70">
+                          <span className="mb-2 block text-sm font-black uppercase tracking-[0.1em] text-white/75">
                             Email {spec.emailRequired ? "*" : "(optional)"}
                           </span>
                           <input
@@ -5610,19 +5590,19 @@ export default function ShopFrontPage() {
                             disabled={checkingOut}
                             onChange={(event) => updateBeneficiaryDraft(spec, "email", event.target.value)}
                             autoComplete="email"
-                            className="w-full rounded-xl border border-white/15 bg-[#0d0d0d] px-4 py-3.5 text-[15px] font-semibold text-white outline-none transition focus:border-white/35 focus:bg-[#101010] disabled:opacity-50"
+                            className="w-full rounded-xl border border-white/20 bg-black/25 px-4 py-4 text-base font-semibold text-white outline-none transition placeholder:text-white/30 focus:border-white/45 focus:bg-black/35 disabled:opacity-50"
                           />
                         </label>
 
                         <label className="block sm:col-span-2">
-                          <span className="mb-2.5 block text-[10px] font-black uppercase tracking-[0.13em] text-white/70">Phone (optional)</span>
+                          <span className="mb-2 block text-sm font-black uppercase tracking-[0.1em] text-white/75">Phone (optional)</span>
                           <input
                             type="tel"
                             value={draft?.phone || ""}
                             disabled={checkingOut}
                             onChange={(event) => updateBeneficiaryDraft(spec, "phone", event.target.value)}
                             autoComplete="tel"
-                            className="w-full rounded-xl border border-white/15 bg-[#0d0d0d] px-4 py-3.5 text-[15px] font-semibold text-white outline-none transition focus:border-white/35 focus:bg-[#101010] disabled:opacity-50"
+                            className="w-full rounded-xl border border-white/20 bg-black/25 px-4 py-4 text-base font-semibold text-white outline-none transition placeholder:text-white/30 focus:border-white/45 focus:bg-black/35 disabled:opacity-50"
                           />
                         </label>
                       </div>
@@ -5632,75 +5612,64 @@ export default function ShopFrontPage() {
               </div>
             </section>
 
-            <aside className="lg:sticky lg:top-32 lg:self-start">
-              <div className="overflow-hidden rounded-[24px] border border-white/12 bg-[#151515] shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
-                <div className="border-b border-white/8 px-6 py-6">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Your membership</p>
+            <aside className="lg:sticky lg:top-28 lg:self-start">
+              <div className="rounded-2xl border border-white/15 bg-white/[0.045] p-6 shadow-sm sm:p-7">
+                <p className="text-sm font-black uppercase tracking-[0.14em] text-white/55">Your membership</p>
 
-                  <div className="mt-5 space-y-5">
-                    {membershipLines.map((line) => (
-                      <div key={line.product.id} className="flex items-start justify-between gap-5">
-                        <div className="min-w-0">
-                          <p className="text-[15px] font-black leading-5 text-white">{line.product.name}</p>
-                          <p className="mt-1.5 text-xs font-medium text-white/45">
-                            {line.quantity > 1 ? `${line.quantity} memberships` : "Monthly membership"}
-                          </p>
-                        </div>
-                        <p className="shrink-0 text-xl font-black tracking-[-0.03em] text-white">
-                          {formatCurrency(Number(line.product.price || 0) * line.quantity)}
+                <div className="mt-5 space-y-4">
+                  {membershipLines.map((line) => (
+                    <div key={line.product.id} className="flex items-start justify-between gap-4 border-b border-stone-100 pb-4 last:border-0 last:pb-0">
+                      <div>
+                        <p className="text-lg font-black text-white">{line.product.name}</p>
+                        <p className="mt-1 text-sm text-white/55">
+                          {line.quantity > 1 ? `${line.quantity} memberships` : "Monthly membership"}
                         </p>
                       </div>
-                    ))}
-                  </div>
+                      <p className="font-serif text-2xl italic text-white">
+                        {formatCurrency(Number(line.product.price || 0) * line.quantity)}
+                      </p>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="px-6 py-6">
-                  <div className="flex items-end justify-between gap-4">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">Total today</p>
-                      <p className="mt-1 text-xs text-white/45">Then billed monthly</p>
-                    </div>
-                    <strong className="text-3xl font-black tracking-[-0.04em] text-white">{formatCurrency(cartTotal)}</strong>
+                <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-base font-semibold text-white/70">Subtotal</span>
+                    <strong className="font-serif text-3xl italic text-white">{formatCurrency(cartTotal)}</strong>
                   </div>
+                  <p className="mt-2 text-sm leading-5 text-white/55">Any valid discount code from your basket will be verified during checkout.</p>
+                </div>
 
-                  <div className="mt-5 flex items-start gap-3 rounded-xl border border-white/8 bg-white/[0.035] px-4 py-3.5">
-                    <ShieldCheck size={16} className="mt-0.5 shrink-0 text-white/50" />
-                    <p className="text-[11px] leading-5 text-white/50">
-                      Your member details are used to connect access in the MTC app. Payment is completed securely with Stripe.
-                    </p>
+                {checkoutError && (
+                  <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/15 px-4 py-4">
+                    <p className="text-sm font-semibold leading-6 text-red-200">{checkoutError}</p>
                   </div>
+                )}
 
-                  {checkoutError && (
-                    <div className="mt-4 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3">
-                      <p className="text-[11px] font-semibold leading-5 text-red-300">{checkoutError}</p>
-                    </div>
+                <button
+                  type="button"
+                  disabled={checkingOut}
+                  onClick={() => void startCheckout()}
+                  data-store-primary="true"
+                  className="store-primary-action mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-4 text-base font-black uppercase tracking-[0.12em] shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  style={{ background: primary }}
+                >
+                  {checkingOut ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" />
+                      Preparing secure payment...
+                    </>
+                  ) : (
+                    <>
+                      Continue to secure payment
+                      <ArrowRight size={13} />
+                    </>
                   )}
+                </button>
 
-                  <button
-                    type="button"
-                    disabled={checkingOut}
-                    onClick={() => void startCheckout()}
-                    data-store-primary="true"
-                    className="store-primary-action mt-5 flex w-full items-center justify-between rounded-xl px-5 py-4 text-[10px] font-black uppercase tracking-[0.16em] shadow-sm transition hover:-translate-y-0.5 hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
-                    style={{ background: primary, color: "var(--store-button-text)" }}
-                  >
-                    {checkingOut ? (
-                      <>
-                        <span>Preparing secure payment...</span>
-                        <Loader2 size={15} className="animate-spin" />
-                      </>
-                    ) : (
-                      <>
-                        <span>Continue to payment</span>
-                        <ArrowRight size={16} />
-                      </>
-                    )}
-                  </button>
-
-                  <div className="mt-4 flex items-center justify-center gap-2 text-[9px] font-semibold text-white/35">
-                    <LockKeyhole size={11} />
-                    Secure payment powered by Stripe
-                  </div>
+                <div className="mt-3 flex items-center justify-center gap-2 text-sm text-white/50">
+                  <LockKeyhole size={10} />
+                  Secure payment powered by Stripe
                 </div>
               </div>
             </aside>
@@ -5718,6 +5687,87 @@ export default function ShopFrontPage() {
 // PRODUCT CARD
 // ============================================================
 
+
+function MembershipShopSections({
+  products,
+  primary,
+  onChoose,
+}: {
+  products: Product[];
+  primary: string;
+  onChoose: (product: Product) => void;
+}) {
+  const classify = (product: Product) => {
+    const value = `${product.name || ""} ${product.sku || ""} ${(product as any).external_plan_code || ""}`.toLowerCase();
+    if (/kid|child/.test(value)) return "kids";
+    if (/couple|joint|partner/.test(value)) return "joint";
+    if (/drop[ -]?in|day pass|single session/.test(value)) return "dropin";
+    return "adult";
+  };
+
+  const sections = [
+    {
+      key: "adult",
+      eyebrow: "For you",
+      title: "Adult memberships",
+      description: "Choose your weekly allowance or go unlimited.",
+    },
+    {
+      key: "joint",
+      eyebrow: "Train together",
+      title: "Couples memberships",
+      description: "One membership covering two adults, with access managed individually in the MTC app.",
+    },
+    {
+      key: "kids",
+      eyebrow: "Junior training",
+      title: "Kids memberships",
+      description: "Choose 1, 2 or 3 Kids sessions per week, with Adult Open Gym options where available.",
+    },
+    {
+      key: "dropin",
+      eyebrow: "No membership needed",
+      title: "Drop-in",
+      description: "Pay for a single session without starting a monthly membership.",
+    },
+  ] as const;
+
+  return (
+    <div className="mt-12 space-y-16 lg:space-y-20">
+      {sections.map((section) => {
+        const items = products.filter((product) => classify(product) === section.key);
+        if (!items.length) return null;
+
+        return (
+          <section key={section.key} id={`memberships-${section.key}`}>
+            <div className="mb-7 border-b border-white/10 pb-6">
+              <p className="text-sm font-black uppercase tracking-[.16em]" style={{ color: primary }}>
+                {section.eyebrow}
+              </p>
+              <h3 className="mt-2 text-3xl font-black uppercase tracking-[-.035em] sm:text-4xl lg:text-5xl">
+                {section.title}
+              </h3>
+              <p className="mt-3 max-w-2xl text-base leading-7" style={{ color: "var(--store-muted)" }}>
+                {section.description}
+              </p>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              {items.map((product) => (
+                <MembershipCard
+                  key={product.id}
+                  product={product}
+                  primary={primary}
+                  onChoose={() => onChoose(product)}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
 
 function MembershipCard({
   product,

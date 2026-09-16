@@ -2972,7 +2972,7 @@ export default function ShopFrontPage() {
       className={`tots-store min-h-screen ${
         membershipLayout
           ? "tots-store-memberships"
-          : ""
+          : `tots-store-${layoutStyle}`
       }`}
       style={
         {
@@ -3166,6 +3166,71 @@ export default function ShopFrontPage() {
         .tots-store-memberships #shop { padding-top: 5rem !important; }
         .tots-store-memberships #shop h2 { font-size: clamp(3rem, 5vw, 5.5rem) !important; line-height: .9 !important; font-style: normal !important; font-weight: 900 !important; text-transform: uppercase; letter-spacing: -.05em !important; }
         @media (max-width: 1023px) { .tots-store-memberships #top h1 { font-size: clamp(3.8rem, 15vw, 6rem) !important; } }
+
+        /* ====================================================
+           MINIMAL — editorial, calm and premium
+        ==================================================== */
+        .tots-store-minimal header {
+          border-bottom: 1px solid var(--store-border) !important;
+          box-shadow: 0 1px 0 rgba(0,0,0,.02);
+        }
+        .tots-store-minimal .store-hero { padding-top: 2.25rem !important; padding-bottom: 3.25rem !important; }
+        .tots-store-minimal #top > div {
+          max-width: 1280px !important;
+          box-shadow: 0 24px 80px rgba(28,25,23,.07) !important;
+          border-color: var(--store-border) !important;
+        }
+        .tots-store-minimal #top > div > div { grid-template-columns: 1.02fr .98fr !important; }
+        .tots-store-minimal #top > div > div > div:first-child { min-height: 520px !important; }
+        .tots-store-minimal #top h1 {
+          font-size: clamp(3.1rem,5.3vw,5.9rem) !important;
+          line-height: .94 !important;
+          letter-spacing: -.055em !important;
+          max-width: 760px !important;
+        }
+        .tots-store-minimal #top p { font-size: 1rem !important; line-height: 1.8 !important; max-width: 610px !important; }
+        .tots-store-minimal #top > div > div > div:last-child:after {
+          content: ""; position: absolute; inset: 0; pointer-events: none;
+          background: linear-gradient(135deg, transparent 35%, color-mix(in srgb, var(--brand) 12%, transparent));
+        }
+        .tots-store-minimal #shop { padding-top: 5rem !important; }
+        .tots-store-minimal #shop h2 { font-size: clamp(2.7rem,4vw,4.6rem) !important; line-height: .98 !important; letter-spacing: -.045em !important; }
+        .tots-store-minimal .store-product-card {
+          border-width: 1px !important; box-shadow: none !important; transform: none !important;
+          transition: transform .35s ease, box-shadow .35s ease, border-color .35s ease !important;
+        }
+        .tots-store-minimal .store-product-card:hover { transform: translateY(-5px) !important; box-shadow: 0 24px 60px rgba(28,25,23,.09) !important; }
+        .tots-store-minimal .store-product-image { aspect-ratio: 1 / 1 !important; }
+        .tots-store-minimal .store-product-content { padding: 1.5rem !important; }
+        .tots-store-minimal .store-product-content h3 { font-size: 1.05rem !important; line-height: 1.35 !important; }
+
+        /* ====================================================
+           CLASSIC — confident modern independent shop
+        ==================================================== */
+        .tots-store-classic header { box-shadow: 0 10px 35px rgba(0,0,0,.05); }
+        .tots-store-classic .store-hero { padding-top: 1.25rem !important; padding-bottom: 2.25rem !important; }
+        .tots-store-classic #top > div { max-width: 1440px !important; border: 0 !important; box-shadow: none !important; }
+        .tots-store-classic #top > div > div { grid-template-columns: .9fr 1.1fr !important; }
+        .tots-store-classic #top > div > div > div:first-child { min-height: 570px !important; }
+        .tots-store-classic #top h1 { font-size: clamp(3.5rem,6vw,6.8rem) !important; line-height: .9 !important; letter-spacing: -.06em !important; }
+        .tots-store-classic #top p { font-size: 1rem !important; line-height: 1.75 !important; }
+        .tots-store-classic #top > div > div > div:last-child { min-height: 570px !important; }
+        .tots-store-classic #top > div > div > div:last-child img { transform: scale(1.02); }
+        .tots-store-classic #shop { padding-top: 5.5rem !important; }
+        .tots-store-classic #shop h2 { font-size: clamp(3rem,4.8vw,5.4rem) !important; line-height: .92 !important; letter-spacing: -.05em !important; }
+        .tots-store-classic .store-product-card { box-shadow: 0 12px 34px rgba(0,0,0,.055); }
+        .tots-store-classic .store-product-card:hover { box-shadow: 0 28px 70px rgba(0,0,0,.13) !important; }
+        .tots-store-classic .store-product-image { aspect-ratio: 4 / 3 !important; }
+        .tots-store-classic .store-product-content { padding: 1.6rem !important; }
+        .tots-store-classic .store-product-content h3 { font-size: 1.1rem !important; line-height: 1.35 !important; }
+
+        @media (max-width: 1023px) {
+          .tots-store-minimal #top > div > div,
+          .tots-store-classic #top > div > div { grid-template-columns: 1fr !important; }
+          .tots-store-minimal #top > div > div > div:first-child,
+          .tots-store-classic #top > div > div > div:first-child { min-height: auto !important; }
+          .tots-store-classic #top h1, .tots-store-minimal #top h1 { font-size: clamp(3rem,12vw,5rem) !important; }
+        }
       `}</style>
 
       {/* =====================================================
@@ -3439,7 +3504,7 @@ export default function ShopFrontPage() {
 
       <section
         id="top"
-        className="px-4 pb-8 pt-5 sm:px-6 lg:px-8 lg:pt-7"
+        className="store-hero px-4 pb-8 pt-5 sm:px-6 lg:px-8 lg:pt-7"
       >
         <div className="mx-auto max-w-[1360px] overflow-hidden border shadow-[0_16px_50px_rgba(0,0,0,0.12)]" style={{ borderRadius: `${storeRadius}px`, background: storeSurface, borderColor: storeBorder }}>
 
@@ -5661,7 +5726,7 @@ function ProductCard({
 
   return (
     <article
-      className="group flex min-w-0 flex-col overflow-hidden border transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_55px_rgba(0,0,0,0.16)]"
+      className="store-product-card group flex min-w-0 flex-col overflow-hidden border transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_55px_rgba(0,0,0,0.16)]"
       style={{
         borderRadius:
           "var(--store-radius)",
@@ -5675,7 +5740,7 @@ function ProductCard({
       {/* IMAGE */}
 
       <div
-        className={`relative overflow-hidden bg-[#f2f0ec] ${
+        className={`store-product-image relative overflow-hidden bg-[#f2f0ec] ${
           featuredLayout
             ? "aspect-[16/11]"
             : "aspect-[4/3]"
@@ -5744,7 +5809,7 @@ function ProductCard({
 
       {/* CONTENT */}
 
-      <div className="flex flex-1 flex-col p-5">
+      <div className="store-product-content flex flex-1 flex-col p-5">
 
         <p
           className="text-[7px] font-black uppercase tracking-[0.16em]"

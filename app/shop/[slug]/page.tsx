@@ -1192,6 +1192,15 @@ export default function ShopFrontPage() {
   const isOrganisedTypes =
     slug.toLowerCase() === "the-organised-types";
 
+  const isMTC =
+    slug.toLowerCase() === "moray-training-club";
+
+  const MTC_APP_URL =
+    "https://app.morayperformanceandwellbeing.com";
+
+  const MTC_MEMBERSHIP_URL =
+    `${MTC_APP_URL}/membership`;
+
   // ==========================================================
   // REQUEST MANAGEMENT
   // ==========================================================
@@ -2963,6 +2972,7 @@ export default function ShopFrontPage() {
     "minimal";
 
   const membershipLayout =
+    isMTC ||
     layoutStyle ===
     "memberships";
 
@@ -3469,7 +3479,7 @@ export default function ShopFrontPage() {
               </p>
 
               <p className="mt-0.5 hidden text-[9px] text-stone-400 sm:block">
-                Online store
+                {isMTC ? "Membership Store" : "Online store"}
               </p>
             </div>
           </a>
@@ -3498,6 +3508,16 @@ export default function ShopFrontPage() {
             >
               About
             </a>
+
+            {isMTC && (
+              <a
+                href={MTC_MEMBERSHIP_URL}
+                className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2 text-xs font-bold text-stone-700 no-underline transition hover:border-stone-300 hover:shadow-sm"
+              >
+                Back to MTC App
+                <ExternalLink size={13} />
+              </a>
+            )}
 
             <button
               type="button"
@@ -3608,6 +3628,18 @@ export default function ShopFrontPage() {
                 }
               />
 
+              {isMTC && (
+                <MobileMenuLink
+                  href={MTC_MEMBERSHIP_URL}
+                  label="Back to MTC App"
+                  onClick={() =>
+                    setMobileMenuOpen(
+                      false
+                    )
+                  }
+                />
+              )}
+
               {featuredProducts.length >
                 0 && (
                 <MobileMenuLink
@@ -3689,15 +3721,15 @@ export default function ShopFrontPage() {
                     size={11}
                   />
 
-                  {membershipLayout ? "BUILT FOR YOUR TRAINING" : <>Welcome to{" "}{storeName}</>}
+                  {isMTC ? "MORAY TRAINING CLUB" : membershipLayout ? "BUILT FOR YOUR TRAINING" : <>Welcome to{" "}{storeName}</>}
                 </div>
 
                 <h1 className="mt-6 max-w-[720px] text-[3.4rem] font-semibold leading-[0.92] tracking-[-0.035em] sm:text-6xl lg:text-[4.5rem]" style={{ fontFamily: headingFont, color: pageText }}>
-                  {membershipLayout ? "TRAIN YOUR WAY." : (store.hero_title || `Everything you need, all in one place.`)}
+                  {isMTC ? "CHOOSE YOUR MEMBERSHIP." : membershipLayout ? "TRAIN YOUR WAY." : (store.hero_title || `Everything you need, all in one place.`)}
                 </h1>
 
                 <p className="mt-6 max-w-xl text-sm leading-7 text-stone-500 sm:text-[15px]">
-                  {membershipLayout ? "Choose a membership that fits how you train — from weekly sessions to unlimited access." : isOrganisedTypes ? "Websites, marketing, branding and practical business support — all in one place." : (store.hero_text || store.store_description || `Explore products and services from ${storeName}.`)}
+                  {isMTC ? "Choose the MTC membership that fits how you train. Once activated, return to the MTC app to book classes and manage your training." : membershipLayout ? "Choose a membership that fits how you train — from weekly sessions to unlimited access." : isOrganisedTypes ? "Websites, marketing, branding and practical business support — all in one place." : (store.hero_text || store.store_description || `Explore products and services from ${storeName}.`)}
                 </p>
 
                 <div className="mt-8 flex flex-wrap gap-3">
@@ -3728,6 +3760,16 @@ export default function ShopFrontPage() {
                   >
                     Ask a question
                   </button>
+
+                  {isMTC && (
+                    <a
+                      href={MTC_MEMBERSHIP_URL}
+                      className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-stone-600 no-underline transition hover:border-stone-300 hover:bg-stone-50"
+                    >
+                      Back to MTC App
+                      <ExternalLink size={13} />
+                    </a>
+                  )}
 
                 </div>
 

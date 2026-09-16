@@ -3389,6 +3389,73 @@ export default function ShopFrontPage() {
         @media (max-width: 1023px) { .tots-store-memberships #top h1 { font-size: clamp(3.8rem, 15vw, 6rem) !important; } }
 
         /* ====================================================
+           MEMBERSHIP CART — high contrast MTC checkout
+        ==================================================== */
+        .membership-cart {
+          background: #0b0b0b !important;
+          color: #fff !important;
+          border-left: 1px solid rgba(255,255,255,.10) !important;
+        }
+        .membership-cart > div:first-of-type {
+          padding: 28px 30px !important;
+          border-color: rgba(255,255,255,.10) !important;
+        }
+        .membership-cart > div:first-of-type p { color: rgba(255,255,255,.48) !important; }
+        .membership-cart > div:first-of-type h3 {
+          color: #fff !important; font-family: var(--store-heading-font) !important;
+          font-style: normal !important; font-weight: 900 !important; text-transform: uppercase;
+          letter-spacing: -.04em !important;
+        }
+        .membership-cart > div:first-of-type button { background: #fff !important; color: #111 !important; }
+        .membership-cart > div:nth-of-type(2) { padding: 22px 30px 8px !important; }
+        .membership-cart > div:nth-of-type(2) > div > div {
+          background: #151515 !important; border: 1px solid rgba(255,255,255,.10) !important;
+          padding: 18px !important; border-radius: 0 !important;
+        }
+        .membership-cart > div:nth-of-type(2) > div > div > div > div:first-child {
+          background: #0b0b0b !important; border: 1px solid rgba(255,255,255,.10) !important;
+          width: 78px !important; height: 92px !important; border-radius: 0 !important;
+        }
+        .membership-cart > div:nth-of-type(2) p { color: rgba(255,255,255,.58) !important; }
+        .membership-cart > div:nth-of-type(2) p.text-xs {
+          color: #fff !important; font-size: 15px !important; line-height: 1.25 !important;
+          font-weight: 900 !important; text-transform: uppercase; letter-spacing: -.015em; white-space: normal !important;
+        }
+        .membership-cart > div:nth-of-type(2) .font-serif {
+          color: #fff !important; font-family: var(--store-heading-font) !important; font-style: normal !important; font-weight: 900 !important;
+        }
+        .membership-cart > div:nth-of-type(2) button { background: #0b0b0b !important; color: #fff !important; border-color: rgba(255,255,255,.12) !important; }
+        .membership-cart-footer {
+          margin-top: 10px !important; padding: 22px 30px 28px !important;
+          background: #0b0b0b !important; border-color: rgba(255,255,255,.10) !important;
+        }
+        .membership-cart-footer > div:first-child {
+          padding: 0 !important; border: 0 !important; background: transparent !important;
+        }
+        .membership-cart-footer > div:first-child > div:first-child { cursor: default; }
+        .membership-cart-footer input { background: #151515 !important; color: #fff !important; border: 1px solid rgba(255,255,255,.12) !important; }
+        .membership-cart-footer input::placeholder { color: rgba(255,255,255,.35) !important; }
+        .membership-cart-footer > div:nth-child(2) {
+          background: transparent !important; border: 0 !important; padding: 12px 0 0 !important;
+        }
+        .membership-cart-footer > div:nth-child(2) > div { background: transparent !important; padding: 0 !important; }
+        .membership-cart-footer > div:nth-child(2) p { color: rgba(255,255,255,.48) !important; }
+        .membership-cart-footer .border-t { border-color: rgba(255,255,255,.12) !important; }
+        .membership-cart-footer strong {
+          color: #fff !important; font-family: var(--store-heading-font) !important; font-style: normal !important; font-weight: 900 !important;
+        }
+        .membership-cart-footer .store-primary-action {
+          min-height: 56px !important; background: var(--store-button) !important; color: var(--store-button-text) !important;
+          border: 0 !important; border-radius: 0 !important; font-size: 10px !important; letter-spacing: .18em !important;
+        }
+        .membership-cart-footer > div:last-child { color: rgba(255,255,255,.38) !important; }
+        @media (max-width: 640px) {
+          .membership-cart > div:first-of-type,
+          .membership-cart > div:nth-of-type(2),
+          .membership-cart-footer { padding-left: 20px !important; padding-right: 20px !important; }
+        }
+
+        /* ====================================================
            MINIMAL — editorial, calm and premium
         ==================================================== */
         .tots-store-minimal header {
@@ -5031,12 +5098,10 @@ export default function ShopFrontPage() {
             }}
           />
 
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col shadow-2xl"
+          <aside className={`absolute right-0 top-0 flex h-full w-full max-w-[520px] flex-col shadow-2xl ${membershipLayout ? "membership-cart" : ""}`}
           style={{
-            background:
-              storeSurface,
-            color:
-              pageText,
+            background: membershipLayout ? "#0b0b0b" : storeSurface,
+            color: membershipLayout ? "#ffffff" : pageText,
           }}>
 
             {/* HEADER */}
@@ -5088,7 +5153,7 @@ export default function ShopFrontPage() {
 
             {/* ITEMS */}
 
-            <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+            <div className={`${membershipLayout && cartLines.length > 0 ? "flex-none" : "flex-1"} overflow-y-auto px-5 py-5 sm:px-6`}>
 
               {cartLines.length ===
               0 ? (
@@ -5299,7 +5364,7 @@ export default function ShopFrontPage() {
 
             {cartLines.length >
               0 && (
-              <div className="border-t border-stone-100 bg-white px-5 pb-5 pt-5 sm:px-6">
+              <div className={`border-t border-stone-100 bg-white px-5 pb-5 pt-5 sm:px-6 ${membershipLayout ? "membership-cart-footer" : ""}`}>
 
                 {/* DISCOUNT */}
 

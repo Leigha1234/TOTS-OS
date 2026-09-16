@@ -659,58 +659,58 @@ function getProductImage(
   // stores continue to use their normal database image_url/fallback imagery.
   const organisedTypesServiceImages: Record<string, string> = {
     // Monthly services
-    "MONTHLY-WEB-CARE": "/images/tots-services/monthly-services/website-care.webp",
-    "MONTHLY-WEB-GROWTH": "/images/tots-services/monthly-services/website-care-growth.webp",
-    "MONTHLY-SOCIAL-ESS": "/images/tots-services/monthly-services/social-media-essentials.webp",
-    "MONTHLY-SOCIAL-GROWTH": "/images/tots-services/monthly-services/social-media-growth.webp",
-    "MONTHLY-MARKETING-PARTNER": "/images/tots-services/monthly-services/marketing-partner.webp",
-    "MONTHLY-GOOGLE-ADS": "/images/tots-services/monthly-services/google-ads-management.webp",
-    "MONTHLY-EMAIL-MKTG": "/images/tots-services/monthly-services/email-marketing-management.webp",
-    "MONTHLY-BIZ-SUPPORT": "/images/tots-services/monthly-services/business-support.webp",
-    "MONTHLY-BIZ-SUPPORT-PLUS": "/images/tots-services/monthly-services/business-support-plus.webp",
-    "MONTHLY-SEO-GROWTH": "/images/tots-services/monthly-services/seo-content-growth.webp",
+    "MONTHLY-WEB-CARE": "/images/tots-services/monthly-services/website-care.png",
+    "MONTHLY-WEB-GROWTH": "/images/tots-services/monthly-services/website-care-growth.png",
+    "MONTHLY-SOCIAL-ESS": "/images/tots-services/monthly-services/social-media-essentials.png",
+    "MONTHLY-SOCIAL-GROWTH": "/images/tots-services/monthly-services/social-media-growth.png",
+    "MONTHLY-MARKETING-PARTNER": "/images/tots-services/monthly-services/marketing-partner.png",
+    "MONTHLY-GOOGLE-ADS": "/images/tots-services/monthly-services/google-ads-management.png",
+    "MONTHLY-EMAIL-MKTG": "/images/tots-services/monthly-services/email-marketing-management.png",
+    "MONTHLY-BIZ-SUPPORT": "/images/tots-services/monthly-services/business-support.png",
+    "MONTHLY-BIZ-SUPPORT-PLUS": "/images/tots-services/monthly-services/business-support-plus.png",
+    "MONTHLY-SEO-GROWTH": "/images/tots-services/monthly-services/seo-content-growth.png",
 
     // Websites
-    "WEB-MICRO": "/images/tots-services/websites/micro-website.webp",
-    "WEB-STARTER": "/images/tots-services/websites/starter-website.webp",
-    "WEB-SMALL": "/images/tots-services/websites/small-business-website.webp",
-    "WEB-PRO": "/images/tots-services/websites/pro-website.webp",
-    "WEB-ENTERPRISE": "/images/tots-services/websites/enterprise-website.webp",
+    "WEB-MICRO": "/images/tots-services/websites/micro-website.png",
+    "WEB-STARTER": "/images/tots-services/websites/starter-website.png",
+    "WEB-SMALL": "/images/tots-services/websites/small-business-website.png",
+    "WEB-PRO": "/images/tots-services/websites/pro-website.png",
+    "WEB-ENTERPRISE": "/images/tots-services/websites/enterprise-website.png",
 
     // Website add-ons. The image pack is intentionally reused where the visual
     // concept fits more than one closely-related add-on.
-    "ADD-LOGO": "/images/tots-services/branding/brand-starter-kit.webp",
-    "ADD-BRAND-GUIDE": "/images/tots-services/branding/brand-essential-kit.webp",
-    "ADD-PHOTO": "/images/tots-services/marketing/content-creation-day.webp",
-    "ADD-PAGE": "/images/tots-services/website-addons/extra-page-design.webp",
-    "ADD-SEO": "/images/tots-services/monthly-services/seo-content-growth.webp",
-    "ADD-CRM": "/images/tots-services/website-addons/crm-email-integration.webp",
-    "ADD-PORTAL": "/images/tots-services/website-addons/membership-client-portal.webp",
-    "ADD-BLOG": "/images/tots-services/website-addons/dedicated-blog-setup.webp",
-    "ADD-MAINT-HOURLY": "/images/tots-services/monthly-services/website-care.webp",
+    "ADD-LOGO": "/images/tots-services/branding/brand-starter-kit.png",
+    "ADD-BRAND-GUIDE": "/images/tots-services/branding/brand-essential-kit.png",
+    "ADD-PHOTO": "/images/tots-services/marketing/content-creation-day.png",
+    "ADD-PAGE": "/images/tots-services/website-addons/extra-page-design.png",
+    "ADD-SEO": "/images/tots-services/monthly-services/seo-content-growth.png",
+    "ADD-CRM": "/images/tots-services/website-addons/crm-email-integration.png",
+    "ADD-PORTAL": "/images/tots-services/website-addons/membership-client-portal.png",
+    "ADD-BLOG": "/images/tots-services/website-addons/dedicated-blog-setup.png",
+    "ADD-MAINT-HOURLY": "/images/tots-services/monthly-services/website-care.png",
 
     // One-off marketing
-    "MARKETING-GADS-SETUP": "/images/tots-services/marketing/google-ads-setup.webp",
-    "MARKETING-SOCIAL-SETUP": "/images/tots-services/marketing/social-media-setup.webp",
-    "MARKETING-EMAIL-SETUP": "/images/tots-services/marketing/email-marketing-setup.webp",
-    "MARKETING-CONTENT-DAY": "/images/tots-services/marketing/content-creation-day.webp",
+    "MARKETING-GADS-SETUP": "/images/tots-services/marketing/google-ads-setup.png",
+    "MARKETING-SOCIAL-SETUP": "/images/tots-services/marketing/social-media-setup.png",
+    "MARKETING-EMAIL-SETUP": "/images/tots-services/marketing/email-marketing-setup.png",
+    "MARKETING-CONTENT-DAY": "/images/tots-services/marketing/content-creation-day.png",
 
     // Branding
-    "BRAND-STARTER": "/images/tots-services/branding/brand-starter-kit.webp",
-    "BRAND-KICKSTART": "/images/tots-services/branding/brand-kickstart.webp",
-    "BRAND-ESSENTIAL": "/images/tots-services/branding/brand-essential-kit.webp",
-    "BRAND-COMPLETE": "/images/tots-services/branding/brand-complete-suite.webp",
-    "BRAND-SIGNATURE": "/images/tots-services/branding/brand-signature-kit.webp",
-    "BRAND-PREMIUM-SOCIAL": "/images/tots-services/branding/premium-brand-social-kit.webp",
+    "BRAND-STARTER": "/images/tots-services/branding/brand-starter-kit.png",
+    "BRAND-KICKSTART": "/images/tots-services/branding/brand-kickstart.png",
+    "BRAND-ESSENTIAL": "/images/tots-services/branding/brand-essential-kit.png",
+    "BRAND-COMPLETE": "/images/tots-services/branding/brand-complete-suite.png",
+    "BRAND-SIGNATURE": "/images/tots-services/branding/brand-signature-kit.png",
+    "BRAND-PREMIUM-SOCIAL": "/images/tots-services/branding/premium-brand-social-kit.png",
 
     // Business coaching
-    "COACH-CLARITY": "/images/tots-services/coaching/clarity-call.webp",
-    "COACH-90DAY": "/images/tots-services/coaching/90-day-accelerator.webp",
-    "COACH-EXEC-6M": "/images/tots-services/coaching/executive-strategy.webp",
+    "COACH-CLARITY": "/images/tots-services/coaching/clarity-call.png",
+    "COACH-90DAY": "/images/tots-services/coaching/90-day-accelerator.png",
+    "COACH-EXEC-6M": "/images/tots-services/coaching/executive-strategy.png",
 
     // TOTS-OS services
-    "TOTS-DFY-SETUP": "/images/tots-services/tots-os/tots-os-done-for-you-setup.webp",
-    "MONTHLY-TOTS-CONCIERGE": "/images/tots-services/tots-os/tots-os-concierge.webp",
+    "TOTS-DFY-SETUP": "/images/tots-services/tots-os/tots-os-done-for-you-setup.png",
+    "MONTHLY-TOTS-CONCIERGE": "/images/tots-services/tots-os/tots-os-concierge.png",
   };
 
   const curatedImage = product.sku

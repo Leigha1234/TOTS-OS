@@ -3564,15 +3564,32 @@ export async function POST(
         req
       );
 
+    const isMtcMembershipCheckout =
+      isSubscriptionCheckout &&
+      subscriptionLines.length === 1 &&
+      subscriptionLines.every(
+        (line) =>
+          isMtcMembershipProduct(
+            line.product
+          )
+      );
+
+    const mtcMembershipUrl =
+      "https://app.morayperformanceandwellbeing.com/membership";
+
     const successUrl =
-      `${baseUrl}/shop/${encodeURIComponent(
-        storeSlug
-      )}/success?session_id={CHECKOUT_SESSION_ID}`;
+      isMtcMembershipCheckout
+        ? `${mtcMembershipUrl}?purchase=success&session_id={CHECKOUT_SESSION_ID}`
+        : `${baseUrl}/shop/${encodeURIComponent(
+            storeSlug
+          )}/success?session_id={CHECKOUT_SESSION_ID}`;
 
     const cancelUrl =
-      `${baseUrl}/shop/${encodeURIComponent(
-        storeSlug
-      )}?checkout=cancelled`;
+      isMtcMembershipCheckout
+        ? `${mtcMembershipUrl}?purchase=cancelled`
+        : `${baseUrl}/shop/${encodeURIComponent(
+            storeSlug
+          )}?checkout=cancelled`;
 
     const modelMetadata =
       sellingModels.join(

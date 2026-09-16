@@ -3630,7 +3630,7 @@ export default function ShopFrontPage() {
                 </h1>
 
                 <p className="mt-6 max-w-xl text-sm leading-7 text-stone-500 sm:text-[15px]">
-                  {membershipLayout ? "Choose a membership that fits how you train — from weekly sessions to unlimited access." : (store.hero_text || store.store_description || `Explore products and services from ${storeName}.`)}
+                  {membershipLayout ? "Choose a membership that fits how you train — from weekly sessions to unlimited access." : isOrganisedTypes ? "Websites, marketing, branding and practical business support — all in one place." : (store.hero_text || store.store_description || `Explore products and services from ${storeName}.`)}
                 </p>
 
                 <div className="mt-8 flex flex-wrap gap-3">
@@ -3645,7 +3645,7 @@ export default function ShopFrontPage() {
                         buttonTextColour,
                     }}
                   >
-                    {membershipLayout ? "Explore memberships" : "Shop now"}
+                    {membershipLayout ? "Explore memberships" : isOrganisedTypes ? "Explore our services" : "Shop now"}
 
                     <ArrowRight
                       size={13}
@@ -3812,8 +3812,15 @@ export default function ShopFrontPage() {
                   key={item.category}
                   onClick={() => {
                     setSearch("");
-                    setCategory(item.category);
-                    document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
+                    setCategory("All");
+                    const targetId =
+                      item.category === "Monthly Services" ? "tots-monthly-services" :
+                      item.category === "Websites" ? "tots-websites" :
+                      item.category === "Marketing Services" ? "tots-marketing-services" :
+                      item.category === "Branding" ? "tots-branding" : "shop";
+                    window.setTimeout(() => {
+                      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }, 0);
                   }}
                   className="group flex min-h-[180px] flex-col rounded-[24px] border border-stone-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-1 hover:border-stone-300 hover:shadow-lg"
                 >
@@ -4013,7 +4020,7 @@ export default function ShopFrontPage() {
               }
             />
 
-            {!membershipLayout && (
+            {!membershipLayout && !isOrganisedTypes && (
             <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
 
               {showSearch && (
@@ -4109,7 +4116,7 @@ export default function ShopFrontPage() {
             )}
           </div>
 
-          {!membershipLayout && (<div className="mt-6 flex items-center justify-between border-b border-stone-200 pb-4">
+          {!membershipLayout && !isOrganisedTypes && (<div className="mt-6 flex items-center justify-between border-b border-stone-200 pb-4">
 
             <p className="text-xs text-stone-400">
               <strong className="font-bold text-stone-700">
@@ -5917,7 +5924,7 @@ function OrganisedTypesServiceSections({
       category: "Monthly Services",
       eyebrow: "Build recurring support",
       title: "Ongoing support that grows with you.",
-      description: "Website care, social media, marketing and practical business support on a simple monthly basis.",
+      description: "Start with one of our core monthly packages, then add specialist support only when you need it.",
     },
     {
       category: "Websites",
@@ -5952,36 +5959,95 @@ function OrganisedTypesServiceSections({
   ];
 
   const addOns = products.filter((product) => product.category === "Website Add-ons");
+  const coreMonthlySkus = [
+    "MONTHLY-WEB-CARE",
+    "MONTHLY-SOCIAL-ESS",
+    "MONTHLY-SOCIAL-GROWTH",
+    "MONTHLY-MARKETING-PARTNER",
+  ];
+  const websiteOrder = ["WEB-MICRO", "WEB-STARTER", "WEB-SMALL", "WEB-PRO", "WEB-ENTERPRISE"];
 
   return (
     <div className="mt-10 space-y-16">
       {sections.map((section) => {
-        const sectionProducts = products.filter((product) => product.category === section.category);
+        let sectionProducts = products.filter((product) => product.category === section.category);
         if (!sectionProducts.length) return null;
 
+        if (section.category === "Websites") {
+          sectionProducts = [...sectionProducts].sort((a, b) => {
+            const ai = websiteOrder.indexOf(String(a.sku || ""));
+            const bi = websiteOrder.indexOf(String(b.sku || ""));
+            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+          });
+        }
+
+        const coreMonthly = section.category === "Monthly Services"
+          ? coreMonthlySkus.map((sku) => sectionProducts.find((product) => product.sku === sku)).filter(Boolean) as Product[]
+          : [];
+        const specialistMonthly = section.category === "Monthly Services"
+          ? sectionProducts.filter((product) => !coreMonthlySkus.includes(String(product.sku || "")))
+          : [];
+        const displayedProducts = section.category === "Monthly Services" ? coreMonthly : sectionProducts;
+        const sectionId = `tots-${section.category.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+
         return (
-          <section key={section.category}>
+          <section key={section.category} id={sectionId} className="scroll-mt-28">
             <div className="flex flex-col gap-3 border-b border-stone-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: primary }}>{section.eyebrow}</p>
                 <h3 className="mt-2 font-serif text-3xl italic tracking-[-0.025em] text-stone-900 sm:text-4xl">{section.title}</h3>
                 <p className="mt-3 max-w-2xl text-xs leading-6 text-stone-500">{section.description}</p>
               </div>
-              <p className="shrink-0 text-[9px] font-bold text-stone-400">{sectionProducts.length} {sectionProducts.length === 1 ? "option" : "options"}</p>
+              <p className="shrink-0 text-[9px] font-bold text-stone-400">
+                {section.category === "Monthly Services" ? `${coreMonthly.length} core packages` : `${sectionProducts.length} ${sectionProducts.length === 1 ? "option" : "options"}`}
+              </p>
             </div>
 
-            <div className={`mt-6 grid gap-5 sm:grid-cols-2 ${section.category === "Monthly Services" ? "lg:grid-cols-3" : "lg:grid-cols-3 xl:grid-cols-4"}`}>
-              {sectionProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  primary={primary}
-                  onAdd={() => onAdd(product)}
-                  onRequest={() => onRequest(product)}
-                  featuredLayout={section.category === "Monthly Services" && Boolean(product.featured)}
-                />
+            <div className={`mt-6 grid gap-5 sm:grid-cols-2 ${section.category === "Monthly Services" ? "lg:grid-cols-2 xl:grid-cols-4" : "lg:grid-cols-3 xl:grid-cols-4"}`}>
+              {displayedProducts.map((product) => (
+                <div key={product.id} className={product.sku === "MONTHLY-MARKETING-PARTNER" ? "relative rounded-[26px] ring-2 ring-offset-4" : ""} style={product.sku === "MONTHLY-MARKETING-PARTNER" ? { ['--tw-ring-color' as any]: primary } : undefined}>
+                  {product.sku === "MONTHLY-MARKETING-PARTNER" && (
+                    <div className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full px-4 py-1.5 text-[7px] font-black uppercase tracking-[0.16em] text-white shadow-sm" style={{ background: primary }}>
+                      Full-service support
+                    </div>
+                  )}
+                  <ProductCard
+                    product={product}
+                    primary={primary}
+                    onAdd={() => onAdd(product)}
+                    onRequest={() => onRequest(product)}
+                    featuredLayout={section.category === "Monthly Services"}
+                  />
+                </div>
               ))}
             </div>
+
+            {section.category === "Monthly Services" && specialistMonthly.length > 0 && (
+              <details className="group mt-7 rounded-[24px] border border-stone-200 bg-white p-5 sm:p-7">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: primary }}>Specialist monthly support</p>
+                    <h4 className="mt-2 text-lg font-black tracking-[-0.02em] text-stone-900">Need something more specific?</h4>
+                    <p className="mt-1 text-[11px] leading-5 text-stone-500">Google Ads, email marketing, SEO and flexible business support are available as standalone monthly services.</p>
+                  </div>
+                  <div className="flex items-center gap-3 text-stone-400">
+                    <span className="text-[9px] font-bold">{specialistMonthly.length} services</span>
+                    <ChevronDown size={18} className="transition group-open:rotate-180" />
+                  </div>
+                </summary>
+                <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {specialistMonthly.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      primary={primary}
+                      onAdd={() => onAdd(product)}
+                      onRequest={() => onRequest(product)}
+                    />
+                  ))}
+                </div>
+              </details>
+            )}
           </section>
         );
       })}

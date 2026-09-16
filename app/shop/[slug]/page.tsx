@@ -654,6 +654,73 @@ function getBeneficiarySpecs(
 function getProductImage(
   product: Product
 ) {
+  // Curated Organised Types imagery. These files live under
+  // /public/images/tots-services/ and are keyed by the product SKU so other
+  // stores continue to use their normal database image_url/fallback imagery.
+  const organisedTypesServiceImages: Record<string, string> = {
+    // Monthly services
+    "MONTHLY-WEB-CARE": "/images/tots-services/monthly-services/website-care.webp",
+    "MONTHLY-WEB-GROWTH": "/images/tots-services/monthly-services/website-care-growth.webp",
+    "MONTHLY-SOCIAL-ESS": "/images/tots-services/monthly-services/social-media-essentials.webp",
+    "MONTHLY-SOCIAL-GROWTH": "/images/tots-services/monthly-services/social-media-growth.webp",
+    "MONTHLY-MARKETING-PARTNER": "/images/tots-services/monthly-services/marketing-partner.webp",
+    "MONTHLY-GOOGLE-ADS": "/images/tots-services/monthly-services/google-ads-management.webp",
+    "MONTHLY-EMAIL-MKTG": "/images/tots-services/monthly-services/email-marketing-management.webp",
+    "MONTHLY-BIZ-SUPPORT": "/images/tots-services/monthly-services/business-support.webp",
+    "MONTHLY-BIZ-SUPPORT-PLUS": "/images/tots-services/monthly-services/business-support-plus.webp",
+    "MONTHLY-SEO-GROWTH": "/images/tots-services/monthly-services/seo-content-growth.webp",
+
+    // Websites
+    "WEB-MICRO": "/images/tots-services/websites/micro-website.webp",
+    "WEB-STARTER": "/images/tots-services/websites/starter-website.webp",
+    "WEB-SMALL": "/images/tots-services/websites/small-business-website.webp",
+    "WEB-PRO": "/images/tots-services/websites/pro-website.webp",
+    "WEB-ENTERPRISE": "/images/tots-services/websites/enterprise-website.webp",
+
+    // Website add-ons. The image pack is intentionally reused where the visual
+    // concept fits more than one closely-related add-on.
+    "ADD-LOGO": "/images/tots-services/branding/brand-starter-kit.webp",
+    "ADD-BRAND-GUIDE": "/images/tots-services/branding/brand-essential-kit.webp",
+    "ADD-PHOTO": "/images/tots-services/marketing/content-creation-day.webp",
+    "ADD-PAGE": "/images/tots-services/website-addons/extra-page-design.webp",
+    "ADD-SEO": "/images/tots-services/monthly-services/seo-content-growth.webp",
+    "ADD-CRM": "/images/tots-services/website-addons/crm-email-integration.webp",
+    "ADD-PORTAL": "/images/tots-services/website-addons/membership-client-portal.webp",
+    "ADD-BLOG": "/images/tots-services/website-addons/dedicated-blog-setup.webp",
+    "ADD-MAINT-HOURLY": "/images/tots-services/monthly-services/website-care.webp",
+
+    // One-off marketing
+    "MARKETING-GADS-SETUP": "/images/tots-services/marketing/google-ads-setup.webp",
+    "MARKETING-SOCIAL-SETUP": "/images/tots-services/marketing/social-media-setup.webp",
+    "MARKETING-EMAIL-SETUP": "/images/tots-services/marketing/email-marketing-setup.webp",
+    "MARKETING-CONTENT-DAY": "/images/tots-services/marketing/content-creation-day.webp",
+
+    // Branding
+    "BRAND-STARTER": "/images/tots-services/branding/brand-starter-kit.webp",
+    "BRAND-KICKSTART": "/images/tots-services/branding/brand-kickstart.webp",
+    "BRAND-ESSENTIAL": "/images/tots-services/branding/brand-essential-kit.webp",
+    "BRAND-COMPLETE": "/images/tots-services/branding/brand-complete-suite.webp",
+    "BRAND-SIGNATURE": "/images/tots-services/branding/brand-signature-kit.webp",
+    "BRAND-PREMIUM-SOCIAL": "/images/tots-services/branding/premium-brand-social-kit.webp",
+
+    // Business coaching
+    "COACH-CLARITY": "/images/tots-services/coaching/clarity-call.webp",
+    "COACH-90DAY": "/images/tots-services/coaching/90-day-accelerator.webp",
+    "COACH-EXEC-6M": "/images/tots-services/coaching/executive-strategy.webp",
+
+    // TOTS-OS services
+    "TOTS-DFY-SETUP": "/images/tots-services/tots-os/tots-os-done-for-you-setup.webp",
+    "MONTHLY-TOTS-CONCIERGE": "/images/tots-services/tots-os/tots-os-concierge.webp",
+  };
+
+  const curatedImage = product.sku
+    ? organisedTypesServiceImages[String(product.sku)]
+    : undefined;
+
+  if (curatedImage) {
+    return curatedImage;
+  }
+
   if (
     typeof product.image_url ===
       "string" &&

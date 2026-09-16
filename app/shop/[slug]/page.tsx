@@ -132,6 +132,8 @@ type Product = {
 
   selling_model?: SellingModel | string | null;
 
+  product_type?: string | null;
+
   price: number | string;
 
   compare_at_price?: number | string | null;
@@ -1035,6 +1037,10 @@ function getProductTypeLabel(
 function getProductActionLabel(
   product: Product
 ) {
+  if (product.product_type === "membership" || product.purchase_type === "subscription") {
+    return "Choose membership";
+  }
+
   const model =
     inferSellingModel(
       product
@@ -1069,6 +1075,10 @@ function getProductActionLabel(
 function getProductFulfilmentText(
   product: Product
 ) {
+  if (product.product_type === "membership" || product.purchase_type === "subscription") {
+    return "Monthly membership — access is activated automatically after signup.";
+  }
+
   const model =
     inferSellingModel(
       product
@@ -3462,13 +3472,13 @@ export default function ShopFrontPage() {
 
                 <h1 className="mt-6 max-w-[720px] text-[3.4rem] font-semibold leading-[0.92] tracking-[-0.035em] sm:text-6xl lg:text-[4.5rem]" style={{ fontFamily: headingFont, color: pageText }}>
                   {store.hero_title ||
-                    `Everything you need, all in one place.`}
+                    (membershipLayout ? `Train hard. Feel strong.` : `Everything you need, all in one place.`)}
                 </h1>
 
                 <p className="mt-6 max-w-xl text-sm leading-7 text-stone-500 sm:text-[15px]">
                   {store.hero_text ||
                     store.store_description ||
-                    `Explore products and services from ${storeName}.`}
+                    (membershipLayout ? `Choose the membership that fits your week. Adult, couples and kids options available.` : `Explore products and services from ${storeName}.`)}
                 </p>
 
                 <div className="mt-8 flex flex-wrap gap-3">
@@ -3483,7 +3493,7 @@ export default function ShopFrontPage() {
                         buttonTextColour,
                     }}
                   >
-                    Shop now
+                    {membershipLayout ? "View memberships" : "Shop now"}
 
                     <ArrowRight
                       size={13}
@@ -3951,41 +3961,25 @@ export default function ShopFrontPage() {
 
           {visibleProducts.length >
           0 ? (
-            <div className={`mt-8 grid gap-5 sm:grid-cols-2 ${
-              membershipLayout
-                ? "lg:grid-cols-2 xl:grid-cols-3"
-                : "lg:grid-cols-3 xl:grid-cols-4"
-            }`}>
-
-              {visibleProducts.map(
-                (
-                  product
-                ) => (
+            membershipLayout ? (
+              <MembershipSections
+                products={visibleProducts}
+                primary={primary}
+                onAdd={addToCart}
+              />
+            ) : (
+              <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {visibleProducts.map((product) => (
                   <ProductCard
-                    key={
-                      product.id
-                    }
-                    product={
-                      product
-                    }
-                    primary={
-                      primary
-                    }
-                    onAdd={() =>
-                      addToCart(
-                        product
-                      )
-                    }
-                    onRequest={() =>
-                      requestProduct(
-                        product
-                      )
-                    }
+                    key={product.id}
+                    product={product}
+                    primary={primary}
+                    onAdd={() => addToCart(product)}
+                    onRequest={() => requestProduct(product)}
                   />
-                )
-              )}
-
-            </div>
+                ))}
+              </div>
+            )
           ) : products.length ===
             0 ? (
             <EmptyState
@@ -5531,6 +5525,126 @@ export default function ShopFrontPage() {
 // ============================================================
 // PRODUCT CARD
 // ============================================================
+
+function MembershipSections({
+  products,
+  primary,
+  onAdd,
+}: {
+  products: Product[];
+  primary: string;
+  onAdd: (product: Product) => void;
+}) {
+  const groups = [
+    {
+      title: "Adult memberships",
+      subtitle: "Choose your weekly training level.",
+      test: (p: Product) => /^Adult\s*[–-]/i.test(p.name),
+    },
+    {
+      title: "Couples memberships",
+      subtitle: "Train together with one simple monthly membership.",
+      test: (p: Product) => /^Couples?\s*[–-]/i.test(p.name),
+    },
+    {
+      title: "Kids memberships",
+      subtitle: "Weekly coached sessions for younger members.",
+      test: (p: Product) => /^Kids?\s*[–-]/i.test(p.name) && !/open gym/i.test(p.name),
+    },
+    {
+      title: "Kids + adult open gym",
+      subtitle: "Kids coaching plus adult open-gym access.",
+      test: (p: Product) => /^Kids?\s*[–-]/i.test(p.name) && /open gym/i.test(p.name),
+    },
+  ];
+
+  const used = new Set<string>();
+  const rendered = groups.map((group) => {
+    const items = products.filter((p) => group.test(p));
+    items.forEach((p) => used.add(p.id));
+    return { ...group, items };
+  });
+  const other = products.filter((p) => !used.has(p.id));
+  if (other.length) rendered.push({ title: "More memberships", subtitle: "More ways to train with us.", test: () => false, items: other });
+
+  return (
+    <div className="mt-10 space-y-14">
+      {rendered.filter((group) => group.items.length > 0).map((group) => (
+        <section key={group.title}>
+          <div className="mb-5 flex flex-col gap-2 border-b pb-5 sm:flex-row sm:items-end sm:justify-between" style={{ borderColor: "var(--store-border)" }}>
+            <div>
+              <p className="text-[8px] font-black uppercase tracking-[0.2em]" style={{ color: primary }}>Membership options</p>
+              <h2 className="mt-2 text-2xl font-black uppercase tracking-[-0.02em]" style={{ color: "var(--store-text)" }}>{group.title}</h2>
+            </div>
+            <p className="max-w-md text-xs leading-5" style={{ color: "var(--store-muted)" }}>{group.subtitle}</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {group.items.map((product) => (
+              <MembershipCard key={product.id} product={product} primary={primary} onAdd={() => onAdd(product)} />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function MembershipCard({
+  product,
+  primary,
+  onAdd,
+}: {
+  product: Product;
+  primary: string;
+  onAdd: () => void;
+}) {
+  const price = Number(product.price || 0);
+  const unlimited = /unlimited/i.test(product.name);
+  const openGym = /open gym/i.test(product.name);
+  const frequency = product.name.match(/(\d+)\s*Per Week/i)?.[1];
+  const title = product.name.replace(/^(Adult|Couples?|Kids?)\s*[–-]\s*/i, "");
+  const audience = product.name.match(/^(Adult|Couples?|Kids?)/i)?.[1] || "Membership";
+  const outOfStock = isOutOfStock(product);
+
+  const benefits = unlimited
+    ? ["Unlimited coached classes", "Full member access", "Manage bookings in the MTC app"]
+    : openGym
+      ? [`${frequency || "Weekly"} kids ${frequency === "1" ? "session" : "sessions"} per week`, "Adult open-gym access", "Manage bookings in the MTC app"]
+      : [frequency ? `${frequency} coached ${frequency === "1" ? "class" : "classes"} per week` : "Coached weekly training", "Full member access", "Manage bookings in the MTC app"];
+
+  return (
+    <article className="relative flex min-h-[360px] flex-col overflow-hidden border p-6 transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(0,0,0,0.28)]" style={{ borderRadius: "var(--store-radius)", background: "var(--store-surface)", borderColor: unlimited ? primary : "var(--store-border)" }}>
+      {unlimited && (
+        <div className="absolute right-0 top-0 px-4 py-2 text-[7px] font-black uppercase tracking-[0.16em]" style={{ background: primary, color: "var(--store-button-text)" }}>Most flexible</div>
+      )}
+      <p className="text-[8px] font-black uppercase tracking-[0.2em]" style={{ color: primary }}>{audience} membership</p>
+      <h3 className="mt-4 max-w-[85%] text-2xl font-black uppercase leading-[1.02] tracking-[-0.025em]" style={{ color: "var(--store-text)" }}>{title}</h3>
+      {product.description && <p className="mt-3 min-h-[40px] text-xs leading-5" style={{ color: "var(--store-muted)" }}>{product.description}</p>}
+
+      <div className="my-6 h-px" style={{ background: "var(--store-border)" }} />
+
+      <div className="space-y-3">
+        {benefits.map((benefit) => (
+          <div key={benefit} className="flex items-center gap-3 text-[11px] font-semibold" style={{ color: "var(--store-text)" }}>
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ background: primary, color: "var(--store-button-text)" }}><Check size={11} /></span>
+            {benefit}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-auto pt-8">
+        <div className="flex items-end gap-2">
+          <span className="text-4xl font-black tracking-[-0.04em]" style={{ color: "var(--store-text)" }}>{formatCurrency(price)}</span>
+          <span className="pb-1 text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--store-muted)" }}>/ month</span>
+        </div>
+        <button type="button" disabled={outOfStock} onClick={onAdd} data-store-primary="true" className="store-primary-action mt-5 flex w-full items-center justify-between px-5 py-4 text-left transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50" style={{ borderRadius: "calc(var(--store-radius) * .55)", background: outOfStock ? "#78716c" : primary }}>
+          <span className="text-[9px] font-black uppercase tracking-[0.14em]">{outOfStock ? "Unavailable" : "Choose membership"}</span>
+          {!outOfStock && <ArrowRight size={14} />}
+        </button>
+      </div>
+    </article>
+  );
+}
 
 function ProductCard({
   product,

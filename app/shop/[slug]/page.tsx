@@ -2964,222 +2964,7 @@ export default function ShopFrontPage() {
           </button>
         </div>
 
-        {/* =====================================================
-          MEMBERSHIP SETUP
-      ===================================================== */}
-
-      {membershipSetupOpen && requiredBeneficiarySpecs.length > 0 && (
-        <div
-          className="fixed inset-0 z-[190] overflow-y-auto"
-          style={{ background: storeSurface, color: pageText }}
-        >
-          <div className="sticky top-0 z-20 border-b border-stone-200 bg-white/95 backdrop-blur-xl">
-            <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-              <button
-                type="button"
-                disabled={checkingOut}
-                onClick={() => {
-                  setMembershipSetupOpen(false);
-                  setCartOpen(true);
-                }}
-                className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.15em] text-stone-500 disabled:opacity-40"
-              >
-                <ArrowRight size={13} className="rotate-180" />
-                Back to basket
-              </button>
-
-              <div className="text-center">
-                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
-                  Membership setup
-                </p>
-                <p className="mt-1 text-xs font-bold text-stone-800">
-                  Step 1 of 2 · Member details
-                </p>
-              </div>
-
-              <button
-                type="button"
-                aria-label="Close membership setup"
-                disabled={checkingOut}
-                onClick={() => setMembershipSetupOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-100 text-stone-500 disabled:opacity-40"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          </div>
-
-          <main className="mx-auto grid max-w-6xl gap-8 px-5 py-8 sm:px-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-12">
-            <section>
-              <div className="max-w-2xl">
-                <div
-                  className="mb-5 flex h-12 w-12 items-center justify-center rounded-full text-white"
-                  style={{ background: primary }}
-                >
-                  <ShieldCheck size={20} />
-                </div>
-
-                <p className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: primary }}>
-                  Almost there
-                </p>
-                <h2 className="mt-3 font-serif text-4xl italic text-stone-900 sm:text-5xl">
-                  Who is this membership for?
-                </h2>
-                <p className="mt-4 max-w-xl text-sm leading-6 text-stone-500">
-                  Add the details for each person covered by the membership. We use these details to connect the correct access in the MTC app. Payment is handled securely by Stripe on the next step.
-                </p>
-              </div>
-
-              <div className="mt-8 space-y-5">
-                {requiredBeneficiarySpecs.map((spec, index) => {
-                  const draft = beneficiaryDrafts[spec.key];
-
-                  return (
-                    <div key={spec.key} className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex min-w-0 items-start gap-4">
-                          <div
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black"
-                            style={{ background: primary, color: "var(--store-button-text)" }}
-                          >
-                            {index + 1}
-                          </div>
-                          <div className="min-w-0">
-                            <h3 className="text-base font-black text-stone-900">{spec.title}</h3>
-                            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-400">
-                              {spec.productName}{spec.planCode ? ` · ${spec.planCode}` : ""}
-                            </p>
-                            <p className="mt-2 text-xs leading-5 text-stone-500">{spec.description}</p>
-                          </div>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-stone-100 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] text-stone-500">
-                          {spec.beneficiaryType}
-                        </span>
-                      </div>
-
-                      <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                        <label className="block">
-                          <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.12em] text-stone-500">First name *</span>
-                          <input
-                            type="text"
-                            value={draft?.firstName || ""}
-                            disabled={checkingOut}
-                            onChange={(event) => updateBeneficiaryDraft(spec, "firstName", event.target.value)}
-                            autoComplete="given-name"
-                            className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 text-sm font-semibold text-stone-800 outline-none transition focus:border-stone-400 focus:bg-white disabled:opacity-50"
-                          />
-                        </label>
-
-                        <label className="block">
-                          <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.12em] text-stone-500">Last name *</span>
-                          <input
-                            type="text"
-                            value={draft?.lastName || ""}
-                            disabled={checkingOut}
-                            onChange={(event) => updateBeneficiaryDraft(spec, "lastName", event.target.value)}
-                            autoComplete="family-name"
-                            className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 text-sm font-semibold text-stone-800 outline-none transition focus:border-stone-400 focus:bg-white disabled:opacity-50"
-                          />
-                        </label>
-
-                        <label className="block sm:col-span-2">
-                          <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.12em] text-stone-500">
-                            Email {spec.emailRequired ? "*" : "(optional)"}
-                          </span>
-                          <input
-                            type="email"
-                            value={draft?.email || ""}
-                            disabled={checkingOut}
-                            onChange={(event) => updateBeneficiaryDraft(spec, "email", event.target.value)}
-                            autoComplete="email"
-                            className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 text-sm font-semibold text-stone-800 outline-none transition focus:border-stone-400 focus:bg-white disabled:opacity-50"
-                          />
-                        </label>
-
-                        <label className="block sm:col-span-2">
-                          <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.12em] text-stone-500">Phone (optional)</span>
-                          <input
-                            type="tel"
-                            value={draft?.phone || ""}
-                            disabled={checkingOut}
-                            onChange={(event) => updateBeneficiaryDraft(spec, "phone", event.target.value)}
-                            autoComplete="tel"
-                            className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 text-sm font-semibold text-stone-800 outline-none transition focus:border-stone-400 focus:bg-white disabled:opacity-50"
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            <aside className="lg:sticky lg:top-28 lg:self-start">
-              <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">Your membership</p>
-
-                <div className="mt-5 space-y-4">
-                  {membershipLines.map((line) => (
-                    <div key={line.product.id} className="flex items-start justify-between gap-4 border-b border-stone-100 pb-4 last:border-0 last:pb-0">
-                      <div>
-                        <p className="text-sm font-black text-stone-800">{line.product.name}</p>
-                        <p className="mt-1 text-[10px] text-stone-400">
-                          {line.quantity > 1 ? `${line.quantity} memberships` : "Monthly membership"}
-                        </p>
-                      </div>
-                      <p className="font-serif text-xl italic text-stone-900">
-                        {formatCurrency(Number(line.product.price || 0) * line.quantity)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-5 rounded-2xl bg-stone-50 p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-stone-500">Subtotal</span>
-                    <strong className="font-serif text-2xl italic text-stone-900">{formatCurrency(cartTotal)}</strong>
-                  </div>
-                  <p className="mt-2 text-[9px] leading-4 text-stone-400">Any valid discount code from your basket will be verified during checkout.</p>
-                </div>
-
-                {checkoutError && (
-                  <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
-                    <p className="text-[10px] font-semibold leading-5 text-red-600">{checkoutError}</p>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  disabled={checkingOut}
-                  onClick={() => void startCheckout()}
-                  data-store-primary="true"
-                  className="store-primary-action mt-5 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[9px] font-black uppercase tracking-[0.17em] shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                  style={{ background: primary }}
-                >
-                  {checkingOut ? (
-                    <>
-                      <Loader2 size={13} className="animate-spin" />
-                      Preparing secure payment...
-                    </>
-                  ) : (
-                    <>
-                      Continue to secure payment
-                      <ArrowRight size={13} />
-                    </>
-                  )}
-                </button>
-
-                <div className="mt-3 flex items-center justify-center gap-2 text-[8px] text-stone-400">
-                  <LockKeyhole size={10} />
-                  Secure payment powered by Stripe
-                </div>
-              </div>
-            </aside>
-          </main>
-        </div>
-      )}
-
-      <StorefrontGlobalStyles />
+        <StorefrontGlobalStyles />
       </div>
     );
   }
@@ -5687,6 +5472,222 @@ export default function ShopFrontPage() {
           </aside>
         </div>
       )}
+
+      {/* =====================================================
+          MEMBERSHIP SETUP
+      ===================================================== */}
+
+      {membershipSetupOpen && requiredBeneficiarySpecs.length > 0 && (
+        <div
+          className="fixed inset-0 z-[190] overflow-y-auto"
+          style={{ background: storeSurface, color: pageText }}
+        >
+          <div className="sticky top-0 z-20 border-b border-stone-200 bg-white/95 backdrop-blur-xl">
+            <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
+              <button
+                type="button"
+                disabled={checkingOut}
+                onClick={() => {
+                  setMembershipSetupOpen(false);
+                  setCartOpen(true);
+                }}
+                className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.15em] text-stone-500 disabled:opacity-40"
+              >
+                <ArrowRight size={13} className="rotate-180" />
+                Back to basket
+              </button>
+
+              <div className="text-center">
+                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
+                  Membership setup
+                </p>
+                <p className="mt-1 text-xs font-bold text-stone-800">
+                  Step 1 of 2 · Member details
+                </p>
+              </div>
+
+              <button
+                type="button"
+                aria-label="Close membership setup"
+                disabled={checkingOut}
+                onClick={() => setMembershipSetupOpen(false)}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-100 text-stone-500 disabled:opacity-40"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          <main className="mx-auto grid max-w-6xl gap-8 px-5 py-8 sm:px-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-12">
+            <section>
+              <div className="max-w-2xl">
+                <div
+                  className="mb-5 flex h-12 w-12 items-center justify-center rounded-full text-white"
+                  style={{ background: primary }}
+                >
+                  <ShieldCheck size={20} />
+                </div>
+
+                <p className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: primary }}>
+                  Almost there
+                </p>
+                <h2 className="mt-3 font-serif text-4xl italic text-stone-900 sm:text-5xl">
+                  Who is this membership for?
+                </h2>
+                <p className="mt-4 max-w-xl text-sm leading-6 text-stone-500">
+                  Add the details for each person covered by the membership. We use these details to connect the correct access in the MTC app. Payment is handled securely by Stripe on the next step.
+                </p>
+              </div>
+
+              <div className="mt-8 space-y-5">
+                {requiredBeneficiarySpecs.map((spec, index) => {
+                  const draft = beneficiaryDrafts[spec.key];
+
+                  return (
+                    <div key={spec.key} className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex min-w-0 items-start gap-4">
+                          <div
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black"
+                            style={{ background: primary, color: "var(--store-button-text)" }}
+                          >
+                            {index + 1}
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="text-base font-black text-stone-900">{spec.title}</h3>
+                            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-400">
+                              {spec.productName}{spec.planCode ? ` · ${spec.planCode}` : ""}
+                            </p>
+                            <p className="mt-2 text-xs leading-5 text-stone-500">{spec.description}</p>
+                          </div>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-stone-100 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] text-stone-500">
+                          {spec.beneficiaryType}
+                        </span>
+                      </div>
+
+                      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.12em] text-stone-500">First name *</span>
+                          <input
+                            type="text"
+                            value={draft?.firstName || ""}
+                            disabled={checkingOut}
+                            onChange={(event) => updateBeneficiaryDraft(spec, "firstName", event.target.value)}
+                            autoComplete="given-name"
+                            className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 text-sm font-semibold text-stone-800 outline-none transition focus:border-stone-400 focus:bg-white disabled:opacity-50"
+                          />
+                        </label>
+
+                        <label className="block">
+                          <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.12em] text-stone-500">Last name *</span>
+                          <input
+                            type="text"
+                            value={draft?.lastName || ""}
+                            disabled={checkingOut}
+                            onChange={(event) => updateBeneficiaryDraft(spec, "lastName", event.target.value)}
+                            autoComplete="family-name"
+                            className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 text-sm font-semibold text-stone-800 outline-none transition focus:border-stone-400 focus:bg-white disabled:opacity-50"
+                          />
+                        </label>
+
+                        <label className="block sm:col-span-2">
+                          <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.12em] text-stone-500">
+                            Email {spec.emailRequired ? "*" : "(optional)"}
+                          </span>
+                          <input
+                            type="email"
+                            value={draft?.email || ""}
+                            disabled={checkingOut}
+                            onChange={(event) => updateBeneficiaryDraft(spec, "email", event.target.value)}
+                            autoComplete="email"
+                            className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 text-sm font-semibold text-stone-800 outline-none transition focus:border-stone-400 focus:bg-white disabled:opacity-50"
+                          />
+                        </label>
+
+                        <label className="block sm:col-span-2">
+                          <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.12em] text-stone-500">Phone (optional)</span>
+                          <input
+                            type="tel"
+                            value={draft?.phone || ""}
+                            disabled={checkingOut}
+                            onChange={(event) => updateBeneficiaryDraft(spec, "phone", event.target.value)}
+                            autoComplete="tel"
+                            className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 text-sm font-semibold text-stone-800 outline-none transition focus:border-stone-400 focus:bg-white disabled:opacity-50"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <aside className="lg:sticky lg:top-28 lg:self-start">
+              <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">Your membership</p>
+
+                <div className="mt-5 space-y-4">
+                  {membershipLines.map((line) => (
+                    <div key={line.product.id} className="flex items-start justify-between gap-4 border-b border-stone-100 pb-4 last:border-0 last:pb-0">
+                      <div>
+                        <p className="text-sm font-black text-stone-800">{line.product.name}</p>
+                        <p className="mt-1 text-[10px] text-stone-400">
+                          {line.quantity > 1 ? `${line.quantity} memberships` : "Monthly membership"}
+                        </p>
+                      </div>
+                      <p className="font-serif text-xl italic text-stone-900">
+                        {formatCurrency(Number(line.product.price || 0) * line.quantity)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-5 rounded-2xl bg-stone-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-stone-500">Subtotal</span>
+                    <strong className="font-serif text-2xl italic text-stone-900">{formatCurrency(cartTotal)}</strong>
+                  </div>
+                  <p className="mt-2 text-[9px] leading-4 text-stone-400">Any valid discount code from your basket will be verified during checkout.</p>
+                </div>
+
+                {checkoutError && (
+                  <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3">
+                    <p className="text-[10px] font-semibold leading-5 text-red-600">{checkoutError}</p>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  disabled={checkingOut}
+                  onClick={() => void startCheckout()}
+                  data-store-primary="true"
+                  className="store-primary-action mt-5 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-[9px] font-black uppercase tracking-[0.17em] shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  style={{ background: primary }}
+                >
+                  {checkingOut ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" />
+                      Preparing secure payment...
+                    </>
+                  ) : (
+                    <>
+                      Continue to secure payment
+                      <ArrowRight size={13} />
+                    </>
+                  )}
+                </button>
+
+                <div className="mt-3 flex items-center justify-center gap-2 text-[8px] text-stone-400">
+                  <LockKeyhole size={10} />
+                  Secure payment powered by Stripe
+                </div>
+              </div>
+            </aside>
+          </main>
+        </div>
+      )}
+
 
       <StorefrontGlobalStyles />
     </div>

@@ -1059,7 +1059,9 @@ function getProductActionLabel(
       return "Request to order";
 
     case "service":
-      return "Add service";
+      return product.purchase_type === "subscription"
+        ? "Choose monthly service"
+        : "Add service";
 
     default:
       return "Add to basket";
@@ -1093,7 +1095,9 @@ function getProductFulfilmentText(
       return "Send a request first. The business will confirm the details with you.";
 
     case "service":
-      return "Service purchase — the business will confirm next steps.";
+      return product.purchase_type === "subscription"
+        ? `Ongoing monthly service${product.billing_interval ? ` — billed ${product.billing_interval}ly` : ""}.`
+        : "One-off service — the business will confirm next steps.";
 
     default:
       return "Physical product — delivery or fulfilment details are confirmed at checkout.";
@@ -1117,6 +1121,9 @@ export default function ShopFrontPage() {
           )
         ? params.slug[0]
         : "";
+
+  const isOrganisedTypes =
+    slug.toLowerCase() === "the-organised-types";
 
   // ==========================================================
   // REQUEST MANAGEMENT
@@ -1873,15 +1880,29 @@ export default function ShopFrontPage() {
                     )
               )
           )
-        ).sort(
-          (
-            first,
-            second
-          ) =>
-            first.localeCompare(
-              second
-            )
-        ),
+        ).sort((first, second) => {
+          if (!isOrganisedTypes) {
+            return first.localeCompare(second);
+          }
+
+          const order = [
+            "Monthly Services",
+            "Websites",
+            "Marketing Services",
+            "Branding",
+            "Business Coaching",
+            "TOTS-OS Services",
+            "Website Add-ons",
+          ];
+
+          const firstIndex = order.indexOf(first);
+          const secondIndex = order.indexOf(second);
+
+          if (firstIndex === -1 && secondIndex === -1) return first.localeCompare(second);
+          if (firstIndex === -1) return 1;
+          if (secondIndex === -1) return -1;
+          return firstIndex - secondIndex;
+        }),
       ],
       [
         products,
@@ -3764,6 +3785,53 @@ export default function ShopFrontPage() {
         </div>
       </section>
 
+      {isOrganisedTypes && !membershipLayout && (
+        <section className="px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+          <div className="mx-auto max-w-[1360px]">
+            <div className="max-w-3xl">
+              <p className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: primary }}>
+                How can we help?
+              </p>
+              <h2 className="mt-3 font-serif text-4xl italic tracking-[-0.03em] text-stone-900 sm:text-5xl">
+                Start with what your business needs.
+              </h2>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-500">
+                Choose a service area below. Ongoing support is built around simple monthly packages, while websites, branding and setup work can be purchased as one-off projects.
+              </p>
+            </div>
+
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { title: "Ongoing support", text: "Monthly marketing, social media, website care and business support.", category: "Monthly Services" },
+                { title: "Build a website", text: "From focused micro sites to complete business websites and portals.", category: "Websites" },
+                { title: "Marketing", text: "Campaign setup, content creation, ads and email marketing support.", category: "Marketing Services" },
+                { title: "Build your brand", text: "Brand identity packages designed to give your business a consistent look.", category: "Branding" },
+              ].map((item) => (
+                <button
+                  type="button"
+                  key={item.category}
+                  onClick={() => {
+                    setSearch("");
+                    setCategory(item.category);
+                    document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="group flex min-h-[180px] flex-col rounded-[24px] border border-stone-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-1 hover:border-stone-300 hover:shadow-lg"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full" style={{ background: `${primary}12`, color: primary }}>
+                    <ArrowRight size={16} />
+                  </div>
+                  <h3 className="mt-6 text-lg font-black tracking-[-0.02em] text-stone-900">{item.title}</h3>
+                  <p className="mt-2 text-[11px] leading-5 text-stone-500">{item.text}</p>
+                  <span className="mt-auto pt-5 text-[8px] font-black uppercase tracking-[0.14em]" style={{ color: primary }}>
+                    View services
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* =====================================================
           CATEGORY BAR
       ===================================================== */}
@@ -3843,6 +3911,7 @@ export default function ShopFrontPage() {
       ===================================================== */}
 
       {!membershipLayout &&
+        !isOrganisedTypes &&
         featuredProducts.length >
           0 && (
         <section
@@ -3928,12 +3997,16 @@ export default function ShopFrontPage() {
               title={
                 membershipLayout
                   ? "Choose your membership."
-                  : "Find what you need."
+                  : isOrganisedTypes
+                    ? "Choose the right support for your business."
+                    : "Find what you need."
               }
               description={
                 membershipLayout
                   ? "Pick the membership that best suits you. TOTS handles the membership setup and keeps your access connected."
-                  : "Browse everything available, or use the filters to narrow things down."
+                  : isOrganisedTypes
+                    ? "Clear packages, straightforward pricing and support you can add as your business grows."
+                    : "Browse everything available, or use the filters to narrow things down."
               }
               primary={
                 primary
@@ -4099,6 +4172,13 @@ export default function ShopFrontPage() {
                 products={visibleProducts}
                 primary={primary}
                 onChoose={addToCart}
+              />
+            ) : isOrganisedTypes && category === "All" && !search.trim() ? (
+              <OrganisedTypesServiceSections
+                products={visibleProducts}
+                primary={primary}
+                onAdd={addToCart}
+                onRequest={requestProduct}
               />
             ) : (
               <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -5821,6 +5901,118 @@ function MembershipCard({
   );
 }
 
+function OrganisedTypesServiceSections({
+  products,
+  primary,
+  onAdd,
+  onRequest,
+}: {
+  products: Product[];
+  primary: string;
+  onAdd: (product: Product) => void;
+  onRequest: (product: Product) => void;
+}) {
+  const sections = [
+    {
+      category: "Monthly Services",
+      eyebrow: "Build recurring support",
+      title: "Ongoing support that grows with you.",
+      description: "Website care, social media, marketing and practical business support on a simple monthly basis.",
+    },
+    {
+      category: "Websites",
+      eyebrow: "Websites",
+      title: "A website built around your business.",
+      description: "Choose the level of website you need now, with room to add functionality as you grow.",
+    },
+    {
+      category: "Marketing Services",
+      eyebrow: "One-off marketing",
+      title: "Get the foundations set up properly.",
+      description: "Focused setup and content services when you need expert help without an ongoing package.",
+    },
+    {
+      category: "Branding",
+      eyebrow: "Branding",
+      title: "Make your business look as good as it is.",
+      description: "From a strong starting point to a complete visual identity and social package.",
+    },
+    {
+      category: "Business Coaching",
+      eyebrow: "Business support",
+      title: "Clarity, structure and a plan forward.",
+      description: "Strategy sessions and longer programmes for business owners who want hands-on direction.",
+    },
+    {
+      category: "TOTS-OS Services",
+      eyebrow: "TOTS-OS",
+      title: "Get your workspace set up and working for you.",
+      description: "Done-for-you setup and optional ongoing concierge support for TOTS-OS customers.",
+    },
+  ];
+
+  const addOns = products.filter((product) => product.category === "Website Add-ons");
+
+  return (
+    <div className="mt-10 space-y-16">
+      {sections.map((section) => {
+        const sectionProducts = products.filter((product) => product.category === section.category);
+        if (!sectionProducts.length) return null;
+
+        return (
+          <section key={section.category}>
+            <div className="flex flex-col gap-3 border-b border-stone-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: primary }}>{section.eyebrow}</p>
+                <h3 className="mt-2 font-serif text-3xl italic tracking-[-0.025em] text-stone-900 sm:text-4xl">{section.title}</h3>
+                <p className="mt-3 max-w-2xl text-xs leading-6 text-stone-500">{section.description}</p>
+              </div>
+              <p className="shrink-0 text-[9px] font-bold text-stone-400">{sectionProducts.length} {sectionProducts.length === 1 ? "option" : "options"}</p>
+            </div>
+
+            <div className={`mt-6 grid gap-5 sm:grid-cols-2 ${section.category === "Monthly Services" ? "lg:grid-cols-3" : "lg:grid-cols-3 xl:grid-cols-4"}`}>
+              {sectionProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  primary={primary}
+                  onAdd={() => onAdd(product)}
+                  onRequest={() => onRequest(product)}
+                  featuredLayout={section.category === "Monthly Services" && Boolean(product.featured)}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+
+      {addOns.length > 0 && (
+        <details className="group rounded-[24px] border border-stone-200 bg-white p-5 sm:p-7">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+            <div>
+              <p className="text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: primary }}>Optional extras</p>
+              <h3 className="mt-2 text-xl font-black tracking-[-0.02em] text-stone-900">Website add-ons & one-off fixes</h3>
+              <p className="mt-1 text-[11px] leading-5 text-stone-500">Extra pages, integrations, SEO, portals and troubleshooting when your website needs more.</p>
+            </div>
+            <ChevronDown size={18} className="shrink-0 text-stone-400 transition group-open:rotate-180" />
+          </summary>
+          <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {addOns.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                primary={primary}
+                onAdd={() => onAdd(product)}
+                onRequest={() => onRequest(product)}
+              />
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
 function ProductCard({
   product,
   primary,
@@ -6056,8 +6248,11 @@ function ProductCard({
               <div className="flex items-end gap-2">
 
                 <p className="font-serif text-[1.8rem] italic leading-none text-stone-900">
-                  {formatCurrency(
-                    product.price
+                  {formatCurrency(product.price)}
+                  {product.purchase_type === "subscription" && product.billing_interval && (
+                    <span className="ml-1 font-sans text-[10px] font-bold not-italic uppercase tracking-[0.08em] text-stone-400">
+                      / {product.billing_interval}
+                    </span>
                   )}
                 </p>
 

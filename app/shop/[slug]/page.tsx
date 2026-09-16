@@ -38,7 +38,7 @@ import {
   X,
 } from "lucide-react";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 
 // ============================================================
 // TYPES
@@ -1179,6 +1179,9 @@ export default function ShopFrontPage() {
   const params =
     useParams();
 
+  const searchParams =
+    useSearchParams();
+
   const slug =
     typeof params?.slug ===
     "string"
@@ -1200,6 +1203,26 @@ export default function ShopFrontPage() {
 
   const MTC_MEMBERSHIP_URL =
     `${MTC_APP_URL}/membership`;
+
+  const requestedReturnTo =
+    searchParams?.get("returnTo") || "";
+
+  const mtcReturnUrl = (() => {
+    if (!isMTC || !requestedReturnTo) {
+      return MTC_MEMBERSHIP_URL;
+    }
+
+    try {
+      const parsed = new URL(requestedReturnTo);
+      const allowedHost = new URL(MTC_APP_URL).host;
+
+      return parsed.host === allowedHost
+        ? parsed.toString()
+        : MTC_MEMBERSHIP_URL;
+    } catch {
+      return MTC_MEMBERSHIP_URL;
+    }
+  })();
 
   // ==========================================================
   // REQUEST MANAGEMENT
@@ -2726,6 +2749,13 @@ export default function ShopFrontPage() {
                   0
                     ? beneficiaries
                     : undefined,
+
+                ...(isMTC
+                  ? {
+                      source: "mtc-app",
+                      returnTo: mtcReturnUrl,
+                    }
+                  : {}),
               }),
           }
         );
@@ -3533,6 +3563,7 @@ export default function ShopFrontPage() {
                 <a href={`${MTC_APP_URL}/book`} className="text-xs font-semibold no-underline transition">Book</a>
                 <a href={`${MTC_APP_URL}/prs`} className="text-xs font-semibold no-underline transition">Progress</a>
                 <a href={`${MTC_APP_URL}/account`} className="text-xs font-semibold no-underline transition">Account</a>
+                <a href={mtcReturnUrl} className="text-xs font-semibold no-underline transition">Membership</a>
                 <span className="mtc-membership-active rounded-full px-4 py-2 text-xs font-black">Memberships</span>
               </>
             ) : (

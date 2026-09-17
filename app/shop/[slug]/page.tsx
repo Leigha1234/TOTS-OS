@@ -3321,7 +3321,19 @@ export default function ShopFrontPage() {
         .mtc-app-store header p:last-child { color: rgba(248,250,252,.45) !important; }
         .mtc-app-store header button { background: rgba(255,255,255,.05) !important; border-color: var(--mtc-border) !important; }
         .mtc-app-store .mtc-membership-active { background: rgba(201,168,76,.12); color: var(--mtc-gold) !important; border: 1px solid rgba(201,168,76,.28); }
-        .mtc-app-store .store-hero { background: var(--mtc-navy) !important; }
+        .mtc-app-store .store-hero { background: var(--mtc-navy) !important; padding-top: 22px !important; padding-bottom: 34px !important; }
+        .mtc-app-store #top > div { max-width: 1360px !important; border-radius: 24px !important; overflow: hidden !important; }
+        .mtc-app-store #top > div > div { min-height: 0 !important; grid-template-columns: minmax(0, .92fr) minmax(420px, 1.08fr) !important; }
+        .mtc-app-store #top > div > div > div:first-child { min-height: 470px !important; padding: 64px !important; position: relative; z-index: 2; }
+        .mtc-app-store #top h1 { font-size: clamp(4rem, 6.2vw, 6.8rem) !important; line-height: .84 !important; max-width: 650px !important; letter-spacing: -.065em !important; }
+        .mtc-app-store #top p { max-width: 600px !important; font-size: 15px !important; line-height: 1.8 !important; }
+        .mtc-app-store #top .mtc-hero-trust { display: none !important; }
+        .mtc-app-store #top > div > div > div:last-child { min-height: 470px !important; background: #0b1824 !important; }
+        .mtc-app-store #top > div > div > div:last-child > div:last-child { padding: 0 !important; }
+        .mtc-app-store #top > div > div > div:last-child > div:last-child > div { max-width: none !important; width: 100% !important; height: 100% !important; }
+        .mtc-app-store #top > div > div > div:last-child > div:last-child > div > div:first-child { display: none !important; }
+        .mtc-app-store #top > div > div > div:last-child img { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; object-fit: cover !important; filter: grayscale(1) contrast(1.06) brightness(.72) !important; }
+        .mtc-app-store #top > div > div > div:last-child:after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(7,19,31,.68) 0%, rgba(7,19,31,.08) 38%, rgba(201,168,76,.10) 100%); pointer-events: none; }
         .mtc-app-store #top > div { background: var(--mtc-card) !important; border-color: var(--mtc-border) !important; box-shadow: 0 20px 60px rgba(0,0,0,.22) !important; }
         .mtc-app-store #top h1,
         .mtc-app-store #top h2,
@@ -3342,6 +3354,18 @@ export default function ShopFrontPage() {
         .mtc-app-store footer a { color: rgba(248,250,252,.55) !important; }
 
         @media (max-width: 1023px) { .tots-store-memberships #top h1 { font-size: clamp(3.8rem, 15vw, 6rem) !important; } }
+
+        @media (max-width: 1023px) {
+          .mtc-app-store #top > div > div { grid-template-columns: 1fr !important; }
+          .mtc-app-store #top > div > div > div:first-child { min-height: auto !important; padding: 42px 34px !important; }
+          .mtc-app-store #top > div > div > div:last-child { min-height: 360px !important; }
+          .mtc-app-store #top h1 { font-size: clamp(3.4rem, 14vw, 5.5rem) !important; }
+        }
+        @media (max-width: 640px) {
+          .mtc-app-store .store-hero { padding-left: 12px !important; padding-right: 12px !important; }
+          .mtc-app-store #top > div > div > div:first-child { padding: 36px 24px !important; }
+          .mtc-app-store #top > div > div > div:last-child { min-height: 280px !important; }
+        }
 
         /* ====================================================
            MEMBERSHIP CART — high contrast MTC checkout
@@ -3773,11 +3797,11 @@ export default function ShopFrontPage() {
                 </div>
 
                 <h1 className="mt-6 max-w-[720px] text-[3.4rem] font-semibold leading-[0.92] tracking-[-0.035em] sm:text-6xl lg:text-[4.5rem]" style={{ fontFamily: headingFont, color: pageText }}>
-                  {isMTC ? "YOUR MTC MEMBERSHIP." : membershipLayout ? "TRAIN YOUR WAY." : (store.hero_title || `Everything you need, all in one place.`)}
+                  {isMTC ? "TRAIN YOUR WAY." : membershipLayout ? "TRAIN YOUR WAY." : (store.hero_title || `Everything you need, all in one place.`)}
                 </h1>
 
                 <p className="mt-6 max-w-xl text-sm leading-7 text-stone-500 sm:text-[15px]">
-                  {isMTC ? "Choose the plan that fits your training. Your membership connects directly to your MTC account so you can get straight back to booking classes." : membershipLayout ? "Choose a membership that fits how you train — from weekly sessions to unlimited access." : isOrganisedTypes ? "Websites, marketing, branding and practical business support — all in one place." : (store.hero_text || store.store_description || `Explore products and services from ${storeName}.`)}
+                  {isMTC ? "From flexible weekly training to unlimited access — choose your membership and manage everything through your MTC account." : membershipLayout ? "Choose a membership that fits how you train — from weekly sessions to unlimited access." : isOrganisedTypes ? "Websites, marketing, branding and practical business support — all in one place." : (store.hero_text || store.store_description || `Explore products and services from ${storeName}.`)}
                 </p>
 
                 <div className="mt-8 flex flex-wrap gap-3">
@@ -3799,20 +3823,20 @@ export default function ShopFrontPage() {
                     />
                   </a>
 
-                  <button
-                    type="button"
-                    onClick={
-                      openContactDrawer
-                    }
-                    className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
-                  >
-                    Ask a question
-                  </button>
+                  {!isMTC && (
+                    <button
+                      type="button"
+                      onClick={openContactDrawer}
+                      className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-6 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] text-stone-600 transition hover:border-stone-300 hover:bg-stone-50"
+                    >
+                      Ask a question
+                    </button>
+                  )}
 
 
                 </div>
 
-                <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 border-t border-stone-100 pt-6">
+                <div className={`mt-8 flex flex-wrap gap-x-6 gap-y-3 border-t border-stone-100 pt-6 ${isMTC ? "mtc-hero-trust" : ""}`}>
 
                   <TrustItem
                     icon={
@@ -5987,7 +6011,7 @@ function MembershipShopSections({
               </p>
             </div>
 
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {items.map((product) => (
                 <MembershipCard
                   key={product.id}

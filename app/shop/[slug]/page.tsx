@@ -3616,6 +3616,78 @@ export default function ShopFrontPage() {
         }
 
         /* ====================================================
+           MTC APP THEME — light member-app styling
+        ==================================================== */
+        .mtc-app-store {
+          --mtc-bg: #f5f5f3;
+          --mtc-surface: #ffffff;
+          --mtc-surface-soft: #f8f8f6;
+          --mtc-text: #171717;
+          --mtc-muted-light: #6b6b68;
+          --mtc-line: #e6e6e2;
+          --mtc-yellow: #f4e600;
+          --store-bg: var(--mtc-bg) !important;
+          --store-text: var(--mtc-text) !important;
+          --store-surface: var(--mtc-surface) !important;
+          --store-surface-soft: var(--mtc-surface-soft) !important;
+          --store-surface-strong: #efefec !important;
+          --store-muted: var(--mtc-muted-light) !important;
+          --store-faint: #969691 !important;
+          --store-border: var(--mtc-line) !important;
+          background: var(--mtc-bg) !important;
+          color: var(--mtc-text) !important;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+        }
+        .mtc-app-store, .mtc-app-store * { border-color: var(--mtc-line); }
+        .mtc-app-store > header { background: rgba(255,255,255,.96) !important; border-bottom: 1px solid var(--mtc-line) !important; box-shadow: none !important; }
+        .mtc-app-store > header p, .mtc-app-store > header a, .mtc-app-store > header button { color: var(--mtc-text) !important; }
+        .mtc-app-store > header p:last-child { color: #8a8a86 !important; }
+        .mtc-app-store > header button { background: #fff !important; border-color: var(--mtc-line) !important; box-shadow: none !important; }
+        .mtc-app-store > header nav a { color: #696965 !important; }
+        .mtc-app-store > header nav a:hover { color: #111 !important; }
+        .mtc-app-store .mtc-membership-active { background: #111 !important; border-color: #111 !important; color: #fff !important; }
+        .mtc-app-store .store-hero { background: var(--mtc-bg) !important; }
+        .mtc-app-store #top > div { background: #fff !important; border: 1px solid var(--mtc-line) !important; box-shadow: 0 1px 2px rgba(0,0,0,.03) !important; }
+        .mtc-app-store #top h1, .mtc-app-store #top h2, .mtc-app-store #top h3 { color: var(--mtc-text) !important; font-family: inherit !important; }
+        .mtc-app-store #top p { color: var(--mtc-muted-light) !important; }
+        .mtc-app-store #top [class*="rounded-full"]:first-child { background: #fffbea !important; color: #6d6500 !important; border-color: #eee59a !important; }
+        .mtc-app-store #top a[href="#shop"] { background: #111 !important; color: #fff !important; border-radius: 12px !important; }
+        .mtc-app-store #shop { background: var(--mtc-bg) !important; }
+        .mtc-app-store #shop h2, .mtc-app-store #shop h3 { color: var(--mtc-text) !important; font-family: inherit !important; }
+        .mtc-app-store #shop p { color: var(--mtc-muted-light) !important; opacity: 1 !important; }
+        .mtc-app-store #shop section > div:first-child { border-color: var(--mtc-line) !important; }
+        .mtc-app-store #shop section > div:first-child p:first-child { color: #777300 !important; }
+        .mtc-app-store #shop article { background: #fff !important; border-color: var(--mtc-line) !important; color: var(--mtc-text) !important; box-shadow: 0 1px 2px rgba(0,0,0,.025) !important; }
+        .mtc-app-store #shop article:hover { background: #fff !important; border-color: #d4d4cf !important; box-shadow: 0 10px 28px rgba(0,0,0,.055) !important; }
+        .mtc-app-store #shop article h3, .mtc-app-store #shop article strong { color: var(--mtc-text) !important; font-family: inherit !important; }
+        .mtc-app-store #shop article p, .mtc-app-store #shop article li, .mtc-app-store #shop article span { color: var(--mtc-muted-light); }
+        .mtc-app-store #shop article svg { color: #8c8500 !important; }
+        .mtc-app-store #shop article button.store-primary-action { background: #111 !important; color: #fff !important; border-radius: 12px !important; }
+        .mtc-app-store #shop article button.store-primary-action svg { color: #fff !important; }
+        .mtc-app-store #shop article > div.absolute { background: var(--mtc-yellow) !important; color: #111 !important; }
+        .mtc-app-store footer { background: #fff !important; border-color: var(--mtc-line) !important; color: var(--mtc-text) !important; }
+        .mtc-app-store footer p, .mtc-app-store footer a { color: var(--mtc-muted-light) !important; }
+
+        /* MTC basket / checkout drawer */
+        .mtc-app-store .membership-cart { background: #fff !important; color: var(--mtc-text) !important; border-left: 1px solid var(--mtc-line) !important; }
+        .mtc-app-store .membership-cart > div:first-of-type { border-color: var(--mtc-line) !important; }
+        .mtc-app-store .membership-cart > div:first-of-type p { color: var(--mtc-muted-light) !important; }
+        .mtc-app-store .membership-cart > div:first-of-type h3 { color: var(--mtc-text) !important; font-family: inherit !important; text-transform: none !important; }
+        .mtc-app-store .membership-cart > div:first-of-type button { background: #f4f4f1 !important; color: #111 !important; }
+        .mtc-app-store .membership-cart > div:nth-of-type(2) > div > div { background: #f8f8f6 !important; border-color: var(--mtc-line) !important; }
+        .mtc-app-store .membership-cart > div:nth-of-type(2) > div > div > div > div:first-child { background: #fff !important; border-color: var(--mtc-line) !important; }
+        .mtc-app-store .membership-cart > div:nth-of-type(2) p { color: var(--mtc-muted-light) !important; }
+        .mtc-app-store .membership-cart > div:nth-of-type(2) p.text-xs, .mtc-app-store .membership-cart > div:nth-of-type(2) .font-serif { color: var(--mtc-text) !important; font-family: inherit !important; text-transform: none !important; }
+        .mtc-app-store .membership-cart > div:nth-of-type(2) button { background: #fff !important; color: #111 !important; border-color: var(--mtc-line) !important; }
+        .mtc-app-store .membership-cart-footer { background: #fff !important; border-color: var(--mtc-line) !important; }
+        .mtc-app-store .membership-cart-footer input { background: #fff !important; color: #111 !important; border-color: var(--mtc-line) !important; }
+        .mtc-app-store .membership-cart-footer input::placeholder { color: #9a9a95 !important; }
+        .mtc-app-store .membership-cart-footer p, .mtc-app-store .membership-cart-footer > div:last-child { color: var(--mtc-muted-light) !important; }
+        .mtc-app-store .membership-cart-footer strong { color: var(--mtc-text) !important; font-family: inherit !important; }
+        .mtc-app-store .membership-cart-footer .border-t { border-color: var(--mtc-line) !important; }
+        .mtc-app-store .membership-cart-footer .store-primary-action { background: #111 !important; color: #fff !important; border-radius: 12px !important; }
+
+        /* ====================================================
            MINIMAL — editorial, calm and premium
         ==================================================== */
         .tots-store-minimal header {

@@ -3368,6 +3368,187 @@ export default function ShopFrontPage() {
         }
 
         /* ====================================================
+           MTC MVP — match the member app rather than a marketing site
+        ==================================================== */
+        .mtc-app-store {
+          --mtc-navy: #07131f;
+          --mtc-panel: #0b1926;
+          --mtc-panel-2: #0e2030;
+          --mtc-border: rgba(255,255,255,.085);
+          --mtc-muted: rgba(248,250,252,.58);
+          --mtc-yellow: #f3e600;
+        }
+        .mtc-app-store > header > div,
+        .mtc-app-store #top > div,
+        .mtc-app-store #shop > div,
+        .mtc-app-store footer > div {
+          max-width: 1180px !important;
+        }
+        .mtc-app-store > header {
+          height: auto !important;
+          background: rgba(7,19,31,.96) !important;
+          border-bottom: 1px solid var(--mtc-border) !important;
+          box-shadow: none !important;
+        }
+        .mtc-app-store > header > div { height: 68px !important; }
+        .mtc-app-store > header nav { gap: 24px !important; }
+        .mtc-app-store > header nav a {
+          color: rgba(248,250,252,.62) !important;
+          font-size: 12px !important;
+          font-weight: 700 !important;
+        }
+        .mtc-app-store > header nav a:hover { color: #fff !important; }
+        .mtc-app-store .mtc-membership-active {
+          background: rgba(243,230,0,.10) !important;
+          border-color: rgba(243,230,0,.22) !important;
+          color: var(--mtc-yellow) !important;
+          padding: 8px 13px !important;
+        }
+
+        /* Compact in-app intro instead of a second landing page. */
+        .mtc-app-store .store-hero {
+          padding: 28px 24px 8px !important;
+          background: var(--mtc-navy) !important;
+        }
+        .mtc-app-store #top > div {
+          border: 1px solid var(--mtc-border) !important;
+          border-radius: 20px !important;
+          background: linear-gradient(135deg, #0d2030 0%, #0a1824 100%) !important;
+          box-shadow: none !important;
+        }
+        .mtc-app-store #top > div > div {
+          display: block !important;
+          min-height: 0 !important;
+        }
+        .mtc-app-store #top > div > div > div:first-child {
+          min-height: 0 !important;
+          padding: 42px 46px !important;
+        }
+        .mtc-app-store #top > div > div > div:last-child {
+          display: none !important;
+        }
+        .mtc-app-store #top h1 {
+          margin-top: 14px !important;
+          max-width: none !important;
+          font-size: clamp(2.4rem, 5vw, 4.2rem) !important;
+          line-height: .95 !important;
+          letter-spacing: -.045em !important;
+        }
+        .mtc-app-store #top p {
+          margin-top: 14px !important;
+          max-width: 720px !important;
+          color: var(--mtc-muted) !important;
+          font-size: 14px !important;
+          line-height: 1.65 !important;
+        }
+        .mtc-app-store #top a[href="#shop"] {
+          margin-top: 2px !important;
+          background: var(--mtc-yellow) !important;
+          color: #07131f !important;
+          box-shadow: none !important;
+          border-radius: 12px !important;
+          padding: 13px 18px !important;
+          letter-spacing: .09em !important;
+        }
+        .mtc-app-store #top [class*="rounded-full"]:first-child {
+          background: rgba(243,230,0,.10) !important;
+          color: var(--mtc-yellow) !important;
+          border: 1px solid rgba(243,230,0,.18) !important;
+        }
+
+        /* Membership area follows the same card language as Dashboard/Book. */
+        .mtc-app-store #shop {
+          padding: 34px 24px 72px !important;
+          background: var(--mtc-navy) !important;
+        }
+        .mtc-app-store #shop h2 {
+          font-size: clamp(2.25rem, 4vw, 3.6rem) !important;
+          line-height: .98 !important;
+          letter-spacing: -.045em !important;
+          text-transform: none !important;
+        }
+        .mtc-app-store #shop > div > div:first-child { gap: 16px !important; }
+        .mtc-app-store #shop .mt-12 { margin-top: 34px !important; }
+        .mtc-app-store #shop .space-y-16 > :not([hidden]) ~ :not([hidden]) { margin-top: 48px !important; }
+        .mtc-app-store #shop section > div:first-child {
+          border-color: var(--mtc-border) !important;
+          padding-bottom: 16px !important;
+          margin-bottom: 18px !important;
+        }
+        .mtc-app-store #shop section > div:first-child h3 {
+          margin-top: 5px !important;
+          font-size: clamp(1.55rem, 3vw, 2.2rem) !important;
+          line-height: 1 !important;
+          text-transform: none !important;
+          letter-spacing: -.035em !important;
+        }
+        .mtc-app-store #shop section > div:first-child p:first-child {
+          color: var(--mtc-yellow) !important;
+          font-size: 9px !important;
+          letter-spacing: .16em !important;
+        }
+        .mtc-app-store #shop section > div:first-child p:last-child {
+          margin-top: 8px !important;
+          font-size: 13px !important;
+          line-height: 1.6 !important;
+        }
+        .mtc-app-store #shop article {
+          min-height: 340px !important;
+          padding: 24px !important;
+          border: 1px solid var(--mtc-border) !important;
+          border-radius: 18px !important;
+          background: var(--mtc-panel) !important;
+          box-shadow: none !important;
+          transition: transform .18s ease, border-color .18s ease, background .18s ease !important;
+        }
+        .mtc-app-store #shop article:hover {
+          transform: translateY(-2px) !important;
+          border-color: rgba(243,230,0,.25) !important;
+          background: var(--mtc-panel-2) !important;
+        }
+        .mtc-app-store #shop article h3 {
+          margin-top: 12px !important;
+          font-size: clamp(1.65rem, 3vw, 2.3rem) !important;
+          line-height: .98 !important;
+          text-transform: none !important;
+          letter-spacing: -.04em !important;
+        }
+        .mtc-app-store #shop article .my-7 { margin-top: 18px !important; margin-bottom: 18px !important; }
+        .mtc-app-store #shop article .space-y-3 { font-size: 13px !important; color: rgba(248,250,252,.72) !important; }
+        .mtc-app-store #shop article .pt-9 { padding-top: 22px !important; }
+        .mtc-app-store #shop article .text-5xl { font-size: 2.25rem !important; }
+        .mtc-app-store #shop article button.store-primary-action {
+          margin-top: 16px !important;
+          min-height: 48px !important;
+          padding: 12px 15px !important;
+          border-radius: 12px !important;
+          background: var(--mtc-yellow) !important;
+          color: #07131f !important;
+          border: 0 !important;
+          box-shadow: none !important;
+        }
+        .mtc-app-store #shop article > div.absolute {
+          background: var(--mtc-yellow) !important;
+          color: #07131f !important;
+          border-radius: 0 17px 0 12px !important;
+        }
+        .mtc-app-store footer { background: #050d15 !important; }
+
+        @media (max-width: 1023px) {
+          .mtc-app-store .store-hero,
+          .mtc-app-store #shop { padding-left: 18px !important; padding-right: 18px !important; }
+          .mtc-app-store #top > div > div > div:first-child { padding: 34px !important; }
+        }
+        @media (max-width: 640px) {
+          .mtc-app-store .store-hero { padding-top: 16px !important; }
+          .mtc-app-store #top > div { border-radius: 16px !important; }
+          .mtc-app-store #top > div > div > div:first-child { padding: 28px 22px !important; }
+          .mtc-app-store #top h1 { font-size: 2.6rem !important; }
+          .mtc-app-store #shop { padding-top: 26px !important; padding-bottom: 54px !important; }
+          .mtc-app-store #shop article { min-height: 0 !important; padding: 21px !important; border-radius: 16px !important; }
+        }
+
+        /* ====================================================
            MEMBERSHIP CART — high contrast MTC checkout
         ==================================================== */
         .membership-cart {

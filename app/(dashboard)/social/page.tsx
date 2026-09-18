@@ -7799,7 +7799,8 @@ export default function SocialStudioUnified() {
 
                             {tiktokSettings
                               .commercial_content && (
-                              <div className="grid gap-2 border-t border-stone-200 pt-3 sm:grid-cols-2">
+                              <div className="space-y-3 border-t border-stone-200 pt-3">
+                                <div className="grid gap-2 sm:grid-cols-2">
                                 <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-white p-3">
                                   <input
                                     type="checkbox"
@@ -7888,6 +7889,31 @@ export default function SocialStudioUnified() {
                                     </span>
                                   </span>
                                 </label>
+                                </div>
+
+                                {tiktokSettings.brand_content_toggle ? (
+                                  <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
+                                    <p className="text-[9px] font-bold leading-4 text-stone-700">
+                                      Your photo/video will be labeled as &apos;Paid partnership&apos;
+                                    </p>
+
+                                    <p className="mt-1 text-[8px] leading-4 text-stone-400">
+                                      Branded content visibility cannot be set to private.
+                                    </p>
+                                  </div>
+                                ) : tiktokSettings.brand_organic_toggle ? (
+                                  <div className="rounded-xl border border-stone-200 bg-white px-3 py-2">
+                                    <p className="text-[9px] font-bold leading-4 text-stone-700">
+                                      Your photo/video will be labeled as &apos;Promotional content&apos;
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                                    <p className="text-[9px] font-bold leading-4 text-amber-700">
+                                      You need to indicate if your content promotes yourself, a third party, or both.
+                                    </p>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -7960,11 +7986,9 @@ export default function SocialStudioUnified() {
                             />
 
                             <span className="text-[9px] leading-5 text-stone-600">
-                              I confirm that I have the rights necessary to publish this content and agree to TikTok&apos;s publishing and music usage requirements.
-                              {tiktokSettings
-                                .brand_content_toggle
-                                ? " This post also needs to comply with TikTok's Branded Content Policy."
-                                : ""}
+                              {tiktokSettings.brand_content_toggle
+                                ? "By posting, you agree to TikTok's Branded Content Policy and Music Usage Confirmation."
+                                : "By posting, you agree to TikTok's Music Usage Confirmation."}
                             </span>
                           </label>
 
@@ -9323,9 +9347,15 @@ export default function SocialStudioUnified() {
                     className="mt-0.5 shrink-0 animate-spin text-amber-500"
                   />
 
-                  <p className="text-xs leading-5 text-amber-700">
-                    The platform has accepted this post and it is still processing.
-                  </p>
+                  <div>
+                    <p className="text-xs font-bold text-amber-700">
+                      TikTok is processing your post
+                    </p>
+
+                    <p className="mt-1 text-[10px] leading-5 text-amber-700">
+                      TikTok has accepted this post. It may take a few minutes to process and become visible on your TikTok profile.
+                    </p>
+                  </div>
                 </div>
               )}
 

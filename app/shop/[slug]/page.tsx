@@ -6497,7 +6497,7 @@ function MembershipShopSections({
     const value = `${product.name || ""} ${product.sku || ""} ${(product as any).external_plan_code || ""}`.toLowerCase();
     if (/kid|child/.test(value)) return "kids";
     if (/couple|joint|partner/.test(value)) return "joint";
-    if (/drop[ -]?in|day pass|single session/.test(value)) return "dropin";
+    if (product.purchase_type === "one_off" || /walk[ -]?in|drop[ -]?in|day pass|single session|one[ -]?off/.test(value)) return "dropin";
     return "adult";
   };
 
@@ -6576,41 +6576,160 @@ function MembershipCard({
 }) {
   const name = String(product?.name || "Membership");
   const price = Number(product?.price || 0);
-  const unlimited = /unlimited/i.test(name);
-  const couple = /couple/i.test(name);
-  const kids = /kid/i.test(name);
+  const purchaseType = String((product as any)?.purchase_type || "").toLowerCase();
+  const productType = String((product as any)?.product_type || "").toLowerCase();
+  const category = String((product as any)?.category || "").toLowerCase();
+  const sku = String(product?.sku || "").toLowerCase();
+
+  const oneOff =
+    purchaseType === "one_off" ||
+    productType !== "membership" &&
+      (/walk[ -]?in|drop[ -]?in|day pass|single session|one[ -]?off/.test(`${name} ${sku} ${category}`.toLowerCase()));
+
+  const unlimited = !oneOff && /unlimited/i.test(name);
+  const couple = !oneOff && /couple/i.test(name);
+  const kids = !oneOff && /kid/i.test(name);
   const openGym = /open gym/i.test(name);
-  const frequency = unlimited ? "Unlimited training" : (name.match(/\d+\s*Per Week/i)?.[0] || "Monthly membership");
-  const audience = kids ? "Kids" : couple ? "Couples" : "Adult";
-  const title = name.replace(/^(Adult|Couples|Kids)\s*[–—-]\s*/i, "");
+
+  const frequency = oneOff
+    ? "One session"
+    : unlimited
+      ? "Unlimited training"
+      : (name.match(/\d+\s*Per Week/i)?.[0] || "Monthly membership");
+
+  const audience = oneOff
+    ? "One-off"
+    : kids
+      ? "Kids"
+      : couple
+        ? "Couples"
+        : "Adult";
+
+  const title = oneOff
+    ? name
+    : name.replace(/^(Adult|Couples|Kids)\s*[–—-]\s*/i, "");
 
   return (
-    <article className="relative flex min-h-[430px] flex-col overflow-hidden border p-7 sm:p-8 lg:p-10" style={{ background: "var(--store-surface)", borderColor: unlimited ? primary : "var(--store-border)", borderRadius: "var(--store-radius)" }}>
+    <article
+      className="relative flex min-h-[430px] flex-col overflow-hidden border p-7 sm:p-8 lg:p-10"
+      style={{
+        background: "var(--store-surface)",
+        borderColor: unlimited ? primary : "var(--store-border)",
+        borderRadius: "var(--store-radius)",
+      }}
+    >
       {unlimited && (
-        <div className="absolute right-0 top-0 px-5 py-2 text-[8px] font-black uppercase tracking-[.18em]" style={{ background: primary, color: "var(--store-button-text)" }}>Most flexible</div>
+        <div
+          className="absolute right-0 top-0 px-5 py-2 text-[8px] font-black uppercase tracking-[.18em]"
+          style={{ background: primary, color: "var(--store-button-text)" }}
+        >
+          Most flexible
+        </div>
       )}
+
       <div>
-        <p className="text-[9px] font-black uppercase tracking-[.22em]" style={{ color: primary }}>{audience} membership</p>
-        <h3 className="mt-5 text-4xl font-black uppercase leading-[.95] tracking-[-.04em] sm:text-5xl">{title}</h3>
-        <p className="mt-4 text-sm leading-6" style={{ color: "var(--store-muted)" }}>{product?.description || `${frequency} at ${audience === "Adult" ? "the club" : "Moray Training Club"}.`}</p>
+        <p
+          className="text-[9px] font-black uppercase tracking-[.22em]"
+          style={{ color: primary }}
+        >
+          {oneOff ? "One-off session" : `${audience} membership`}
+        </p>
+
+        <h3 className="mt-5 text-4xl font-black uppercase leading-[.95] tracking-[-.04em] sm:text-5xl">
+          {title}
+        </h3>
+
+        <p
+          className="mt-4 text-sm leading-6"
+          style={{ color: "var(--store-muted)" }}
+        >
+          {product?.description ||
+            (oneOff
+              ? "Book a single session at Moray Training Club with no monthly membership required."
+              : `${frequency} at ${audience === "Adult" ? "the club" : "Moray Training Club"}.`)}
+        </p>
       </div>
 
-      <div className="my-7 h-px w-full" style={{ background: "var(--store-border)" }} />
+      <div
+        className="my-7 h-px w-full"
+        style={{ background: "var(--store-border)" }}
+      />
 
       <div className="space-y-3 text-sm">
-        <div className="flex items-center gap-3"><Check size={16} style={{ color: primary }} /><span>{frequency}</span></div>
-        <div className="flex items-center gap-3"><Check size={16} style={{ color: primary }} /><span>Book and manage sessions in the MTC app</span></div>
-        {openGym && <div className="flex items-center gap-3"><Check size={16} style={{ color: primary }} /><span>Includes adult open gym access</span></div>}
-        {couple && <div className="flex items-center gap-3"><Check size={16} style={{ color: primary }} /><span>Membership for two adults</span></div>}
+        <div className="flex items-center gap-3">
+          <Check size={16} style={{ color: primary }} />
+          <span>{frequency}</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Check size={16} style={{ color: primary }} />
+          <span>
+            {oneOff
+              ? "No monthly membership required"
+              : "Book and manage sessions in the MTC app"}
+          </span>
+        </div>
+
+        {oneOff && (
+          <div className="flex items-center gap-3">
+            <Check size={16} style={{ color: primary }} />
+            <span>One-time payment</span>
+          </div>
+        )}
+
+        {openGym && !oneOff && (
+          <div className="flex items-center gap-3">
+            <Check size={16} style={{ color: primary }} />
+            <span>Includes adult open gym access</span>
+          </div>
+        )}
+
+        {couple && !oneOff && (
+          <div className="flex items-center gap-3">
+            <Check size={16} style={{ color: primary }} />
+            <span>Membership for two adults</span>
+          </div>
+        )}
       </div>
 
       <div className="mt-auto pt-9">
         <div className="flex items-end gap-2">
-          <span className="text-5xl font-black tracking-[-.05em]">{formatCurrency(price)}</span>
-          <span className="pb-1 text-xs font-bold uppercase tracking-[.12em]" style={{ color: "var(--store-muted)" }}>/ month</span>
+          <span className="text-5xl font-black tracking-[-.05em]">
+            {formatCurrency(price)}
+          </span>
+
+          {!oneOff && (
+            <span
+              className="pb-1 text-xs font-bold uppercase tracking-[.12em]"
+              style={{ color: "var(--store-muted)" }}
+            >
+              / month
+            </span>
+          )}
         </div>
-        <button type="button" onClick={onChoose} data-store-primary="true" className="store-primary-action mt-6 flex w-full items-center justify-between px-5 py-4 text-[10px] font-black uppercase tracking-[.16em] transition hover:-translate-y-0.5" style={{ background: primary, color: "var(--store-button-text)", borderRadius: "var(--store-radius)" }}>
-          Choose membership <ArrowRight size={16} />
+
+        {oneOff && (
+          <p
+            className="mt-2 text-[10px] font-bold uppercase tracking-[.14em]"
+            style={{ color: "var(--store-muted)" }}
+          >
+            One-time payment
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={onChoose}
+          data-store-primary="true"
+          className="store-primary-action mt-6 flex w-full items-center justify-between px-5 py-4 text-[10px] font-black uppercase tracking-[.16em] transition hover:-translate-y-0.5"
+          style={{
+            background: primary,
+            color: "var(--store-button-text)",
+            borderRadius: "var(--store-radius)",
+          }}
+        >
+          {oneOff ? "Book one-off session" : "Choose membership"}
+          <ArrowRight size={16} />
         </button>
       </div>
     </article>

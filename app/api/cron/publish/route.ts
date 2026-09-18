@@ -9,11 +9,6 @@ export const dynamic = "force-dynamic";
 const MAX_ATTEMPTS = 5;
 const DEFAULT_META_GRAPH_VERSION = "v25.0";
 
-const TIKTOK_MIN_CHUNK_SIZE = 5_000_000;
-const TIKTOK_MAX_CHUNK_SIZE = 64_000_000;
-const TIKTOK_MAX_FINAL_CHUNK_SIZE = 128_000_000;
-const TIKTOK_MAX_CHUNKS = 1000;
-const TIKTOK_MAX_VIDEO_SIZE = 4 * 1024 * 1024 * 1024;
 const TIKTOK_MAX_PHOTOS = 35;
 
 // TikTok PULL_FROM_URL must use a URL under a verified domain.
@@ -96,10 +91,6 @@ type TikTokValidatedSettings = {
   disableStitch: boolean;
 };
 
-type TikTokChunkPlan = {
-  chunkSize: number;
-  totalChunkCount: number;
-};
 
 // ============================================================
 // ERRORS
@@ -2974,65 +2965,13 @@ async function publishTikTokVideo({
   mediaUrl: string;
   fullMessage: string;
 }) {
-  const videoResponse =
-    await fetch(
-      mediaUrl,
-      {
-        cache:
-          "no-store",
-      }
-    );
-
-  if (
-    !videoResponse.ok
-  ) {
-    throw new Error(
-      `Could not download video from storage: HTTP ${videoResponse.status}`
-    );
-  }
-
-  const videoBytes =
-    new Uint8Array(
-      await videoResponse
-        .arrayBuffer()
-    );
-
-  const videoSize =
-    videoBytes.byteLength;
-
-  if (
-    !videoSize
-  ) {
-    throw new PermanentPublishError(
-      "Downloaded TikTok video is empty."
-    );
-  }
-
-  if (
-    videoSize >
-    TIKTOK_MAX_VIDEO_SIZE
-  ) {
-    throw new PermanentPublishError(
-      "TikTok video exceeds the 4 GB upload limit."
-    );
-  }
-
-  const contentType =
-    getTikTokVideoMimeType({
-      mediaUrl,
-
-      responseContentType:
-        videoResponse.headers.get(
-          "content-type"
-        ),
-    });
-
-  const {
-    chunkSize,
-    totalChunkCount,
-  } =
-    calculateTikTokChunks(
-      videoSize
+  // The video already lives in TOTS-OS storage, so TikTok's
+  // server-to-server PULL_FROM_URL flow is the correct transfer
+  // method. TikTok requires the supplied URL to be under a
+  // verified domain or URL prefix.
+  const tiktokVideoUrl =
+    getTikTokPullMediaUrl(
+      mediaUrl
     );
 
   const postInfo:
@@ -3100,16 +3039,10 @@ async function publishTikTokVideo({
 
             source_info: {
               source:
-                "FILE_UPLOAD",
+                "PULL_FROM_URL",
 
-              video_size:
-                videoSize,
-
-              chunk_size:
-                chunkSize,
-
-              total_chunk_count:
-                totalChunkCount,
+              video_url:
+                tiktokVideoUrl,
             },
           }),
 
@@ -3144,13 +3077,6 @@ async function publishTikTokVideo({
         ?.publish_id
     );
 
-  const uploadUrl =
-    cleanString(
-      initData
-        ?.data
-        ?.upload_url
-    );
-
   if (
     !publishId
   ) {
@@ -3160,25 +3086,6 @@ async function publishTikTokVideo({
       )}`
     );
   }
-
-  if (
-    !uploadUrl
-  ) {
-    throw new Error(
-      `TikTok did not return an upload_url: ${JSON.stringify(
-        initData
-      )}`
-    );
-  }
-
-  await uploadVideoToTikTok({
-    uploadUrl,
-    videoBytes,
-    videoSize,
-    chunkSize,
-    totalChunkCount,
-    contentType,
-  });
 
   return {
     status:
@@ -3193,21 +3100,15 @@ async function publishTikTokVideo({
       media_type:
         "VIDEO",
 
-      upload: {
+      media: {
         transfer_method:
-          "FILE_UPLOAD",
+          "PULL_FROM_URL",
 
-        video_size:
-          videoSize,
+        video_url:
+          tiktokVideoUrl,
 
-        chunk_size:
-          chunkSize,
-
-        total_chunk_count:
-          totalChunkCount,
-
-        content_type:
-          contentType,
+        original_video_url:
+          mediaUrl,
       },
 
       creator: {
@@ -3270,291 +3171,6 @@ async function publishTikTokVideo({
     error:
       null,
   };
-}
-
-// ============================================================
-// TIKTOK CHUNK CALCULATION
-//
-// TikTok requires normal chunks to be:
-//
-// 5 MB <= chunk <= 64 MB
-//
-// The final chunk may be up to 128 MB.
-//
-// If the remainder after 64 MB chunks is under 5 MB,
-// it is merged into the final chunk rather than uploaded
-// as an invalid tiny final chunk.
-// ============================================================
-
-function calculateTikTokChunks(
-  videoSize: number
-): TikTokChunkPlan {
-  if (
-    !Number.isFinite(
-      videoSize
-    ) ||
-    videoSize <=
-      0
-  ) {
-    throw new PermanentPublishError(
-      `Invalid TikTok video size: ${videoSize}`
-    );
-  }
-
-  if (
-    videoSize >
-    TIKTOK_MAX_VIDEO_SIZE
-  ) {
-    throw new PermanentPublishError(
-      "TikTok video exceeds the 4 GB upload limit."
-    );
-  }
-
-  // <=64 MB: one chunk containing the complete video.
-  if (
-    videoSize <=
-    TIKTOK_MAX_CHUNK_SIZE
-  ) {
-    return {
-      chunkSize:
-        videoSize,
-
-      totalChunkCount:
-        1,
-    };
-  }
-
-  const fullChunks =
-    Math.floor(
-      videoSize /
-        TIKTOK_MAX_CHUNK_SIZE
-    );
-
-  const remainder =
-    videoSize %
-    TIKTOK_MAX_CHUNK_SIZE;
-
-  /*
-   * Example:
-   *
-   * 130 MB
-   *
-   * 64 MB
-   * 66 MB final chunk
-   *
-   * rather than:
-   *
-   * 64 MB
-   * 64 MB
-   * 2 MB (invalid)
-   */
-  let totalChunkCount =
-    fullChunks;
-
-  if (
-    remainder >=
-    TIKTOK_MIN_CHUNK_SIZE
-  ) {
-    totalChunkCount +=
-      1;
-  }
-
-  if (
-    totalChunkCount <
-      1 ||
-    totalChunkCount >
-      TIKTOK_MAX_CHUNKS
-  ) {
-    throw new PermanentPublishError(
-      `TikTok video requires an unsupported number of chunks: ${totalChunkCount}`
-    );
-  }
-
-  const finalChunkStart =
-    (
-      totalChunkCount -
-      1
-    ) *
-    TIKTOK_MAX_CHUNK_SIZE;
-
-  const finalChunkSize =
-    videoSize -
-    finalChunkStart;
-
-  if (
-    finalChunkSize <
-      TIKTOK_MIN_CHUNK_SIZE ||
-    finalChunkSize >
-      TIKTOK_MAX_FINAL_CHUNK_SIZE
-  ) {
-    throw new PermanentPublishError(
-      `TikTok final upload chunk ${finalChunkSize} bytes is outside the allowed range.`
-    );
-  }
-
-  return {
-    chunkSize:
-      TIKTOK_MAX_CHUNK_SIZE,
-
-    totalChunkCount,
-  };
-}
-
-// ============================================================
-// TIKTOK FILE UPLOAD
-// ============================================================
-
-async function uploadVideoToTikTok({
-  uploadUrl,
-  videoBytes,
-  videoSize,
-  chunkSize,
-  totalChunkCount,
-  contentType,
-}: {
-  uploadUrl: string;
-  videoBytes: Uint8Array;
-  videoSize: number;
-  chunkSize: number;
-  totalChunkCount: number;
-  contentType: string;
-}) {
-  for (
-    let chunkIndex =
-      0;
-    chunkIndex <
-      totalChunkCount;
-    chunkIndex +=
-      1
-  ) {
-    const startByte =
-      chunkIndex *
-      chunkSize;
-
-    const isLastChunk =
-      chunkIndex ===
-      totalChunkCount -
-        1;
-
-    // The final upload receives all bytes remaining.
-    //
-    // This is important when the normal remainder would be
-    // under TikTok's minimum 5 MB chunk size.
-    const endExclusive =
-      isLastChunk
-        ? videoSize
-        : Math.min(
-            startByte +
-              chunkSize,
-            videoSize
-          );
-
-    const lastByte =
-      endExclusive -
-      1;
-
-    const chunk =
-      videoBytes.slice(
-        startByte,
-        endExclusive
-      );
-
-    const chunkLength =
-      chunk.byteLength;
-
-    if (
-      chunkLength <=
-      0
-    ) {
-      throw new Error(
-        `TikTok upload chunk ${chunkIndex + 1} is empty.`
-      );
-    }
-
-    // Every non-final chunk must respect TikTok's normal
-    // 5 MB -> 64 MB range.
-    if (
-      !isLastChunk &&
-      (
-        chunkLength <
-          TIKTOK_MIN_CHUNK_SIZE ||
-        chunkLength >
-          TIKTOK_MAX_CHUNK_SIZE
-      )
-    ) {
-      throw new PermanentPublishError(
-        `TikTok upload chunk ${chunkIndex + 1} has an invalid size of ${chunkLength} bytes.`
-      );
-    }
-
-    // The final chunk can be larger than a normal chunk,
-    // but TikTok caps it at 128 MB.
-    if (
-      isLastChunk &&
-      chunkLength >
-        TIKTOK_MAX_FINAL_CHUNK_SIZE
-    ) {
-      throw new PermanentPublishError(
-        `TikTok final upload chunk is too large: ${chunkLength} bytes.`
-      );
-    }
-
-    if (
-      totalChunkCount >
-        1 &&
-      isLastChunk &&
-      chunkLength <
-        TIKTOK_MIN_CHUNK_SIZE
-    ) {
-      throw new PermanentPublishError(
-        `TikTok final upload chunk is too small: ${chunkLength} bytes.`
-      );
-    }
-
-    const uploadResponse =
-      await fetch(
-        uploadUrl,
-        {
-          method:
-            "PUT",
-
-          headers: {
-            "Content-Type":
-              contentType,
-
-            "Content-Length":
-              String(
-                chunkLength
-              ),
-
-            "Content-Range":
-              `bytes ${startByte}-${lastByte}/${videoSize}`,
-          },
-
-          body:
-            new Blob(
-              [
-                chunk,
-              ],
-              {
-                type:
-                  contentType,
-              }
-            ),
-        }
-      );
-
-    const uploadText =
-      await uploadResponse.text();
-
-    if (
-      !uploadResponse.ok
-    ) {
-      throw new Error(
-        `TikTok video upload failed on chunk ${chunkIndex + 1}/${totalChunkCount}: HTTP ${uploadResponse.status} ${uploadText || ""}`
-      );
-    }
-  }
 }
 
 // ============================================================
@@ -3735,78 +3351,6 @@ async function checkTikTokPostStatus({
     error:
       null,
   };
-}
-
-// ============================================================
-// TIKTOK VIDEO MIME TYPE
-// ============================================================
-
-function getTikTokVideoMimeType({
-  mediaUrl,
-  responseContentType,
-}: {
-  mediaUrl: string;
-  responseContentType: string | null;
-}) {
-  const headerMime =
-    responseContentType
-      ?.split(
-        ";"
-      )[0]
-      ?.trim()
-      ?.toLowerCase();
-
-  if (
-    [
-      "video/mp4",
-      "video/quicktime",
-      "video/webm",
-    ].includes(
-      headerMime ||
-      ""
-    )
-  ) {
-    return headerMime!;
-  }
-
-  const cleanUrl =
-    getCleanMediaUrl(
-      mediaUrl
-    );
-
-  if (
-    cleanUrl.endsWith(
-      ".mov"
-    )
-  ) {
-    return "video/quicktime";
-  }
-
-  if (
-    cleanUrl.endsWith(
-      ".webm"
-    )
-  ) {
-    return "video/webm";
-  }
-
-  if (
-    cleanUrl.endsWith(
-      ".mp4"
-    ) ||
-    cleanUrl.endsWith(
-      ".m4v"
-    )
-  ) {
-    return "video/mp4";
-  }
-
-  throw new PermanentPublishError(
-    `Unsupported TikTok video type. TikTok supports MP4, MOV and WebM. Received: ${
-      responseContentType ||
-      mediaUrl
-    }`
-  );
 }
 
 function isPermanentError(

@@ -1,6867 +1,7029 @@
 "use client";
 
 import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from "framer-motion";
-
-import {
-  ArrowLeft,
-  ArrowRight,
-  BrainCircuit,
-  Check,
-  CheckCircle2,
-  ChevronLeft,
-  CircleDollarSign,
-  ContactRound,
-  FolderKanban,
-  Home,
-  LayoutDashboard,
-  Mail,
-  Megaphone,
-  Minus,
-  RotateCcw,
-  ShoppingBag,
-  Sparkles,
-  Store,
-  Users,
-  WandSparkles,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
-
-import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 
-/* ============================================================
-   CONFIG
-============================================================ */
+import { supabase } from "@/lib/supabase";
 
-const LOGO_SRC = "/icon.png";
+import {
+  ArrowUpRight,
+  CalendarDays,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Copy,
+  ExternalLink,
+  Link as LinkIcon,
+  Loader2,
+  Mail,
+  Minus,
+  Paperclip,
+  Plus,
+  RefreshCw,
+  Send,
+  Sparkles,
+  Tag,
+  Users,
+  Video,
+  X,
+} from "lucide-react";
 
-const HOME_URL = "/";
+import {
+  AnimatePresence,
+  motion,
+} from "framer-motion";
 
-const BILLING_URL =
-  "/billing";
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  eachDayOfInterval,
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isAfter,
+  isBefore,
+  isEqual,
+  isSameDay,
+  isSameMonth,
+  isValid,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from "date-fns";
 
-const COMPLETE_PRICE = 139;
+// ============================================================
+// TYPES
+// ============================================================
 
-const MODULE_PRICE = 29;
+type MainTab =
+  | "Overview"
+  | "Calendar"
+  | "Booking Page"
+  | "Availability";
 
-const MODULE_BUNDLE_PRICES: Record<number, number> = {
-  0: 0,
-  1: 29,
-  2: 55,
-  3: 79,
-  4: 99,
-  5: 119,
-  6: 139,
-};
-
-/* ============================================================
-   PRICING
-
-   MAIN MODULES
-
-   Every main module is £29/month individually.
-
-   FIXED MODULE BUNDLES
-
-   1 module   £29
-   2 modules  £55
-   3 modules  £79
-   4 modules  £99
-   5 modules  £119
-   6 modules  TOTS-OS Complete £139
-
-   CLARITY AI
-
-   Starter  £19
-   Plus     £39
-   Pro      £69
-
-   Complete includes Clarity AI Starter.
-
-   IMPORTANT:
-   A 1–5 module setup remains modular even if adding AI makes
-   the total exceed £139. Complete represents all six modules.
-============================================================ */
-
-/* ============================================================
-   TYPES
-============================================================ */
-
-type ModuleKey =
-  | "core"
-  | "clientsProjects"
-  | "finance"
-  | "social"
-  | "email"
-  | "store";
-
-type AiTierKey =
-  | "none"
-  | "starter"
-  | "plus"
-  | "pro";
-
-type QuestionId =
-  | "information"
-  | "clients"
-  | "projects"
-  | "finance"
-  | "marketing"
-  | "email"
-  | "selling"
-  | "admin"
-  | "team"
-  | "ai"
-  | "goal";
-
-type Answers = Partial<
-  Record<
-    QuestionId,
-    string
-  >
->;
-
-type AnswerOption = {
+interface CalendarEvent {
   id: string;
 
-  label: string;
+  title?: string;
+  created_at?: string;
 
   description?: string;
+  location?: string;
+  meeting_link?: string;
+  guests?: string;
+  tags?: string;
 
-  scores: Partial<
-    Record<
-      ModuleKey,
-      number
-    >
-  >;
+  user_id?: string | null;
+  organisation_id?: string | null;
 
-  exclude?: ModuleKey[];
+  startAt?: Date | null;
+  endAt?: Date | null;
 
-  aiTier?: AiTierKey;
+  repeat?: string;
 
-  insight?: string;
-};
+  is_all_day?: boolean;
+  color?: string;
 
-type Question = {
-  id: QuestionId;
+  sourceType?:
+    | "event"
+    | "task"
+    | "note";
 
-  eyebrow: string;
+  seriesId?: string;
 
-  question: string;
+  isRecurringOccurrence?: boolean;
 
-  helper: string;
+  occurrenceDate?: Date | null;
+}
 
-  icon: LucideIcon;
+interface AvailabilityWindow {
+  start: string;
+  end: string;
+}
 
-  options: AnswerOption[];
-};
-
-type ModuleInfo = {
-  key: ModuleKey;
-
-  title: string;
-
-  shortTitle: string;
-
-  price: number;
-
-  description: string;
-
-  icon: LucideIcon;
-};
-
-type ModuleScores = Record<
-  ModuleKey,
-  number
+type AvailabilityMap = Record<
+  string,
+  AvailabilityWindow[]
 >;
 
-type ModuleReason = {
-  questionId: QuestionId;
+interface BookingPage {
+  id?: string;
 
-  text: string;
-};
+  user_id?: string;
 
-type BundleResult = {
-  recommendedModules: ModuleKey[];
+  organisation_id?: string | null;
 
-  displayedModules: ModuleKey[];
-
-  moduleCount: number;
-
-  undiscountedModuleTotal: number;
-
-  discountedModuleTotal: number;
-
-  requestedAiTier: AiTierKey;
-
-  requestedAiPrice: number;
-
-  modularTotal: number;
-
-  totalMonthly: number;
-
-  moduleSaving: number;
-
-  completeSaving: number;
-
-  discountPercent: number;
-
-  discountLabel: string;
-
-  bundleName: string;
-
-  isComplete: boolean;
-
-  includedAiTier: AiTierKey;
-
-  aiUpgradeSuggested: boolean;
-};
-
-type SetupProfile = {
-  eyebrow: string;
+  slug: string;
 
   title: string;
 
   description: string;
+
+  duration_minutes: number;
+
+  location_type:
+    | "video"
+    | "phone"
+    | "in_person"
+    | "custom"
+    | "both";
+
+  location_value: string;
+
+  video_provider:
+    | "zoom"
+    | "teams"
+    | "google_meet"
+    | "custom"
+    | "none";
+
+  video_link: string;
+
+  buffer_before_minutes: number;
+
+  buffer_after_minutes: number;
+
+  min_notice_hours: number;
+
+  max_days_ahead: number;
+
+  timezone: string;
+
+  availability: AvailabilityMap;
+
+  is_active: boolean;
+}
+
+type WeekDay = {
+  key: string;
+  label: string;
+  fullLabel: string;
 };
 
-/* ============================================================
-   MODULES
-============================================================ */
+// ============================================================
+// CONSTANTS
+// ============================================================
 
-const MODULE_INFO: Record<
-  ModuleKey,
-  ModuleInfo
-> = {
-  core: {
-    key: "core",
-
-    title: "TOTS-OS Core",
-
-    shortTitle: "Core",
-
-    price: MODULE_PRICE,
-
-    description:
-      "Your central business workspace for dashboards, contacts, tasks, calendar, notes and everyday organisation.",
-
-    icon: LayoutDashboard,
-  },
-
-  clientsProjects: {
-    key: "clientsProjects",
-
-    title:
-      "Clients & Projects",
-
-    shortTitle:
-      "Clients & Projects",
-
-    price: MODULE_PRICE,
-
-    description:
-      "Manage client relationships, projects, tasks, deadlines, notes, files and delivery from one connected workspace.",
-
-    icon: FolderKanban,
-  },
-
-  finance: {
-    key: "finance",
-
-    title: "Finance",
-
-    shortTitle: "Finance",
-
-    price: MODULE_PRICE,
-
-    description:
-      "Bring invoices, quotes, expenses and financial visibility closer to the rest of your business.",
-
-    icon: CircleDollarSign,
-  },
-
-  social: {
-    key: "social",
-
-    title:
-      "Social Studio",
-
-    shortTitle:
-      "Social Studio",
-
-    price: MODULE_PRICE,
-
-    description:
-      "Plan, organise and publish content without separating social media from the rest of your workflow.",
-
-    icon: Megaphone,
-  },
-
-  email: {
-    key: "email",
-
-    title:
-      "Email Marketing",
-
-    shortTitle:
-      "Email Marketing",
-
-    price: MODULE_PRICE,
-
-    description:
-      "Manage audiences, subscriber lists, campaigns, scheduling and customer email activity.",
-
-    icon: Mail,
-  },
-
-  store: {
-    key: "store",
-
-    title:
-      "TOTS-OS Store",
-
-    shortTitle: "Store",
-
-    price: MODULE_PRICE,
-
-    description:
-      "Manage products, customers and orders without running your online store as another disconnected system.",
-
-    icon: Store,
-  },
-};
-
-const MODULE_ORDER: ModuleKey[] =
-  [
-    "core",
-    "clientsProjects",
-    "finance",
-    "social",
-    "email",
-    "store",
-  ];
-
-/* ============================================================
-   CLARITY AI
-============================================================ */
-
-const AI_TIERS = {
-  none: {
-    title:
-      "No Clarity AI add-on",
-
-    price: 0,
-
-
-    description:
-      "You can add Clarity AI later whenever it becomes useful.",
-  },
-
-  starter: {
-    title:
-      "Clarity AI Starter",
-
-    price: 19,
-
-
-    description:
-      "For occasional summaries, ideas, recommendations and quick business assistance.",
-  },
-
-  plus: {
-    title:
-      "Clarity AI Plus",
-
-    price: 39,
-
-
-    description:
-      "For regular use across different areas of your business throughout the week.",
-  },
-
-  pro: {
-    title:
-      "Clarity AI Pro",
-
-    price: 69,
-
-
-    description:
-      "For businesses making Clarity AI part of their everyday operating workflow.",
-  },
-} satisfies Record<
-  AiTierKey,
+const WEEK_DAYS: WeekDay[] = [
   {
-    title: string;
-
-    price: number;
-
-
-    description: string;
-  }
->;
-
-/* ============================================================
-   QUESTIONS
-============================================================ */
-
-const QUESTIONS: Question[] = [
-  {
-    id: "information",
-
-    eyebrow:
-      "Your current setup",
-
-    question:
-      "Where does most of your business information live right now?",
-
-    helper:
-      "Choose whichever sounds closest to your normal working day.",
-
-    icon: LayoutDashboard,
-
-    options: [
-      {
-        id: "head",
-
-        label:
-          "Mostly in my head, messages, notes or random places",
-
-        description:
-          "I know where most things are... eventually.",
-
-        scores: {
-          core: 7,
-
-          clientsProjects: 2,
-        },
-
-        insight:
-          "Important business information is currently spread across informal places.",
-      },
-
-      {
-        id: "spreadsheets",
-
-        label:
-          "Across spreadsheets and several different apps",
-
-        description:
-          "Everything works, but nothing really talks to each other.",
-
-        scores: {
-          core: 6,
-
-          clientsProjects: 2,
-
-          finance: 1,
-        },
-
-        insight:
-          "You're already using systems, but they're creating unnecessary switching.",
-      },
-
-      {
-        id: "systems",
-
-        label:
-          "I have systems, but they're disconnected",
-
-        description:
-          "There is structure, but I still jump between tools.",
-
-        scores: {
-          core: 5,
-
-          clientsProjects: 2,
-        },
-
-        insight:
-          "The opportunity is connecting your systems rather than starting again.",
-      },
-
-      {
-        id: "organised",
-
-        label:
-          "Most things are already pretty organised",
-
-        description:
-          "I'm looking to make a good setup even better.",
-
-        scores: {
-          core: 1,
-        },
-
-        insight:
-          "You already have a strong operational foundation.",
-      },
-    ],
+    key: "mon",
+    label: "Mon",
+    fullLabel: "Monday",
   },
-
   {
-    id: "clients",
-
-    eyebrow: "Clients",
-
-    question:
-      "How are you currently keeping track of clients and enquiries?",
-
-    helper:
-      "Think contacts, follow-ups, notes, jobs and previous conversations.",
-
-    icon: ContactRound,
-
-    options: [
-      {
-        id: "memory",
-
-        label:
-          "Messages, inboxes and memory",
-
-        description:
-          "I usually know who I need to reply to... hopefully.",
-
-        scores: {
-          clientsProjects: 7,
-
-          core: 2,
-        },
-
-        insight:
-          "Client information and follow-ups need a more reliable home.",
-      },
-
-      {
-        id: "sheet",
-
-        label:
-          "A spreadsheet, notes app or basic list",
-
-        description:
-          "It works, but there is plenty of manual updating.",
-
-        scores: {
-          clientsProjects: 6,
-
-          core: 1,
-        },
-
-        insight:
-          "Your client process works, but relies heavily on manual administration.",
-      },
-
-      {
-        id: "crm",
-
-        label:
-          "A separate CRM",
-
-        description:
-          "Client management is organised, but disconnected from other work.",
-
-        scores: {
-          clientsProjects: 4,
-
-          core: 2,
-        },
-
-        insight:
-          "Connecting client information to active work could reduce duplicated admin.",
-      },
-
-      {
-        id: "connected",
-
-        label:
-          "I already have a strong client process",
-
-        description:
-          "Contacts and follow-ups are easy to manage.",
-
-        scores: {
-          clientsProjects: 1,
-        },
-
-        insight:
-          "Client management is not currently one of your biggest pain points.",
-      },
-    ],
+    key: "tue",
+    label: "Tue",
+    fullLabel: "Tuesday",
   },
-
   {
-    id: "projects",
-
-    eyebrow:
-      "Work & delivery",
-
-    question:
-      "When you start work for the day, how easy is it to see exactly what needs done?",
-
-    helper:
-      "Think tasks, projects, client work, deadlines and priorities.",
-
-    icon: FolderKanban,
-
-    options: [
-      {
-        id: "figure-out",
-
-        label:
-          "I normally figure it out as I go",
-
-        description:
-          "Priorities live mostly in my head.",
-
-        scores: {
-          clientsProjects: 7,
-
-          core: 3,
-        },
-
-        insight:
-          "Projects and priorities need a clearer operating rhythm.",
-      },
-
-      {
-        id: "several-lists",
-
-        label:
-          "I check a few different lists, chats or calendars",
-
-        description:
-          "The information exists, just not in one place.",
-
-        scores: {
-          clientsProjects: 6,
-
-          core: 4,
-        },
-
-        insight:
-          "Your work is being managed across too many separate views.",
-      },
-
-      {
-        id: "project-app",
-
-        label:
-          "I have a project or task management app",
-
-        description:
-          "Work is organised but sits separately from clients and finances.",
-
-        scores: {
-          clientsProjects: 4,
-
-          core: 2,
-        },
-
-        insight:
-          "Project management works, but connecting it to clients could simplify delivery.",
-      },
-
-      {
-        id: "clear",
-
-        label:
-          "Very easy — I have a clear system",
-
-        description:
-          "I can quickly see priorities and deadlines.",
-
-        scores: {
-          clientsProjects: 1,
-
-          core: 1,
-        },
-
-        insight:
-          "Your project workflow is already in a strong place.",
-      },
-    ],
+    key: "wed",
+    label: "Wed",
+    fullLabel: "Wednesday",
   },
-
   {
-    id: "finance",
-
-    eyebrow: "Money",
-
-    question:
-      "How confident are you about your business finances day to day?",
-
-    helper:
-      "We're talking about your own visibility — not just what your accountant can see.",
-
-    icon:
-      CircleDollarSign,
-
-    options: [
-      {
-        id: "avoid",
-
-        label:
-          "I mostly look when I absolutely have to",
-
-        description:
-          "Finance admin tends to get pushed down the list.",
-
-        scores: {
-          finance: 8,
-
-          core: 1,
-        },
-
-        insight:
-          "Day-to-day financial visibility is currently limited.",
-      },
-
-      {
-        id: "roughly",
-
-        label:
-          "I know roughly, but getting the full picture takes work",
-
-        description:
-          "Information is spread across banking, invoices and spreadsheets.",
-
-        scores: {
-          finance: 7,
-
-          core: 1,
-        },
-
-        insight:
-          "Getting a complete financial picture currently takes too much effort.",
-      },
-
-      {
-        id: "accounting",
-
-        label:
-          "I track everything in separate accounting software",
-
-        description:
-          "Finance is organised but separate from my daily operations.",
-
-        scores: {
-          finance: 4,
-
-          core: 1,
-        },
-
-        insight:
-          "Finance is organised, but operational visibility could be more connected.",
-      },
-
-      {
-        id: "clear",
-
-        label:
-          "I have a clear, up-to-date view",
-
-        description:
-          "I know what is coming in, going out and still outstanding.",
-
-        scores: {
-          finance: 1,
-        },
-
-        insight:
-          "Finance is not currently one of your biggest gaps.",
-      },
-    ],
+    key: "thu",
+    label: "Thu",
+    fullLabel: "Thursday",
   },
-
   {
-    id: "marketing",
-
-    eyebrow:
-      "Social media",
-
-    question:
-      "What does your current social content process look like?",
-
-    helper:
-      "Think ideas, captions, assets, scheduling and staying consistent.",
-
-    icon: Megaphone,
-
-    options: [
-      {
-        id: "last-minute",
-
-        label:
-          "Usually last minute",
-
-        description:
-          "I post when I remember or suddenly need to promote something.",
-
-        scores: {
-          social: 8,
-
-          core: 1,
-        },
-
-        insight:
-          "Social content currently relies too heavily on last-minute effort.",
-      },
-
-      {
-        id: "many-tools",
-
-        label:
-          "Canva, notes, folders and scheduling tools",
-
-        description:
-          "I have a process, but it is spread across several places.",
-
-        scores: {
-          social: 7,
-
-          core: 1,
-        },
-
-        insight:
-          "Your content workflow works, but is spread across too many tools.",
-      },
-
-      {
-        id: "separate-system",
-
-        label:
-          "It's planned, but in a completely separate system",
-
-        description:
-          "Marketing works well but isn't connected to operations.",
-
-        scores: {
-          social: 4,
-        },
-
-        insight:
-          "Social is organised, but connecting it to the wider business could help.",
-      },
-
-      {
-        id: "strong",
-
-        label:
-          "I already have a strong content workflow",
-
-        description:
-          "Planning and publishing are easy to stay on top of.",
-
-        scores: {
-          social: 1,
-        },
-
-        insight:
-          "Social Studio is not currently one of your biggest needs.",
-      },
-    ],
+    key: "fri",
+    label: "Fri",
+    fullLabel: "Friday",
   },
-
   {
-    id: "email",
-
-    eyebrow:
-      "Email marketing",
-
-    question:
-      "How are you currently using email to stay in touch with customers?",
-
-    helper:
-      "Think campaigns, newsletters, subscriber lists and customer updates.",
-
-    icon: Mail,
-
-    options: [
-      {
-        id: "not-using",
-
-        label:
-          "I'm not really using email marketing yet",
-
-        description:
-          "I know I could probably do more with my customer list.",
-
-        scores: {
-          email: 6,
-        },
-
-        insight:
-          "Your customer list has more potential than you're currently using.",
-      },
-
-      {
-        id: "manual",
-
-        label:
-          "Mostly manual emails or BCC sends",
-
-        description:
-          "It works, but campaigns and lists take more effort than they should.",
-
-        scores: {
-          email: 8,
-        },
-
-        insight:
-          "Email marketing is currently more manual than it needs to be.",
-      },
-
-      {
-        id: "separate-platform",
-
-        label:
-          "I use a separate email marketing platform",
-
-        description:
-          "Email works, but sits apart from my customers and business activity.",
-
-        scores: {
-          email: 4,
-        },
-
-        insight:
-          "Your email system works, but could benefit from being connected.",
-      },
-
-      {
-        id: "not-needed",
-
-        label:
-          "Email marketing isn't important to my business",
-
-        description:
-          "I don't need campaigns or subscriber management right now.",
-
-        scores: {},
-
-        exclude: [
-          "email",
-        ],
-
-        insight:
-          "You don't need to pay for Email Marketing right now.",
-      },
-    ],
+    key: "sat",
+    label: "Sat",
+    fullLabel: "Saturday",
   },
-
   {
-    id: "selling",
-
-    eyebrow: "Selling",
-
-    question:
-      "Do you sell — or want to sell — products online?",
-
-    helper:
-      "This could be physical products, merchandise or other items.",
-
-    icon:
-      ShoppingBag,
-
-    options: [
-      {
-        id: "yes-disconnected",
-
-        label:
-          "Yes, and orders are another separate thing to manage",
-
-        description:
-          "Selling online adds more systems and admin.",
-
-        scores: {
-          store: 9,
-
-          core: 1,
-        },
-
-        insight:
-          "Your store activity would benefit from being connected to the rest of the business.",
-      },
-
-      {
-        id: "want-to",
-
-        label:
-          "Not yet, but I'd like to",
-
-        description:
-          "Online selling is something I want to introduce.",
-
-        scores: {
-          store: 7,
-        },
-
-        insight:
-          "Store gives you a clear path to introduce online selling.",
-      },
-
-      {
-        id: "already-good",
-
-        label:
-          "Yes, and my current store setup works well",
-
-        description:
-          "I'm mainly interested in the rest of my operations.",
-
-        scores: {
-          store: 2,
-        },
-
-        insight:
-          "Your existing store is working well, so replacing it isn't a priority.",
-      },
-
-      {
-        id: "no",
-
-        label:
-          "No — selling products isn't part of my business",
-
-        description:
-          "I mainly sell services or don't need an online shop.",
-
-        scores: {},
-
-        exclude: [
-          "store",
-        ],
-
-        insight:
-          "Store isn't relevant to how your business currently operates.",
-      },
-    ],
-  },
-
-  {
-    id: "admin",
-
-    eyebrow:
-      "Your time",
-
-    question:
-      "How much time do you think repetitive admin costs you each week?",
-
-    helper:
-      "Include searching for information, updating tools and repeating the same tasks.",
-
-    icon: Zap,
-
-    options: [
-      {
-        id: "five-plus",
-
-        label:
-          "More than 5 hours",
-
-        description:
-          "Admin is taking a noticeable chunk out of every week.",
-
-        scores: {
-          core: 6,
-
-          clientsProjects: 2,
-        },
-
-        insight:
-          "Reducing repetitive admin could create a meaningful weekly time saving.",
-      },
-
-      {
-        id: "three-five",
-
-        label:
-          "Around 3–5 hours",
-
-        description:
-          "There are definitely things that could be streamlined.",
-
-        scores: {
-          core: 5,
-
-          clientsProjects: 1,
-        },
-
-        insight:
-          "There is a clear opportunity to streamline your weekly admin.",
-      },
-
-      {
-        id: "one-two",
-
-        label:
-          "Around 1–2 hours",
-
-        description:
-          "It's manageable, but I'd still like to make things easier.",
-
-        scores: {
-          core: 2,
-        },
-
-        insight:
-          "Your admin load is manageable, so a focused setup may be enough.",
-      },
-
-      {
-        id: "little",
-
-        label:
-          "Very little",
-
-        description:
-          "My processes are already pretty efficient.",
-
-        scores: {
-          core: 1,
-        },
-
-        insight:
-          "Your processes are already fairly efficient.",
-      },
-    ],
-  },
-
-  {
-    id: "team",
-
-    eyebrow:
-      "Your business",
-
-    question:
-      "Who needs visibility of what is happening in your business?",
-
-    helper:
-      "Choose the option that best reflects how you work now.",
-
-    icon: Users,
-
-    options: [
-      {
-        id: "solo",
-
-        label:
-          "Just me",
-
-        description:
-          "I'm running the business myself.",
-
-        scores: {
-          core: 1,
-        },
-
-        insight:
-          "Your setup can stay lean and focused around one person.",
-      },
-
-      {
-        id: "small-team",
-
-        label:
-          "Me and a small team",
-
-        description:
-          "A few people need to stay aligned.",
-
-        scores: {
-          core: 3,
-
-          clientsProjects: 3,
-        },
-
-        insight:
-          "A shared view of work and responsibilities would help your team stay aligned.",
-      },
-
-      {
-        id: "growing",
-
-        label:
-          "A growing team with different responsibilities",
-
-        description:
-          "More people need the right information at the right time.",
-
-        scores: {
-          core: 5,
-
-          clientsProjects: 4,
-        },
-
-        insight:
-          "Your systems need to support more people as the business grows.",
-      },
-
-      {
-        id: "clients-collab",
-
-        label:
-          "A team plus lots of active clients or projects",
-
-        description:
-          "There are several moving parts to keep visible.",
-
-        scores: {
-          core: 5,
-
-          clientsProjects: 7,
-        },
-
-        insight:
-          "Client delivery and team visibility are both becoming more important.",
-      },
-    ],
-  },
-
-  {
-    id: "ai",
-
-    eyebrow:
-      "Clarity AI",
-
-    question:
-      "How often would you realistically use AI inside your business system?",
-
-    helper:
-      "We'll recommend a sensible starting AI tier rather than pushing you into a larger AI plan.",
-
-    icon:
-      BrainCircuit,
-
-    options: [
-      {
-        id: "none",
-
-        label:
-          "Probably not right now",
-
-        description:
-          "I'd rather add AI later if I find I need it.",
-
-        scores: {},
-
-        aiTier:
-          "none",
-
-        insight:
-          "You don't need to add Clarity AI to your setup right now.",
-      },
-
-      {
-        id: "occasional",
-
-        label:
-          "Occasionally",
-
-        description:
-          "For the odd summary, idea, recommendation or bit of help.",
-
-        scores: {},
-
-        aiTier:
-          "starter",
-
-        insight:
-          "Starter should comfortably cover occasional AI assistance.",
-      },
-
-      {
-        id: "regular",
-
-        label:
-          "Regularly throughout the week",
-
-        description:
-          "I'd use AI across several parts of the business.",
-
-        scores: {},
-
-        aiTier:
-          "plus",
-
-        insight:
-          "Plus better matches regular weekly AI use.",
-      },
-
-      {
-        id: "heavy",
-
-        label:
-          "Every day — I'd build it into how I work",
-
-        description:
-          "I want AI to be a regular part of my operating workflow.",
-
-        scores: {},
-
-        aiTier:
-          "pro",
-
-        insight:
-          "Pro gives you more headroom for everyday AI use.",
-      },
-    ],
-  },
-
-  {
-    id: "goal",
-
-    eyebrow:
-      "Your priority",
-
-    question:
-      "If TOTS-OS could improve one thing first, what would make the biggest difference?",
-
-    helper:
-      "Choose the outcome that would feel most valuable right now.",
-
-    icon: Sparkles,
-
-    options: [
-      {
-        id: "one-place",
-
-        label:
-          "Getting everything organised in one place",
-
-        description:
-          "Less searching, switching and remembering.",
-
-        scores: {
-          core: 6,
-
-          clientsProjects: 1,
-        },
-
-        insight:
-          "Your biggest priority is creating one clear operational home.",
-      },
-
-      {
-        id: "clients",
-
-        label:
-          "Running client work more smoothly",
-
-        description:
-          "I want enquiries, projects, tasks and client information properly connected.",
-
-        scores: {
-          clientsProjects: 7,
-
-          core: 2,
-        },
-
-        insight:
-          "Improving the client delivery journey would create the biggest immediate value.",
-      },
-
-      {
-        id: "marketing",
-
-        label:
-          "Growing without marketing becoming another full-time job",
-
-        description:
-          "I want social and email activity to be easier to keep consistent.",
-
-        scores: {
-          social: 5,
-
-          email: 5,
-        },
-
-        insight:
-          "Making marketing easier and more consistent is your biggest growth opportunity.",
-      },
-
-      {
-        id: "scale",
-
-        label:
-          "Building systems that can grow with me",
-
-        description:
-          "I want a stronger foundation before the business gets busier.",
-
-        scores: {
-          core: 6,
-
-          clientsProjects: 4,
-
-          finance: 1,
-        },
-
-        insight:
-          "You're looking for infrastructure that can support the next stage of the business.",
-      },
-    ],
+    key: "sun",
+    label: "Sun",
+    fullLabel: "Sunday",
   },
 ];
 
-/* ============================================================
-   HELPERS
-============================================================ */
+// ============================================================
+// EVENT COLOURS
+// ============================================================
 
-function getOption(
-  question: Question,
-  answerId?: string,
+const EVENT_COLORS = [
+  {
+    id: "sage",
+    label: "Sage",
+    dot: "#829473",
+    background: "#E4EADF",
+    text: "#4F6147",
+    border: "#A9B897",
+  },
+
+  {
+    id: "pink",
+    label: "Pink",
+    dot: "#D98FA3",
+    background: "#F8E2E8",
+    text: "#9B5266",
+    border: "#E9AEBE",
+  },
+
+  {
+    id: "blue",
+    label: "Blue",
+    dot: "#7198BD",
+    background: "#E1EDF7",
+    text: "#496F93",
+    border: "#9DBBD5",
+  },
+
+  {
+    id: "purple",
+    label: "Purple",
+    dot: "#9B87BD",
+    background: "#ECE6F5",
+    text: "#6E598F",
+    border: "#BCAED3",
+  },
+
+  {
+    id: "orange",
+    label: "Orange",
+    dot: "#D89A62",
+    background: "#FAEADB",
+    text: "#9B6437",
+    border: "#E6B88D",
+  },
+
+  {
+    id: "red",
+    label: "Red",
+    dot: "#CA7772",
+    background: "#F8E2E0",
+    text: "#914D49",
+    border: "#DFA09C",
+  },
+
+  {
+    id: "yellow",
+    label: "Yellow",
+    dot: "#C7A650",
+    background: "#F8F0D5",
+    text: "#806A2E",
+    border: "#DFC77E",
+  },
+
+  {
+    id: "stone",
+    label: "Stone",
+    dot: "#78716C",
+    background: "#EBE9E7",
+    text: "#57534E",
+    border: "#A8A29E",
+  },
+] as const;
+
+function getEventColour(
+  colour?: string | null
 ) {
-  return question.options.find(
-    (option) =>
-      option.id ===
-      answerId,
+  return (
+    EVENT_COLORS.find(
+      (option) =>
+        option.id === colour
+    ) ||
+    EVENT_COLORS[0]
   );
 }
 
-function getSelectedOption(
-  questionId: QuestionId,
-  answers: Answers,
+// ============================================================
+// 10 MINUTE TIMES
+// ============================================================
+
+const TIME_OPTIONS = Array.from(
+  {
+    length: 24 * 6,
+  },
+  (_, index) => {
+    const totalMinutes =
+      index * 10;
+
+    const hours =
+      Math.floor(
+        totalMinutes / 60
+      );
+
+    const minutes =
+      totalMinutes % 60;
+
+    return `${String(
+      hours
+    ).padStart(
+      2,
+      "0"
+    )}:${String(
+      minutes
+    ).padStart(
+      2,
+      "0"
+    )}`;
+  }
+);
+
+const DEFAULT_WINDOW: AvailabilityWindow = {
+  start: "09:00",
+  end: "17:00",
+};
+
+const DEFAULT_BOOKING_PAGE: BookingPage = {
+  slug: "",
+
+  title: "Discovery Call",
+
+  description:
+    "Choose a time that works for you.",
+
+  duration_minutes: 30,
+
+  location_type: "video",
+
+  location_value: "",
+
+  video_provider: "google_meet",
+
+  video_link: "",
+
+  buffer_before_minutes: 0,
+
+  buffer_after_minutes: 0,
+
+  min_notice_hours: 4,
+
+  max_days_ahead: 30,
+
+  timezone:
+    Intl.DateTimeFormat()
+      .resolvedOptions()
+      .timeZone ||
+    "Europe/London",
+
+  availability: {
+    mon: [
+      {
+        start: "09:00",
+        end: "17:00",
+      },
+    ],
+
+    tue: [
+      {
+        start: "09:00",
+        end: "17:00",
+      },
+    ],
+
+    wed: [
+      {
+        start: "09:00",
+        end: "17:00",
+      },
+    ],
+
+    thu: [
+      {
+        start: "09:00",
+        end: "17:00",
+      },
+    ],
+
+    fri: [
+      {
+        start: "09:00",
+        end: "17:00",
+      },
+    ],
+
+    sat: [],
+    sun: [],
+  },
+
+  is_active: true,
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function slugify(
+  value: string
 ) {
-  const question =
-    QUESTIONS.find(
-      (item) =>
-        item.id ===
-        questionId,
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(
+      /[^a-z0-9\s-]/g,
+      ""
+    )
+    .replace(
+      /\s+/g,
+      "-"
+    )
+    .replace(
+      /-+/g,
+      "-"
+    )
+    .replace(
+      /^-|-$/g,
+      ""
+    );
+}
+
+// ============================================================
+// SNAP TIME TO 10 MINUTES
+// ============================================================
+
+function snapTimeStringToTen(
+  value?: string | null
+) {
+  if (!value) {
+    return "09:00";
+  }
+
+  const [
+    rawHour,
+    rawMinute,
+  ] =
+    value
+      .split(":")
+      .map(Number);
+
+  if (
+    Number.isNaN(
+      rawHour
+    ) ||
+    Number.isNaN(
+      rawMinute
+    )
+  ) {
+    return "09:00";
+  }
+
+  let totalMinutes =
+    rawHour * 60 +
+    rawMinute;
+
+  totalMinutes =
+    Math.round(
+      totalMinutes / 10
+    ) * 10;
+
+  if (
+    totalMinutes >=
+    24 * 60
+  ) {
+    totalMinutes =
+      23 * 60 + 50;
+  }
+
+  const hours =
+    Math.floor(
+      totalMinutes / 60
     );
 
-  if (!question) {
-    return undefined;
-  }
+  const minutes =
+    totalMinutes % 60;
 
-  return getOption(
-    question,
-    answers[questionId],
-  );
+  return `${String(
+    hours
+  ).padStart(
+    2,
+    "0"
+  )}:${String(
+    minutes
+  ).padStart(
+    2,
+    "0"
+  )}`;
 }
 
-function calculateModuleScores(
-  answers: Answers,
+function formatDateTimeToTen(
+  value: Date
 ) {
-  const scores: ModuleScores =
-    {
-      core: 0,
-
-      clientsProjects: 0,
-
-      finance: 0,
-
-      social: 0,
-
-      email: 0,
-
-      store: 0,
-    };
-
-  QUESTIONS.forEach(
-    (question) => {
-      const option =
-        getOption(
-          question,
-          answers[
-            question.id
-          ],
-        );
-
-      if (!option) {
-        return;
-      }
-
-      Object.entries(
-        option.scores,
-      ).forEach(
-        ([key, value]) => {
-          scores[
-            key as ModuleKey
-          ] += value ?? 0;
-        },
-      );
-    },
-  );
-
-  return scores;
-}
-
-function calculateExclusions(
-  answers: Answers,
-) {
-  const excluded =
-    new Set<ModuleKey>();
-
-  QUESTIONS.forEach(
-    (question) => {
-      const option =
-        getOption(
-          question,
-          answers[
-            question.id
-          ],
-        );
-
-      option?.exclude?.forEach(
-        (key) => {
-          excluded.add(key);
-        },
-      );
-    },
-  );
-
-  return excluded;
-}
-
-function getRecommendedModules(
-  scores: ModuleScores,
-  excluded: Set<ModuleKey>,
-) {
-  const sorted = (
-    Object.entries(
-      scores,
-    ) as [
-      ModuleKey,
-      number,
-    ][]
-  )
-    .filter(
-      ([key]) =>
-        !excluded.has(key),
+  return snapTimeStringToTen(
+    format(
+      value,
+      "HH:mm"
     )
-    .sort((a, b) => {
-      if (
-        b[1] !== a[1]
-      ) {
-        return (
-          b[1] - a[1]
-        );
-      }
+  );
+}
 
-      return (
-        MODULE_ORDER.indexOf(
-          a[0],
-        ) -
-        MODULE_ORDER.indexOf(
-          b[0],
-        )
-      );
-    });
+// ============================================================
+// AVAILABILITY CLONE
+// ============================================================
 
-  let recommended =
-    sorted
-      .filter(
-        ([, score]) =>
-          score >= 5,
-      )
-      .map(
-        ([key]) => key,
-      );
+function cloneAvailability(
+  availability: AvailabilityMap
+): AvailabilityMap {
+  const clone: AvailabilityMap =
+    {};
 
-  /*
-    Avoid returning an empty setup.
-  */
+  WEEK_DAYS.forEach(
+    (
+      day
+    ) => {
+      clone[
+        day.key
+      ] = (
+        availability[
+          day.key
+        ] || []
+      ).map(
+        (
+          window
+        ) => ({
+          start:
+            snapTimeStringToTen(
+              window.start
+            ),
 
-  if (
-    recommended.length ===
-    0
-  ) {
-    recommended =
-      sorted
-        .filter(
-          ([, score]) =>
-            score > 0,
-        )
-        .slice(0, 1)
-        .map(
-          ([key]) => key,
-        );
-  }
-
-  /*
-    If only one module is clearly
-    recommended but another is very
-    close, include that one as well.
-  */
-
-  if (
-    recommended.length ===
-    1
-  ) {
-    const second =
-      sorted.find(
-        ([key, score]) =>
-          key !==
-            recommended[0] &&
-          score >= 4,
-      );
-
-    if (second) {
-      recommended.push(
-        second[0],
+          end:
+            snapTimeStringToTen(
+              window.end
+            ),
+        })
       );
     }
+  );
+
+  return clone;
+}
+
+// ============================================================
+// TIME HELPERS
+// ============================================================
+
+function timeToMinutes(
+  value: string
+) {
+  const [
+    hour,
+    minute,
+  ] =
+    value
+      .split(":")
+      .map(Number);
+
+  if (
+    Number.isNaN(
+      hour
+    ) ||
+    Number.isNaN(
+      minute
+    )
+  ) {
+    return 0;
   }
 
-  return recommended.sort(
-    (a, b) =>
-      MODULE_ORDER.indexOf(
-        a,
-      ) -
-      MODULE_ORDER.indexOf(
-        b,
-      ),
+  return (
+    hour * 60 +
+    minute
   );
 }
 
-function getConsiderLaterModules(
-  scores: ModuleScores,
-  recommended: ModuleKey[],
-  excluded: Set<ModuleKey>,
+function formatMinutes(
+  total: number
 ) {
-  return (
-    Object.entries(
-      scores,
-    ) as [
-      ModuleKey,
-      number,
-    ][]
+  const hours =
+    Math.floor(
+      total / 60
+    );
+
+  const minutes =
+    total % 60;
+
+  return `${String(
+    hours
+  ).padStart(
+    2,
+    "0"
+  )}:${String(
+    minutes
+  ).padStart(
+    2,
+    "0"
+  )}`;
+}
+
+function safeDate(
+  value?: string | null
+) {
+  if (!value) {
+    return null;
+  }
+
+  const date =
+    new Date(
+      value
+    );
+
+  return isValid(
+    date
   )
-    .filter(
-      ([key, score]) =>
-        !recommended.includes(
-          key,
-        ) &&
-        !excluded.has(key) &&
-        score >= 3,
-    )
-    .sort(
-      (a, b) =>
-        b[1] - a[1],
-    )
-    .slice(0, 2)
-    .map(
-      ([key]) => key,
-    );
+    ? date
+    : null;
 }
 
-function getNotNeededModules(
-  recommended: ModuleKey[],
-  considerLater: ModuleKey[],
+// ============================================================
+// DATE BETWEEN
+// ============================================================
+
+function dateFallsInsideEvent(
+  date: Date,
+  event: CalendarEvent
 ) {
-  return MODULE_ORDER.filter(
-    (key) =>
-      !recommended.includes(
-        key,
-      ) &&
-      !considerLater.includes(
-        key,
-      ),
-  );
-}
+  if (
+    !event.startAt ||
+    !isValid(
+      event.startAt
+    )
+  ) {
+    return false;
+  }
 
-function getAiTier(
-  answers: Answers,
-): AiTierKey {
-  const option =
-    getSelectedOption(
-      "ai",
-      answers,
+  if (
+    !event.is_all_day ||
+    !event.endAt
+  ) {
+    return isSameDay(
+      event.startAt,
+      date
+    );
+  }
+
+  const testDate =
+    startOfDay(
+      date
+    );
+
+  const start =
+    startOfDay(
+      event.startAt
+    );
+
+  const end =
+    endOfDay(
+      event.endAt
     );
 
   return (
-    option?.aiTier ??
-    "none"
+    (
+      isAfter(
+        testDate,
+        start
+      ) ||
+      isEqual(
+        testDate,
+        start
+      )
+    ) &&
+    (
+      isBefore(
+        testDate,
+        end
+      ) ||
+      isEqual(
+        testDate,
+        startOfDay(
+          end
+        )
+      )
+    )
   );
 }
 
-function calculateBundle(
-  modules: ModuleKey[],
-  requestedAiTier: AiTierKey,
-): BundleResult {
-  const cleanModules =
-    uniqueModules(
-      modules,
-    );
+// ============================================================
+// RECURRING EVENT EXPANSION
+// ============================================================
 
-  const moduleCount =
-    cleanModules.length;
-
-  const undiscountedModuleTotal =
-    moduleCount *
-    MODULE_PRICE;
-
-  const requestedAiPrice =
-    AI_TIERS[
-      requestedAiTier
-    ].price;
-
-  /*
-    COMPLETE RULE
-
-    Complete is used ONLY when all six modules are recommended.
-
-    We intentionally do not switch 1–5 module setups to Complete
-    just because an AI add-on takes the total above £139.
-  */
-
-  const shouldRecommendComplete =
-    moduleCount ===
-    MODULE_ORDER.length;
-
-  if (
-    shouldRecommendComplete
-  ) {
-    return {
-      recommendedModules:
-        cleanModules,
-
-      displayedModules:
-        MODULE_ORDER,
-
-      moduleCount:
-        MODULE_ORDER.length,
-
-      undiscountedModuleTotal,
-
-      discountedModuleTotal:
-        COMPLETE_PRICE,
-
-      requestedAiTier,
-
-      requestedAiPrice,
-
-      modularTotal:
-        COMPLETE_PRICE,
-
-      totalMonthly:
-        COMPLETE_PRICE,
-
-      moduleSaving:
-        Math.max(
-          0,
-          undiscountedModuleTotal -
-            COMPLETE_PRICE,
-        ),
-
-      completeSaving:
-        0,
-
-      discountPercent:
-        0,
-
-      discountLabel:
-        "Complete fixed price",
-
-      bundleName:
-        "TOTS-OS Complete",
-
-      isComplete:
-        true,
-
-      includedAiTier:
-        "starter",
-
-      aiUpgradeSuggested:
-        requestedAiTier ===
-          "plus" ||
-        requestedAiTier ===
-          "pro",
-    };
-  }
-
-  const discountedModuleTotal =
-    MODULE_BUNDLE_PRICES[
-      moduleCount
-    ] ??
-    0;
-
-  const moduleSaving =
-    Math.max(
-      0,
-      undiscountedModuleTotal -
-        discountedModuleTotal,
-    );
-
-  const modularTotal =
-    discountedModuleTotal +
-    requestedAiPrice;
-
-  return {
-    recommendedModules:
-      cleanModules,
-
-    displayedModules:
-      cleanModules,
-
-    moduleCount,
-
-    undiscountedModuleTotal,
-
-    discountedModuleTotal,
-
-    requestedAiTier,
-
-    requestedAiPrice,
-
-    modularTotal,
-
-    totalMonthly:
-      modularTotal,
-
-    moduleSaving,
-
-    completeSaving:
-      0,
-
-    discountPercent:
-      0,
-
-    discountLabel:
-      moduleCount === 1
-        ? "Single module"
-        : `${moduleCount}-module fixed bundle`,
-
-    bundleName:
-      moduleCount === 1
-        ? `${
-            MODULE_INFO[
-              cleanModules[0]
-            ]?.shortTitle ??
-            "TOTS-OS"
-          } setup`
-        : `${moduleCount}-module setup`,
-
-    isComplete:
-      false,
-
-    includedAiTier:
-      requestedAiTier,
-
-    aiUpgradeSuggested:
-      false,
-  };
-}
-
-function getSetupProfile(
-  bundle: BundleResult,
-): SetupProfile {
-  if (bundle.isComplete) {
-    return {
-      eyebrow:
-        "Complete setup",
-
-      title:
-        "Your business would benefit from the full setup.",
-
-      description:
-        "Your answers point to value across all six main TOTS-OS modules, so Complete gives you the full connected workspace plus Clarity AI Starter for one fixed £139 monthly price.",
-    };
-  }
-
-  if (
-    bundle.moduleCount <= 2
-  ) {
-    return {
-      eyebrow:
-        "Focused setup",
-
-      title:
-        "Keep it lean.",
-
-      description:
-        "Your answers don't suggest you need a huge software stack. Start with the areas creating the clearest value and add more only when you need them.",
-    };
-  }
-
-  if (
-    bundle.moduleCount <= 4
-  ) {
-    return {
-      eyebrow:
-        "Connected setup",
-
-      title:
-        "Your biggest win is connection.",
-
-      description:
-        "Several parts of your business would benefit from working together. This setup should reduce tool switching and duplicated admin without giving you unnecessary modules.",
-    };
-  }
-
-  return {
-    eyebrow:
-      "Expanded setup",
-
-    title:
-      "Your business has a lot of moving parts.",
-
-    description:
-      "Your answers point to value across most of TOTS-OS, so a broader connected workspace is likely to give you the clearest operational view.",
-  };
-}
-
-function getModuleReasons(
-  moduleKey: ModuleKey,
-  answers: Answers,
-): ModuleReason[] {
-  const reasons: ModuleReason[] =
+function expandRecurringEvents(
+  baseEvents: CalendarEvent[],
+  rangeStart: Date,
+  rangeEnd: Date
+) {
+  const expanded: CalendarEvent[] =
     [];
 
-  QUESTIONS.forEach(
-    (question) => {
-      const option =
-        getOption(
-          question,
-          answers[
-            question.id
-          ],
+  baseEvents.forEach(
+    (
+      event
+    ) => {
+      if (
+        event.sourceType !==
+          "event" ||
+        !event.startAt ||
+        !isValid(
+          event.startAt
+        )
+      ) {
+        expanded.push(
+          event
         );
 
-      if (!option) {
         return;
       }
 
-      const score =
-        option.scores[
-          moduleKey
+      const repeat =
+        event.repeat ||
+        "none";
+
+      if (
+        repeat ===
+          "none" ||
+        !repeat
+      ) {
+        expanded.push(
+          event
+        );
+
+        return;
+      }
+
+      const originalStart =
+        new Date(
+          event.startAt
+        );
+
+      const originalEnd =
+        event.endAt
+          ? new Date(
+              event.endAt
+            )
+          : null;
+
+      const duration =
+        originalEnd
+          ? originalEnd.getTime() -
+            originalStart.getTime()
+          : 0;
+
+      let occurrence =
+        new Date(
+          originalStart
+        );
+
+      let safetyCount =
+        0;
+
+      while (
+        (
+          isBefore(
+            occurrence,
+            rangeEnd
+          ) ||
+          isEqual(
+            occurrence,
+            rangeEnd
+          )
+        ) &&
+        safetyCount <
+          1500
+      ) {
+        const occurrenceEnd =
+          duration >
+          0
+            ? new Date(
+                occurrence.getTime() +
+                  duration
+              )
+            : null;
+
+        const occurrenceOverlapsRange =
+          occurrenceEnd
+            ? (
+                occurrence <=
+                  rangeEnd &&
+                occurrenceEnd >=
+                  rangeStart
+              )
+            : (
+                (
+                  isAfter(
+                    occurrence,
+                    rangeStart
+                  ) ||
+                  isEqual(
+                    occurrence,
+                    rangeStart
+                  )
+                ) &&
+                (
+                  isBefore(
+                    occurrence,
+                    rangeEnd
+                  ) ||
+                  isEqual(
+                    occurrence,
+                    rangeEnd
+                  )
+                )
+              );
+
+        if (
+          occurrenceOverlapsRange
+        ) {
+          const occurrenceStart =
+            new Date(
+              occurrence
+            );
+
+          expanded.push({
+            ...event,
+
+            id: `${event.id}__${format(
+              occurrenceStart,
+              "yyyy-MM-dd-HH-mm"
+            )}`,
+
+            seriesId:
+              event.id,
+
+            isRecurringOccurrence:
+              true,
+
+            occurrenceDate:
+              occurrenceStart,
+
+            startAt:
+              occurrenceStart,
+
+            endAt:
+              occurrenceEnd,
+          });
+        }
+
+        if (
+          repeat ===
+          "daily"
+        ) {
+          occurrence =
+            addDays(
+              occurrence,
+              1
+            );
+        } else if (
+          repeat ===
+          "weekly"
+        ) {
+          occurrence =
+            addWeeks(
+              occurrence,
+              1
+            );
+        } else if (
+          repeat ===
+          "monthly"
+        ) {
+          occurrence =
+            addMonths(
+              occurrence,
+              1
+            );
+        } else {
+          break;
+        }
+
+        safetyCount +=
+          1;
+      }
+    }
+  );
+
+  return expanded;
+}
+
+// ============================================================
+// CLONE WINDOWS
+// ============================================================
+
+function cloneWindows(
+  windows: AvailabilityWindow[]
+) {
+  return windows.map(
+    (
+      window
+    ) => ({
+      ...window,
+    })
+  );
+}
+
+// ============================================================
+// PAGE
+// ============================================================
+
+export default function CalendarPage() {
+  // ==========================================================
+  // PRIMARY STATE
+  // ==========================================================
+
+  const [
+    activeTab,
+    setActiveTab,
+  ] =
+    useState<MainTab>(
+      "Overview"
+    );
+
+  const [
+    currentMonth,
+    setCurrentMonth,
+  ] =
+    useState(
+      new Date()
+    );
+
+  const [
+    selectedDay,
+    setSelectedDay,
+  ] =
+    useState(
+      new Date()
+    );
+
+  const [
+    events,
+    setEvents,
+  ] =
+    useState<
+      CalendarEvent[]
+    >([]);
+
+  const [
+    isLoading,
+    setIsLoading,
+  ] =
+    useState(
+      true
+    );
+
+  const [
+    error,
+    setError,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+  const [
+    currentUser,
+    setCurrentUser,
+  ] =
+    useState<any>(
+      null
+    );
+
+  const [
+    currentProfile,
+    setCurrentProfile,
+  ] =
+    useState<any>(
+      null
+    );
+
+  // ==========================================================
+  // EVENT MODAL
+  // ==========================================================
+
+  const [
+    isModalOpen,
+    setIsModalOpen,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    selectedEvent,
+    setSelectedEvent,
+  ] =
+    useState<
+      CalendarEvent | null
+    >(
+      null
+    );
+
+  const [
+    viewMode,
+    setViewMode,
+  ] =
+    useState<
+      | "VIEW"
+      | "CREATE"
+      | "EDIT"
+    >(
+      "CREATE"
+    );
+
+  const [
+    isSubmitting,
+    setIsSubmitting,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    isDeleting,
+    setIsDeleting,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    isCancellingBooking,
+    setIsCancellingBooking,
+  ] =
+    useState(
+      false
+    );
+
+  // ==========================================================
+  // EVENT FORM
+  // ==========================================================
+
+  const [
+    formTitle,
+    setFormTitle,
+  ] =
+    useState("");
+
+  const [
+    formDate,
+    setFormDate,
+  ] =
+    useState(
+      format(
+        new Date(),
+        "yyyy-MM-dd"
+      )
+    );
+
+  const [
+    formTime,
+    setFormTime,
+  ] =
+    useState(
+      "09:00"
+    );
+
+  const [
+    formEndDate,
+    setFormEndDate,
+  ] =
+    useState("");
+
+  const [
+    formEndTime,
+    setFormEndTime,
+  ] =
+    useState("");
+
+  const [
+    formRepeat,
+    setFormRepeat,
+  ] =
+    useState(
+      "none"
+    );
+
+  const [
+    formAllDay,
+    setFormAllDay,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    formColor,
+    setFormColor,
+  ] =
+    useState(
+      "sage"
+    );
+
+  const [
+    formLocation,
+    setFormLocation,
+  ] =
+    useState("");
+
+  const [
+    formLink,
+    setFormLink,
+  ] =
+    useState("");
+
+  const [
+    formGuests,
+    setFormGuests,
+  ] =
+    useState("");
+
+  const [
+    formInternalTeam,
+    setFormInternalTeam,
+  ] =
+    useState("");
+
+  const [
+    formTags,
+    setFormTags,
+  ] =
+    useState("");
+
+  const [
+    formDescription,
+    setFormDescription,
+  ] =
+    useState("");
+
+  const [
+    attachedFileName,
+    setAttachedFileName,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+  const fileInputRef =
+    useRef<HTMLInputElement>(
+      null
+    );
+
+  // ==========================================================
+  // BOOKING STATE
+  // ==========================================================
+
+  const [
+    bookingPage,
+    setBookingPage,
+  ] =
+    useState<BookingPage>(
+      DEFAULT_BOOKING_PAGE
+    );
+
+  const [
+    bookingPageExists,
+    setBookingPageExists,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    isBookingLoading,
+    setIsBookingLoading,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    isBookingSaving,
+    setIsBookingSaving,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    bookingError,
+    setBookingError,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+  const [
+    bookingSaved,
+    setBookingSaved,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    siteOrigin,
+    setSiteOrigin,
+  ] =
+    useState("");
+
+  const [
+    copiedLink,
+    setCopiedLink,
+  ] =
+    useState(
+      false
+    );
+
+  // ==========================================================
+  // SITE ORIGIN
+  // ==========================================================
+
+  useEffect(
+    () => {
+      if (
+        typeof window !==
+        "undefined"
+      ) {
+        setSiteOrigin(
+          window.location.origin
+        );
+      }
+    },
+    []
+  );
+
+  // ==========================================================
+  // NORMALISE EVENT
+  // ==========================================================
+
+  const normaliseEvent =
+    useCallback(
+      (
+        event: any
+      ): CalendarEvent => {
+        const startRaw =
+          event?.start_time ||
+          event?.start_at ||
+          null;
+
+        const endRaw =
+          event?.end_time ||
+          event?.end_at ||
+          null;
+
+        return {
+          ...event,
+
+          sourceType:
+            "event",
+
+          repeat:
+            event?.repeat ||
+            "none",
+
+          is_all_day:
+            Boolean(
+              event?.is_all_day
+            ),
+
+          color:
+            event?.color ||
+            "sage",
+
+          startAt:
+            startRaw &&
+            isValid(
+              new Date(
+                startRaw
+              )
+            )
+              ? new Date(
+                  startRaw
+                )
+              : null,
+
+          endAt:
+            endRaw &&
+            isValid(
+              new Date(
+                endRaw
+              )
+            )
+              ? new Date(
+                  endRaw
+                )
+              : null,
+        };
+      },
+      []
+    );
+
+  // ==========================================================
+  // LOAD SCHEDULE
+  // ==========================================================
+
+  const syncCalendar =
+    useCallback(
+      async () => {
+        setIsLoading(
+          true
+        );
+
+        setError(
+          null
+        );
+
+        try {
+          const {
+            data: {
+              user,
+            },
+            error:
+              authError,
+          } =
+            await supabase.auth.getUser();
+
+          if (
+            authError ||
+            !user
+          ) {
+            setCurrentUser(
+              null
+            );
+
+            setCurrentProfile(
+              null
+            );
+
+            setEvents(
+              []
+            );
+
+            return;
+          }
+
+          setCurrentUser(
+            user
+          );
+
+          const {
+            data:
+              profile,
+            error:
+              profileError,
+          } =
+            await supabase
+              .from(
+                "profiles"
+              )
+              .select(
+                "organisation_id"
+              )
+              .eq(
+                "id",
+                user.id
+              )
+              .maybeSingle();
+
+          if (
+            profileError
+          ) {
+            console.error(
+              "Schedule profile error:",
+              profileError
+            );
+          }
+
+          setCurrentProfile(
+            profile
+          );
+
+          const [
+            eventsResult,
+            ownedTasksResult,
+            assignedTasksResult,
+            ownedNotesResult,
+            assignedNotesResult,
+          ] =
+            await Promise.all([
+              supabase
+                .from(
+                  "events"
+                )
+                .select("*")
+                .eq(
+                  "user_id",
+                  user.id
+                ),
+
+              supabase
+                .from(
+                  "tasks"
+                )
+                .select("*")
+                .eq(
+                  "user_id",
+                  user.id
+                ),
+
+              supabase
+                .from(
+                  "tasks"
+                )
+                .select("*")
+                .eq(
+                  "assigned_to",
+                  user.id
+                ),
+
+              supabase
+                .from(
+                  "notes"
+                )
+                .select("*")
+                .eq(
+                  "user_id",
+                  user.id
+                ),
+
+              supabase
+                .from(
+                  "notes"
+                )
+                .select("*")
+                .eq(
+                  "assigned_to",
+                  user.id
+                ),
+            ]);
+
+          if (
+            eventsResult.error
+          ) {
+            throw eventsResult.error;
+          }
+
+          const normalisedEvents =
+            (
+              eventsResult.data ||
+              []
+            ).map(
+              normaliseEvent
+            );
+
+          // ====================================================
+          // TASKS
+          // ====================================================
+
+          const taskMap =
+            new Map<
+              string,
+              any
+            >();
+
+          [
+            ...(
+              ownedTasksResult.data ||
+              []
+            ),
+
+            ...(
+              assignedTasksResult.data ||
+              []
+            ),
+          ].forEach(
+            (
+              task: any
+            ) => {
+              if (
+                task?.id
+              ) {
+                taskMap.set(
+                  task.id,
+                  task
+                );
+              }
+            }
+          );
+
+          const normalisedTasks =
+            Array.from(
+              taskMap.values()
+            )
+              .map(
+                (
+                  task: any
+                ):
+                  | CalendarEvent
+                  | null => {
+                  const startRaw =
+                    task?.due_date ||
+                    task?.start_time ||
+                    null;
+
+                  if (
+                    !startRaw
+                  ) {
+                    return null;
+                  }
+
+                  const start =
+                    safeDate(
+                      startRaw
+                    );
+
+                  if (
+                    !start
+                  ) {
+                    return null;
+                  }
+
+                  return {
+                    ...task,
+
+                    id:
+                      `task-${task.id}`,
+
+                    title:
+                      task.title ||
+                      task.name ||
+                      "Task",
+
+                    description:
+                      task.description ||
+                      task.content ||
+                      "",
+
+                    tags:
+                      task.tags ||
+                      "Task",
+
+                    sourceType:
+                      "task",
+
+                    repeat:
+                      "none",
+
+                    is_all_day:
+                      false,
+
+                    color:
+                      "sage",
+
+                    startAt:
+                      start,
+
+                    endAt:
+                      null,
+                  };
+                }
+              )
+              .filter(
+                Boolean
+              ) as CalendarEvent[];
+
+          // ====================================================
+          // NOTES
+          // ====================================================
+
+          const noteMap =
+            new Map<
+              string,
+              any
+            >();
+
+          [
+            ...(
+              ownedNotesResult.data ||
+              []
+            ),
+
+            ...(
+              assignedNotesResult.data ||
+              []
+            ),
+          ].forEach(
+            (
+              note: any
+            ) => {
+              if (
+                note?.id
+              ) {
+                noteMap.set(
+                  note.id,
+                  note
+                );
+              }
+            }
+          );
+
+          const normalisedNotes =
+            Array.from(
+              noteMap.values()
+            )
+              .map(
+                (
+                  note: any
+                ):
+                  | CalendarEvent
+                  | null => {
+                  const startRaw =
+                    note?.due_date ||
+                    note?.start_time ||
+                    null;
+
+                  if (
+                    !startRaw
+                  ) {
+                    return null;
+                  }
+
+                  const start =
+                    safeDate(
+                      startRaw
+                    );
+
+                  if (
+                    !start
+                  ) {
+                    return null;
+                  }
+
+                  return {
+                    ...note,
+
+                    id:
+                      `note-${note.id}`,
+
+                    title:
+                      note.title ||
+                      (
+                        note.content
+                          ? String(
+                              note.content
+                            ).slice(
+                              0,
+                              70
+                            )
+                          : null
+                      ) ||
+                      "Note",
+
+                    description:
+                      note.content ||
+                      note.description ||
+                      "",
+
+                    tags:
+                      note.tags ||
+                      note.category ||
+                      "Note",
+
+                    sourceType:
+                      "note",
+
+                    repeat:
+                      "none",
+
+                    is_all_day:
+                      false,
+
+                    color:
+                      "yellow",
+
+                    startAt:
+                      start,
+
+                    endAt:
+                      null,
+                  };
+                }
+              )
+              .filter(
+                Boolean
+              ) as CalendarEvent[];
+
+          const combined = [
+            ...normalisedEvents,
+            ...normalisedTasks,
+            ...normalisedNotes,
+          ].sort(
+            (
+              a,
+              b
+            ) =>
+              (
+                a.startAt?.getTime() ||
+                0
+              ) -
+              (
+                b.startAt?.getTime() ||
+                0
+              )
+          );
+
+          setEvents(
+            combined
+          );
+        } catch (
+          syncError: any
+        ) {
+          console.error(
+            "Schedule sync error:",
+            syncError
+          );
+
+          setError(
+            syncError?.message ||
+              "Unable to sync your schedule."
+          );
+        } finally {
+          setIsLoading(
+            false
+          );
+        }
+      },
+      [
+        normaliseEvent,
+      ]
+    );
+
+  // ==========================================================
+  // AUTH INITIALISE
+  // ==========================================================
+
+  useEffect(
+    () => {
+      void syncCalendar();
+
+      const {
+        data:
+          listener,
+      } =
+        supabase.auth.onAuthStateChange(
+          (
+            _event,
+            session
+          ) => {
+            if (
+              session?.user
+            ) {
+              setCurrentUser(
+                session.user
+              );
+
+              void syncCalendar();
+            }
+          }
+        );
+
+      return () => {
+        listener.subscription.unsubscribe();
+      };
+    },
+    [
+      syncCalendar,
+    ]
+  );
+
+  // ==========================================================
+  // LOAD BOOKING PAGE
+  // ==========================================================
+
+  const loadBookingPage =
+    useCallback(
+      async (
+        userId: string
+      ) => {
+        setIsBookingLoading(
+          true
+        );
+
+        setBookingError(
+          null
+        );
+
+        try {
+          const {
+            data,
+            error:
+              fetchError,
+          } =
+            await supabase
+              .from(
+                "booking_pages"
+              )
+              .select("*")
+              .eq(
+                "user_id",
+                userId
+              )
+              .maybeSingle();
+
+          if (
+            fetchError
+          ) {
+            console.error(
+              "Booking page load error:",
+              fetchError
+            );
+          }
+
+          if (
+            data
+          ) {
+            setBookingPage({
+              ...DEFAULT_BOOKING_PAGE,
+
+              ...data,
+
+              availability:
+                cloneAvailability(
+                  data.availability ||
+                    DEFAULT_BOOKING_PAGE.availability
+                ),
+            });
+
+            setBookingPageExists(
+              true
+            );
+          } else {
+            setBookingPage({
+              ...DEFAULT_BOOKING_PAGE,
+
+              slug:
+                `book-${userId.slice(
+                  0,
+                  8
+                )}`,
+
+              availability:
+                cloneAvailability(
+                  DEFAULT_BOOKING_PAGE.availability
+                ),
+            });
+
+            setBookingPageExists(
+              false
+            );
+          }
+        } catch (
+          loadError
+        ) {
+          console.error(
+            "Booking page load exception:",
+            loadError
+          );
+        } finally {
+          setIsBookingLoading(
+            false
+          );
+        }
+      },
+      []
+    );
+
+  useEffect(
+    () => {
+      if (
+        currentUser?.id
+      ) {
+        void loadBookingPage(
+          currentUser.id
+        );
+      }
+    },
+    [
+      currentUser?.id,
+      loadBookingPage,
+    ]
+  );
+
+  // ==========================================================
+  // CALENDAR RANGE
+  // ==========================================================
+
+  const calendarRangeStart =
+    useMemo(
+      () =>
+        startOfWeek(
+          startOfMonth(
+            currentMonth
+          )
+        ),
+      [
+        currentMonth,
+      ]
+    );
+
+  const calendarRangeEnd =
+    useMemo(
+      () =>
+        endOfWeek(
+          endOfMonth(
+            currentMonth
+          )
+        ),
+      [
+        currentMonth,
+      ]
+    );
+
+  const daysGrid =
+    useMemo(
+      () =>
+        eachDayOfInterval({
+          start:
+            calendarRangeStart,
+
+          end:
+            calendarRangeEnd,
+        }),
+      [
+        calendarRangeStart,
+        calendarRangeEnd,
+      ]
+    );
+
+  // ==========================================================
+  // RECURRING MONTH EVENTS
+  // ==========================================================
+
+  const expandedCalendarEvents =
+    useMemo(
+      () =>
+        expandRecurringEvents(
+          events,
+          calendarRangeStart,
+          calendarRangeEnd
+        ),
+      [
+        events,
+        calendarRangeStart,
+        calendarRangeEnd,
+      ]
+    );
+
+  // ==========================================================
+  // OVERVIEW RANGE
+  // ==========================================================
+
+  const overviewRangeStart =
+    useMemo(
+      () => {
+        const start =
+          new Date();
+
+        start.setHours(
+          0,
+          0,
+          0,
+          0
+        );
+
+        return start;
+      },
+      []
+    );
+
+  const overviewRangeEnd =
+    useMemo(
+      () =>
+        addMonths(
+          overviewRangeStart,
+          12
+        ),
+      [
+        overviewRangeStart,
+      ]
+    );
+
+  const expandedOverviewEvents =
+    useMemo(
+      () =>
+        expandRecurringEvents(
+          events,
+          overviewRangeStart,
+          overviewRangeEnd
+        ),
+      [
+        events,
+        overviewRangeStart,
+        overviewRangeEnd,
+      ]
+    );
+
+  // ==========================================================
+  // DAY EVENTS
+  // ==========================================================
+
+  const getDayEvents =
+    useCallback(
+      (
+        date: Date
+      ) => {
+        return expandedCalendarEvents
+          .filter(
+            (
+              event
+            ) =>
+              dateFallsInsideEvent(
+                date,
+                event
+              )
+          )
+          .sort(
+            (
+              a,
+              b
+            ) => {
+              if (
+                a.is_all_day &&
+                !b.is_all_day
+              ) {
+                return -1;
+              }
+
+              if (
+                !a.is_all_day &&
+                b.is_all_day
+              ) {
+                return 1;
+              }
+
+              return (
+                (
+                  a.startAt?.getTime() ||
+                  0
+                ) -
+                (
+                  b.startAt?.getTime() ||
+                  0
+                )
+              );
+            }
+          );
+      },
+      [
+        expandedCalendarEvents,
+      ]
+    );
+
+  // ==========================================================
+  // TODAY
+  // ==========================================================
+
+  const todayEvents =
+    useMemo(
+      () => {
+        return expandedOverviewEvents
+          .filter(
+            (
+              event
+            ) =>
+              dateFallsInsideEvent(
+                new Date(),
+                event
+              )
+          )
+          .sort(
+            (
+              a,
+              b
+            ) => {
+              if (
+                a.is_all_day &&
+                !b.is_all_day
+              ) {
+                return -1;
+              }
+
+              if (
+                !a.is_all_day &&
+                b.is_all_day
+              ) {
+                return 1;
+              }
+
+              return (
+                (
+                  a.startAt?.getTime() ||
+                  0
+                ) -
+                (
+                  b.startAt?.getTime() ||
+                  0
+                )
+              );
+            }
+          );
+      },
+      [
+        expandedOverviewEvents,
+      ]
+    );
+
+  // ==========================================================
+  // UPCOMING
+  // ==========================================================
+
+  const upcomingEvents =
+    useMemo(
+      () => {
+        const now =
+          new Date();
+
+        return expandedOverviewEvents
+          .filter(
+            (
+              event
+            ) => {
+              if (
+                !event.startAt
+              ) {
+                return false;
+              }
+
+              if (
+                event.is_all_day &&
+                dateFallsInsideEvent(
+                  now,
+                  event
+                )
+              ) {
+                return true;
+              }
+
+              return (
+                event.startAt >=
+                now
+              );
+            }
+          )
+          .sort(
+            (
+              a,
+              b
+            ) =>
+              (
+                a.startAt?.getTime() ||
+                0
+              ) -
+              (
+                b.startAt?.getTime() ||
+                0
+              )
+          )
+          .slice(
+            0,
+            8
+          );
+      },
+      [
+        expandedOverviewEvents,
+      ]
+    );
+
+  // ==========================================================
+  // BOOKING DATA
+  // ==========================================================
+
+  const availableDayCount =
+    useMemo(
+      () =>
+        WEEK_DAYS.filter(
+          (
+            day
+          ) =>
+            (
+              bookingPage
+                .availability[
+                day.key
+              ] || []
+            ).length >
+            0
+        ).length,
+      [
+        bookingPage.availability,
+      ]
+    );
+
+  const bookingLink =
+    siteOrigin &&
+    bookingPage.slug
+      ? `${siteOrigin}/book/${slugify(
+          bookingPage.slug
+        )}`
+      : "";
+
+  // ==========================================================
+  // BASE RECURRING EVENT
+  // ==========================================================
+
+  const getBaseEvent =
+    useCallback(
+      (
+        event:
+          | CalendarEvent
+          | null
+      ) => {
+        if (
+          !event
+        ) {
+          return null;
+        }
+
+        if (
+          !event.seriesId
+        ) {
+          return event;
+        }
+
+        return (
+          events.find(
+            (
+              original
+            ) =>
+              original.id ===
+              event.seriesId
+          ) ||
+          event
+        );
+      },
+      [
+        events,
+      ]
+    );
+
+  // ==========================================================
+  // OPEN EVENT
+  // ==========================================================
+
+  const openEvent =
+    (
+      event: CalendarEvent
+    ) => {
+      setSelectedEvent(
+        event
+      );
+
+      setViewMode(
+        "VIEW"
+      );
+
+      setIsModalOpen(
+        true
+      );
+    };
+
+  // ==========================================================
+  // CREATE EVENT
+  // ==========================================================
+
+  const openCreateEvent =
+    (
+      day = new Date()
+    ) => {
+      setSelectedDay(
+        day
+      );
+
+      setSelectedEvent(
+        null
+      );
+
+      setFormTitle(
+        ""
+      );
+
+      setFormDate(
+        format(
+          day,
+          "yyyy-MM-dd"
+        )
+      );
+
+      setFormTime(
+        "09:00"
+      );
+
+      setFormEndDate(
+        ""
+      );
+
+      setFormEndTime(
+        ""
+      );
+
+      setFormRepeat(
+        "none"
+      );
+
+      setFormAllDay(
+        false
+      );
+
+      setFormColor(
+        "sage"
+      );
+
+      setFormLocation(
+        ""
+      );
+
+      setFormLink(
+        ""
+      );
+
+      setFormGuests(
+        ""
+      );
+
+      setFormInternalTeam(
+        ""
+      );
+
+      setFormTags(
+        ""
+      );
+
+      setFormDescription(
+        ""
+      );
+
+      setAttachedFileName(
+        null
+      );
+
+      setViewMode(
+        "CREATE"
+      );
+
+      setIsModalOpen(
+        true
+      );
+    };
+
+  // ==========================================================
+  // EDIT EVENT
+  // ==========================================================
+
+  const startEditEntry =
+    () => {
+      if (
+        !selectedEvent
+      ) {
+        return;
+      }
+
+      const eventToEdit =
+        getBaseEvent(
+          selectedEvent
+        ) ||
+        selectedEvent;
+
+      setFormTitle(
+        eventToEdit.title ||
+          ""
+      );
+
+      setFormDescription(
+        eventToEdit.description ||
+          ""
+      );
+
+      setFormLocation(
+        eventToEdit.location ||
+          ""
+      );
+
+      setFormLink(
+        eventToEdit.meeting_link ||
+          ""
+      );
+
+      setFormGuests(
+        eventToEdit.guests ||
+          ""
+      );
+
+      setFormTags(
+        eventToEdit.tags ||
+          ""
+      );
+
+      setFormAllDay(
+        Boolean(
+          eventToEdit.is_all_day
+        )
+      );
+
+      setFormColor(
+        eventToEdit.color ||
+          "sage"
+      );
+
+      setFormDate(
+        eventToEdit.startAt
+          ? format(
+              eventToEdit.startAt,
+              "yyyy-MM-dd"
+            )
+          : format(
+              new Date(),
+              "yyyy-MM-dd"
+            )
+      );
+
+      setFormTime(
+        eventToEdit.startAt
+          ? formatDateTimeToTen(
+              eventToEdit.startAt
+            )
+          : "09:00"
+      );
+
+      setFormEndDate(
+        eventToEdit.endAt
+          ? format(
+              eventToEdit.endAt,
+              "yyyy-MM-dd"
+            )
+          : ""
+      );
+
+      setFormEndTime(
+        eventToEdit.endAt &&
+        !eventToEdit.is_all_day
+          ? formatDateTimeToTen(
+              eventToEdit.endAt
+            )
+          : ""
+      );
+
+      setFormRepeat(
+        eventToEdit.repeat ||
+          "none"
+      );
+
+      setViewMode(
+        "EDIT"
+      );
+    };
+
+  // ==========================================================
+  // FILE
+  // ==========================================================
+
+  const handleFileChange =
+    (
+      event: React.ChangeEvent<HTMLInputElement>
+    ) => {
+      const file =
+        event.target.files?.[
+          0
         ];
 
       if (
-        !score ||
-        score < 2 ||
-        !option.insight
+        file
+      ) {
+        setAttachedFileName(
+          file.name
+        );
+      }
+    };
+
+  // ==========================================================
+  // SAVE EVENT
+  // ==========================================================
+
+  const saveEntry =
+    async () => {
+      if (
+        !formTitle.trim() ||
+        isSubmitting
       ) {
         return;
       }
 
-      reasons.push({
-        questionId:
-          question.id,
-
-        text:
-          option.insight,
-      });
-    },
-  );
-
-  return reasons.slice(
-    0,
-    2,
-  );
-}
-
-function buildBillingUrl(
-  bundle: BundleResult,
-) {
-  const params =
-    new URLSearchParams();
-
-  params.set(
-    "source",
-    "find-your-setup",
-  );
-
-  if (bundle.isComplete) {
-    params.set(
-      "package",
-      "complete",
-    );
-
-    params.set(
-      "modules",
-      MODULE_ORDER.join(","),
-    );
-
-    params.set(
-      "ai",
-      "starter",
-    );
-
-    if (
-      bundle.aiUpgradeSuggested
-    ) {
-      params.set(
-        "suggested_ai",
-        bundle.requestedAiTier,
-      );
-    }
-  } else {
-    params.set(
-      "package",
-      "modular",
-    );
-
-    params.set(
-      "modules",
-      bundle.recommendedModules.join(
-        ",",
-      ),
-    );
-
-    if (
-      bundle.requestedAiTier !==
-      "none"
-    ) {
-      params.set(
-        "ai",
-        bundle.requestedAiTier,
-      );
-    }
-  }
-
-  return `${BILLING_URL}?${params.toString()}`;
-}
-
-/* ============================================================
-   SMALL COMPONENTS
-============================================================ */
-
-function Logo() {
-  return (
-    <a
-      href={HOME_URL}
-      className="brand"
-      aria-label="TOTS-OS home"
-    >
-      <img
-        src={LOGO_SRC}
-        alt=""
-        className="brand-logo"
-        aria-hidden="true"
-      />
-
-      <span className="brand-word">
-        TOTS-OS
-      </span>
-    </a>
-  );
-}
-
-function ProgressDots({
-  current,
-}: {
-  current: number;
-}) {
-  return (
-    <div
-      className="progress-dots"
-      aria-hidden="true"
-    >
-      {QUESTIONS.map(
-        (_, index) => (
-          <span
-            key={index}
-            className={[
-              "progress-dot",
-
-              index < current
-                ? "complete"
-                : "",
-
-              index === current
-                ? "active"
-                : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          />
-        ),
-      )}
-    </div>
-  );
-}
-
-function PreviewItem({
-  icon: Icon,
-  label,
-  meta,
-}: {
-  icon: LucideIcon;
-
-  label: string;
-
-  meta: string;
-}) {
-  return (
-    <div className="preview-item">
-      <span
-        className="preview-icon"
-        aria-hidden="true"
-      >
-        <Icon size={17} />
-      </span>
-
-      <span className="preview-item-copy">
-        <strong>
-          {label}
-        </strong>
-
-        <small>
-          {meta}
-        </small>
-      </span>
-
-      <ArrowRight
-        className="preview-arrow"
-        size={14}
-        aria-hidden="true"
-      />
-    </div>
-  );
-}
-
-/* ============================================================
-   PAGE
-============================================================ */
-
-export default function FindYourSetupPage() {
-  const reduceMotion =
-    useReducedMotion();
-
-  const [started, setStarted] =
-    useState(false);
-
-  const [finished, setFinished] =
-    useState(false);
-
-  const [step, setStep] =
-    useState(0);
-
-  const [answers, setAnswers] =
-    useState<Answers>({});
-
-  const questionHeadingRef =
-    useRef<HTMLHeadingElement>(
-      null,
-    );
-
-  const resultHeadingRef =
-    useRef<HTMLHeadingElement>(
-      null,
-    );
-
-  const currentQuestion =
-    QUESTIONS[step];
-
-  const selectedAnswer =
-    answers[
-      currentQuestion?.id
-    ];
-
-  const moduleScores =
-    useMemo(
-      () =>
-        calculateModuleScores(
-          answers,
-        ),
-      [answers],
-    );
-
-  const exclusions =
-    useMemo(
-      () =>
-        calculateExclusions(
-          answers,
-        ),
-      [answers],
-    );
-
-  const recommendedModules =
-    useMemo(
-      () =>
-        getRecommendedModules(
-          moduleScores,
-          exclusions,
-        ),
-      [
-        moduleScores,
-        exclusions,
-      ],
-    );
-
-  const considerLaterModules =
-    useMemo(
-      () =>
-        getConsiderLaterModules(
-          moduleScores,
-          recommendedModules,
-          exclusions,
-        ),
-      [
-        moduleScores,
-        recommendedModules,
-        exclusions,
-      ],
-    );
-
-  const notNeededModules =
-    useMemo(
-      () =>
-        getNotNeededModules(
-          recommendedModules,
-          considerLaterModules,
-        ),
-      [
-        recommendedModules,
-        considerLaterModules,
-      ],
-    );
-
-  const aiTier =
-    useMemo(
-      () =>
-        getAiTier(
-          answers,
-        ),
-      [answers],
-    );
-
-  const bundle =
-    useMemo(
-      () =>
-        calculateBundle(
-          recommendedModules,
-          aiTier,
-        ),
-      [
-        recommendedModules,
-        aiTier,
-      ],
-    );
-
-  const setupProfile =
-    useMemo(
-      () =>
-        getSetupProfile(
-          bundle,
-        ),
-      [bundle],
-    );
-
-  const signupUrl =
-    useMemo(
-      () =>
-        buildBillingUrl(
-          bundle,
-        ),
-      [bundle],
-    );
-
-  const displayedAiTier =
-    bundle.isComplete
-      ? "starter"
-      : aiTier;
-
-  const displayedAi =
-    AI_TIERS[
-      displayedAiTier
-    ];
-
-  /*
-    Move keyboard/screen reader focus
-    to the new question heading.
-  */
-
-  useEffect(() => {
-    if (
-      !started ||
-      finished
-    ) {
-      return;
-    }
-
-    const frame =
-      window.requestAnimationFrame(
-        () => {
-          questionHeadingRef.current?.focus();
-        },
+      setIsSubmitting(
+        true
       );
 
-    return () =>
-      window.cancelAnimationFrame(
-        frame,
-      );
-  }, [
-    step,
-    started,
-    finished,
-  ]);
-
-  /*
-    Move focus to result heading
-    when quiz finishes.
-  */
-
-  useEffect(() => {
-    if (!finished) {
-      return;
-    }
-
-    const frame =
-      window.requestAnimationFrame(
-        () => {
-          resultHeadingRef.current?.focus();
-        },
+      setError(
+        null
       );
 
-    return () =>
-      window.cancelAnimationFrame(
-        frame,
-      );
-  }, [finished]);
+      try {
+        const {
+          data: {
+            user,
+          },
+        } =
+          await supabase.auth.getUser();
 
-  const selectAnswer = (
-    answerId: string,
-  ) => {
-    setAnswers(
-      (previous) => ({
-        ...previous,
+        if (
+          !user
+        ) {
+          throw new Error(
+            "You must be signed in."
+          );
+        }
 
-        [currentQuestion.id]:
-          answerId,
-      }),
+        const orgId =
+          currentProfile
+            ?.organisation_id ||
+          null;
+
+        let startISO:
+          string;
+
+        let endISO:
+          string | null;
+
+        // ======================================================
+        // ALL DAY DATE STORAGE
+        // ======================================================
+
+        if (
+          formAllDay
+        ) {
+          startISO =
+            new Date(
+              `${formDate}T00:00:00`
+            ).toISOString();
+
+          const chosenEndDate =
+            formEndDate ||
+            formDate;
+
+          endISO =
+            new Date(
+              `${chosenEndDate}T23:59:59`
+            ).toISOString();
+        } else {
+          const safeStartTime =
+            snapTimeStringToTen(
+              formTime
+            );
+
+          const safeEndTime =
+            formEndTime
+              ? snapTimeStringToTen(
+                  formEndTime
+                )
+              : "";
+
+          startISO =
+            new Date(
+              `${formDate}T${safeStartTime}:00`
+            ).toISOString();
+
+          endISO =
+            formEndDate &&
+            safeEndTime
+              ? new Date(
+                  `${formEndDate}T${safeEndTime}:00`
+                ).toISOString()
+              : null;
+        }
+
+        if (
+          endISO &&
+          new Date(
+            endISO
+          ) <=
+            new Date(
+              startISO
+            )
+        ) {
+          throw new Error(
+            "End date and time must be after the start."
+          );
+        }
+
+        const description =
+          `${formDescription}${
+            formInternalTeam
+              ? `\n\nInternal team: ${formInternalTeam}`
+              : ""
+          }${
+            attachedFileName
+              ? `\nAttachment: ${attachedFileName}`
+              : ""
+          }`;
+
+        // ======================================================
+        // EDIT
+        // ======================================================
+
+        if (
+          viewMode ===
+            "EDIT" &&
+          selectedEvent
+        ) {
+          const originalEvent =
+            getBaseEvent(
+              selectedEvent
+            ) ||
+            selectedEvent;
+
+          // TASK
+          if (
+            originalEvent.sourceType ===
+            "task"
+          ) {
+            const id =
+              originalEvent.id.replace(
+                "task-",
+                ""
+              );
+
+            const {
+              error:
+                updateError,
+            } =
+              await supabase
+                .from(
+                  "tasks"
+                )
+                .update({
+                  title:
+                    formTitle.trim(),
+
+                  description:
+                    formDescription,
+
+                  due_date:
+                    startISO,
+
+                  tags:
+                    formTags,
+                })
+                .eq(
+                  "id",
+                  id
+                );
+
+            if (
+              updateError
+            ) {
+              throw updateError;
+            }
+          }
+
+          // NOTE
+          else if (
+            originalEvent.sourceType ===
+            "note"
+          ) {
+            const id =
+              originalEvent.id.replace(
+                "note-",
+                ""
+              );
+
+            const {
+              error:
+                updateError,
+            } =
+              await supabase
+                .from(
+                  "notes"
+                )
+                .update({
+                  content:
+                    formDescription ||
+                    formTitle,
+
+                  due_date:
+                    startISO,
+
+                  category:
+                    formTags ||
+                    null,
+                })
+                .eq(
+                  "id",
+                  id
+                );
+
+            if (
+              updateError
+            ) {
+              throw updateError;
+            }
+          }
+
+          // EVENT
+          else {
+            const eventId =
+              selectedEvent.seriesId ||
+              selectedEvent.id;
+
+            const {
+              error:
+                updateError,
+            } =
+              await supabase
+                .from(
+                  "events"
+                )
+                .update({
+                  title:
+                    formTitle.trim(),
+
+                  description,
+
+                  location:
+                    formLocation,
+
+                  meeting_link:
+                    formLink,
+
+                  guests:
+                    formGuests,
+
+                  tags:
+                    formTags,
+
+                  start_time:
+                    startISO,
+
+                  end_time:
+                    endISO,
+
+                  repeat:
+                    formRepeat,
+
+                  is_all_day:
+                    formAllDay,
+
+                  color:
+                    formColor,
+                })
+                .eq(
+                  "id",
+                  eventId
+                )
+                .eq(
+                  "user_id",
+                  user.id
+                );
+
+            if (
+              updateError
+            ) {
+              throw updateError;
+            }
+          }
+
+          await syncCalendar();
+
+          setIsModalOpen(
+            false
+          );
+
+          return;
+        }
+
+        // ======================================================
+        // CREATE EVENT
+        // ======================================================
+
+        const {
+          error:
+            insertError,
+        } =
+          await supabase
+            .from(
+              "events"
+            )
+            .insert({
+              title:
+                formTitle.trim(),
+
+              description,
+
+              location:
+                formLocation,
+
+              meeting_link:
+                formLink,
+
+              guests:
+                formGuests,
+
+              tags:
+                formTags,
+
+              start_time:
+                startISO,
+
+              end_time:
+                endISO,
+
+              repeat:
+                formRepeat,
+
+              is_all_day:
+                formAllDay,
+
+              color:
+                formColor,
+
+              user_id:
+                user.id,
+
+              organisation_id:
+                orgId,
+
+              source:
+                "calendar",
+            });
+
+        if (
+          insertError
+        ) {
+          throw insertError;
+        }
+
+        await syncCalendar();
+
+        setIsModalOpen(
+          false
+        );
+      } catch (
+        saveError: any
+      ) {
+        console.error(
+          "Save schedule item error:",
+          saveError
+        );
+
+        setError(
+          saveError?.message ||
+            "Unable to save schedule item."
+        );
+      } finally {
+        setIsSubmitting(
+          false
+        );
+      }
+    };
+
+  // ==========================================================
+  // BOOKING HELPERS
+  // ==========================================================
+
+  const getBookingCustomer =
+    useCallback(
+      (
+        event:
+          | CalendarEvent
+          | null
+      ) => {
+        if (
+          !event ||
+          event.sourceType !==
+            "event" ||
+          !event.description
+        ) {
+          return null;
+        }
+
+        const match =
+          event.description.match(
+            /^Booking requested by\s+(.+?)\s+\(([^()\s]+@[^()\s]+)\)/i
+          );
+
+        if (!match) {
+          return null;
+        }
+
+        return {
+          name:
+            match[1].trim(),
+          email:
+            match[2]
+              .trim()
+              .toLowerCase(),
+        };
+      },
+      []
     );
-  };
 
-  const nextQuestion = () => {
-    if (!selectedAnswer) {
-      return;
-    }
+  const cancelBooking =
+    async () => {
+      if (
+        !selectedEvent ||
+        isCancellingBooking
+      ) {
+        return;
+      }
 
-    if (
-      step ===
-      QUESTIONS.length - 1
-    ) {
-      setFinished(true);
+      const bookingCustomer =
+        getBookingCustomer(
+          selectedEvent
+        );
 
-      window.scrollTo({
-        top: 0,
-
-        behavior:
-          reduceMotion
-            ? "auto"
-            : "smooth",
-      });
-
-      return;
-    }
-
-    setStep(
-      (current) =>
-        current + 1,
-    );
-  };
-
-  const previousQuestion =
-    () => {
-      if (step === 0) {
-        setStarted(false);
+      if (!bookingCustomer) {
+        setError(
+          "This calendar item is not linked to a customer booking."
+        );
 
         return;
       }
 
-      setStep(
-        (current) =>
-          current - 1,
+      if (
+        !window.confirm(
+          `Cancel this meeting with ${bookingCustomer.name}? The customer will be emailed automatically.`
+        )
+      ) {
+        return;
+      }
+
+      setIsCancellingBooking(
+        true
+      );
+
+      setError(
+        null
+      );
+
+      try {
+        const {
+          data: {
+            session,
+          },
+        } =
+          await supabase.auth.getSession();
+
+        if (
+          !session?.access_token
+        ) {
+          throw new Error(
+            "You must be signed in to cancel this booking."
+          );
+        }
+
+        const eventId =
+          selectedEvent.seriesId ||
+          selectedEvent.id;
+
+        const response =
+          await fetch(
+            "/api/bookings/cancel",
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${session.access_token}`,
+              },
+
+              body:
+                JSON.stringify({
+                  eventId,
+                }),
+            }
+          );
+
+        const result =
+          await response
+            .json()
+            .catch(
+              () => null
+            );
+
+        if (!response.ok) {
+          throw new Error(
+            result?.error ||
+              "Unable to cancel this booking."
+          );
+        }
+
+        await syncCalendar();
+
+        setSelectedEvent(
+          null
+        );
+
+        setIsModalOpen(
+          false
+        );
+      } catch (
+        cancelError: any
+      ) {
+        console.error(
+          "Cancel booking error:",
+          cancelError
+        );
+
+        setError(
+          cancelError?.message ||
+            "Unable to cancel this booking."
+        );
+      } finally {
+        setIsCancellingBooking(
+          false
+        );
+      }
+    };
+
+  // ==========================================================
+  // DELETE EVENT
+  // ==========================================================
+
+  const deleteEvent =
+    async () => {
+      if (
+        !selectedEvent ||
+        isDeleting
+      ) {
+        return;
+      }
+
+      const isSeries =
+        Boolean(
+          selectedEvent.seriesId ||
+            (
+              selectedEvent.sourceType ===
+                "event" &&
+              selectedEvent.repeat &&
+              selectedEvent.repeat !==
+                "none"
+            )
+        );
+
+      if (
+        !window.confirm(
+          isSeries
+            ? "Delete this repeating event series?"
+            : "Delete this item?"
+        )
+      ) {
+        return;
+      }
+
+      setIsDeleting(
+        true
+      );
+
+      try {
+        const baseEvent =
+          getBaseEvent(
+            selectedEvent
+          ) ||
+          selectedEvent;
+
+        if (
+          baseEvent.sourceType ===
+          "task"
+        ) {
+          const id =
+            baseEvent.id.replace(
+              "task-",
+              ""
+            );
+
+          const {
+            error:
+              deleteError,
+          } =
+            await supabase
+              .from(
+                "tasks"
+              )
+              .delete()
+              .eq(
+                "id",
+                id
+              );
+
+          if (
+            deleteError
+          ) {
+            throw deleteError;
+          }
+        } else if (
+          baseEvent.sourceType ===
+          "note"
+        ) {
+          const id =
+            baseEvent.id.replace(
+              "note-",
+              ""
+            );
+
+          const {
+            error:
+              deleteError,
+          } =
+            await supabase
+              .from(
+                "notes"
+              )
+              .delete()
+              .eq(
+                "id",
+                id
+              );
+
+          if (
+            deleteError
+          ) {
+            throw deleteError;
+          }
+        } else {
+          const eventId =
+            selectedEvent.seriesId ||
+            selectedEvent.id;
+
+          const {
+            error:
+              deleteError,
+          } =
+            await supabase
+              .from(
+                "events"
+              )
+              .delete()
+              .eq(
+                "id",
+                eventId
+              );
+
+          if (
+            deleteError
+          ) {
+            throw deleteError;
+          }
+        }
+
+        await syncCalendar();
+
+        setSelectedEvent(
+          null
+        );
+
+        setIsModalOpen(
+          false
+        );
+      } catch (
+        deleteError: any
+      ) {
+        console.error(
+          "Delete schedule item error:",
+          deleteError
+        );
+
+        setError(
+          deleteError?.message ||
+            "Unable to delete item."
+        );
+      } finally {
+        setIsDeleting(
+          false
+        );
+      }
+    };
+
+  // ==========================================================
+  // BOOKING AVAILABILITY
+  // ==========================================================
+
+  const toggleBookingDay =
+    (
+      dayKey: string
+    ) => {
+      setBookingPage(
+        (
+          previous
+        ) => {
+          const windows =
+            previous
+              .availability[
+              dayKey
+            ] || [];
+
+          return {
+            ...previous,
+
+            availability: {
+              ...previous.availability,
+
+              [dayKey]:
+                windows.length
+                  ? []
+                  : [
+                      {
+                        ...DEFAULT_WINDOW,
+                      },
+                    ],
+            },
+          };
+        }
       );
     };
 
-  const restart = () => {
-    setAnswers({});
-
-    setStep(0);
-
-    setFinished(false);
-
-    setStarted(true);
-
-    window.scrollTo({
-      top: 0,
-
-      behavior:
-        reduceMotion
-          ? "auto"
-          : "smooth",
-    });
-  };
-
-  const animationProps =
-    reduceMotion
-      ? {}
-      : {
-          initial: {
-            opacity: 0,
-
-            y: 12,
-
-            scale: 0.995,
-          },
-
-          animate: {
-            opacity: 1,
-
-            y: 0,
-
-            scale: 1,
-          },
-
-          exit: {
-            opacity: 0,
-
-            y: -8,
-
-            scale: 0.995,
-          },
-
-          transition: {
-            duration: 0.24,
-
-            ease: [
-              0.22,
-              1,
-              0.36,
-              1,
-            ] as const,
-          },
-        };
-
-  return (
-    <main className="setup-page">
-      <style jsx global>{`
-        :root {
-          --cream:
-            #faf8f5;
-
-          --cream-deep:
-            #f1ede7;
-
-          --white:
-            #fffefd;
-
-          --charcoal:
-            #4f4a46;
-
-          --charcoal-dark:
-            #393532;
-
-          --charcoal-soft:
-            #5e5955;
-
-          --muted:
-            #68635f;
-
-          --tan:
-            #c69d69;
-
-          --tan-dark:
-            #946f44;
-
-          --tan-soft:
-            #f3e8da;
-
-          --sage:
-            #a9b897;
-
-          --sage-dark:
-            #738463;
-
-          --sage-light:
-            #f0f4ec;
-
-          --sage-strong:
-            #657756;
-
-          --danger:
-            #8b4d48;
-
-          --border:
-            rgba(
-              79,
-              74,
-              70,
-              0.12
-            );
-
-          --border-strong:
-            rgba(
-              79,
-              74,
-              70,
-              0.22
-            );
-
-          --focus:
-            #4f4a46;
-
-          --shadow:
-            0 26px 80px
-            rgba(
-              79,
-              74,
-              70,
-              0.075
-            );
-
-          --shadow-soft:
-            0 12px 34px
-            rgba(
-              79,
-              74,
-              70,
-              0.05
-            );
-        }
-
-        * {
-          box-sizing:
-            border-box;
-        }
-
-        html {
-          scroll-behavior:
-            smooth;
-        }
-
-        body {
-          margin: 0;
-
-          background:
-            var(--cream);
-
-          color:
-            var(--charcoal);
-
-          -webkit-font-smoothing:
-            antialiased;
-
-          text-rendering:
-            optimizeLegibility;
-        }
-
-        button,
-        input {
-          font: inherit;
-        }
-
-        button,
-        a,
-        label {
-          -webkit-tap-highlight-color:
-            transparent;
-        }
-
-        a {
-          color: inherit;
-        }
-
-        button:focus-visible,
-        a:focus-visible {
-          outline:
-            3px solid
-            var(--focus);
-
-          outline-offset:
-            3px;
-        }
-
-        .setup-page {
-          position: relative;
-
-          min-height:
-            100vh;
-
-          overflow:
-            hidden;
-
-          background:
-            radial-gradient(
-              circle at
-              100% 0%,
-              rgba(
-                169,
-                184,
-                151,
-                0.16
-              ),
-              transparent 32%
+  const updateBookingWindow =
+    (
+      dayKey: string,
+      index: number,
+      field:
+        | "start"
+        | "end",
+      value: string
+    ) => {
+      setBookingPage(
+        (
+          previous
+        ) => {
+          const windows = [
+            ...(
+              previous
+                .availability[
+                dayKey
+              ] || []
             ),
-            radial-gradient(
-              circle at
-              0% 100%,
-              rgba(
-                198,
-                157,
-                105,
-                0.1
-              ),
-              transparent 34%
-            ),
-            var(--cream);
-
-          color:
-            var(--charcoal);
-        }
-
-        /* ================================
-           ACCESSIBILITY
-        ================================= */
-
-        .skip-link {
-          position: fixed;
-
-          top: 12px;
-          left: 12px;
-
-          z-index: 9999;
-
-          transform:
-            translateY(-180%);
-
-          padding:
-            11px 15px;
-
-          border-radius:
-            10px;
-
-          background:
-            var(--charcoal-dark);
-
-          color:
-            white;
-
-          font-size:
-            13px;
-
-          font-weight:
-            800;
-
-          text-decoration:
-            none;
-
-          transition:
-            transform
-              160ms ease;
-        }
-
-        .skip-link:focus {
-          transform:
-            translateY(0);
-        }
-
-        .sr-only,
-        .sr-only-radio {
-          position:
-            absolute !important;
-
-          width: 1px !important;
-          height: 1px !important;
-
-          padding: 0 !important;
-          margin: -1px !important;
-
-          overflow:
-            hidden !important;
-
-          clip:
-            rect(
-              0,
-              0,
-              0,
-              0
-            ) !important;
-
-          white-space:
-            nowrap !important;
-
-          border: 0 !important;
-        }
-
-        .question-title:focus,
-        .result-title:focus {
-          outline: none;
-        }
-
-        /* ================================
-           HEADER
-        ================================= */
-
-        .setup-header {
-          position: relative;
-
-          z-index: 20;
-
-          display: flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            space-between;
-
-          width: min(
-            1180px,
-            calc(
-              100% - 40px
-            )
-          );
-
-          min-height:
-            82px;
-
-          margin: 0 auto;
-
-          border-bottom:
-            1px solid
-            var(--border);
-        }
-
-        .brand {
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          gap: 10px;
-
-          text-decoration:
-            none;
-        }
-
-        .brand-logo {
-          width: 34px;
-          height: 34px;
-
-          object-fit:
-            contain;
-        }
-
-        .brand-word {
-          font-size:
-            13px;
-
-          font-weight:
-            850;
-
-          letter-spacing:
-            0.09em;
-        }
-
-        .home-link {
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          gap: 8px;
-
-          min-height:
-            44px;
-
-          padding:
-            0 16px;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            999px;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.58
-            );
-
-          color:
-            var(
-              --charcoal-soft
-            );
-
-          text-decoration:
-            none;
-
-          font-size:
-            12px;
-
-          font-weight:
-            750;
-
-          transition:
-            transform
-              160ms ease,
-            background
-              160ms ease,
-            border-color
-              160ms ease;
-        }
-
-        .home-link:hover {
-          transform:
-            translateY(-1px);
-
-          background:
-            var(--white);
-
-          border-color:
-            var(
-              --border-strong
-            );
-        }
-
-        /* ================================
-           WRAPPER
-        ================================= */
-
-        .setup-wrap {
-          position: relative;
-
-          width: min(
-            1180px,
-            calc(
-              100% - 40px
-            )
-          );
-
-          margin: 0 auto;
-
-          padding:
-            58px 0 100px;
-        }
-
-        /* ================================
-           INTRO
-        ================================= */
-
-        .intro-layout {
-          display: grid;
-
-          grid-template-columns:
-            minmax(
-              0,
-              1.08fr
-            )
-            minmax(
-              330px,
-              0.72fr
-            );
-
-          gap: 82px;
-
-          align-items:
-            center;
-
-          min-height:
-            620px;
-        }
-
-        .eyebrow {
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          gap: 9px;
-
-          margin-bottom:
-            22px;
-
-          color:
-            var(--tan-dark);
-
-          font-size:
-            11px;
-
-          font-weight:
-            850;
-
-          letter-spacing:
-            0.15em;
-
-          text-transform:
-            uppercase;
-        }
-
-        .eyebrow-dot {
-          width: 8px;
-          height: 8px;
-
-          border-radius:
-            50%;
-
-          background:
-            var(--sage-dark);
-
-          box-shadow:
-            0 0 0 5px
-            rgba(
-              169,
-              184,
-              151,
-              0.2
-            );
-        }
-
-        .intro-title {
-          max-width:
-            780px;
-
-          margin: 0;
-
-          font-size:
-            clamp(
-              52px,
-              6.4vw,
-              84px
-            );
-
-          line-height:
-            0.97;
-
-          letter-spacing:
-            -0.057em;
-
-          font-weight:
-            640;
-        }
-
-        .intro-title em {
-          color:
-            var(--tan-dark);
-
-          font-style:
-            normal;
-        }
-
-        .intro-copy {
-          max-width:
-            660px;
-
-          margin:
-            29px 0 0;
-
-          color:
-            var(--muted);
-
-          font-size:
-            clamp(
-              16px,
-              1.55vw,
-              18px
-            );
-
-          line-height:
-            1.72;
-        }
-
-        .intro-actions {
-          display: flex;
-
-          flex-wrap:
-            wrap;
-
-          gap: 12px;
-
-          margin-top:
-            34px;
-        }
-
-        .primary-button,
-        .secondary-button {
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          gap: 9px;
-
-          min-height:
-            52px;
-
-          padding:
-            0 23px;
-
-          border-radius:
-            999px;
-
-          font-size:
-            13px;
-
-          font-weight:
-            820;
-
-          text-decoration:
-            none;
-
-          cursor:
-            pointer;
-
-          transition:
-            transform
-              160ms ease,
-            box-shadow
-              160ms ease,
-            background
-              160ms ease,
-            border-color
-              160ms ease;
-        }
-
-        .primary-button {
-          border: 0;
-
-          background:
-            var(--charcoal-dark);
-
-          color: white;
-
-          box-shadow:
-            0 12px 26px
-            rgba(
-              57,
-              53,
-              50,
-              0.15
-            );
-        }
-
-        .primary-button:hover {
-          transform:
-            translateY(-2px);
-
-          box-shadow:
-            0 17px 34px
-            rgba(
-              57,
-              53,
-              50,
-              0.19
-            );
-        }
-
-        .secondary-button {
-          border:
-            1px solid
-            var(
-              --border-strong
-            );
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.3
-            );
-
-          color:
-            var(--charcoal);
-        }
-
-        .secondary-button:hover {
-          transform:
-            translateY(-1px);
-
-          background:
-            var(--white);
-        }
-
-        .intro-meta {
-          display: flex;
-
-          flex-wrap:
-            wrap;
-
-          gap:
-            15px 22px;
-
-          margin-top:
-            24px;
-
-          color:
-            var(--muted);
-
-          font-size:
-            12px;
-
-          font-weight:
-            650;
-        }
-
-        .intro-meta span {
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          gap: 7px;
-        }
-
-        .intro-meta svg {
-          color:
-            var(--sage-strong);
-        }
-
-        /* ================================
-           PREVIEW
-        ================================= */
-
-        .preview-card {
-          position:
-            relative;
-
-          padding:
-            30px;
-
-          overflow:
-            hidden;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            28px;
-
-          background:
-            rgba(
-              255,
-              254,
-              253,
-              0.82
-            );
-
-          backdrop-filter:
-            blur(20px);
-
-          box-shadow:
-            var(--shadow);
-        }
-
-        .preview-card::before {
-          content: "";
-
-          position:
-            absolute;
-
-          top: -95px;
-          right: -80px;
-
-          width: 220px;
-          height: 220px;
-
-          border-radius:
-            50%;
-
-          background:
-            radial-gradient(
-              circle,
-              rgba(
-                169,
-                184,
-                151,
-                0.24
-              ),
-              transparent 70%
-            );
-
-          pointer-events:
-            none;
-        }
-
-        .preview-kicker {
-          position:
-            relative;
-
-          color:
-            var(--muted);
-
-          font-size:
-            11px;
-
-          font-weight:
-            850;
-
-          letter-spacing:
-            0.12em;
-
-          text-transform:
-            uppercase;
-        }
-
-        .preview-title {
-          position:
-            relative;
-
-          margin:
-            9px 0 0;
-
-          font-size:
-            25px;
-
-          line-height:
-            1.14;
-
-          letter-spacing:
-            -0.035em;
-        }
-
-        .preview-copy {
-          position:
-            relative;
-
-          margin:
-            12px 0 23px;
-
-          color:
-            var(--muted);
-
-          font-size:
-            13px;
-
-          line-height:
-            1.62;
-        }
-
-        .preview-list {
-          position:
-            relative;
-
-          display: grid;
-
-          gap: 9px;
-        }
-
-        .preview-item {
-          display: flex;
-
-          align-items:
-            center;
-
-          gap: 12px;
-
-          min-height:
-            58px;
-
-          padding:
-            11px 13px;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            15px;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.82
-            );
-        }
-
-        .preview-icon {
-          display: grid;
-
-          place-items:
-            center;
-
-          width: 36px;
-          height: 36px;
-
-          flex:
-            0 0 36px;
-
-          border-radius:
-            11px;
-
-          background:
-            var(--sage-light);
-
-          color:
-            var(--sage-strong);
-        }
-
-        .preview-item-copy {
-          display: grid;
-
-          gap: 2px;
-
-          min-width: 0;
-        }
-
-        .preview-item-copy strong {
-          font-size:
-            13px;
-        }
-
-        .preview-item-copy small {
-          color:
-            var(--muted);
-
-          font-size:
-            11px;
-        }
-
-        .preview-arrow {
-          margin-left:
-            auto;
-
-          color:
-            var(--tan-dark);
-        }
-
-        .mini-result {
-          position:
-            relative;
-
-          margin-top:
-            20px;
-
-          padding:
-            17px;
-
-          border-radius:
-            17px;
-
-          background:
-            var(--charcoal-dark);
-
-          color: white;
-        }
-
-        .mini-result-label {
-          color:
-            rgba(
-              255,
-              255,
-              255,
-              0.7
-            );
-
-          font-size:
-            11px;
-
-          font-weight:
-            850;
-
-          letter-spacing:
-            0.11em;
-
-          text-transform:
-            uppercase;
-        }
-
-        .mini-result-value {
-          display: flex;
-
-          align-items:
-            center;
-
-          gap: 8px;
-
-          margin-top:
-            7px;
-
-          font-size:
-            16px;
-
-          font-weight:
-            760;
-        }
-
-        /* ================================
-           QUIZ
-        ================================= */
-
-        .quiz-shell {
-          width: min(
-            940px,
-            100%
-          );
-
-          margin:
-            8px auto 0;
-        }
-
-        .quiz-top {
-          display: flex;
-
-          align-items:
-            flex-end;
-
-          justify-content:
-            space-between;
-
-          gap: 24px;
-
-          margin-bottom:
-            22px;
-        }
-
-        .quiz-progress-wrap {
-          flex: 1;
-        }
-
-        .quiz-step {
-          display: flex;
-
-          align-items:
-            center;
-
-          flex-wrap:
-            wrap;
-
-          gap: 8px;
-
-          color:
-            var(--muted);
-
-          font-size:
-            12px;
-
-          font-weight:
-            700;
-        }
-
-        .quiz-step strong {
-          color:
-            var(--charcoal-dark);
-        }
-
-        .quiz-step-divider {
-          width: 4px;
-          height: 4px;
-
-          border-radius:
-            50%;
-
-          background:
-            rgba(
-              79,
-              74,
-              70,
-              0.36
-            );
-        }
-
-        .progress-track {
-          width: 100%;
-          height: 6px;
-
-          margin-top:
-            10px;
-
-          overflow:
-            hidden;
-
-          border-radius:
-            999px;
-
-          background:
-            rgba(
-              79,
-              74,
-              70,
-              0.08
-            );
-        }
-
-        .progress-value {
-          height: 100%;
-
-          border-radius:
-            inherit;
-
-          background:
-            linear-gradient(
-              90deg,
-              var(--sage),
-              var(--sage-strong)
-            );
-
-          transition:
-            width 280ms
-            cubic-bezier(
-              0.22,
-              1,
-              0.36,
-              1
-            );
-        }
-
-        .progress-dots {
-          display: flex;
-
-          gap: 5px;
-
-          margin-top:
-            9px;
-        }
-
-        .progress-dot {
-          width: 6px;
-          height: 6px;
-
-          border-radius:
-            999px;
-
-          background:
-            rgba(
-              79,
-              74,
-              70,
-              0.14
-            );
-
-          transition:
-            180ms ease;
-        }
-
-        .progress-dot.complete {
-          background:
-            var(--sage);
-        }
-
-        .progress-dot.active {
-          width: 18px;
-
-          background:
-            var(--sage-strong);
-        }
-
-        .quiz-time {
-          color:
-            var(--muted);
-
-          font-size:
-            11px;
-
-          line-height:
-            1.4;
-
-          text-align:
-            right;
-
-          white-space:
-            nowrap;
-        }
-
-        .question-card {
-          position:
-            relative;
-
-          padding:
-            43px 44px 35px;
-
-          overflow:
-            hidden;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            30px;
-
-          background:
-            rgba(
-              255,
-              254,
-              253,
-              0.84
-            );
-
-          backdrop-filter:
-            blur(18px);
-
-          box-shadow:
-            var(--shadow);
-        }
-
-        .question-card::before {
-          content: "";
-
-          position:
-            absolute;
-
-          top: -100px;
-          right: -80px;
-
-          width: 270px;
-          height: 270px;
-
-          border-radius:
-            50%;
-
-          background:
-            radial-gradient(
-              circle,
-              rgba(
-                169,
-                184,
-                151,
-                0.14
-              ),
-              transparent 68%
-            );
-
-          pointer-events:
-            none;
-        }
-
-        .question-heading {
-          position:
-            relative;
-
-          display: grid;
-
-          grid-template-columns:
-            auto
-            minmax(
-              0,
-              1fr
-            );
-
-          gap: 17px;
-
-          align-items:
-            start;
-        }
-
-        .question-icon {
-          display: grid;
-
-          place-items:
-            center;
-
-          width: 48px;
-          height: 48px;
-
-          border-radius:
-            14px;
-
-          background:
-            var(--sage-light);
-
-          color:
-            var(--sage-strong);
-        }
-
-        .question-eyebrow {
-          margin-bottom:
-            7px;
-
-          color:
-            var(--tan-dark);
-
-          font-size:
-            11px;
-
-          font-weight:
-            850;
-
-          letter-spacing:
-            0.13em;
-
-          text-transform:
-            uppercase;
-        }
-
-        .question-title {
-          max-width:
-            730px;
-
-          margin: 0;
-
-          font-size:
-            clamp(
-              28px,
-              3.5vw,
-              39px
-            );
-
-          line-height:
-            1.08;
-
-          letter-spacing:
-            -0.042em;
-
-          font-weight:
-            640;
-        }
-
-        .question-helper {
-          margin:
-            11px 0 0;
-
-          color:
-            var(--muted);
-
-          font-size:
-            13px;
-
-          line-height:
-            1.6;
-        }
-
-        .answer-fieldset {
-          position:
-            relative;
-
-          min-width: 0;
-
-          margin: 0;
-
-          padding: 0;
-
-          border: 0;
-        }
-
-        .answer-grid {
-          display: grid;
-
-          grid-template-columns:
-            repeat(
-              2,
-              minmax(
-                0,
-                1fr
-              )
-            );
-
-          gap: 11px;
-
-          margin-top:
-            30px;
-        }
-
-        .answer-option {
-          position:
-            relative;
-
-          display: flex;
-
-          align-items:
-            flex-start;
-
-          gap: 13px;
-
-          min-height:
-            108px;
-
-          padding:
-            18px;
-
-          overflow:
-            hidden;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            18px;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.7
-            );
-
-          color:
-            var(--charcoal);
-
-          text-align:
-            left;
-
-          cursor:
-            pointer;
-
-          transition:
-            transform
-              160ms ease,
-            border-color
-              160ms ease,
-            background
-              160ms ease,
-            box-shadow
-              160ms ease;
-        }
-
-        .answer-option:hover {
-          transform:
-            translateY(-2px);
-
-          border-color:
-            rgba(
-              101,
-              119,
-              86,
-              0.46
-            );
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.96
-            );
-        }
-
-        .answer-option.selected {
-          border-color:
-            var(--sage-strong);
-
-          background:
-            linear-gradient(
-              135deg,
-              var(--sage-light),
-              rgba(
-                255,
-                255,
-                255,
-                0.92
-              )
-            );
-
-          box-shadow:
-            inset
-            0 0 0 1px
-            rgba(
-              101,
-              119,
-              86,
-              0.28
-            ),
-            0 9px 25px
-            rgba(
-              101,
-              119,
-              86,
-              0.08
-            );
-        }
-
-        .answer-option:has(
-          .sr-only-radio:focus-visible
-        ) {
-          outline:
-            3px solid
-            var(--focus);
-
-          outline-offset:
-            3px;
-        }
-
-        .answer-marker {
-          display: grid;
-
-          place-items:
-            center;
-
-          width: 30px;
-          height: 30px;
-
-          flex:
-            0 0 30px;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            9px;
-
-          background:
-            var(--white);
-
-          color:
-            var(--muted);
-
-          font-size:
-            11px;
-
-          font-weight:
-            850;
-
-          transition:
-            160ms ease;
-        }
-
-        .answer-option.selected
-          .answer-marker {
-          border-color:
-            var(--sage-strong);
-
-          background:
-            var(--sage-strong);
-
-          color: white;
-        }
-
-        .answer-content {
-          display: grid;
-
-          gap: 5px;
-
-          min-width: 0;
-
-          padding-right:
-            19px;
-        }
-
-        .answer-title {
-          font-size:
-            14px;
-
-          font-weight:
-            820;
-
-          line-height:
-            1.37;
-        }
-
-        .answer-description {
-          color:
-            var(--muted);
-
-          font-size:
-            12px;
-
-          line-height:
-            1.5;
-        }
-
-        .answer-check {
-          position:
-            absolute;
-
-          top: 14px;
-          right: 14px;
-
-          display: grid;
-
-          place-items:
-            center;
-
-          width: 22px;
-          height: 22px;
-
-          border-radius:
-            50%;
-
-          background:
-            var(--sage-strong);
-
-          color: white;
-        }
-
-        .quiz-actions {
-          position:
-            relative;
-
-          display: flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            space-between;
-
-          gap: 14px;
-
-          margin-top:
-            24px;
-        }
-
-        .back-button {
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          gap: 7px;
-
-          min-height:
-            46px;
-
-          padding:
-            0 13px;
-
-          border: 0;
-
-          border-radius:
-            999px;
-
-          background:
-            transparent;
-
-          color:
-            var(--muted);
-
-          font-size:
-            12px;
-
-          font-weight:
-            750;
-
-          cursor:
-            pointer;
-        }
-
-        .back-button:hover {
-          background:
-            rgba(
-              79,
-              74,
-              70,
-              0.055
-            );
-
-          color:
-            var(--charcoal);
-        }
-
-        .next-button {
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          gap: 8px;
-
-          min-height:
-            50px;
-
-          padding:
-            0 22px;
-
-          border: 0;
-
-          border-radius:
-            999px;
-
-          background:
-            var(--charcoal-dark);
-
-          color: white;
-
-          font-size:
-            12px;
-
-          font-weight:
-            820;
-
-          cursor:
-            pointer;
-
-          box-shadow:
-            0 10px 22px
-            rgba(
-              57,
-              53,
-              50,
-              0.14
-            );
-
-          transition:
-            transform
-              160ms ease,
-            opacity
-              160ms ease,
-            box-shadow
-              160ms ease;
-        }
-
-        .next-button:hover:not(
-            :disabled
+          ];
+
+          if (
+            !windows[
+              index
+            ]
           ) {
-          transform:
-            translateY(-1px);
-
-          box-shadow:
-            0 14px 27px
-            rgba(
-              57,
-              53,
-              50,
-              0.18
-            );
-        }
-
-        .next-button:disabled {
-          opacity: 0.38;
-
-          box-shadow:
-            none;
-
-          cursor:
-            not-allowed;
-        }
-
-        /* ================================
-           RESULTS
-        ================================= */
-
-        .result-layout {
-          width: min(
-            1050px,
-            100%
-          );
-
-          margin: 0 auto;
-        }
-
-        .result-intro {
-          max-width:
-            840px;
-        }
-
-        .result-pill {
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          gap: 7px;
-
-          margin-bottom:
-            18px;
-
-          padding:
-            8px 13px;
-
-          border-radius:
-            999px;
-
-          background:
-            var(--sage-light);
-
-          color:
-            var(--sage-strong);
-
-          font-size:
-            11px;
-
-          font-weight:
-            820;
-        }
-
-        .result-title {
-          margin: 0;
-
-          font-size:
-            clamp(
-              45px,
-              6.3vw,
-              72px
-            );
-
-          line-height:
-            0.99;
-
-          letter-spacing:
-            -0.055em;
-
-          font-weight:
-            630;
-        }
-
-        .result-title em {
-          color:
-            var(--tan-dark);
-
-          font-style:
-            normal;
-        }
-
-        .result-copy {
-          max-width:
-            710px;
-
-          margin:
-            21px 0 0;
-
-          color:
-            var(--muted);
-
-          font-size:
-            15px;
-
-          line-height:
-            1.72;
-        }
-
-        /* ================================
-           PROFILE
-        ================================= */
-
-        .profile-card {
-          display: grid;
-
-          grid-template-columns:
-            auto
-            minmax(
-              0,
-              1fr
-            );
-
-          gap: 20px;
-
-          align-items:
-            center;
-
-          margin-top:
-            37px;
-
-          padding:
-            23px;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            23px;
-
-          background:
-            rgba(
-              255,
-              254,
-              253,
-              0.78
-            );
-
-          box-shadow:
-            var(
-              --shadow-soft
-            );
-        }
-
-        .profile-icon {
-          display: grid;
-
-          place-items:
-            center;
-
-          width: 54px;
-          height: 54px;
-
-          border-radius:
-            16px;
-
-          background:
-            var(--sage-light);
-
-          color:
-            var(--sage-strong);
-        }
-
-        .profile-eyebrow {
-          color:
-            var(--tan-dark);
-
-          font-size:
-            11px;
-
-          font-weight:
-            850;
-
-          letter-spacing:
-            0.12em;
-
-          text-transform:
-            uppercase;
-        }
-
-        .profile-title {
-          margin:
-            5px 0 0;
-
-          font-size:
-            22px;
-
-          letter-spacing:
-            -0.025em;
-        }
-
-        .profile-copy {
-          max-width:
-            760px;
-
-          margin:
-            7px 0 0;
-
-          color:
-            var(--muted);
-
-          font-size:
-            12px;
-
-          line-height:
-            1.62;
-        }
-
-        /* ================================
-           SECTION HEADINGS
-        ================================= */
-
-        .section-heading {
-          display: flex;
-
-          align-items:
-            flex-end;
-
-          justify-content:
-            space-between;
-
-          gap: 20px;
-
-          margin:
-            45px 0 16px;
-        }
-
-        .section-label {
-          color:
-            var(--tan-dark);
-
-          font-size:
-            11px;
-
-          font-weight:
-            850;
-
-          letter-spacing:
-            0.13em;
-
-          text-transform:
-            uppercase;
-        }
-
-        .section-helper {
-          color:
-            var(--muted);
-
-          font-size:
-            11px;
-
-          text-align:
-            right;
-        }
-
-        /* ================================
-           MODULE CARDS
-        ================================= */
-
-        .module-grid {
-          display: grid;
-
-          grid-template-columns:
-            repeat(
-              3,
-              minmax(
-                0,
-                1fr
-              )
-            );
-
-          gap: 13px;
-        }
-
-        .module-card {
-          display: flex;
-
-          flex-direction:
-            column;
-
-          min-width: 0;
-
-          padding:
-            21px;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            20px;
-
-          background:
-            var(--white);
-
-          box-shadow:
-            var(
-              --shadow-soft
-            );
-        }
-
-        .module-top {
-          display: flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            space-between;
-
-          gap: 12px;
-
-          margin-bottom:
-            15px;
-        }
-
-        .module-icon {
-          display: grid;
-
-          place-items:
-            center;
-
-          width: 40px;
-          height: 40px;
-
-          border-radius:
-            12px;
-
-          background:
-            var(--sage-light);
-
-          color:
-            var(--sage-strong);
-        }
-
-        .module-price {
-          font-size:
-            14px;
-
-          font-weight:
-            850;
-        }
-
-        .module-price small {
-          color:
-            var(--muted);
-
-          font-size:
-            10px;
-
-          font-weight:
-            650;
-        }
-
-        .module-title {
-          margin:
-            0 0 8px;
-
-          font-size:
-            18px;
-
-          letter-spacing:
-            -0.025em;
-        }
-
-        .module-description {
-          margin: 0;
-
-          color:
-            var(--muted);
-
-          font-size:
-            12px;
-
-          line-height:
-            1.6;
-        }
-
-        .reason-box {
-          display: grid;
-
-          gap: 8px;
-
-          margin-top:
-            auto;
-
-          padding-top:
-            16px;
-        }
-
-        .reason {
-          display: flex;
-
-          align-items:
-            flex-start;
-
-          gap: 8px;
-
-          color:
-            var(
-              --charcoal-soft
-            );
-
-          font-size:
-            11px;
-
-          line-height:
-            1.47;
-        }
-
-        .reason svg {
-          flex:
-            0 0 auto;
-
-          margin-top:
-            1px;
-
-          color:
-            var(--sage-strong);
-        }
-
-        /* ================================
-           LATER
-        ================================= */
-
-        .later-grid {
-          display: grid;
-
-          grid-template-columns:
-            repeat(
-              2,
-              minmax(
-                0,
-                1fr
-              )
-            );
-
-          gap: 10px;
-        }
-
-        .later-card {
-          display: flex;
-
-          align-items:
-            center;
-
-          gap: 12px;
-
-          padding:
-            15px;
-
-          border:
-            1px dashed
-            var(
-              --border-strong
-            );
-
-          border-radius:
-            16px;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.42
-            );
-        }
-
-        .later-icon {
-          display: grid;
-
-          place-items:
-            center;
-
-          width: 36px;
-          height: 36px;
-
-          flex:
-            0 0 36px;
-
-          border-radius:
-            10px;
-
-          background:
-            var(--cream-deep);
-
-          color:
-            var(--muted);
-        }
-
-        .later-copy strong {
-          display: block;
-
-          font-size:
-            12px;
-        }
-
-        .later-copy span {
-          display: block;
-
-          margin-top: 3px;
-
-          color:
-            var(--muted);
-
-          font-size:
-            10px;
-        }
-
-        /* ================================
-           PACKAGE
-        ================================= */
-
-        .package-card {
-          display: grid;
-
-          grid-template-columns:
-            minmax(
-              0,
-              1fr
-            )
-            250px;
-
-          overflow:
-            hidden;
-
-          border-radius:
-            27px;
-
-          background:
-            var(--charcoal-dark);
-
-          color:
-            white;
-
-          box-shadow:
-            0 28px 70px
-            rgba(
-              57,
-              53,
-              50,
-              0.18
-            );
-        }
-
-        .package-main {
-          padding:
-            32px;
-        }
-
-        .package-eyebrow {
-          color:
-            var(--sage);
-
-          font-size:
-            11px;
-
-          font-weight:
-            850;
-
-          letter-spacing:
-            0.13em;
-
-          text-transform:
-            uppercase;
-        }
-
-        .package-title {
-          margin:
-            8px 0 0;
-
-          font-size:
-            clamp(
-              29px,
-              4vw,
-              43px
-            );
-
-          line-height: 1;
-
-          letter-spacing:
-            -0.045em;
-        }
-
-        .package-copy {
-          max-width:
-            620px;
-
-          margin:
-            14px 0 0;
-
-          color:
-            rgba(
-              255,
-              255,
-              255,
-              0.74
-            );
-
-          font-size:
-            12px;
-
-          line-height:
-            1.67;
-        }
-
-        .package-tags {
-          display: flex;
-
-          flex-wrap:
-            wrap;
-
-          gap: 7px;
-
-          margin-top:
-            17px;
-        }
-
-        .package-tag {
-          padding:
-            7px 10px;
-
-          border:
-            1px solid
-            rgba(
-              255,
-              255,
-              255,
-              0.16
-            );
-
-          border-radius:
-            999px;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.06
-            );
-
-          color:
-            rgba(
-              255,
-              255,
-              255,
-              0.9
-            );
-
-          font-size:
-            10px;
-
-          font-weight:
-            700;
-        }
-
-        .package-price {
-          display: flex;
-
-          flex-direction:
-            column;
-
-          justify-content:
-            center;
-
-          padding:
-            30px;
-
-          border-left:
-            1px solid
-            rgba(
-              255,
-              255,
-              255,
-              0.1
-            );
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.04
-            );
-        }
-
-        .price-label {
-          color:
-            rgba(
-              255,
-              255,
-              255,
-              0.7
-            );
-
-          font-size:
-            11px;
-
-          font-weight:
-            750;
-
-          text-transform:
-            uppercase;
-
-          letter-spacing:
-            0.09em;
-        }
-
-        .price-old {
-          min-height:
-            18px;
-
-          margin-top:
-            8px;
-
-          color:
-            rgba(
-              255,
-              255,
-              255,
-              0.62
-            );
-
-          font-size:
-            12px;
-
-          text-decoration:
-            line-through;
-        }
-
-        .price-main {
-          margin-top:
-            3px;
-
-          font-size:
-            46px;
-
-          line-height: 1;
-
-          letter-spacing:
-            -0.05em;
-
-          font-weight:
-            700;
-        }
-
-        .price-main small {
-          font-size:
-            12px;
-
-          color:
-            rgba(
-              255,
-              255,
-              255,
-              0.7
-            );
-
-          letter-spacing: 0;
-        }
-
-        .saving-pill {
-          align-self:
-            flex-start;
-
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          gap: 6px;
-
-          margin-top:
-            12px;
-
-          padding:
-            7px 9px;
-
-          border-radius:
-            999px;
-
-          background:
-            rgba(
-              169,
-              184,
-              151,
-              0.18
-            );
-
-          color:
-            #c9d8bc;
-
-          font-size:
-            10px;
-
-          font-weight:
-            800;
-        }
-
-        /* ================================
-           COMPLETE MESSAGE
-        ================================= */
-
-        .complete-upgrade {
-          display: flex;
-
-          align-items:
-            flex-start;
-
-          gap: 10px;
-
-          margin-top:
-            13px;
-
-          padding:
-            14px 16px;
-
-          border:
-            1px solid
-            rgba(
-              115,
-              132,
-              99,
-              0.3
-            );
-
-          border-radius:
-            16px;
-
-          background:
-            var(--sage-light);
-
-          color:
-            var(
-              --charcoal-soft
-            );
-
-          font-size:
-            12px;
-
-          line-height:
-            1.55;
-        }
-
-        .complete-upgrade svg {
-          flex:
-            0 0 auto;
-
-          margin-top:
-            1px;
-
-          color:
-            var(--sage-strong);
-        }
-
-        /* ================================
-           AI
-        ================================= */
-
-        .ai-card {
-          display: grid;
-
-          grid-template-columns:
-            auto
-            minmax(
-              0,
-              1fr
-            )
-            auto;
-
-          gap: 16px;
-
-          align-items:
-            center;
-
-          margin-top:
-            13px;
-
-          padding:
-            19px;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            19px;
-
-          background:
-            rgba(
-              255,
-              254,
-              253,
-              0.82
-            );
-
-          box-shadow:
-            var(
-              --shadow-soft
-            );
-        }
-
-        .ai-icon {
-          display: grid;
-
-          place-items:
-            center;
-
-          width: 43px;
-          height: 43px;
-
-          border-radius:
-            13px;
-
-          background:
-            var(--tan-soft);
-
-          color:
-            var(--tan-dark);
-        }
-
-        .ai-eyebrow {
-          color:
-            var(--tan-dark);
-
-          font-size:
-            11px;
-
-          font-weight:
-            850;
-
-          letter-spacing:
-            0.11em;
-
-          text-transform:
-            uppercase;
-        }
-
-        .ai-title {
-          margin:
-            4px 0 0;
-
-          font-size:
-            16px;
-        }
-
-        .ai-copy {
-          margin:
-            5px 0 0;
-
-          color:
-            var(--muted);
-
-          font-size:
-            11px;
-
-          line-height:
-            1.58;
-        }
-
-        .ai-price {
-          text-align:
-            right;
-
-          white-space:
-            nowrap;
-        }
-
-        .ai-price strong {
-          display: block;
-
-          font-size:
-            20px;
-        }
-
-        .ai-price span {
-          display: block;
-
-          margin-top: 3px;
-
-          color:
-            var(--muted);
-
-          font-size:
-            10px;
-        }
-
-        .ai-upgrade-note {
-          display: flex;
-
-          align-items:
-            flex-start;
-
-          gap: 7px;
-
-          margin:
-            10px 0 0;
-
-          padding:
-            10px 12px;
-
-          border-radius:
-            11px;
-
-          background:
-            rgba(
-              198,
-              157,
-              105,
-              0.13
-            );
-
-          color:
-            var(
-              --charcoal-soft
-            );
-
-          font-size:
-            11px;
-
-          line-height:
-            1.52;
-        }
-
-        .ai-upgrade-note svg {
-          flex:
-            0 0 auto;
-
-          margin-top:
-            1px;
-
-          color:
-            var(--tan-dark);
-        }
-
-        /* ================================
-           TRUST CARD
-        ================================= */
-
-        .trust-card {
-          margin-top:
-            13px;
-
-          padding:
-            18px;
-
-          border:
-            1px solid
-            var(--border);
-
-          border-radius:
-            18px;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.44
-            );
-        }
-
-        .trust-title {
-          display: flex;
-
-          align-items:
-            center;
-
-          gap: 7px;
-
-          font-size:
-            11px;
-
-          font-weight:
-            800;
-        }
-
-        .trust-title svg {
-          color:
-            var(--sage-strong);
-        }
-
-        .not-needed-list {
-          display: flex;
-
-          flex-wrap:
-            wrap;
-
-          gap: 7px;
-
-          margin-top:
-            11px;
-        }
-
-        .not-needed-chip {
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          gap: 5px;
-
-          padding:
-            7px 9px;
-
-          border-radius:
-            999px;
-
-          background:
-            rgba(
-              79,
-              74,
-              70,
-              0.065
-            );
-
-          color:
-            var(--muted);
-
-          font-size:
-            10px;
-
-          font-weight:
-            700;
-        }
-
-        /* ================================
-           ACTIONS
-        ================================= */
-
-        .result-actions {
-          display: flex;
-
-          flex-wrap:
-            wrap;
-
-          gap: 10px;
-
-          margin-top:
-            25px;
-        }
-
-        .result-primary,
-        .result-secondary {
-          display:
-            inline-flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          gap: 8px;
-
-          min-height:
-            50px;
-
-          padding:
-            0 21px;
-
-          border-radius:
-            999px;
-
-          font-size:
-            12px;
-
-          font-weight:
-            820;
-
-          text-decoration:
-            none;
-
-          cursor:
-            pointer;
-
-          transition:
-            transform
-              160ms ease,
-            box-shadow
-              160ms ease,
-            background
-              160ms ease;
-        }
-
-        .result-primary {
-          border:
-            1px solid
-            var(--charcoal-dark);
-
-          background:
-            var(--charcoal-dark);
-
-          color: white;
-
-          box-shadow:
-            0 10px 24px
-            rgba(
-              57,
-              53,
-              50,
-              0.14
-            );
-        }
-
-        .result-primary:hover {
-          transform:
-            translateY(-1px);
-
-          box-shadow:
-            0 14px 28px
-            rgba(
-              57,
-              53,
-              50,
-              0.18
-            );
-        }
-
-        .result-secondary {
-          border:
-            1px solid
-            var(
-              --border-strong
-            );
-
-          background:
-            transparent;
-
-          color:
-            var(--charcoal);
-        }
-
-        .result-secondary:hover {
-          transform:
-            translateY(-1px);
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.6
-            );
-        }
-
-        .result-footnote {
-          display: flex;
-
-          align-items:
-            flex-start;
-
-          gap: 7px;
-
-          margin-top:
-            16px;
-
-          color:
-            var(--muted);
-
-          font-size:
-            11px;
-
-          line-height:
-            1.5;
-        }
-
-        .result-footnote svg {
-          flex:
-            0 0 auto;
-
-          margin-top:
-            1px;
-
-          color:
-            var(--sage-strong);
-        }
-
-        /* ================================
-           RESPONSIVE
-        ================================= */
-
-        @media (
-          max-width: 930px
-        ) {
-          .intro-layout {
-            grid-template-columns:
-              1fr;
-
-            gap: 42px;
-
-            min-height:
-              auto;
+            return previous;
           }
 
-          .preview-card {
-            max-width:
-              650px;
-          }
+          windows[
+            index
+          ] = {
+            ...windows[
+              index
+            ],
 
-          .module-grid {
-            grid-template-columns:
-              repeat(
-                2,
-                minmax(
-                  0,
-                  1fr
+            [field]:
+              snapTimeStringToTen(
+                value
+              ),
+          };
+
+          return {
+            ...previous,
+
+            availability: {
+              ...previous.availability,
+
+              [dayKey]:
+                windows,
+            },
+          };
+        }
+      );
+    };
+
+  const addBookingWindow =
+    (
+      dayKey: string
+    ) => {
+      setBookingPage(
+        (
+          previous
+        ) => {
+          const existing =
+            previous
+              .availability[
+              dayKey
+            ] || [];
+
+          let start =
+            "09:00";
+
+          let end =
+            "17:00";
+
+          if (
+            existing.length
+          ) {
+            const last =
+              existing[
+                existing.length -
+                  1
+              ];
+
+            const lastEnd =
+              timeToMinutes(
+                last.end
+              );
+
+            const suggestedStart =
+              Math.min(
+                lastEnd +
+                  10,
+                23 * 60 +
+                  40
+              );
+
+            const suggestedEnd =
+              Math.min(
+                suggestedStart +
+                  120,
+                23 * 60 +
+                  50
+              );
+
+            start =
+              snapTimeStringToTen(
+                formatMinutes(
+                  suggestedStart
+                )
+              );
+
+            end =
+              snapTimeStringToTen(
+                formatMinutes(
+                  suggestedEnd
                 )
               );
           }
-        }
 
-        @media (
-          max-width: 720px
+          return {
+            ...previous,
+
+            availability: {
+              ...previous.availability,
+
+              [dayKey]: [
+                ...existing,
+
+                {
+                  start,
+                  end,
+                },
+              ],
+            },
+          };
+        }
+      );
+    };
+
+  const removeBookingWindow =
+    (
+      dayKey: string,
+      index: number
+    ) => {
+      setBookingPage(
+        (
+          previous
+        ) => ({
+          ...previous,
+
+          availability: {
+            ...previous.availability,
+
+            [dayKey]:
+              (
+                previous
+                  .availability[
+                  dayKey
+                ] || []
+              ).filter(
+                (
+                  _window,
+                  windowIndex
+                ) =>
+                  windowIndex !==
+                  index
+              ),
+          },
+        })
+      );
+    };
+
+  const copyDayToWeekdays =
+    (
+      sourceKey: string
+    ) => {
+      setBookingPage(
+        (
+          previous
+        ) => {
+          const source =
+            (
+              previous
+                .availability[
+                sourceKey
+              ] || []
+            ).map(
+              (
+                window
+              ) => ({
+                ...window,
+              })
+            );
+
+          return {
+            ...previous,
+
+            availability: {
+              ...previous.availability,
+
+              mon:
+                cloneWindows(
+                  source
+                ),
+
+              tue:
+                cloneWindows(
+                  source
+                ),
+
+              wed:
+                cloneWindows(
+                  source
+                ),
+
+              thu:
+                cloneWindows(
+                  source
+                ),
+
+              fri:
+                cloneWindows(
+                  source
+                ),
+            },
+          };
+        }
+      );
+    };
+
+  const restoreWeekdays =
+    () => {
+      setBookingPage(
+        (
+          previous
+        ) => ({
+          ...previous,
+
+          availability:
+            cloneAvailability(
+              DEFAULT_BOOKING_PAGE.availability
+            ),
+        })
+      );
+    };
+
+  const clearAvailability =
+    () => {
+      setBookingPage(
+        (
+          previous
+        ) => ({
+          ...previous,
+
+          availability: {
+            mon: [],
+            tue: [],
+            wed: [],
+            thu: [],
+            fri: [],
+            sat: [],
+            sun: [],
+          },
+        })
+      );
+    };
+
+  // ==========================================================
+  // VALIDATE AVAILABILITY
+  // ==========================================================
+
+  const validateAvailability =
+    () => {
+      let activeDays =
+        0;
+
+      for (
+        const day of
+          WEEK_DAYS
+      ) {
+        const windows =
+          bookingPage
+            .availability[
+            day.key
+          ] || [];
+
+        if (
+          windows.length
         ) {
-          .setup-header {
-            width:
-              calc(
-                100% - 28px
-              );
-
-            min-height:
-              70px;
-          }
-
-          .setup-wrap {
-            width:
-              calc(
-                100% - 28px
-              );
-
-            padding:
-              38px 0 72px;
-          }
-
-          .brand-logo {
-            width: 30px;
-            height: 30px;
-          }
-
-          .home-link {
-            width: 44px;
-
-            padding: 0;
-          }
-
-          .home-link span {
-            display: none;
-          }
-
-          .intro-title {
-            font-size:
-              clamp(
-                45px,
-                13vw,
-                64px
-              );
-          }
-
-          .intro-copy {
-            margin-top:
-              23px;
-          }
-
-          .preview-card {
-            padding:
-              23px;
-          }
-
-          .quiz-top {
-            align-items:
-              flex-start;
-          }
-
-          .quiz-time {
-            display: none;
-          }
-
-          .question-card {
-            padding:
-              28px 18px
-              22px;
-
-            border-radius:
-              23px;
-          }
-
-          .question-heading {
-            grid-template-columns:
-              1fr;
-
-            gap: 13px;
-          }
-
-          .question-icon {
-            width: 43px;
-            height: 43px;
-          }
-
-          .answer-grid {
-            grid-template-columns:
-              1fr;
-
-            margin-top:
-              24px;
-          }
-
-          .answer-option {
-            min-height:
-              96px;
-          }
-
-          .module-grid,
-          .later-grid {
-            grid-template-columns:
-              1fr;
-          }
-
-          .package-card {
-            grid-template-columns:
-              1fr;
-          }
-
-          .package-price {
-            border-top:
-              1px solid
-              rgba(
-                255,
-                255,
-                255,
-                0.1
-              );
-
-            border-left: 0;
-          }
-
-          .ai-card {
-            grid-template-columns:
-              auto
-              minmax(
-                0,
-                1fr
-              );
-          }
-
-          .ai-price {
-            grid-column:
-              1 / -1;
-
-            padding-left:
-              59px;
-
-            text-align:
-              left;
-          }
+          activeDays +=
+            1;
         }
 
-        @media (
-          max-width: 460px
+        for (
+          let i =
+            0;
+          i <
+          windows.length;
+          i++
         ) {
-          .setup-header,
-          .setup-wrap {
-            width:
-              calc(
-                100% - 22px
-              );
+          const current =
+            windows[
+              i
+            ];
+
+          if (
+            timeToMinutes(
+              current.end
+            ) <=
+            timeToMinutes(
+              current.start
+            )
+          ) {
+            return `${day.fullLabel}: end time must be after start time.`;
           }
 
-          .intro-title {
-            font-size:
-              45px;
-          }
+          for (
+            let j =
+              i + 1;
+            j <
+            windows.length;
+            j++
+          ) {
+            const other =
+              windows[
+                j
+              ];
 
-          .intro-actions {
-            display: grid;
-          }
-
-          .primary-button,
-          .secondary-button {
-            width: 100%;
-          }
-
-          .intro-meta {
-            display: grid;
-
-            gap: 10px;
-          }
-
-          .quiz-actions {
-            gap: 5px;
-          }
-
-          .back-button {
-            padding:
-              0 8px;
-          }
-
-          .next-button {
-            padding:
-              0 16px;
-          }
-
-          .profile-card {
-            grid-template-columns:
-              1fr;
-
-            gap: 14px;
-          }
-
-          .section-heading {
-            align-items:
-              flex-start;
-
-            flex-direction:
-              column;
-
-            gap: 5px;
-          }
-
-          .section-helper {
-            text-align:
-              left;
-          }
-
-          .package-main,
-          .package-price {
-            padding:
-              25px 21px;
-          }
-
-          .result-actions {
-            display: grid;
-          }
-
-          .result-primary,
-          .result-secondary {
-            width: 100%;
+            if (
+              timeToMinutes(
+                current.start
+              ) <
+                timeToMinutes(
+                  other.end
+                ) &&
+              timeToMinutes(
+                other.start
+              ) <
+                timeToMinutes(
+                  current.end
+                )
+            ) {
+              return `${day.fullLabel}: availability windows overlap.`;
+            }
           }
         }
+      }
 
-        @media (
-          prefers-reduced-motion:
-          reduce
+      if (
+        activeDays ===
+        0
+      ) {
+        return "Choose at least one available day.";
+      }
+
+      return null;
+    };
+
+  // ==========================================================
+  // SAVE BOOKING PAGE
+  // ==========================================================
+
+  const saveBookingPage =
+    async () => {
+      if (
+        isBookingSaving
+      ) {
+        return;
+      }
+
+      const {
+        data: {
+          user,
+        },
+      } =
+        await supabase.auth.getUser();
+
+      if (
+        !user
+      ) {
+        setBookingError(
+          "You must be signed in."
+        );
+
+        return;
+      }
+
+      const slug =
+        slugify(
+          bookingPage.slug ||
+            bookingPage.title
+        );
+
+      if (
+        !slug
+      ) {
+        setBookingError(
+          "Enter a booking page link."
+        );
+
+        return;
+      }
+
+      const validationError =
+        validateAvailability();
+
+      if (
+        validationError
+      ) {
+        setBookingError(
+          validationError
+        );
+
+        return;
+      }
+
+      setIsBookingSaving(
+        true
+      );
+
+      setBookingError(
+        null
+      );
+
+      try {
+        const payload = {
+          user_id:
+            user.id,
+
+          organisation_id:
+            currentProfile
+              ?.organisation_id ||
+            null,
+
+          slug,
+
+          title:
+            bookingPage.title ||
+            "Book a meeting",
+
+          description:
+            bookingPage.description ||
+            "",
+
+          duration_minutes:
+            Number(
+              bookingPage.duration_minutes
+            ) ||
+            30,
+
+          location_type:
+            bookingPage.location_type,
+
+          location_value:
+            bookingPage.location_value ||
+            "",
+
+          video_provider:
+            bookingPage.video_provider,
+
+          video_link:
+            bookingPage.video_link ||
+            "",
+
+          buffer_before_minutes:
+            Number(
+              bookingPage.buffer_before_minutes
+            ) ||
+            0,
+
+          buffer_after_minutes:
+            Number(
+              bookingPage.buffer_after_minutes
+            ) ||
+            0,
+
+          min_notice_hours:
+            Number(
+              bookingPage.min_notice_hours
+            ) ||
+            0,
+
+          max_days_ahead:
+            Number(
+              bookingPage.max_days_ahead
+            ) ||
+            30,
+
+          timezone:
+            bookingPage.timezone ||
+            "Europe/London",
+
+          availability:
+            bookingPage.availability,
+
+          is_active:
+            bookingPage.is_active,
+        };
+
+        const {
+          data,
+          error:
+            saveError,
+        } =
+          await supabase
+            .from(
+              "booking_pages"
+            )
+            .upsert(
+              payload,
+              {
+                onConflict:
+                  "user_id",
+              }
+            )
+            .select("*")
+            .maybeSingle();
+
+        if (
+          saveError
         ) {
-          *,
-          *::before,
-          *::after {
-            scroll-behavior:
-              auto !important;
-
-            animation-duration:
-              0.01ms !important;
-
-            animation-iteration-count:
-              1 !important;
-
-            transition-duration:
-              0.01ms !important;
-          }
+          throw saveError;
         }
-      `}</style>
 
-      <a
-        href="#setup-content"
-        className="skip-link"
-      >
-        Skip to quiz content
-      </a>
+        if (
+          data
+        ) {
+          setBookingPage({
+            ...DEFAULT_BOOKING_PAGE,
 
-      <header className="setup-header">
-        <Logo />
+            ...data,
 
-        <a
-          href={HOME_URL}
-          className="home-link"
-        >
-          <Home
-            size={14}
-            aria-hidden="true"
-          />
+            availability:
+              cloneAvailability(
+                data.availability ||
+                  bookingPage.availability
+              ),
+          });
 
-          <span>
-            Back to TOTS-OS
-          </span>
-        </a>
+          setBookingPageExists(
+            true
+          );
+        }
+
+        setBookingSaved(
+          true
+        );
+
+        window.setTimeout(
+          () =>
+            setBookingSaved(
+              false
+            ),
+          2500
+        );
+      } catch (
+        saveError: any
+      ) {
+        console.error(
+          "Booking save error:",
+          saveError
+        );
+
+        setBookingError(
+          saveError?.code ===
+            "23505"
+            ? "That booking link is already in use."
+            : saveError?.message ||
+                "Unable to save booking page."
+        );
+      } finally {
+        setIsBookingSaving(
+          false
+        );
+      }
+    };
+
+  // ==========================================================
+  // COPY BOOKING LINK
+  // ==========================================================
+
+  const copyBookingLink =
+    async () => {
+      if (
+        !bookingLink
+      ) {
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(
+          bookingLink
+        );
+
+        setCopiedLink(
+          true
+        );
+
+        window.setTimeout(
+          () =>
+            setCopiedLink(
+              false
+            ),
+          1800
+        );
+      } catch (
+        copyError
+      ) {
+        console.error(
+          "Copy booking link error:",
+          copyError
+        );
+      }
+    };
+
+  // ==========================================================
+  // TABS
+  // ==========================================================
+
+  const tabs: {
+    label:
+      MainTab;
+
+    icon:
+      any;
+  }[] = [
+    {
+      label:
+        "Overview",
+
+      icon:
+        Sparkles,
+    },
+
+    {
+      label:
+        "Calendar",
+
+      icon:
+        CalendarDays,
+    },
+
+    {
+      label:
+        "Booking Page",
+
+      icon:
+        LinkIcon,
+    },
+
+    {
+      label:
+        "Availability",
+
+      icon:
+        Clock,
+    },
+  ];
+
+  // ==========================================================
+  // RENDER
+  // ==========================================================
+
+  return (
+    <div className="min-h-screen bg-[#faf9f6] pb-24 text-stone-900">
+      {/* ERROR */}
+
+      {error && (
+        <div className="fixed left-1/2 top-4 z-[2000] -translate-x-1/2 rounded-xl bg-red-500 px-5 py-3 text-xs font-semibold text-white shadow-xl">
+          {error}
+        </div>
+      )}
+
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
+
+      <header className="mx-auto max-w-[1400px] px-4 pb-6 pt-8 sm:px-6 lg:px-8 lg:pt-12">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="mb-3 text-[9px] font-black uppercase tracking-[0.25em] text-[#829473]">
+              Your time
+            </p>
+
+            <h1 className="text-5xl font-serif italic leading-none tracking-tight text-stone-800 sm:text-6xl lg:text-8xl">
+              Bookings & Schedule
+            </h1>
+
+            <p className="mt-5 max-w-2xl text-sm leading-6 text-stone-500">
+              Manage your schedule,
+              availability and the way
+              customers book time with your
+              business.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                void syncCalendar()
+              }
+              className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500"
+            >
+              <RefreshCw
+                size={13}
+                className={
+                  isLoading
+                    ? "animate-spin"
+                    : ""
+                }
+              />
+
+              Refresh
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab(
+                  "Calendar"
+                );
+
+                openCreateEvent(
+                  new Date()
+                );
+              }}
+              className="flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#a9b897]"
+            >
+              <Plus
+                size={14}
+              />
+
+              Add Event
+            </button>
+          </div>
+        </div>
       </header>
 
-      <div
-        id="setup-content"
-        className="setup-wrap"
-      >
-        <AnimatePresence mode="wait">
-          {!started &&
-            !finished && (
-              <motion.section
-                key="intro"
-                className="intro-layout"
-                {...animationProps}
-              >
-                <div>
-                  <div className="eyebrow">
-                    <span
-                      className="eyebrow-dot"
-                      aria-hidden="true"
+      {/* ======================================================
+          NAV
+      ====================================================== */}
+
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+        <div className="no-scrollbar overflow-x-auto">
+          <div className="flex min-w-max gap-1 rounded-2xl border border-stone-200 bg-white p-1.5">
+            {tabs.map(
+              (
+                tab
+              ) => {
+                const Icon =
+                  tab.icon;
+
+                const active =
+                  activeTab ===
+                  tab.label;
+
+                return (
+                  <button
+                    key={
+                      tab.label
+                    }
+                    type="button"
+                    onClick={() =>
+                      setActiveTab(
+                        tab.label
+                      )
+                    }
+                    className={`flex items-center gap-2 rounded-xl px-4 py-3 text-[9px] font-black uppercase tracking-[0.13em] transition ${
+                      active
+                        ? "bg-stone-900 text-white"
+                        : "text-stone-400 hover:bg-stone-50 hover:text-stone-700"
+                    }`}
+                  >
+                    <Icon
+                      size={14}
                     />
 
-                    Build your
-                    TOTS-OS
-                  </div>
-
-                  <h1 className="intro-title">
-                    Find the setup
-                    your business{" "}
-                    <em>
-                      actually
-                      needs.
-                    </em>
-                  </h1>
-
-                  <p className="intro-copy">
-                    Answer a few
-                    questions about
-                    how your
-                    business works.
-                    We'll recommend
-                    the TOTS-OS
-                    modules that
-                    would make the
-                    biggest
-                    difference —
-                    without making
-                    you pay for
-                    tools you
-                    don't need.
-                  </p>
-
-                  <div className="intro-actions">
-                    <button
-                      type="button"
-                      className="primary-button"
-                      onClick={() =>
-                        setStarted(
-                          true,
-                        )
-                      }
-                    >
-                      Build my setup
-
-                      <ArrowRight
-                        size={16}
-                        aria-hidden="true"
-                      />
-                    </button>
-
-                    <a
-                      href={HOME_URL}
-                      className="secondary-button"
-                    >
-                      Explore
-                      TOTS-OS
-                    </a>
-                  </div>
-
-                  <div className="intro-meta">
-                    <span>
-                      <Check
-                        size={13}
-                        aria-hidden="true"
-                      />
-
-                      About 2
-                      minutes
-                    </span>
-
-                    <span>
-                      <Check
-                        size={13}
-                        aria-hidden="true"
-                      />
-
-                      Personalised
-                      modules
-                    </span>
-
-                    <span>
-                      <Check
-                        size={13}
-                        aria-hidden="true"
-                      />
-
-                      Pricing
-                      calculated
-                      for you
-                    </span>
-
-                    <span>
-                      <Check
-                        size={13}
-                        aria-hidden="true"
-                      />
-
-                      No email
-                      required
-                    </span>
-                  </div>
-                </div>
-
-                <div className="preview-card">
-                  <div className="preview-kicker">
-                    Built around
-                    your business
-                  </div>
-
-                  <h2 className="preview-title">
-                    Not another
-                    one-size-fits-all
-                    software plan.
-                  </h2>
-
-                  <p className="preview-copy">
-                    We'll tell you
-                    what we'd
-                    start with,
-                    what can wait
-                    and what you
-                    probably don't
-                    need yet.
-                  </p>
-
-                  <div className="preview-list">
-                    <PreviewItem
-                      icon={
-                        LayoutDashboard
-                      }
-                      label="Core"
-                      meta="£29 / month"
-                    />
-
-                    <PreviewItem
-                      icon={
-                        FolderKanban
-                      }
-                      label="Clients & Projects"
-                      meta="£29 / month"
-                    />
-
-                    <PreviewItem
-                      icon={
-                        Megaphone
-                      }
-                      label="Social Studio"
-                      meta="£29 / month"
-                    />
-
-                    <PreviewItem
-                      icon={Store}
-                      label="Store"
-                      meta="£29 / month"
-                    />
-                  </div>
-
-                  <div className="mini-result">
-                    <div className="mini-result-label">
-                      Smart bundle
-                      pricing
-                    </div>
-
-                    <div className="mini-result-value">
-                      <WandSparkles
-                        size={16}
-                        aria-hidden="true"
-                      />
-
-                      Complete from
-                      £139
-                      /month.
-                    </div>
-                  </div>
-                </div>
-              </motion.section>
+                    {
+                      tab.label
+                    }
+                  </button>
+                );
+              }
             )}
+          </div>
+        </div>
+      </div>
 
-          {started &&
-            !finished && (
-              <motion.section
-                key={`question-${step}`}
-                className="quiz-shell"
-                {...animationProps}
-                aria-labelledby="current-question-heading"
-              >
-                <div className="quiz-top">
-                  <div className="quiz-progress-wrap">
-                    <div
-                      className="quiz-step"
-                      aria-live="polite"
-                    >
-                      <span>
-                        Question{" "}
+      {/* ======================================================
+          CONTENT
+      ====================================================== */}
 
-                        <strong>
-                          {step + 1}
-                        </strong>{" "}
+      <main className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
+        {/* ====================================================
+            OVERVIEW
+        ==================================================== */}
 
-                        of{" "}
+        {activeTab ===
+          "Overview" && (
+          <div className="space-y-6">
+            {/* SUMMARY */}
 
-                        {
-                          QUESTIONS.length
-                        }
-                      </span>
-
-                      <span
-                        className="quiz-step-divider"
-                        aria-hidden="true"
-                      />
-
-                      <span>
-                        {
-                          currentQuestion.eyebrow
-                        }
-                      </span>
-                    </div>
-
-                    <div
-                      className="progress-track"
-                      role="progressbar"
-                      aria-label="Quiz progress"
-                      aria-valuemin={1}
-                      aria-valuemax={
-                        QUESTIONS.length
-                      }
-                      aria-valuenow={
-                        step + 1
-                      }
-                      aria-valuetext={`Question ${
-                        step + 1
-                      } of ${
-                        QUESTIONS.length
-                      }`}
-                    >
-                      <div
-                        className="progress-value"
-                        style={{
-                          width: `${
-                            ((step +
-                              1) /
-                              QUESTIONS.length) *
-                            100
-                          }%`,
-                        }}
-                      />
-                    </div>
-
-                    <ProgressDots
-                      current={
-                        step
-                      }
-                    />
-                  </div>
-
-                  <div className="quiz-time">
-                    Your result is
-                    being built as
-                    you go
-                  </div>
-                </div>
-
-                <div className="question-card">
-                  <div className="question-heading">
-                    <div
-                      className="question-icon"
-                      aria-hidden="true"
-                    >
-                      {(() => {
-                        const Icon =
-                          currentQuestion.icon;
-
-                        return (
-                          <Icon
-                            size={
-                              21
-                            }
-                          />
-                        );
-                      })()}
-                    </div>
-
-                    <div>
-                      <div className="question-eyebrow">
-                        {
-                          currentQuestion.eyebrow
-                        }
-                      </div>
-
-                      <h1
-                        ref={
-                          questionHeadingRef
-                        }
-                        id="current-question-heading"
-                        tabIndex={-1}
-                        className="question-title"
-                      >
-                        {
-                          currentQuestion.question
-                        }
-                      </h1>
-
-                      <p className="question-helper">
-                        {
-                          currentQuestion.helper
-                        }
-                      </p>
-                    </div>
-                  </div>
-
-                  <fieldset className="answer-fieldset">
-                    <legend className="sr-only">
-                      {
-                        currentQuestion.question
-                      }
-                    </legend>
-
-                    <div className="answer-grid">
-                      {currentQuestion.options.map(
-                        (
-                          option,
-                          index,
-                        ) => {
-                          const selected =
-                            selectedAnswer ===
-                            option.id;
-
-                          return (
-                            <label
-                              key={
-                                option.id
-                              }
-                              className={[
-                                "answer-option",
-
-                                selected
-                                  ? "selected"
-                                  : "",
-                              ]
-                                .filter(
-                                  Boolean,
-                                )
-                                .join(
-                                  " ",
-                                )}
-                            >
-                              <input
-                                type="radio"
-                                name={
-                                  currentQuestion.id
-                                }
-                                value={
-                                  option.id
-                                }
-                                checked={
-                                  selected
-                                }
-                                onChange={() =>
-                                  selectAnswer(
-                                    option.id,
-                                  )
-                                }
-                                className="sr-only-radio"
-                              />
-
-                              <span
-                                className="answer-marker"
-                                aria-hidden="true"
-                              >
-                                {String.fromCharCode(
-                                  65 +
-                                    index,
-                                )}
-                              </span>
-
-                              <span className="answer-content">
-                                <span className="answer-title">
-                                  {
-                                    option.label
-                                  }
-                                </span>
-
-                                {option.description && (
-                                  <span className="answer-description">
-                                    {
-                                      option.description
-                                    }
-                                  </span>
-                                )}
-                              </span>
-
-                              {selected && (
-                                <span
-                                  className="answer-check"
-                                  aria-hidden="true"
-                                >
-                                  <Check
-                                    size={
-                                      12
-                                    }
-                                  />
-                                </span>
-                              )}
-                            </label>
-                          );
-                        },
-                      )}
-                    </div>
-                  </fieldset>
-
-                  <div className="quiz-actions">
-                    <button
-                      type="button"
-                      className="back-button"
-                      onClick={
-                        previousQuestion
-                      }
-                    >
-                      <ChevronLeft
-                        size={16}
-                        aria-hidden="true"
-                      />
-
-                      Back
-                    </button>
-
-                    <button
-                      type="button"
-                      className="next-button"
-                      disabled={
-                        !selectedAnswer
-                      }
-                      onClick={
-                        nextQuestion
-                      }
-                    >
-                      {step ===
-                      QUESTIONS.length -
-                        1
-                        ? "Build my TOTS-OS"
-                        : "Continue"}
-
-                      {step ===
-                      QUESTIONS.length -
-                      1 ? (
-                        <Sparkles
-                          size={15}
-                          aria-hidden="true"
-                        />
-                      ) : (
-                        <ArrowRight
-                          size={15}
-                          aria-hidden="true"
-                        />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </motion.section>
-            )}
-
-          {finished && (
-            <motion.section
-              key="result"
-              className="result-layout"
-              {...animationProps}
-              aria-labelledby="result-heading"
-            >
-              <div className="result-intro">
-                <div
-                  className="result-pill"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <CheckCircle2
-                    size={13}
-                    aria-hidden="true"
-                  />
-
-                  Your recommended
-                  TOTS-OS setup is
-                  ready
-                </div>
-
-                <h1
-                  ref={
-                    resultHeadingRef
-                  }
-                  id="result-heading"
-                  tabIndex={-1}
-                  className="result-title"
-                >
-                  This is where
-                  we'd{" "}
-                  <em>
-                    start.
-                  </em>
-                </h1>
-
-                <p className="result-copy">
-                  Your answers
-                  have been used
-                  to build a
-                  starting setup
-                  around the areas
-                  most likely to
-                  make a
-                  difference now.
-                  You can always
-                  add more later
-                  as your
-                  business
-                  changes.
-                </p>
-              </div>
-
-              <section
-                className="profile-card"
-                aria-labelledby="profile-title"
-              >
-                <div
-                  className="profile-icon"
-                  aria-hidden="true"
-                >
+            <div className="rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8">
+              <div className="flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#a9b897]/10 text-[#829473]">
                   <Sparkles
-                    size={21}
+                    size={18}
                   />
                 </div>
 
                 <div>
-                  <div className="profile-eyebrow">
-                    {
-                      setupProfile.eyebrow
-                    }
-                  </div>
+                  <p className="mb-2 text-[9px] font-black uppercase tracking-[0.24em] text-[#829473]">
+                    TOTS Schedule Summary
+                  </p>
 
-                  <h2
-                    id="profile-title"
-                    className="profile-title"
-                  >
-                    {
-                      setupProfile.title
-                    }
-                  </h2>
+                  <p className="max-w-4xl text-lg leading-8 text-stone-700">
+                    {todayEvents.length >
+                    0
+                      ? `You have ${todayEvents.length} ${
+                          todayEvents.length ===
+                          1
+                            ? "item"
+                            : "items"
+                        } scheduled today.`
+                      : "Your schedule is clear today."}
 
-                  <p className="profile-copy">
-                    {
-                      setupProfile.description
-                    }
+                    {" "}
+
+                    {upcomingEvents.length >
+                    0
+                      ? `${upcomingEvents.length} upcoming ${
+                          upcomingEvents.length ===
+                          1
+                            ? "item is"
+                            : "items are"
+                        } currently visible in your schedule.`
+                      : "There are no upcoming scheduled items."}
+
+                    {" "}
+
+                    {bookingPageExists &&
+                    bookingPage.is_active
+                      ? "Your public booking page is active."
+                      : "Your public booking page is not currently active."}
                   </p>
                 </div>
-              </section>
-
-              <div className="section-heading">
-                <div className="section-label">
-                  Recommended
-                  from your
-                  answers
-                </div>
-
-                <div className="section-helper">
-                  {
-                    recommendedModules.length
-                  }{" "}
-                  {recommendedModules.length ===
-                  1
-                    ? "module"
-                    : "modules"}{" "}
-                  matched to your
-                  needs
-                </div>
               </div>
+            </div>
 
-              <div className="module-grid">
-                {recommendedModules.map(
-                  (key) => {
-                    const module =
-                      MODULE_INFO[
-                        key
-                      ];
+            {/* STATS */}
 
-                    const Icon =
-                      module.icon;
-
-                    const reasons =
-                      getModuleReasons(
-                        key,
-                        answers,
-                      );
-
-                    return (
-                      <article
-                        key={key}
-                        className="module-card"
-                      >
-                        <div className="module-top">
-                          <span
-                            className="module-icon"
-                            aria-hidden="true"
-                          >
-                            <Icon
-                              size={
-                                18
-                              }
-                            />
-                          </span>
-
-                          <div className="module-price">
-                            £
-                            {
-                              module.price
-                            }
-
-                            <small>
-                              /mo
-                            </small>
-                          </div>
-                        </div>
-
-                        <h3 className="module-title">
-                          {
-                            module.title
-                          }
-                        </h3>
-
-                        <p className="module-description">
-                          {
-                            module.description
-                          }
-                        </p>
-
-                        {reasons.length >
-                          0 && (
-                          <div className="reason-box">
-                            {reasons.map(
-                              (
-                                reason,
-                                index,
-                              ) => (
-                                <div
-                                  key={`${reason.questionId}-${index}`}
-                                  className="reason"
-                                >
-                                  <CheckCircle2
-                                    size={
-                                      12
-                                    }
-                                    aria-hidden="true"
-                                  />
-
-                                  <span>
-                                    {
-                                      reason.text
-                                    }
-                                  </span>
-                                </div>
-                              ),
-                            )}
-                          </div>
-                        )}
-                      </article>
-                    );
-                  },
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <StatCard
+                icon={
+                  CalendarDays
+                }
+                value={String(
+                  todayEvents.length
                 )}
-              </div>
+                label="Today"
+              />
 
-              {!bundle.isComplete &&
-                considerLaterModules.length >
-                  0 && (
-                  <>
-                    <div className="section-heading">
-                      <div className="section-label">
-                        Worth
-                        considering
-                        later
-                      </div>
+              <StatCard
+                icon={
+                  Clock
+                }
+                value={String(
+                  upcomingEvents.length
+                )}
+                label="Upcoming"
+              />
 
-                      <div className="section-helper">
-                        Useful, but
-                        not essential
-                        to start with
-                      </div>
-                    </div>
+              <StatCard
+                icon={
+                  CalendarDays
+                }
+                value={String(
+                  availableDayCount
+                )}
+                label="Booking Days"
+              />
 
-                    <div className="later-grid">
-                      {considerLaterModules.map(
-                        (key) => {
-                          const module =
-                            MODULE_INFO[
-                              key
-                            ];
+              <StatCard
+                icon={
+                  LinkIcon
+                }
+                value={
+                  bookingPageExists &&
+                  bookingPage.is_active
+                    ? "Live"
+                    : "Off"
+                }
+                label="Booking Page"
+              />
+            </div>
 
-                          const Icon =
-                            module.icon;
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+              {/* TODAY */}
 
-                          return (
-                            <div
-                              key={
-                                key
-                              }
-                              className="later-card"
-                            >
-                              <div
-                                className="later-icon"
-                                aria-hidden="true"
-                              >
-                                <Icon
-                                  size={
-                                    16
-                                  }
-                                />
-                              </div>
+              <div className="rounded-[2rem] border border-stone-200 bg-white p-6 lg:col-span-7">
+                <div className="mb-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                      Today
+                    </p>
 
-                              <div className="later-copy">
-                                <strong>
-                                  {
-                                    module.title
-                                  }
-                                </strong>
-
-                                <span>
-                                  Add
-                                  later
-                                  from £
-                                  {
-                                    module.price
-                                  }
-                                  /month
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        },
+                    <h2 className="mt-1 text-2xl font-serif italic text-stone-800">
+                      {format(
+                        new Date(),
+                        "EEEE d MMMM"
                       )}
-                    </div>
-                  </>
+                    </h2>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveTab(
+                        "Calendar"
+                      )
+                    }
+                    className="text-[8px] font-black uppercase tracking-[0.14em] text-stone-400 hover:text-[#829473]"
+                  >
+                    Open Calendar
+                  </button>
+                </div>
+
+                {todayEvents.length ===
+                0 ? (
+                  <div className="rounded-2xl bg-stone-50 p-10 text-center">
+                    <Check className="mx-auto mb-3 text-[#a9b897]" />
+
+                    <p className="text-sm font-semibold text-stone-600">
+                      Nothing scheduled
+                    </p>
+
+                    <p className="mt-1 text-xs text-stone-400">
+                      Your calendar is
+                      clear today.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {todayEvents.map(
+                      (
+                        event
+                      ) => (
+                        <ScheduleRow
+                          key={
+                            event.id
+                          }
+                          event={
+                            event
+                          }
+                          onClick={() =>
+                            openEvent(
+                              event
+                            )
+                          }
+                        />
+                      )
+                    )}
+                  </div>
                 )}
-
-              <div className="section-heading">
-                <div className="section-label">
-                  Your monthly
-                  setup
-                </div>
-
-                <div className="section-helper">
-                  Best-value
-                  pricing applied
-                  automatically
-                </div>
               </div>
 
-              <section
-                className="package-card"
-                aria-labelledby="package-title"
-              >
-                <div className="package-main">
-                  <div className="package-eyebrow">
-                    {bundle.isComplete
-                      ? "Best value for your setup"
-                      : "Your recommended configuration"}
-                  </div>
+              {/* BOOKING CARD */}
 
-                  <h2
-                    id="package-title"
-                    className="package-title"
-                  >
-                    {
-                      bundle.bundleName
-                    }
-                  </h2>
+              <div className="rounded-[2rem] border border-stone-200 bg-white p-6 lg:col-span-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                      Public Booking
+                    </p>
 
-                  <p className="package-copy">
-                    {bundle.isComplete
-                      ? "Your answers recommend all six main modules, so TOTS-OS Complete gives you the full workspace plus Clarity AI Starter for one fixed £139 monthly price."
-                      : bundle.moduleCount ===
-                          5
-                        ? "Your five-module bundle is £119/month, applied automatically."
-                        : bundle.moduleCount >=
-                            3
-                          ? "Your fixed module bundle price has been applied automatically."
-                          : "You're starting with a focused setup, so you're only paying for the modules we'd recommend using now."}
-                  </p>
-
-                  <div className="package-tags">
-                    {bundle.displayedModules.map(
-                      (key) => (
-                        <span
-                          key={
-                            key
-                          }
-                          className="package-tag"
-                        >
-                          {
-                            MODULE_INFO[
-                              key
-                            ]
-                              .shortTitle
-                          }
-                        </span>
-                      ),
-                    )}
-
-                    {bundle.isComplete ? (
-                      <span className="package-tag">
-                        Clarity AI
-                        Starter
-                      </span>
-                    ) : aiTier !==
-                      "none" ? (
-                      <span className="package-tag">
-                        {
-                          AI_TIERS[
-                            aiTier
-                          ].title
-                        }
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="package-price">
-                  <div className="price-label">
-                    Your monthly
-                    total
-                  </div>
-
-                  <div className="price-old">
-                    {bundle.isComplete &&
-                    bundle.modularTotal >
-                      COMPLETE_PRICE
-                      ? `£${bundle.modularTotal}`
-                      : !bundle.isComplete &&
-                          bundle.moduleSaving >
-                            0
-                        ? `£${
-                            bundle.undiscountedModuleTotal +
-                            bundle.requestedAiPrice
-                          }`
-                        : ""}
-                  </div>
-
-                  <div className="price-main">
-                    £
-                    {
-                      bundle.totalMonthly
-                    }
-
-                    <small>
-                      /mo
-                    </small>
-                  </div>
-
-                  {bundle.isComplete ? (
-                    <div className="saving-pill">
-                      <Check
-                        size={10}
-                        aria-hidden="true"
-                      />
-
-                      Complete · £139/month
-                    </div>
-                  ) : bundle.moduleSaving >
-                    0 ? (
-                    <div className="saving-pill">
-                      <Check
-                        size={10}
-                        aria-hidden="true"
-                      />
-
-                      Save £
+                    <h2 className="mt-1 text-2xl font-serif italic text-stone-800">
                       {
-                        bundle.moduleSaving
+                        bookingPage.title
                       }
-                      /month
-                    </div>
-                  ) : null}
-                </div>
-              </section>
+                    </h2>
+                  </div>
 
-              {bundle.isComplete && (
-                <div className="complete-upgrade">
-                  <WandSparkles
-                    size={16}
-                    aria-hidden="true"
+                  <div
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      bookingPageExists &&
+                      bookingPage.is_active
+                        ? "bg-[#a9b897]"
+                        : "bg-stone-300"
+                    }`}
+                  />
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  <BookingDetail
+                    label="Length"
+                    value={`${bookingPage.duration_minutes} minutes`}
                   />
 
-                  <div>
-                    <strong>
-                      All six modules
-                      means Complete.
-                    </strong>{" "}
+                  <BookingDetail
+                    label="Availability"
+                    value={`${availableDayCount} days per week`}
+                  />
 
-                    Your answers recommend all six main TOTS-OS modules. Complete gives you the full workspace plus Clarity AI Starter for £139/month.
-                  </div>
+                  <BookingDetail
+                    label="Notice"
+                    value={`${bookingPage.min_notice_hours} hours`}
+                  />
+
+                  <BookingDetail
+                    label="Status"
+                    value={
+                      bookingPageExists &&
+                      bookingPage.is_active
+                        ? "Accepting bookings"
+                        : "Not accepting bookings"
+                    }
+                  />
+                </div>
+
+                <div className="mt-6 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveTab(
+                        "Booking Page"
+                      )
+                    }
+                    className="rounded-xl bg-stone-900 px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
+                  >
+                    Manage Booking Page
+                  </button>
+
+                  {bookingLink &&
+                    bookingPageExists && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void copyBookingLink()
+                        }
+                        className="flex items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500"
+                      >
+                        <Copy
+                          size={12}
+                        />
+
+                        {copiedLink
+                          ? "Copied"
+                          : "Copy Booking Link"}
+                      </button>
+                    )}
+                </div>
+              </div>
+            </div>
+
+            {/* UPCOMING */}
+
+            <div className="rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8">
+              <div className="mb-6">
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                  Coming Up
+                </p>
+
+                <h2 className="mt-1 text-2xl font-serif italic text-stone-800">
+                  Upcoming schedule
+                </h2>
+              </div>
+
+              {upcomingEvents.length ===
+              0 ? (
+                <div className="rounded-2xl border border-dashed border-stone-200 p-10 text-center text-sm text-stone-400">
+                  Nothing upcoming
+                  yet.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {upcomingEvents.map(
+                    (
+                      event
+                    ) => (
+                      <ScheduleRow
+                        key={
+                          event.id
+                        }
+                        event={
+                          event
+                        }
+                        onClick={() =>
+                          openEvent(
+                            event
+                          )
+                        }
+                      />
+                    )
+                  )}
                 </div>
               )}
+            </div>
+          </div>
+        )}
 
-              <section
-                className="ai-card"
-                aria-labelledby="ai-result-title"
-              >
-                <div
-                  className="ai-icon"
-                  aria-hidden="true"
-                >
-                  <BrainCircuit
-                    size={19}
-                  />
-                </div>
+        {/* ====================================================
+            CALENDAR
+        ==================================================== */}
 
-                <div>
-                  <div className="ai-eyebrow">
-                    Clarity AI
-                  </div>
+        {activeTab ===
+          "Calendar" && (
+          <div className="space-y-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                  Schedule
+                </p>
 
-                  <h3
-                    id="ai-result-title"
-                    className="ai-title"
-                  >
-                    {bundle.isComplete
-                      ? "Clarity AI Starter · included"
-                      : displayedAi.title}
-                  </h3>
-
-                  <p className="ai-copy">
-                    {bundle.isComplete
-                      ? "Every TOTS-OS Complete workspace includes Clarity AI Starter as standard."
-                      : displayedAi.description}
-
-                  </p>
-
-                  {bundle.aiUpgradeSuggested && (
-                    <div className="ai-upgrade-note">
-                      <Sparkles
-                        size={13}
-                        aria-hidden="true"
-                      />
-
-                      <span>
-                        Your answers
-                        suggest you
-                        may eventually
-                        benefit from{" "}
-                        <strong>
-                          {
-                            AI_TIERS[
-                              bundle.requestedAiTier
-                            ]
-                              .title
-                          }
-                        </strong>
-                        . We'd still
-                        start you on
-                        the included
-                        Starter
-                        and only upgrade
-                        if you
-                        actually need
-                        more.
-                      </span>
-                    </div>
+                <h2 className="mt-1 text-4xl font-serif italic text-stone-800 sm:text-5xl">
+                  {format(
+                    currentMonth,
+                    "MMMM yyyy"
                   )}
-                </div>
+                </h2>
+              </div>
 
-                <div className="ai-price">
-                  {bundle.isComplete ? (
-                    <>
-                      <strong>
-                        Included
-                      </strong>
-
-                      <span>
-                        in £139
-                        Complete
-                      </span>
-                    </>
-                  ) : aiTier ===
-                    "none" ? (
-                    <>
-                      <strong>
-                        £0
-                      </strong>
-
-                      <span>
-                        not added
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <strong>
-                        +£
-                        {
-                          AI_TIERS[
-                            aiTier
-                          ].price
-                        }
-                      </strong>
-
-                      <span>
-                        per month
-                      </span>
-                    </>
-                  )}
-                </div>
-              </section>
-
-              {!bundle.isComplete &&
-                notNeededModules.length >
-                  0 && (
-                  <div className="trust-card">
-                    <div className="trust-title">
-                      <CheckCircle2
-                        size={13}
-                        aria-hidden="true"
-                      />
-
-                      We're not
-                      recommending
-                      everything.
-                    </div>
-
-                    <div className="not-needed-list">
-                      {notNeededModules.map(
-                        (key) => (
-                          <span
-                            key={
-                              key
-                            }
-                            className="not-needed-chip"
-                          >
-                            <Minus
-                              size={
-                                10
-                              }
-                              aria-hidden="true"
-                            />
-
-                            {
-                              MODULE_INFO[
-                                key
-                              ]
-                                .shortTitle
-                            }
-
-                            {" "}
-                            can wait
-                          </span>
-                        ),
-                      )}
-                    </div>
-                  </div>
-                )}
-
-              <div className="result-actions">
-                <a
-                  href={
-                    signupUrl
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentMonth(
+                      subMonths(
+                        currentMonth,
+                        1
+                      )
+                    )
                   }
-                  className="result-primary"
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-stone-200 bg-white"
                 >
-                  Start my
-                  14-day free
-                  trial
-
-                  <ArrowRight
-                    size={15}
-                    aria-hidden="true"
+                  <ChevronLeft
+                    size={16}
                   />
-                </a>
+                </button>
 
                 <button
                   type="button"
-                  className="result-secondary"
-                  onClick={
-                    restart
-                  }
-                >
-                  <RotateCcw
-                    size={14}
-                    aria-hidden="true"
-                  />
+                  onClick={() => {
+                    const now =
+                      new Date();
 
-                  Retake quiz
+                    setCurrentMonth(
+                      now
+                    );
+
+                    setSelectedDay(
+                      now
+                    );
+                  }}
+                  className="rounded-xl border border-stone-200 bg-white px-4 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500"
+                >
+                  Today
                 </button>
 
-                <a
-                  href={
-                    HOME_URL
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentMonth(
+                      addMonths(
+                        currentMonth,
+                        1
+                      )
+                    )
                   }
-                  className="result-secondary"
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-stone-200 bg-white"
                 >
-                  <ArrowLeft
-                    size={14}
-                    aria-hidden="true"
+                  <ChevronRight
+                    size={16}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {isLoading ? (
+              <div className="flex min-h-[450px] items-center justify-center rounded-[2rem] border border-stone-200 bg-white">
+                <Loader2 className="animate-spin text-[#a9b897]" />
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white">
+                {/* DAYS */}
+
+                <div className="grid grid-cols-7 border-b border-stone-100 bg-stone-50">
+                  {[
+                    "Sun",
+                    "Mon",
+                    "Tue",
+                    "Wed",
+                    "Thu",
+                    "Fri",
+                    "Sat",
+                  ].map(
+                    (
+                      day
+                    ) => (
+                      <div
+                        key={
+                          day
+                        }
+                        className="py-4 text-center text-[8px] font-black uppercase tracking-[0.16em] text-stone-400"
+                      >
+                        {
+                          day
+                        }
+                      </div>
+                    )
+                  )}
+                </div>
+
+                {/* CELLS */}
+
+                <div className="grid grid-cols-7">
+                  {daysGrid.map(
+                    (
+                      day,
+                      index
+                    ) => {
+                      const dayEvents =
+                        getDayEvents(
+                          day
+                        );
+
+                      const today =
+                        isSameDay(
+                          day,
+                          new Date()
+                        );
+
+                      const selected =
+                        isSameDay(
+                          day,
+                          selectedDay
+                        );
+
+                      return (
+                        <button
+                          type="button"
+                          key={
+                            day.toISOString()
+                          }
+                          onClick={() => {
+                            setSelectedDay(
+                              day
+                            );
+
+                            openCreateEvent(
+                              day
+                            );
+                          }}
+                          className={`min-h-[115px] border-b border-r border-stone-100 p-2 text-left transition sm:min-h-[145px] sm:p-3 ${
+                            !isSameMonth(
+                              day,
+                              currentMonth
+                            )
+                              ? "bg-stone-50/50 text-stone-300"
+                              : "bg-white hover:bg-stone-50"
+                          } ${
+                            selected
+                              ? "bg-[#a9b897]/5"
+                              : ""
+                          } ${
+                            (index +
+                              1) %
+                              7 ===
+                            0
+                              ? "border-r-0"
+                              : ""
+                          }`}
+                        >
+                          <div
+                            className={`mb-2 flex h-7 w-7 items-center justify-center rounded-lg text-[10px] font-bold ${
+                              today
+                                ? "bg-stone-900 text-white"
+                                : ""
+                            }`}
+                          >
+                            {format(
+                              day,
+                              "d"
+                            )}
+                          </div>
+
+                          <div className="space-y-1">
+                            {dayEvents
+                              .slice(
+                                0,
+                                4
+                              )
+                              .map(
+                                (
+                                  event
+                                ) => {
+                                  const colour =
+                                    getEventColour(
+                                      event.color
+                                    );
+
+                                  const isEvent =
+                                    event.sourceType ===
+                                    "event";
+
+                                  return (
+                                    <div
+                                      key={
+                                        event.id
+                                      }
+                                      onClick={(
+                                        clickEvent
+                                      ) => {
+                                        clickEvent.stopPropagation();
+
+                                        openEvent(
+                                          event
+                                        );
+                                      }}
+                                      className={`flex cursor-pointer items-center gap-1.5 truncate rounded-lg border-l-[3px] px-2 py-1.5 text-[7px] font-bold shadow-sm transition hover:brightness-[0.97] ${
+                                        event.sourceType ===
+                                        "task"
+                                          ? "border-[#829473] bg-[#dfe8da] text-[#53644b]"
+                                          : event.sourceType ===
+                                              "note"
+                                            ? "border-amber-400 bg-amber-100 text-amber-800"
+                                            : ""
+                                      }`}
+                                      style={
+                                        isEvent
+                                          ? {
+                                              backgroundColor:
+                                                colour.background,
+
+                                              color:
+                                                colour.text,
+
+                                              borderLeftColor:
+                                                colour.dot,
+                                            }
+                                          : undefined
+                                      }
+                                    >
+                                      {isEvent && (
+                                        <span
+                                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                                          style={{
+                                            backgroundColor:
+                                              colour.dot,
+                                          }}
+                                        />
+                                      )}
+
+                                      <span className="truncate">
+                                        {event.is_all_day
+                                          ? "All day · "
+                                          : event.startAt
+                                            ? `${format(
+                                                event.startAt,
+                                                "HH:mm"
+                                              )} `
+                                            : ""}
+
+                                        {
+                                          event.title
+                                        }
+
+                                        {event.isRecurringOccurrence &&
+                                          " ↻"}
+                                      </span>
+                                    </div>
+                                  );
+                                }
+                              )}
+
+                            {dayEvents.length >
+                              4 && (
+                              <p className="px-1 text-[7px] font-semibold text-stone-400">
+                                +
+                                {dayEvents.length -
+                                  4}{" "}
+                                more
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ====================================================
+            BOOKING PAGE
+        ==================================================== */}
+
+        {activeTab ===
+          "Booking Page" && (
+          <div className="space-y-6">
+            {isBookingLoading ? (
+              <div className="flex min-h-[400px] items-center justify-center">
+                <Loader2 className="animate-spin text-[#a9b897]" />
+              </div>
+            ) : (
+              <>
+                <div className="rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                    Public Booking
+                  </p>
+
+                  <h2 className="mt-1 text-3xl font-serif italic text-stone-800">
+                    Let customers book you
+                  </h2>
+
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-500">
+                    Create a simple public
+                    booking page without
+                    giving customers access
+                    to your actual calendar.
+                  </p>
+
+                  <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <FormField label="Booking Name">
+                      <input
+                        value={
+                          bookingPage.title
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setBookingPage(
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
+
+                              title:
+                                event
+                                  .target
+                                  .value,
+                            })
+                          )
+                        }
+                        placeholder="Discovery Call"
+                        className="form-input"
+                      />
+                    </FormField>
+
+                    <FormField label="Booking Link">
+                      <input
+                        value={
+                          bookingPage.slug
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setBookingPage(
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
+
+                              slug:
+                                event
+                                  .target
+                                  .value,
+                            })
+                          )
+                        }
+                        placeholder="discovery-call"
+                        className="form-input"
+                      />
+                    </FormField>
+
+                    <FormField label="Meeting Length">
+                      <select
+                        value={
+                          bookingPage.duration_minutes
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setBookingPage(
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
+
+                              duration_minutes:
+                                Number(
+                                  event
+                                    .target
+                                    .value
+                                ),
+                            })
+                          )
+                        }
+                        className="form-input"
+                      >
+                        <option value={10}>
+                          10 minutes
+                        </option>
+
+                        <option value={20}>
+                          20 minutes
+                        </option>
+
+                        <option value={30}>
+                          30 minutes
+                        </option>
+
+                        <option value={40}>
+                          40 minutes
+                        </option>
+
+                        <option value={50}>
+                          50 minutes
+                        </option>
+
+                        <option value={60}>
+                          60 minutes
+                        </option>
+
+                        <option value={90}>
+                          90 minutes
+                        </option>
+
+                        <option value={120}>
+                          2 hours
+                        </option>
+                      </select>
+                    </FormField>
+
+                    <FormField label="Timezone">
+                      <input
+                        value={
+                          bookingPage.timezone
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setBookingPage(
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
+
+                              timezone:
+                                event
+                                  .target
+                                  .value,
+                            })
+                          )
+                        }
+                        className="form-input"
+                      />
+                    </FormField>
+                  </div>
+
+                  <div className="mt-5">
+                    <FormField label="Description">
+                      <textarea
+                        value={
+                          bookingPage.description
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setBookingPage(
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
+
+                              description:
+                                event
+                                  .target
+                                  .value,
+                            })
+                          )
+                        }
+                        placeholder="Tell customers what this meeting is for..."
+                        className="form-input min-h-[120px] resize-none"
+                      />
+                    </FormField>
+                  </div>
+                </div>
+
+                {/* LOCATION */}
+
+                <div className="rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                    Meeting Location
+                  </p>
+
+                  <h2 className="mt-1 text-2xl font-serif italic text-stone-800">
+                    Where will you meet?
+                  </h2>
+
+                  <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <FormField label="Meeting Type">
+                      <select
+                        value={
+                          bookingPage.location_type
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setBookingPage(
+                            (
+                              previous
+                            ) => ({
+                              ...previous,
+
+                              location_type:
+                                event
+                                  .target
+                                  .value as BookingPage["location_type"],
+                            })
+                          )
+                        }
+                        className="form-input"
+                      >
+                        <option value="video">
+                          Video meeting
+                        </option>
+
+                        <option value="in_person">
+                          In person
+                        </option>
+
+                        <option value="phone">
+                          Phone call
+                        </option>
+
+                        <option value="both">
+                          Customer chooses
+                        </option>
+                      </select>
+                    </FormField>
+
+                    {(bookingPage.location_type ===
+                      "video" ||
+                      bookingPage.location_type ===
+                        "both") && (
+                      <FormField label="Video Provider">
+                        <select
+                          value={
+                            bookingPage.video_provider
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setBookingPage(
+                              (
+                                previous
+                              ) => ({
+                                ...previous,
+
+                                video_provider:
+                                  event
+                                    .target
+                                    .value as BookingPage["video_provider"],
+                              })
+                            )
+                          }
+                          className="form-input"
+                        >
+                          <option value="google_meet">
+                            Google Meet
+                          </option>
+
+                          <option value="teams">
+                            Microsoft Teams
+                          </option>
+
+                          <option value="zoom">
+                            Zoom
+                          </option>
+
+                          <option value="custom">
+                            Custom
+                          </option>
+
+                          <option value="none">
+                            Add later
+                          </option>
+                        </select>
+                      </FormField>
+                    )}
+
+                    {(bookingPage.location_type ===
+                      "video" ||
+                      bookingPage.location_type ===
+                        "both") && (
+                      <FormField label="Meeting Link">
+                        <input
+                          value={
+                            bookingPage.video_link
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setBookingPage(
+                              (
+                                previous
+                              ) => ({
+                                ...previous,
+
+                                video_link:
+                                  event
+                                    .target
+                                    .value,
+                              })
+                            )
+                          }
+                          placeholder="https://..."
+                          className="form-input"
+                        />
+                      </FormField>
+                    )}
+
+                    {(bookingPage.location_type ===
+                      "in_person" ||
+                      bookingPage.location_type ===
+                        "both") && (
+                      <FormField label="Location">
+                        <input
+                          value={
+                            bookingPage.location_value
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setBookingPage(
+                              (
+                                previous
+                              ) => ({
+                                ...previous,
+
+                                location_value:
+                                  event
+                                    .target
+                                    .value,
+                              })
+                            )
+                          }
+                          placeholder="Office address"
+                          className="form-input"
+                        />
+                      </FormField>
+                    )}
+                  </div>
+                </div>
+
+                {/* RULES */}
+
+                <div className="rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                    Booking Rules
+                  </p>
+
+                  <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+                    <BookingSelect
+                      label="Notice"
+                      value={
+                        bookingPage.min_notice_hours
+                      }
+                      onChange={(
+                        value
+                      ) =>
+                        setBookingPage(
+                          (
+                            previous
+                          ) => ({
+                            ...previous,
+
+                            min_notice_hours:
+                              Number(
+                                value
+                              ),
+                          })
+                        )
+                      }
+                      options={[
+                        [
+                          "0",
+                          "No notice",
+                        ],
+                        [
+                          "2",
+                          "2 hours",
+                        ],
+                        [
+                          "4",
+                          "4 hours",
+                        ],
+                        [
+                          "12",
+                          "12 hours",
+                        ],
+                        [
+                          "24",
+                          "24 hours",
+                        ],
+                        [
+                          "48",
+                          "48 hours",
+                        ],
+                      ]}
+                    />
+
+                    <BookingSelect
+                      label="Days Ahead"
+                      value={
+                        bookingPage.max_days_ahead
+                      }
+                      onChange={(
+                        value
+                      ) =>
+                        setBookingPage(
+                          (
+                            previous
+                          ) => ({
+                            ...previous,
+
+                            max_days_ahead:
+                              Number(
+                                value
+                              ),
+                          })
+                        )
+                      }
+                      options={[
+                        [
+                          "7",
+                          "7 days",
+                        ],
+                        [
+                          "14",
+                          "14 days",
+                        ],
+                        [
+                          "30",
+                          "30 days",
+                        ],
+                        [
+                          "60",
+                          "60 days",
+                        ],
+                        [
+                          "90",
+                          "90 days",
+                        ],
+                      ]}
+                    />
+
+                    <BookingSelect
+                      label="Buffer Before"
+                      value={
+                        bookingPage.buffer_before_minutes
+                      }
+                      onChange={(
+                        value
+                      ) =>
+                        setBookingPage(
+                          (
+                            previous
+                          ) => ({
+                            ...previous,
+
+                            buffer_before_minutes:
+                              Number(
+                                value
+                              ),
+                          })
+                        )
+                      }
+                      options={[
+                        [
+                          "0",
+                          "None",
+                        ],
+                        [
+                          "10",
+                          "10 mins",
+                        ],
+                        [
+                          "20",
+                          "20 mins",
+                        ],
+                        [
+                          "30",
+                          "30 mins",
+                        ],
+                        [
+                          "40",
+                          "40 mins",
+                        ],
+                        [
+                          "50",
+                          "50 mins",
+                        ],
+                        [
+                          "60",
+                          "60 mins",
+                        ],
+                      ]}
+                    />
+
+                    <BookingSelect
+                      label="Buffer After"
+                      value={
+                        bookingPage.buffer_after_minutes
+                      }
+                      onChange={(
+                        value
+                      ) =>
+                        setBookingPage(
+                          (
+                            previous
+                          ) => ({
+                            ...previous,
+
+                            buffer_after_minutes:
+                              Number(
+                                value
+                              ),
+                          })
+                        )
+                      }
+                      options={[
+                        [
+                          "0",
+                          "None",
+                        ],
+                        [
+                          "10",
+                          "10 mins",
+                        ],
+                        [
+                          "20",
+                          "20 mins",
+                        ],
+                        [
+                          "30",
+                          "30 mins",
+                        ],
+                        [
+                          "40",
+                          "40 mins",
+                        ],
+                        [
+                          "50",
+                          "50 mins",
+                        ],
+                        [
+                          "60",
+                          "60 mins",
+                        ],
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                {/* LIVE */}
+
+                <div className="rounded-[2rem] border border-stone-200 bg-white p-6">
+                  <div className="flex items-center justify-between gap-5">
+                    <div>
+                      <p className="text-sm font-semibold text-stone-700">
+                        Accept public bookings
+                      </p>
+
+                      <p className="mt-1 text-xs text-stone-400">
+                        Disable this without
+                        deleting your booking
+                        page.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setBookingPage(
+                          (
+                            previous
+                          ) => ({
+                            ...previous,
+
+                            is_active:
+                              !previous.is_active,
+                          })
+                        )
+                      }
+                      className={`relative h-8 w-14 rounded-full transition ${
+                        bookingPage.is_active
+                          ? "bg-stone-900"
+                          : "bg-stone-200"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-1 h-6 w-6 rounded-full bg-white transition ${
+                          bookingPage.is_active
+                            ? "left-7"
+                            : "left-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {bookingError && (
+                  <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-xs text-red-600">
+                    {
+                      bookingError
+                    }
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  disabled={
+                    isBookingSaving
+                  }
+                  onClick={() =>
+                    void saveBookingPage()
+                  }
+                  className="w-full rounded-2xl bg-stone-900 py-5 text-[9px] font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#a9b897] disabled:opacity-50"
+                >
+                  {isBookingSaving
+                    ? "Saving..."
+                    : bookingSaved
+                      ? "Saved ✓"
+                      : bookingPageExists
+                        ? "Save Booking Page"
+                        : "Create Booking Page"}
+                </button>
+
+                {bookingPageExists &&
+                  bookingLink && (
+                    <div className="rounded-[2rem] border border-stone-200 bg-white p-6">
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                        Your Link
+                      </p>
+
+                      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                        <input
+                          value={
+                            bookingLink
+                          }
+                          readOnly
+                          className="flex-1 rounded-xl bg-stone-50 p-3 text-xs"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void copyBookingLink()
+                          }
+                          className="flex items-center justify-center gap-2 rounded-xl border border-stone-200 px-5 text-[8px] font-black uppercase tracking-[0.12em] text-stone-500"
+                        >
+                          <Copy
+                            size={12}
+                          />
+
+                          {copiedLink
+                            ? "Copied"
+                            : "Copy"}
+                        </button>
+
+                        <a
+                          href={
+                            bookingLink
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.12em] text-white"
+                        >
+                          Open
+
+                          <ExternalLink
+                            size={12}
+                          />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ====================================================
+            AVAILABILITY
+        ==================================================== */}
+
+        {activeTab ===
+          "Availability" && (
+          <div className="space-y-6">
+            <div className="rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                    Availability
+                  </p>
+
+                  <h2 className="mt-1 text-3xl font-serif italic text-stone-800">
+                    When can people book you?
+                  </h2>
+
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
+                    These hours control your
+                    public booking
+                    availability. Times are
+                    available in ten-minute
+                    intervals.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={
+                      restoreWeekdays
+                    }
+                    className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-[8px] font-black uppercase tracking-[0.12em] text-stone-500"
+                  >
+                    Mon–Fri 9–5
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={
+                      clearAvailability
+                    }
+                    className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {WEEK_DAYS.map(
+                (
+                  day
+                ) => {
+                  const windows =
+                    bookingPage
+                      .availability[
+                      day.key
+                    ] || [];
+
+                  const enabled =
+                    windows.length >
+                    0;
+
+                  return (
+                    <div
+                      key={
+                        day.key
+                      }
+                      className={`rounded-[1.7rem] border p-5 ${
+                        enabled
+                          ? "border-[#a9b897]/40 bg-white"
+                          : "border-stone-200 bg-stone-50"
+                      }`}
+                    >
+                      <div className="flex flex-col gap-5 md:flex-row md:items-start">
+                        <div className="flex min-w-[180px] items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              toggleBookingDay(
+                                day.key
+                              )
+                            }
+                            className={`relative h-7 w-12 rounded-full ${
+                              enabled
+                                ? "bg-stone-900"
+                                : "bg-stone-200"
+                            }`}
+                          >
+                            <span
+                              className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${
+                                enabled
+                                  ? "left-6"
+                                  : "left-1"
+                              }`}
+                            />
+                          </button>
+
+                          <div>
+                            <p className="text-sm font-semibold text-stone-700">
+                              {
+                                day.fullLabel
+                              }
+                            </p>
+
+                            <p className="text-[8px] uppercase tracking-[0.12em] text-stone-400">
+                              {enabled
+                                ? "Available"
+                                : "Unavailable"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex-1">
+                          {!enabled ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                toggleBookingDay(
+                                  day.key
+                                )
+                              }
+                              className="w-full rounded-xl border border-dashed border-stone-200 py-4 text-xs text-stone-400"
+                            >
+                              + Add availability
+                            </button>
+                          ) : (
+                            <div className="space-y-3">
+                              {windows.map(
+                                (
+                                  window,
+                                  index
+                                ) => {
+                                  const invalid =
+                                    timeToMinutes(
+                                      window.end
+                                    ) <=
+                                    timeToMinutes(
+                                      window.start
+                                    );
+
+                                  return (
+                                    <div
+                                      key={`${day.key}-${index}`}
+                                      className="flex flex-col gap-2 sm:flex-row"
+                                    >
+                                      <div
+                                        className={`flex flex-1 items-center gap-3 rounded-xl border bg-stone-50 p-2 ${
+                                          invalid
+                                            ? "border-red-300"
+                                            : "border-stone-100"
+                                        }`}
+                                      >
+                                        <select
+                                          value={
+                                            window.start
+                                          }
+                                          onChange={(
+                                            event
+                                          ) =>
+                                            updateBookingWindow(
+                                              day.key,
+                                              index,
+                                              "start",
+                                              event
+                                                .target
+                                                .value
+                                            )
+                                          }
+                                          className="min-w-0 flex-1 bg-transparent p-2 text-xs outline-none"
+                                        >
+                                          {TIME_OPTIONS.map(
+                                            (
+                                              time
+                                            ) => (
+                                              <option
+                                                key={
+                                                  time
+                                                }
+                                                value={
+                                                  time
+                                                }
+                                              >
+                                                {
+                                                  time
+                                                }
+                                              </option>
+                                            )
+                                          )}
+                                        </select>
+
+                                        <span className="text-[8px] font-black uppercase text-stone-300">
+                                          to
+                                        </span>
+
+                                        <select
+                                          value={
+                                            window.end
+                                          }
+                                          onChange={(
+                                            event
+                                          ) =>
+                                            updateBookingWindow(
+                                              day.key,
+                                              index,
+                                              "end",
+                                              event
+                                                .target
+                                                .value
+                                            )
+                                          }
+                                          className="min-w-0 flex-1 bg-transparent p-2 text-xs outline-none"
+                                        >
+                                          {TIME_OPTIONS.map(
+                                            (
+                                              time
+                                            ) => (
+                                              <option
+                                                key={
+                                                  time
+                                                }
+                                                value={
+                                                  time
+                                                }
+                                              >
+                                                {
+                                                  time
+                                                }
+                                              </option>
+                                            )
+                                          )}
+                                        </select>
+                                      </div>
+
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          removeBookingWindow(
+                                            day.key,
+                                            index
+                                          )
+                                        }
+                                        className="flex h-11 w-11 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-400 hover:text-red-500"
+                                      >
+                                        <Minus
+                                          size={14}
+                                        />
+                                      </button>
+                                    </div>
+                                  );
+                                }
+                              )}
+
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    addBookingWindow(
+                                      day.key
+                                    )
+                                  }
+                                  className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.12em] text-[#829473]"
+                                >
+                                  <Plus
+                                    size={12}
+                                  />
+
+                                  Add Time
+                                </button>
+
+                                {[
+                                  "mon",
+                                  "tue",
+                                  "wed",
+                                  "thu",
+                                  "fri",
+                                ].includes(
+                                  day.key
+                                ) && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      copyDayToWeekdays(
+                                        day.key
+                                      )
+                                    }
+                                    className="flex items-center gap-2 rounded-xl px-4 py-3 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400"
+                                  >
+                                    <Copy
+                                      size={12}
+                                    />
+
+                                    Copy to weekdays
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+              )}
+            </div>
+
+            {bookingError && (
+              <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-xs text-red-600">
+                {
+                  bookingError
+                }
+              </div>
+            )}
+
+            <button
+              type="button"
+              disabled={
+                isBookingSaving
+              }
+              onClick={() =>
+                void saveBookingPage()
+              }
+              className="w-full rounded-2xl bg-stone-900 py-5 text-[9px] font-black uppercase tracking-[0.18em] text-white transition hover:bg-[#a9b897]"
+            >
+              {isBookingSaving
+                ? "Saving..."
+                : bookingSaved
+                  ? "Availability Saved ✓"
+                  : "Save Availability"}
+            </button>
+          </div>
+        )}
+      </main>
+
+      {/* ======================================================
+          EVENT MODAL
+      ====================================================== */}
+
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+            <motion.div
+              initial={{
+                opacity:
+                  0,
+              }}
+              animate={{
+                opacity:
+                  1,
+              }}
+              exit={{
+                opacity:
+                  0,
+              }}
+              onClick={() =>
+                setIsModalOpen(
+                  false
+                )
+              }
+              className="absolute inset-0 bg-stone-900/30 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{
+                opacity:
+                  0,
+
+                scale:
+                  0.97,
+
+                y:
+                  12,
+              }}
+              animate={{
+                opacity:
+                  1,
+
+                scale:
+                  1,
+
+                y:
+                  0,
+              }}
+              exit={{
+                opacity:
+                  0,
+
+                scale:
+                  0.97,
+
+                y:
+                  12,
+              }}
+              className="relative z-10 max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8"
+            >
+              <div className="mb-7 flex items-start justify-between">
+                <div>
+                  <p className="mb-2 text-[8px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                    Schedule
+                  </p>
+
+                  <h2 className="text-3xl font-serif italic text-stone-800">
+                    {viewMode ===
+                    "CREATE"
+                      ? "New Event"
+                      : viewMode ===
+                          "EDIT"
+                        ? "Edit Event"
+                        : selectedEvent?.title ||
+                          "Event"}
+                  </h2>
+
+                  {selectedEvent?.isRecurringOccurrence &&
+                    viewMode ===
+                      "VIEW" && (
+                      <p className="mt-2 text-[9px] font-black uppercase tracking-[0.13em] text-[#829473]">
+                        ↻ Repeating{" "}
+                        {
+                          selectedEvent.repeat
+                        }{" "}
+                        event
+                      </p>
+                    )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setIsModalOpen(
+                      false
+                    )
+                  }
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-50"
+                >
+                  <X
+                    size={16}
+                  />
+                </button>
+              </div>
+
+              {/* ==================================================
+                  VIEW MODE
+              ================================================== */}
+
+              {viewMode ===
+                "VIEW" ? (
+                <div className="space-y-5">
+                  {/* DATE CARD */}
+
+                  <div
+                    className="rounded-2xl border p-5"
+                    style={
+                      selectedEvent?.sourceType ===
+                      "event"
+                        ? {
+                            backgroundColor:
+                              getEventColour(
+                                selectedEvent.color
+                              ).background,
+
+                            borderColor:
+                              getEventColour(
+                                selectedEvent.color
+                              ).border,
+                          }
+                        : undefined
+                    }
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-500">
+                        When
+                      </p>
+
+                      {selectedEvent?.sourceType ===
+                        "event" && (
+                        <span
+                          className="h-3 w-3 rounded-full"
+                          style={{
+                            backgroundColor:
+                              getEventColour(
+                                selectedEvent.color
+                              ).dot,
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    <p className="mt-2 text-sm font-semibold text-stone-700">
+                      {selectedEvent?.startAt
+                        ? selectedEvent.is_all_day
+                          ? `${format(
+                              selectedEvent.startAt,
+                              "EEEE d MMMM yyyy"
+                            )} · All day`
+                          : format(
+                              selectedEvent.startAt,
+                              "EEEE d MMMM yyyy 'at' HH:mm"
+                            )
+                        : "No date"}
+                    </p>
+
+                    {selectedEvent?.endAt &&
+                      !selectedEvent.is_all_day && (
+                        <p className="mt-1 text-xs text-stone-500">
+                          Until{" "}
+                          {format(
+                            selectedEvent.endAt,
+                            "EEEE d MMMM yyyy 'at' HH:mm"
+                          )}
+                        </p>
+                      )}
+
+                    {selectedEvent?.endAt &&
+                      selectedEvent.is_all_day &&
+                      selectedEvent.startAt &&
+                      !isSameDay(
+                        selectedEvent.startAt,
+                        selectedEvent.endAt
+                      ) && (
+                        <p className="mt-1 text-xs text-stone-500">
+                          Through{" "}
+                          {format(
+                            selectedEvent.endAt,
+                            "EEEE d MMMM yyyy"
+                          )}
+                        </p>
+                      )}
+                  </div>
+
+                  {/* REPEAT */}
+
+                  {selectedEvent?.repeat &&
+                    selectedEvent.repeat !==
+                      "none" && (
+                      <div className="rounded-2xl border border-[#a9b897]/20 bg-[#a9b897]/5 p-5">
+                        <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#829473]">
+                          Repeats
+                        </p>
+
+                        <p className="mt-2 text-sm font-semibold capitalize text-stone-700">
+                          {selectedEvent.repeat ===
+                          "daily"
+                            ? "Every day"
+                            : selectedEvent.repeat ===
+                                "weekly"
+                              ? "Every week"
+                              : "Every month"}
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-stone-400">
+                          This is part of a
+                          repeating event
+                          series. Editing or
+                          deleting it changes
+                          the whole series.
+                        </p>
+                      </div>
+                    )}
+
+                  {/* DESCRIPTION */}
+
+                  {selectedEvent?.description && (
+                    <div className="rounded-2xl bg-stone-50 p-5">
+                      <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+                        Notes
+                      </p>
+
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-stone-600">
+                        {
+                          selectedEvent.description
+                        }
+                      </p>
+                    </div>
+                  )}
+
+                  {/* LINK */}
+
+                  {selectedEvent?.meeting_link && (
+                    <a
+                      href={
+                        selectedEvent.meeting_link
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between rounded-2xl border border-stone-200 p-5 text-sm font-semibold text-stone-700"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Video
+                          size={16}
+                        />
+
+                        Join meeting
+                      </span>
+
+                      <ArrowUpRight
+                        size={15}
+                      />
+                    </a>
+                  )}
+
+                  {getBookingCustomer(
+                    selectedEvent
+                  ) ? (
+                    <div className="space-y-2">
+                      <div className="rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-4">
+                        <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#829473]">
+                          Customer booking
+                        </p>
+
+                        <p className="mt-2 text-sm font-semibold text-stone-700">
+                          {getBookingCustomer(
+                            selectedEvent
+                          )?.name}
+                        </p>
+
+                        <p className="mt-1 text-xs text-stone-500">
+                          {getBookingCustomer(
+                            selectedEvent
+                          )?.email}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={
+                            startEditEntry
+                          }
+                          className="rounded-xl bg-stone-900 py-4 text-[8px] font-black uppercase tracking-[0.14em] text-white"
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void cancelBooking()
+                          }
+                          disabled={
+                            isCancellingBooking
+                          }
+                          className="rounded-xl bg-red-50 py-4 text-[8px] font-black uppercase tracking-[0.14em] text-red-500 disabled:opacity-50"
+                        >
+                          {isCancellingBooking
+                            ? "Cancelling..."
+                            : "Cancel meeting"}
+                        </button>
+                      </div>
+
+                      <p className="text-center text-[10px] leading-4 text-stone-400">
+                        Cancelling removes the meeting from your calendar, frees the time slot and emails the customer.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={
+                          startEditEntry
+                        }
+                        className="rounded-xl bg-stone-900 py-4 text-[8px] font-black uppercase tracking-[0.14em] text-white"
+                      >
+                        {selectedEvent?.isRecurringOccurrence
+                          ? "Edit Series"
+                          : "Edit"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void deleteEvent()
+                        }
+                        disabled={
+                          isDeleting
+                        }
+                        className="rounded-xl bg-red-50 py-4 text-[8px] font-black uppercase tracking-[0.14em] text-red-500"
+                      >
+                        {isDeleting
+                          ? "Deleting..."
+                          : selectedEvent?.isRecurringOccurrence
+                            ? "Delete Series"
+                            : "Delete"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* ==================================================
+                   CREATE / EDIT
+                ================================================== */
+
+                <div className="space-y-4">
+                  {/* TITLE */}
+
+                  <FormField label="Title">
+                    <input
+                      value={
+                        formTitle
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setFormTitle(
+                          event
+                            .target
+                            .value
+                        )
+                      }
+                      placeholder="Project review"
+                      className="form-input"
+                    />
+                  </FormField>
+
+                  {/* =================================================
+                      EVENT COLOUR
+                  ================================================= */}
+
+                  <FormField label="Event Colour">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {EVENT_COLORS.map(
+                        (
+                          colour
+                        ) => {
+                          const active =
+                            formColor ===
+                            colour.id;
+
+                          return (
+                            <button
+                              key={
+                                colour.id
+                              }
+                              type="button"
+                              onClick={() =>
+                                setFormColor(
+                                  colour.id
+                                )
+                              }
+                              className={`flex items-center gap-2 rounded-xl border p-3 text-left transition ${
+                                active
+                                  ? "ring-2 ring-stone-900/10"
+                                  : "hover:border-stone-300"
+                              }`}
+                              style={{
+                                borderColor:
+                                  active
+                                    ? colour.border
+                                    : "#f0efec",
+
+                                backgroundColor:
+                                  active
+                                    ? colour.background
+                                    : "white",
+                              }}
+                            >
+                              <span
+                                className="h-3 w-3 shrink-0 rounded-full"
+                                style={{
+                                  backgroundColor:
+                                    colour.dot,
+                                }}
+                              />
+
+                              <span
+                                className="truncate text-[8px] font-black uppercase tracking-[0.08em]"
+                                style={{
+                                  color:
+                                    active
+                                      ? colour.text
+                                      : "#78716c",
+                                }}
+                              >
+                                {
+                                  colour.label
+                                }
+                              </span>
+                            </button>
+                          );
+                        }
+                      )}
+                    </div>
+                  </FormField>
+
+                  {/* =================================================
+                      ALL DAY
+                  ================================================= */}
+
+                  <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-semibold text-stone-700">
+                          All day
+                        </p>
+
+                        <p className="mt-1 text-[10px] text-stone-400">
+                          Show this event
+                          without a specific
+                          time.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next =
+                            !formAllDay;
+
+                          setFormAllDay(
+                            next
+                          );
+
+                          if (
+                            next
+                          ) {
+                            setFormTime(
+                              "00:00"
+                            );
+
+                            if (
+                              !formEndDate
+                            ) {
+                              setFormEndDate(
+                                formDate
+                              );
+                            }
+
+                            setFormEndTime(
+                              ""
+                            );
+                          } else {
+                            setFormTime(
+                              "09:00"
+                            );
+                          }
+                        }}
+                        className={`relative h-8 w-14 shrink-0 rounded-full transition ${
+                          formAllDay
+                            ? "bg-[#829473]"
+                            : "bg-stone-200"
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition-all ${
+                            formAllDay
+                              ? "left-7"
+                              : "left-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* =================================================
+                      DATES
+                  ================================================= */}
+
+                  <div
+                    className={`grid gap-3 ${
+                      formAllDay
+                        ? "grid-cols-1 sm:grid-cols-2"
+                        : "grid-cols-2"
+                    }`}
+                  >
+                    <FormField label="Start Date">
+                      <input
+                        type="date"
+                        value={
+                          formDate
+                        }
+                        onChange={(
+                          event
+                        ) => {
+                          const value =
+                            event
+                              .target
+                              .value;
+
+                          setFormDate(
+                            value
+                          );
+
+                          if (
+                            formAllDay &&
+                            (
+                              !formEndDate ||
+                              formEndDate <
+                                value
+                            )
+                          ) {
+                            setFormEndDate(
+                              value
+                            );
+                          }
+                        }}
+                        className="form-input"
+                      />
+                    </FormField>
+
+                    {!formAllDay && (
+                      <FormField label="Start Time">
+                        <select
+                          value={
+                            formTime
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setFormTime(
+                              event
+                                .target
+                                .value
+                            )
+                          }
+                          className="form-input"
+                        >
+                          {TIME_OPTIONS.map(
+                            (
+                              time
+                            ) => (
+                              <option
+                                key={
+                                  time
+                                }
+                                value={
+                                  time
+                                }
+                              >
+                                {
+                                  time
+                                }
+                              </option>
+                            )
+                          )}
+                        </select>
+                      </FormField>
+                    )}
+
+                    <FormField label="End Date">
+                      <input
+                        type="date"
+                        value={
+                          formEndDate
+                        }
+                        min={
+                          formDate
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setFormEndDate(
+                            event
+                              .target
+                              .value
+                          )
+                        }
+                        className="form-input"
+                      />
+                    </FormField>
+
+                    {!formAllDay && (
+                      <FormField label="End Time">
+                        <select
+                          value={
+                            formEndTime
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setFormEndTime(
+                              event
+                                .target
+                                .value
+                            )
+                          }
+                          className="form-input"
+                        >
+                          <option value="">
+                            No end time
+                          </option>
+
+                          {TIME_OPTIONS.map(
+                            (
+                              time
+                            ) => (
+                              <option
+                                key={
+                                  time
+                                }
+                                value={
+                                  time
+                                }
+                              >
+                                {
+                                  time
+                                }
+                              </option>
+                            )
+                          )}
+                        </select>
+                      </FormField>
+                    )}
+                  </div>
+
+                  {/* =================================================
+                      REPEAT
+                  ================================================= */}
+
+                  <FormField label="Repeat Event">
+                    <select
+                      value={
+                        formRepeat
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setFormRepeat(
+                          event
+                            .target
+                            .value
+                        )
+                      }
+                      className="form-input"
+                    >
+                      <option value="none">
+                        Does not repeat
+                      </option>
+
+                      <option value="daily">
+                        Every day
+                      </option>
+
+                      <option value="weekly">
+                        Every week
+                      </option>
+
+                      <option value="monthly">
+                        Every month
+                      </option>
+                    </select>
+                  </FormField>
+
+                  {formRepeat !==
+                    "none" && (
+                    <div className="rounded-xl border border-[#a9b897]/20 bg-[#a9b897]/5 px-4 py-3">
+                      <div className="flex items-start gap-3">
+                        <RefreshCw
+                          size={13}
+                          className="mt-0.5 shrink-0 text-[#829473]"
+                        />
+
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#829473]">
+                            Repeating Event
+                          </p>
+
+                          <p className="mt-1 text-xs leading-5 text-stone-500">
+                            {formRepeat ===
+                            "daily"
+                              ? "This event will appear on every day in your calendar."
+                              : formRepeat ===
+                                  "weekly"
+                                ? "This event will appear on the same day every week."
+                                : "This event will appear on the same date every month."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* LOCATION */}
+
+                  <FormField label="Location">
+                    <input
+                      value={
+                        formLocation
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setFormLocation(
+                          event
+                            .target
+                            .value
+                        )
+                      }
+                      placeholder="Office, Zoom, etc."
+                      className="form-input"
+                    />
+                  </FormField>
+
+                  {/* LINK */}
+
+                  <FormField label="Meeting Link">
+                    <div className="relative">
+                      <LinkIcon
+                        size={14}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
+                      />
+
+                      <input
+                        value={
+                          formLink
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setFormLink(
+                            event
+                              .target
+                              .value
+                          )
+                        }
+                        placeholder="https://..."
+                        className="form-input pl-10"
+                      />
+                    </div>
+                  </FormField>
+
+                  {/* GUESTS */}
+
+                  <FormField label="Guests">
+                    <div className="relative">
+                      <Mail
+                        size={14}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
+                      />
+
+                      <input
+                        value={
+                          formGuests
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setFormGuests(
+                            event
+                              .target
+                              .value
+                          )
+                        }
+                        placeholder="client@email.com"
+                        className="form-input pl-10"
+                      />
+                    </div>
+                  </FormField>
+
+                  {/* TEAM */}
+
+                  <FormField label="Internal Team">
+                    <div className="relative">
+                      <Users
+                        size={14}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
+                      />
+
+                      <input
+                        value={
+                          formInternalTeam
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setFormInternalTeam(
+                            event
+                              .target
+                              .value
+                          )
+                        }
+                        className="form-input pl-10"
+                        placeholder="Team members"
+                      />
+                    </div>
+                  </FormField>
+
+                  {/* TAGS */}
+
+                  <FormField label="Tags">
+                    <div className="relative">
+                      <Tag
+                        size={14}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
+                      />
+
+                      <input
+                        value={
+                          formTags
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setFormTags(
+                            event
+                              .target
+                              .value
+                          )
+                        }
+                        placeholder="Client, Review"
+                        className="form-input pl-10"
+                      />
+                    </div>
+                  </FormField>
+
+                  {/* NOTES */}
+
+                  <FormField label="Notes">
+                    <textarea
+                      value={
+                        formDescription
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setFormDescription(
+                          event
+                            .target
+                            .value
+                        )
+                      }
+                      className="form-input min-h-[110px] resize-none"
+                    />
+                  </FormField>
+
+                  {/* FILE */}
+
+                  <input
+                    ref={
+                      fileInputRef
+                    }
+                    type="file"
+                    onChange={
+                      handleFileChange
+                    }
+                    className="hidden"
                   />
 
-                  Explore
-                  TOTS-OS
-                </a>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      fileInputRef.current?.click()
+                    }
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-stone-200 bg-stone-50 p-4 text-xs text-stone-500"
+                  >
+                    <Paperclip
+                      size={14}
+                    />
 
-              <div className="result-footnote">
-                <Check
-                  size={12}
-                  aria-hidden="true"
-                />
+                    {attachedFileName ||
+                      "Attach file"}
+                  </button>
 
-                <span>
-                  14-day free
-                  trial · no card
-                  details required
-                  · Complete is £139/month
-                  · add or remove
-                  modules as your
-                  business changes
-                </span>
-              </div>
-            </motion.section>
+                  {/* SAVE */}
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void saveEntry()
+                    }
+                    disabled={
+                      isSubmitting
+                    }
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-5 text-[8px] font-black uppercase tracking-[0.18em] text-white transition hover:bg-[#a9b897] disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <Loader2
+                        size={14}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <Send
+                        size={13}
+                      />
+                    )}
+
+                    {viewMode ===
+                    "EDIT"
+                      ? formRepeat !==
+                        "none"
+                        ? "Save Event Series"
+                        : "Save Changes"
+                      : formRepeat !==
+                          "none"
+                        ? "Add Repeating Event"
+                        : "Add to Schedule"}
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ======================================================
+          GLOBAL STYLES
+      ====================================================== */}
+
+      <style jsx global>{`
+        @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&display=swap");
+
+        .font-serif {
+          font-family:
+            "Instrument Serif",
+            serif;
+        }
+
+        .form-input {
+          width: 100%;
+          border: 1px solid #f0efec;
+          background: #faf9f6;
+          border-radius: 0.75rem;
+          padding: 0.9rem 1rem;
+          font-size: 0.8rem;
+          outline: none;
+          transition: 0.2s ease;
+          color: #44403c;
+        }
+
+        .form-input:focus {
+          border-color: #a9b897;
+          background: white;
+          box-shadow:
+            0 0 0 3px
+            rgba(
+              169,
+              184,
+              151,
+              0.12
+            );
+        }
+
+        select.form-input {
+          cursor: pointer;
+          appearance: auto;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ============================================================
+// FORM FIELD
+// ============================================================
+
+function FormField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+        {label}
+      </label>
+
+      {children}
+    </div>
+  );
+}
+
+// ============================================================
+// STAT CARD
+// ============================================================
+
+function StatCard({
+  icon:
+    Icon,
+
+  value,
+
+  label,
+}: {
+  icon: any;
+  value: string;
+  label: string;
+}) {
+  return (
+    <div className="rounded-[1.7rem] border border-stone-200 bg-white p-5">
+      <Icon
+        size={18}
+        className="mb-6 text-stone-300"
+      />
+
+      <p className="text-3xl font-serif italic text-stone-800">
+        {value}
+      </p>
+
+      <p className="mt-1 text-[8px] font-black uppercase tracking-[0.16em] text-stone-400">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+// ============================================================
+// BOOKING DETAIL
+// ============================================================
+
+function BookingDetail({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-stone-100 pb-4 last:border-0 last:pb-0">
+      <span className="text-xs text-stone-400">
+        {label}
+      </span>
+
+      <span className="text-right text-xs font-semibold text-stone-700">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// ============================================================
+// SCHEDULE ROW
+// ============================================================
+
+function ScheduleRow({
+  event,
+  onClick,
+}: {
+  event: CalendarEvent;
+  onClick: () => void;
+}) {
+  const colour =
+    getEventColour(
+      event.color
+    );
+
+  const isNormalEvent =
+    event.sourceType ===
+    "event";
+
+  return (
+    <button
+      type="button"
+      onClick={
+        onClick
+      }
+      className="flex w-full items-center justify-between gap-4 rounded-2xl border border-transparent p-4 text-left transition hover:-translate-y-[1px] hover:shadow-sm"
+      style={
+        isNormalEvent
+          ? {
+              backgroundColor:
+                colour.background,
+
+              borderColor:
+                colour.border,
+            }
+          : {
+              backgroundColor:
+                "#fafaf9",
+            }
+      }
+    >
+      <div className="flex min-w-0 items-center gap-4">
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+            event.sourceType ===
+            "task"
+              ? "bg-[#a9b897]/20 text-[#829473]"
+              : event.sourceType ===
+                  "note"
+                ? "bg-amber-100 text-amber-700"
+                : ""
+          }`}
+          style={
+            isNormalEvent
+              ? {
+                  backgroundColor:
+                    colour.dot,
+
+                  color:
+                    "white",
+                }
+              : undefined
+          }
+        >
+          {event.sourceType ===
+          "event" ? (
+            event.isRecurringOccurrence ? (
+              <RefreshCw
+                size={15}
+              />
+            ) : (
+              <CalendarDays
+                size={15}
+              />
+            )
+          ) : event.sourceType ===
+            "task" ? (
+            <Check
+              size={15}
+            />
+          ) : (
+            <Tag
+              size={15}
+            />
           )}
-        </AnimatePresence>
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p
+              className="truncate text-sm font-semibold"
+              style={
+                isNormalEvent
+                  ? {
+                      color:
+                        colour.text,
+                    }
+                  : {
+                      color:
+                        "#44403c",
+                    }
+              }
+            >
+              {event.title ||
+                "Untitled"}
+            </p>
+
+            {event.is_all_day && (
+              <span
+                className="shrink-0 rounded-full px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.1em]"
+                style={
+                  isNormalEvent
+                    ? {
+                        backgroundColor:
+                          "rgba(255,255,255,.6)",
+
+                        color:
+                          colour.text,
+                      }
+                    : undefined
+                }
+              >
+                All Day
+              </span>
+            )}
+
+            {event.isRecurringOccurrence && (
+              <span
+                className="shrink-0 rounded-full px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em]"
+                style={{
+                  backgroundColor:
+                    isNormalEvent
+                      ? "rgba(255,255,255,.6)"
+                      : "#e4eadf",
+
+                  color:
+                    isNormalEvent
+                      ? colour.text
+                      : "#829473",
+                }}
+              >
+                Repeats
+              </span>
+            )}
+          </div>
+
+          <p
+            className="mt-1 text-[10px]"
+            style={{
+              color:
+                isNormalEvent
+                  ? colour.text
+                  : "#a8a29e",
+
+              opacity:
+                isNormalEvent
+                  ? 0.7
+                  : 1,
+            }}
+          >
+            {event.startAt
+              ? event.is_all_day
+                ? `${format(
+                    event.startAt,
+                    "EEE d MMM"
+                  )} • All day`
+                : format(
+                    event.startAt,
+                    "EEE d MMM • HH:mm"
+                  )
+              : "No date"}
+          </p>
+        </div>
       </div>
-    </main>
+
+      <ChevronRight
+        size={15}
+        className="shrink-0"
+        style={{
+          color:
+            isNormalEvent
+              ? colour.text
+              : "#d6d3d1",
+
+          opacity:
+            isNormalEvent
+              ? 0.55
+              : 1,
+        }}
+      />
+    </button>
+  );
+}
+
+// ============================================================
+// BOOKING SELECT
+// ============================================================
+
+function BookingSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+
+  value: number;
+
+  onChange: (
+    value: string
+  ) => void;
+
+  options: [
+    string,
+    string,
+  ][];
+}) {
+  return (
+    <FormField
+      label={
+        label
+      }
+    >
+      <select
+        value={
+          value
+        }
+        onChange={(
+          event
+        ) =>
+          onChange(
+            event
+              .target
+              .value
+          )
+        }
+        className="form-input"
+      >
+        {options.map(
+          ([
+            optionValue,
+            optionLabel,
+          ]) => (
+            <option
+              key={
+                optionValue
+              }
+              value={
+                optionValue
+              }
+            >
+              {
+                optionLabel
+              }
+            </option>
+          )
+        )}
+      </select>
+    </FormField>
   );
 }

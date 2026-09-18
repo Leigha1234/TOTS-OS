@@ -233,6 +233,10 @@ type StoreProductRow = {
     | string
     | null;
 
+  family_addon_eligible?: boolean | null;
+  family_addon_discount?: number | string | null;
+  family_addon_requires_couples?: boolean | null;
+
   stripe_product_id:
     | string
     | null;
@@ -684,6 +688,60 @@ function isMtcMembershipProduct(
 // ============================================================
 // BENEFICIARY SPECS
 // ============================================================
+
+function isCouplesMembershipProduct(
+  product: StoreProductRow
+) {
+  const sku = cleanString(product.sku).toUpperCase();
+  const planCode = cleanString(product.external_plan_code).toUpperCase();
+
+  return (
+    isMtcMembershipProduct(product) &&
+    (
+      getBeneficiaryMode(product) === "couple" ||
+      sku.startsWith("MTC-COUPLE-") ||
+      planCode.startsWith("COUPLE_")
+    )
+  );
+}
+
+function isFamilyKidsAddonProduct(
+  product: StoreProductRow
+) {
+  const sku = cleanString(product.sku).toUpperCase();
+  const planCode = cleanString(product.external_plan_code).toUpperCase();
+
+  const standardKidsPlan =
+    ["MTC-KID-1PW", "MTC-KID-2PW", "MTC-KID-3PW"].includes(sku) ||
+    ["KID_1PW", "KID_2PW", "KID_3PW"].includes(planCode);
+
+  const hasAdultOpenGym =
+    sku.includes("OPEN-GYM") ||
+    planCode.includes("OPEN_GYM") ||
+    getBeneficiaryMode(product) === "child_plus_adult";
+
+  return (
+    isMtcMembershipProduct(product) &&
+    getBeneficiaryMode(product) === "child" &&
+    product.family_addon_eligible === true &&
+    product.family_addon_requires_couples === true &&
+    standardKidsPlan &&
+    !hasAdultOpenGym
+  );
+}
+
+function getFamilyAddonUnitPrice(
+  product: StoreProductRow
+) {
+  const basePrice = Number(product.price);
+  const configuredDiscount = Number(product.family_addon_discount);
+  const discount =
+    Number.isFinite(configuredDiscount) && configuredDiscount > 0
+      ? configuredDiscount
+      : 5;
+
+  return moneyRound(Math.max(0, basePrice - discount));
+}
 
 function buildBeneficiarySpecs(
   line: ValidatedLine
@@ -2577,6 +2635,9 @@ export async function POST(
             external_system,
             external_plan_code,
             beneficiary_mode,
+            family_addon_eligible,
+            family_addon_discount,
+            family_addon_requires_couples,
             stripe_product_id,
             stripe_price_id,
             price,
@@ -2627,6 +2688,14 @@ export async function POST(
     const validatedLines:
       ValidatedLine[] =
       [];
+
+    const couplesProductsRequested =
+      products.filter(
+        isCouplesMembershipProduct
+      );
+
+    const hasCouplesMembershipRequested =
+      couplesProductsRequested.length === 1;
 
     // ========================================================
     // VALIDATE PRODUCTS
@@ -2795,10 +2864,17 @@ export async function POST(
         );
       }
 
-      const unitPrice =
+      let unitPrice =
         Number(
           product.price
         );
+
+      if (
+        hasCouplesMembershipRequested &&
+        isFamilyKidsAddonProduct(product)
+      ) {
+        unitPrice = getFamilyAddonUnitPrice(product);
+      }
 
       if (
         !Number.isFinite(
@@ -2899,46 +2975,63 @@ export async function POST(
       0;
 
     /*
-     * A TOTS store_subscriptions row represents one Stripe
-     * subscription / primary membership product.
+     * MTC FAMILY MEMBERSHIP CHECKOUT
      *
-     * Keep membership checkout to one subscription product
-     * per checkout for now. Couples/children are represented
-     * by beneficiaries, not product quantity.
+     * Normal membership checkout remains one subscription product.
+     * The only multi-subscription exception is one Couples membership
+     * plus eligible standard Kids memberships. Adult Open Gym Kids
+     * plans are deliberately excluded.
      */
-    if (
-      isSubscriptionCheckout &&
-      subscriptionLines.length >
-        1
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Please purchase one subscription membership at a time.",
-        },
-        {
-          status:
-            400,
-        }
+    if (isSubscriptionCheckout) {
+      const couplesLines = subscriptionLines.filter((line) =>
+        isCouplesMembershipProduct(line.product)
       );
-    }
 
-    if (
-      isSubscriptionCheckout &&
-      subscriptionLines[0] &&
-      subscriptionLines[0]
-        .quantity !== 1
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Please purchase one subscription membership at a time.",
-        },
-        {
-          status:
-            400,
-        }
+      const familyKidsLines = subscriptionLines.filter((line) =>
+        isFamilyKidsAddonProduct(line.product)
       );
+
+      const otherSubscriptionLines = subscriptionLines.filter((line) =>
+        !isCouplesMembershipProduct(line.product) &&
+        !isFamilyKidsAddonProduct(line.product)
+      );
+
+      const isFamilyCheckout =
+        subscriptionLines.length > 1 &&
+        couplesLines.length === 1 &&
+        familyKidsLines.length === subscriptionLines.length - 1 &&
+        otherSubscriptionLines.length === 0;
+
+      if (subscriptionLines.length > 1 && !isFamilyCheckout) {
+        return NextResponse.json(
+          {
+            error:
+              "Please purchase one membership at a time. The only exception is adding standard Kids memberships to a Couples membership.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (couplesLines.length > 1) {
+        return NextResponse.json(
+          { error: "Please purchase one Couples membership at a time." },
+          { status: 400 }
+        );
+      }
+
+      if (!isFamilyCheckout && subscriptionLines[0]?.quantity !== 1) {
+        return NextResponse.json(
+          { error: "Please purchase one subscription membership at a time." },
+          { status: 400 }
+        );
+      }
+
+      if (isFamilyCheckout && couplesLines[0]?.quantity !== 1) {
+        return NextResponse.json(
+          { error: "A family checkout must contain exactly one Couples membership." },
+          { status: 400 }
+        );
+      }
     }
 
     // ========================================================

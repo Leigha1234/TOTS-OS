@@ -193,6 +193,11 @@ type Product = {
     | string
     | null;
 
+  family_addon_eligible?: boolean | null;
+  family_addon_discount?: number | string | null;
+  family_addon_price?: number | string | null;
+  family_addon_requires_couples?: boolean | null;
+
   [key: string]: unknown;
 };
 
@@ -480,6 +485,119 @@ function isMembershipProduct(
     normaliseBeneficiaryMode(
       product.beneficiary_mode
     ) !== "none"
+  );
+}
+
+function isCouplesMembershipProduct(
+  product: Product
+) {
+  if (!isMembershipProduct(product)) {
+    return false;
+  }
+
+  const planCode = String(
+    product.external_plan_code || ""
+  )
+    .trim()
+    .toUpperCase();
+
+  const sku = String(
+    product.sku || ""
+  )
+    .trim()
+    .toUpperCase();
+
+  return (
+    normaliseBeneficiaryMode(
+      product.beneficiary_mode
+    ) === "couple" ||
+    planCode.startsWith("COUPLE_") ||
+    sku.startsWith("MTC-COUPLE-")
+  );
+}
+
+function isFamilyKidsAddonProduct(
+  product: Product
+) {
+  if (!isMembershipProduct(product)) {
+    return false;
+  }
+
+  const sku = String(
+    product.sku || ""
+  )
+    .trim()
+    .toUpperCase();
+
+  const planCode = String(
+    product.external_plan_code || ""
+  )
+    .trim()
+    .toUpperCase();
+
+  const explicitlyEligible =
+    product.family_addon_eligible === true;
+
+  const standardKidsPlan =
+    [
+      "MTC-KID-1PW",
+      "MTC-KID-2PW",
+      "MTC-KID-3PW",
+    ].includes(sku) ||
+    [
+      "KID_1PW",
+      "KID_2PW",
+      "KID_3PW",
+    ].includes(planCode);
+
+  const hasAdultOpenGym =
+    sku.includes("OPEN-GYM") ||
+    planCode.includes("OPEN_GYM") ||
+    normaliseBeneficiaryMode(
+      product.beneficiary_mode
+    ) === "child_plus_adult";
+
+  return (
+    !hasAdultOpenGym &&
+    normaliseBeneficiaryMode(
+      product.beneficiary_mode
+    ) === "child" &&
+    (explicitlyEligible || standardKidsPlan)
+  );
+}
+
+function getFamilyAddonUnitPrice(
+  product: Product
+) {
+  const basePrice = Number(
+    product.price || 0
+  );
+
+  const configuredPrice = Number(
+    product.family_addon_price
+  );
+
+  if (
+    Number.isFinite(configuredPrice) &&
+    configuredPrice > 0 &&
+    configuredPrice < basePrice
+  ) {
+    return configuredPrice;
+  }
+
+  const configuredDiscount = Number(
+    product.family_addon_discount
+  );
+
+  const discount =
+    Number.isFinite(configuredDiscount) &&
+    configuredDiscount > 0
+      ? configuredDiscount
+      : 5;
+
+  return Math.max(
+    0,
+    basePrice - discount
   );
 }
 
@@ -2127,6 +2245,66 @@ export default function ShopFrontPage() {
       ]
     );
 
+  const hasCouplesMembershipInCart =
+    useMemo(
+      () =>
+        cartLines.some(
+          (line) =>
+            isCouplesMembershipProduct(
+              line.product
+            )
+        ),
+      [cartLines]
+    );
+
+  const eligibleFamilyAddonProducts =
+    useMemo(
+      () =>
+        isMTC &&
+        hasCouplesMembershipInCart
+          ? products
+              .filter(
+                (product) =>
+                  isFamilyKidsAddonProduct(
+                    product
+                  ) &&
+                  product.is_active !== false &&
+                  product.status !== "inactive"
+              )
+              .sort(
+                (a, b) =>
+                  getFamilyAddonUnitPrice(a) -
+                  getFamilyAddonUnitPrice(b)
+              )
+          : [],
+      [
+        isMTC,
+        hasCouplesMembershipInCart,
+        products,
+      ]
+    );
+
+  const getCartLineUnitPrice =
+    useCallback(
+      (line: CartLine) => {
+        if (
+          hasCouplesMembershipInCart &&
+          isFamilyKidsAddonProduct(
+            line.product
+          )
+        ) {
+          return getFamilyAddonUnitPrice(
+            line.product
+          );
+        }
+
+        return Number(
+          line.product.price || 0
+        );
+      },
+      [hasCouplesMembershipInCart]
+    );
+
   const cartTotal =
     useMemo(
       () =>
@@ -2136,15 +2314,15 @@ export default function ShopFrontPage() {
             line
           ) =>
             total +
-            Number(
-              line.product.price ||
-                0
+            getCartLineUnitPrice(
+              line
             ) *
               line.quantity,
           0
         ),
       [
         cartLines,
+        getCartLineUnitPrice,
       ]
     );
 
@@ -5623,9 +5801,8 @@ export default function ShopFrontPage() {
 
                                   <p className="font-serif text-xl italic text-stone-800">
                                     {formatCurrency(
-                                      Number(
-                                        line.product.price ||
-                                          0
+                                      getCartLineUnitPrice(
+                                        line
                                       ) *
                                         line.quantity
                                     )}
@@ -5640,6 +5817,108 @@ export default function ShopFrontPage() {
                       );
                     }
                   )}
+
+                  {isMTC &&
+                    hasCouplesMembershipInCart &&
+                    eligibleFamilyAddonProducts.length > 0 && (
+                      <div className="mt-4 rounded-2xl border border-[#d7b34a]/40 bg-[#d7b34a]/10 p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#d7b34a] text-black">
+                            <Plus size={15} />
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="text-sm font-black text-stone-900">
+                              Make it a family membership
+                            </p>
+                            <p className="mt-1 text-[11px] leading-5 text-stone-600">
+                              Add a standard Kids membership to your Couples membership and save £5 per month on each Kids membership.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 space-y-2">
+                          {eligibleFamilyAddonProducts.map(
+                            (product) => {
+                              const alreadyAdded =
+                                Boolean(
+                                  cart[
+                                    product.id
+                                  ]
+                                );
+
+                              const familyPrice =
+                                getFamilyAddonUnitPrice(
+                                  product
+                                );
+
+                              return (
+                                <div
+                                  key={
+                                    product.id
+                                  }
+                                  className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white p-3"
+                                >
+                                  <div className="min-w-0">
+                                    <p className="truncate text-xs font-black text-stone-800">
+                                      {
+                                        product.name
+                                      }
+                                    </p>
+
+                                    <div className="mt-1 flex items-center gap-2">
+                                      <span className="text-xs font-black text-stone-900">
+                                        {formatCurrency(
+                                          familyPrice
+                                        )}
+                                        /month
+                                      </span>
+                                      <span className="text-[10px] text-stone-400 line-through">
+                                        {formatCurrency(
+                                          Number(
+                                            product.price ||
+                                              0
+                                          )
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      checkingOut
+                                    }
+                                    onClick={() =>
+                                      alreadyAdded
+                                        ? removeFromCart(
+                                            product.id
+                                          )
+                                        : addToCart(
+                                            product
+                                          )
+                                    }
+                                    className={`shrink-0 rounded-full px-4 py-2 text-[9px] font-black uppercase tracking-[0.1em] ${
+                                      alreadyAdded
+                                        ? "border border-stone-200 bg-stone-100 text-stone-600"
+                                        : "bg-stone-900 text-white"
+                                    }`}
+                                  >
+                                    {alreadyAdded
+                                      ? "Remove"
+                                      : "Add child"}
+                                  </button>
+                                </div>
+                              );
+                            }
+                          )}
+                        </div>
+
+                        <p className="mt-3 text-[10px] leading-4 text-stone-500">
+                          Adult Open Gym Kids plans are not included in the family add-on offer.
+                        </p>
+                      </div>
+                    )}
 
                 </div>
               )}
@@ -6134,11 +6413,16 @@ export default function ShopFrontPage() {
                       <div>
                         <p className="text-lg font-black text-white">{line.product.name}</p>
                         <p className="mt-1 text-sm text-white/55">
-                          {line.quantity > 1 ? `${line.quantity} memberships` : "Monthly membership"}
+                          {hasCouplesMembershipInCart &&
+                          isFamilyKidsAddonProduct(line.product)
+                            ? `Family add-on · £5 monthly saving`
+                            : line.quantity > 1
+                              ? `${line.quantity} memberships`
+                              : "Monthly membership"}
                         </p>
                       </div>
                       <p className="font-serif text-2xl italic text-white">
-                        {formatCurrency(Number(line.product.price || 0) * line.quantity)}
+                        {formatCurrency(getCartLineUnitPrice(line) * line.quantity)}
                       </p>
                     </div>
                   ))}

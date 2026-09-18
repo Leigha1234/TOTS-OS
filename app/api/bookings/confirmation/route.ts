@@ -1,10 +1,56 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
-import { createClient } from "@/lib/auth";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-const resend = new Resend(
-  process.env.RESEND_API_KEY
-);
+// ============================================================
+// ENVIRONMENT
+// ============================================================
+
+const resendApiKey =
+  process.env.RESEND_API_KEY;
+
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+const supabaseServiceRoleKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!resendApiKey) {
+  throw new Error(
+    "RESEND_API_KEY is missing"
+  );
+}
+
+if (!supabaseUrl) {
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_URL is missing"
+  );
+}
+
+if (!supabaseServiceRoleKey) {
+  throw new Error(
+    "SUPABASE_SERVICE_ROLE_KEY is missing"
+  );
+}
+
+const resend =
+  new Resend(resendApiKey);
+
+// ============================================================
+// SERVER-ONLY SUPABASE ADMIN CLIENT
+// ============================================================
+
+const supabaseAdmin =
+  createSupabaseClient(
+    supabaseUrl,
+    supabaseServiceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
 
 // ============================================================
 // TYPES
@@ -31,18 +77,44 @@ type BookingConfirmationBody = {
     | "online"
     | "in_person";
 
-  meetingLink?: string | null;
+  meetingLink?:
+    | string
+    | null;
 
   ownerUserId?: string;
 
-  ownerName?: string | null;
-  ownerEmail?: string | null;
+  ownerName?:
+    | string
+    | null;
+
+  ownerEmail?:
+    | string
+    | null;
 
   startTime?: string;
   endTime?: string;
 
   timezone?: string;
 };
+
+// ============================================================
+// EMAIL VALIDATION
+// ============================================================
+
+function isValidEmail(
+  value:
+    | string
+    | null
+    | undefined
+) {
+  if (!value) {
+    return false;
+  }
+
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    value.trim()
+  );
+}
 
 // ============================================================
 // HTML ESCAPING
@@ -54,11 +126,25 @@ function escapeHtml(
     | null
     | undefined
 ) {
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
+  return String(
+    value || ""
+  )
+    .replaceAll(
+      "&",
+      "&amp;"
+    )
+    .replaceAll(
+      "<",
+      "&lt;"
+    )
+    .replaceAll(
+      ">",
+      "&gt;"
+    )
+    .replaceAll(
+      '"',
+      "&quot;"
+    )
     .replaceAll(
       "'",
       "&#039;"
@@ -75,11 +161,25 @@ function escapeIcsText(
     | null
     | undefined
 ) {
-  return String(value || "")
-    .replaceAll("\\", "\\\\")
-    .replaceAll("\n", "\\n")
-    .replaceAll(",", "\\,")
-    .replaceAll(";", "\\;");
+  return String(
+    value || ""
+  )
+    .replaceAll(
+      "\\",
+      "\\\\"
+    )
+    .replaceAll(
+      "\n",
+      "\\n"
+    )
+    .replaceAll(
+      ",",
+      "\\,"
+    )
+    .replaceAll(
+      ";",
+      "\\;"
+    );
 }
 
 // ============================================================
@@ -89,10 +189,16 @@ function escapeIcsText(
 function toIcsDate(
   value: string
 ) {
-  return new Date(value)
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .split(".")[0] + "Z";
+  return (
+    new Date(value)
+      .toISOString()
+      .replace(
+        /[-:]/g,
+        ""
+      )
+      .split(".")[0] +
+    "Z"
+  );
 }
 
 // ============================================================
@@ -112,7 +218,9 @@ function createCalendarInvite({
   startTime: string;
   endTime: string;
   description: string;
-  location?: string | null;
+  location?:
+    | string
+    | null;
 }) {
   const lines = [
     "BEGIN:VCALENDAR",
@@ -123,7 +231,9 @@ function createCalendarInvite({
 
     "BEGIN:VEVENT",
 
-    `UID:${escapeIcsText(uid)}`,
+    `UID:${escapeIcsText(
+      uid
+    )}`,
 
     `DTSTAMP:${toIcsDate(
       new Date().toISOString()
@@ -159,7 +269,9 @@ function createCalendarInvite({
     "END:VCALENDAR"
   );
 
-  return lines.join("\r\n");
+  return lines.join(
+    "\r\n"
+  );
 }
 
 // ============================================================
@@ -181,7 +293,9 @@ function emailWrapper(
           content="width=device-width, initial-scale=1.0"
         />
 
-        <title>TOTS-OS Booking</title>
+        <title>
+          TOTS-OS Booking
+        </title>
       </head>
 
       <body
@@ -189,10 +303,7 @@ function emailWrapper(
           margin:0;
           padding:0;
           background:#FAF8F5;
-          font-family:
-            Inter,
-            Arial,
-            sans-serif;
+          font-family:Arial,sans-serif;
           color:#4f4a46;
         "
       >
@@ -207,7 +318,9 @@ function emailWrapper(
           "
         >
           <tr>
-            <td align="center">
+            <td
+              align="center"
+            >
 
               <table
                 width="100%"
@@ -274,8 +387,8 @@ function emailWrapper(
                       color:#8b8682;
                     "
                   >
-                    Sent automatically by
-                    TOTS-OS.
+                    Sent automatically
+                    by TOTS-OS.
                   </td>
                 </tr>
 
@@ -298,14 +411,15 @@ export async function POST(
 ) {
   try {
     // ========================================================
-    // READ BODY
+    // BODY
     // ========================================================
 
     const body =
       (await request.json()) as BookingConfirmationBody;
 
     const customerName =
-      body.customerName?.trim();
+      body.customerName
+        ?.trim();
 
     const customerEmail =
       body.customerEmail
@@ -313,10 +427,12 @@ export async function POST(
         .toLowerCase();
 
     const bookingTitle =
-      body.bookingTitle?.trim();
+      body.bookingTitle
+        ?.trim();
 
     const ownerUserId =
-      body.ownerUserId?.trim();
+      body.ownerUserId
+        ?.trim();
 
     const suppliedOwnerEmail =
       body.ownerEmail
@@ -324,7 +440,8 @@ export async function POST(
         .toLowerCase();
 
     const suppliedOwnerName =
-      body.ownerName?.trim();
+      body.ownerName
+        ?.trim();
 
     const startTime =
       body.startTime;
@@ -334,15 +451,18 @@ export async function POST(
 
     const duration =
       Number(
-        body.duration || 0
+        body.duration ||
+          0
       );
 
     const location =
-      body.location?.trim() ||
+      body.location
+        ?.trim() ||
       null;
 
     const meetingLink =
-      body.meetingLink?.trim() ||
+      body.meetingLink
+        ?.trim() ||
       null;
 
     // ========================================================
@@ -368,11 +488,31 @@ export async function POST(
       );
     }
 
+    if (
+      !isValidEmail(
+        customerEmail
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid customer email address",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
     const parsedStart =
-      new Date(startTime);
+      new Date(
+        startTime
+      );
 
     const parsedEnd =
-      new Date(endTime);
+      new Date(
+        endTime
+      );
 
     if (
       Number.isNaN(
@@ -394,80 +534,203 @@ export async function POST(
     }
 
     // ========================================================
-    // SUPABASE
-    // ========================================================
-
-    const supabase =
-      await createClient();
-
-    // ========================================================
-    // OWNER DETAILS
+    // FIND OWNER EMAIL
     //
-    // IMPORTANT:
-    // BookingClient already sends ownerEmail.
+    // Priority:
     //
-    // We use that first and only use profiles as a fallback.
+    // 1. Email supplied by booking page
+    // 2. profiles.email
+    // 3. Supabase Auth email
+    //
     // ========================================================
 
     let ownerEmail =
-      suppliedOwnerEmail;
+      isValidEmail(
+        suppliedOwnerEmail
+      )
+        ? suppliedOwnerEmail!
+        : null;
 
     let ownerName =
-      suppliedOwnerName;
+      suppliedOwnerName ||
+      null;
+
+    // ========================================================
+    // PROFILE FALLBACK
+    // ========================================================
 
     if (
       !ownerEmail ||
       !ownerName
     ) {
       const {
-        data: owner,
-        error: ownerError,
-      } = await supabase
-        .from("profiles")
-        .select(
-          "email, full_name"
-        )
-        .eq(
-          "id",
-          ownerUserId
-        )
-        .maybeSingle();
+        data:
+          ownerProfile,
+        error:
+          profileError,
+      } =
+        await supabaseAdmin
+          .from(
+            "profiles"
+          )
+          .select(
+            "email, full_name"
+          )
+          .eq(
+            "id",
+            ownerUserId
+          )
+          .maybeSingle();
 
-      if (ownerError) {
+      if (
+        profileError
+      ) {
         console.error(
-          "OWNER LOOKUP ERROR:",
-          ownerError
+          "OWNER PROFILE LOOKUP ERROR:",
+          profileError
         );
       }
 
-      if (!ownerEmail) {
+      if (
+        !ownerEmail &&
+        isValidEmail(
+          ownerProfile?.email
+        )
+      ) {
         ownerEmail =
-          owner?.email
-            ?.trim()
-            .toLowerCase() ||
-          undefined;
+          ownerProfile!.email!
+            .trim()
+            .toLowerCase();
       }
 
-      if (!ownerName) {
+      if (
+        !ownerName &&
+        ownerProfile
+          ?.full_name
+      ) {
         ownerName =
-          owner?.full_name
-            ?.trim() ||
-          undefined;
+          ownerProfile
+            .full_name
+            .trim();
       }
     }
 
     // ========================================================
-    // DATE/TIME DISPLAY
+    // AUTH FALLBACK
+    //
+    // This is the important new part.
+    // ========================================================
+
+    if (
+      !ownerEmail
+    ) {
+      const {
+        data:
+          authUserResult,
+        error:
+          authUserError,
+      } =
+        await supabaseAdmin
+          .auth
+          .admin
+          .getUserById(
+            ownerUserId
+          );
+
+      if (
+        authUserError
+      ) {
+        console.error(
+          "OWNER AUTH LOOKUP ERROR:",
+          authUserError
+        );
+      }
+
+      const authEmail =
+        authUserResult
+          ?.user
+          ?.email
+          ?.trim()
+          .toLowerCase();
+
+      if (
+        isValidEmail(
+          authEmail
+        )
+      ) {
+        ownerEmail =
+          authEmail!;
+      }
+
+      if (
+        !ownerName
+      ) {
+        const metadata =
+          authUserResult
+            ?.user
+            ?.user_metadata;
+
+        const metadataName =
+          typeof metadata
+            ?.full_name ===
+          "string"
+            ? metadata
+                .full_name
+                .trim()
+            : "";
+
+        if (
+          metadataName
+        ) {
+          ownerName =
+            metadataName;
+        }
+      }
+    }
+
+    // ========================================================
+    // OWNER DEBUG LOG
+    // ========================================================
+
+    console.log(
+      "BOOKING OWNER RESOLVED:",
+      {
+        ownerUserId,
+
+        ownerEmailFound:
+          Boolean(
+            ownerEmail
+          ),
+
+        ownerEmail:
+          ownerEmail ||
+          null,
+
+        ownerName:
+          ownerName ||
+          null,
+      }
+    );
+
+    // ========================================================
+    // DATE DISPLAY
     // ========================================================
 
     const formattedDate =
       parsedStart.toLocaleDateString(
         "en-GB",
         {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          year: "numeric",
+          weekday:
+            "long",
+
+          day:
+            "numeric",
+
+          month:
+            "long",
+
+          year:
+            "numeric",
         }
       );
 
@@ -475,9 +738,14 @@ export async function POST(
       parsedStart.toLocaleTimeString(
         "en-GB",
         {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
+          hour:
+            "2-digit",
+
+          minute:
+            "2-digit",
+
+          hour12:
+            false,
         }
       );
 
@@ -485,9 +753,14 @@ export async function POST(
       parsedEnd.toLocaleTimeString(
         "en-GB",
         {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
+          hour:
+            "2-digit",
+
+          minute:
+            "2-digit",
+
+          hour12:
+            false,
         }
       );
 
@@ -502,7 +775,8 @@ export async function POST(
 
     const calendarInvite =
       createCalendarInvite({
-        uid: calendarUid,
+        uid:
+          calendarUid,
 
         title:
           bookingTitle,
@@ -534,200 +808,222 @@ export async function POST(
     // ========================================================
 
     const customerResult =
-      await resend.emails.send({
-        from:
-          "TOTS-OS Bookings <bookings@tots-os.co.uk>",
+      await resend.emails.send(
+        {
+          from:
+            "TOTS-OS Bookings <bookings@tots-os.co.uk>",
 
-        to:
-          customerEmail,
+          to:
+            customerEmail,
 
-        subject:
-          `Booking confirmed — ${bookingTitle}`,
+          subject:
+            `Booking confirmed — ${bookingTitle}`,
 
-        attachments: [
-          attachment,
-        ],
+          attachments: [
+            attachment,
+          ],
 
-        html:
-          emailWrapper(`
-            <div
-              style="
-                display:inline-block;
-                padding:7px 12px;
-                border-radius:999px;
-                background:#edf2e9;
-                color:#6f8064;
-                font-size:11px;
-                font-weight:700;
-                letter-spacing:1px;
-                text-transform:uppercase;
-              "
-            >
-              Booking confirmed
-            </div>
-
-            <h1
-              style="
-                margin:18px 0 8px;
-                font-size:27px;
-                line-height:34px;
-                color:#292624;
-              "
-            >
-              You're booked.
-            </h1>
-
-            <p
-              style="
-                margin:0;
-                font-size:15px;
-                line-height:24px;
-                color:#6b6662;
-              "
-            >
-              Hi ${escapeHtml(
-                customerName
-              )}, your meeting${
-                ownerName
-                  ? ` with <strong>${escapeHtml(
-                      ownerName
-                    )}</strong>`
-                  : ""
-              } has been confirmed.
-            </p>
-
-            <div
-              style="
-                margin-top:26px;
-                padding:22px;
-                border-radius:18px;
-                background:#FAF8F5;
-                border:1px solid #eee9e4;
-              "
-            >
-              <p
+          html:
+            emailWrapper(`
+              <div
                 style="
-                  margin:0 0 12px;
-                  font-size:17px;
+                  display:inline-block;
+                  padding:7px 12px;
+                  border-radius:999px;
+                  background:#edf2e9;
+                  color:#6f8064;
+                  font-size:11px;
                   font-weight:700;
+                  letter-spacing:1px;
+                  text-transform:uppercase;
+                "
+              >
+                Booking confirmed
+              </div>
+
+              <h1
+                style="
+                  margin:18px 0 8px;
+                  font-size:27px;
+                  line-height:34px;
                   color:#292624;
                 "
               >
-                ${escapeHtml(
-                  bookingTitle
-                )}
-              </p>
+                You're booked.
+              </h1>
 
               <p
                 style="
-                  margin:6px 0;
-                  font-size:14px;
-                  color:#5f5a56;
+                  margin:0;
+                  font-size:15px;
+                  line-height:24px;
+                  color:#6b6662;
                 "
               >
-                <strong>Date:</strong>
+                Hi
                 ${escapeHtml(
-                  formattedDate
-                )}
+                  customerName
+                )},
+
+                your meeting${
+                  ownerName
+                    ? ` with <strong>${escapeHtml(
+                        ownerName
+                      )}</strong>`
+                    : ""
+                }
+                has been
+                confirmed.
               </p>
 
-              <p
+              <div
                 style="
-                  margin:6px 0;
-                  font-size:14px;
-                  color:#5f5a56;
+                  margin-top:26px;
+                  padding:22px;
+                  border-radius:18px;
+                  background:#FAF8F5;
+                  border:1px solid #eee9e4;
                 "
               >
-                <strong>Time:</strong>
-                ${escapeHtml(
-                  formattedStartTime
-                )}
-                –
-                ${escapeHtml(
-                  formattedEndTime
-                )}
-              </p>
+                <p
+                  style="
+                    margin:0 0 12px;
+                    font-size:17px;
+                    font-weight:700;
+                    color:#292624;
+                  "
+                >
+                  ${escapeHtml(
+                    bookingTitle
+                  )}
+                </p>
+
+                <p
+                  style="
+                    margin:6px 0;
+                    font-size:14px;
+                    color:#5f5a56;
+                  "
+                >
+                  <strong>
+                    Date:
+                  </strong>
+
+                  ${escapeHtml(
+                    formattedDate
+                  )}
+                </p>
+
+                <p
+                  style="
+                    margin:6px 0;
+                    font-size:14px;
+                    color:#5f5a56;
+                  "
+                >
+                  <strong>
+                    Time:
+                  </strong>
+
+                  ${escapeHtml(
+                    formattedStartTime
+                  )}
+                  –
+                  ${escapeHtml(
+                    formattedEndTime
+                  )}
+                </p>
+
+                ${
+                  duration
+                    ? `
+                      <p
+                        style="
+                          margin:6px 0;
+                          font-size:14px;
+                          color:#5f5a56;
+                        "
+                      >
+                        <strong>
+                          Duration:
+                        </strong>
+
+                        ${duration}
+                        minutes
+                      </p>
+                    `
+                    : ""
+                }
+
+                ${
+                  location
+                    ? `
+                      <p
+                        style="
+                          margin:6px 0;
+                          font-size:14px;
+                          color:#5f5a56;
+                        "
+                      >
+                        <strong>
+                          Location:
+                        </strong>
+
+                        ${escapeHtml(
+                          location
+                        )}
+                      </p>
+                    `
+                    : ""
+                }
+              </div>
 
               ${
-                duration
+                meetingLink
                   ? `
-                    <p
+                    <div
                       style="
-                        margin:6px 0;
-                        font-size:14px;
-                        color:#5f5a56;
+                        margin-top:24px;
                       "
                     >
-                      <strong>Duration:</strong>
-                      ${duration} minutes
-                    </p>
+                      <a
+                        href="${escapeHtml(
+                          meetingLink
+                        )}"
+                        style="
+                          display:inline-block;
+                          padding:13px 20px;
+                          border-radius:12px;
+                          background:#4f4a46;
+                          color:#ffffff;
+                          text-decoration:none;
+                          font-size:13px;
+                          font-weight:700;
+                        "
+                      >
+                        Join meeting
+                      </a>
+                    </div>
                   `
                   : ""
               }
 
-              ${
-                location
-                  ? `
-                    <p
-                      style="
-                        margin:6px 0;
-                        font-size:14px;
-                        color:#5f5a56;
-                      "
-                    >
-                      <strong>Location:</strong>
-                      ${escapeHtml(
-                        location
-                      )}
-                    </p>
-                  `
-                  : ""
-              }
-            </div>
-
-            ${
-              meetingLink
-                ? `
-                  <div
-                    style="
-                      margin-top:24px;
-                    "
-                  >
-                    <a
-                      href="${escapeHtml(
-                        meetingLink
-                      )}"
-                      style="
-                        display:inline-block;
-                        padding:13px 20px;
-                        border-radius:12px;
-                        background:#4f4a46;
-                        color:#ffffff;
-                        text-decoration:none;
-                        font-size:13px;
-                        font-weight:700;
-                      "
-                    >
-                      Join meeting
-                    </a>
-                  </div>
-                `
-                : ""
-            }
-
-            <p
-              style="
-                margin:24px 0 0;
-                font-size:12px;
-                line-height:20px;
-                color:#8b8682;
-              "
-            >
-              A calendar invite is attached
-              to this email.
-            </p>
-          `),
-      });
+              <p
+                style="
+                  margin:24px 0 0;
+                  font-size:12px;
+                  line-height:20px;
+                  color:#8b8682;
+                "
+              >
+                A calendar
+                invite is
+                attached to
+                this email.
+              </p>
+            `),
+        }
+      );
 
     if (
       customerResult.error
@@ -749,278 +1045,304 @@ export async function POST(
     let ownerEmailSent =
       false;
 
-    let ownerEmailError:
-      unknown = null;
-
-    if (ownerEmail) {
-      const dashboardUrl =
+    if (
+      ownerEmail
+    ) {
+      const calendarUrl =
         new URL(
           "/calendar",
           request.url
         ).toString();
 
       const ownerResult =
-        await resend.emails.send({
-          from:
-            "TOTS-OS Bookings <bookings@tots-os.co.uk>",
+        await resend.emails.send(
+          {
+            from:
+              "TOTS-OS Bookings <bookings@tots-os.co.uk>",
 
-          to:
-            ownerEmail,
+            to:
+              ownerEmail,
 
-          subject:
-            `New booking — ${customerName} booked ${bookingTitle}`,
+            subject:
+              `New booking — ${customerName} booked ${bookingTitle}`,
 
-          attachments: [
-            attachment,
-          ],
+            attachments: [
+              attachment,
+            ],
 
-          html:
-            emailWrapper(`
-              <div
-                style="
-                  display:inline-block;
-                  padding:7px 12px;
-                  border-radius:999px;
-                  background:#edf2e9;
-                  color:#6f8064;
-                  font-size:11px;
-                  font-weight:700;
-                  letter-spacing:1px;
-                  text-transform:uppercase;
-                "
-              >
-                New booking
-              </div>
-
-              <h1
-                style="
-                  margin:18px 0 8px;
-                  font-size:27px;
-                  line-height:34px;
-                  color:#292624;
-                "
-              >
-                Someone booked a meeting with you.
-              </h1>
-
-              <p
-                style="
-                  margin:0;
-                  font-size:15px;
-                  line-height:24px;
-                  color:#6b6662;
-                "
-              >
-                ${
-                  ownerName
-                    ? `Hi ${escapeHtml(
-                        ownerName
-                      )}, `
-                    : ""
-                }
-
-                <strong>
-                  ${escapeHtml(
-                    customerName
-                  )}
-                </strong>
-
-                has booked
-
-                <strong>
-                  ${escapeHtml(
-                    bookingTitle
-                  )}
-                </strong>
-
-                with you.
-              </p>
-
-              <div
-                style="
-                  margin-top:26px;
-                  padding:22px;
-                  border-radius:18px;
-                  background:#FAF8F5;
-                  border:1px solid #eee9e4;
-                "
-              >
-                <p
+            html:
+              emailWrapper(`
+                <div
                   style="
-                    margin:0 0 14px;
+                    display:inline-block;
+                    padding:7px 12px;
+                    border-radius:999px;
+                    background:#edf2e9;
+                    color:#6f8064;
                     font-size:11px;
                     font-weight:700;
-                    letter-spacing:1.4px;
+                    letter-spacing:1px;
                     text-transform:uppercase;
-                    color:#A9B897;
                   "
                 >
-                  Booking details
-                </p>
+                  New booking
+                </div>
+
+                <h1
+                  style="
+                    margin:18px 0 8px;
+                    font-size:27px;
+                    line-height:34px;
+                    color:#292624;
+                  "
+                >
+                  Someone booked
+                  a meeting with
+                  you.
+                </h1>
 
                 <p
                   style="
-                    margin:7px 0;
-                    font-size:14px;
-                    color:#5f5a56;
+                    margin:0;
+                    font-size:15px;
+                    line-height:24px;
+                    color:#6b6662;
                   "
                 >
-                  <strong>Customer:</strong>
-                  ${escapeHtml(
-                    customerName
-                  )}
+                  ${
+                    ownerName
+                      ? `Hi ${escapeHtml(
+                          ownerName
+                        )}, `
+                      : ""
+                  }
+
+                  <strong>
+                    ${escapeHtml(
+                      customerName
+                    )}
+                  </strong>
+
+                  has booked
+
+                  <strong>
+                    ${escapeHtml(
+                      bookingTitle
+                    )}
+                  </strong>
+
+                  with you.
                 </p>
 
-                <p
+                <div
                   style="
-                    margin:7px 0;
-                    font-size:14px;
-                    color:#5f5a56;
+                    margin-top:26px;
+                    padding:22px;
+                    border-radius:18px;
+                    background:#FAF8F5;
+                    border:1px solid #eee9e4;
                   "
                 >
-                  <strong>Email:</strong>
-                  <a
-                    href="mailto:${escapeHtml(
-                      customerEmail
-                    )}"
+                  <p
                     style="
+                      margin:0 0 14px;
+                      font-size:11px;
+                      font-weight:700;
+                      letter-spacing:1.4px;
+                      text-transform:uppercase;
+                      color:#A9B897;
+                    "
+                  >
+                    Booking
+                    details
+                  </p>
+
+                  <p
+                    style="
+                      margin:7px 0;
+                      font-size:14px;
                       color:#5f5a56;
                     "
                   >
+                    <strong>
+                      Customer:
+                    </strong>
+
                     ${escapeHtml(
-                      customerEmail
+                      customerName
                     )}
+                  </p>
+
+                  <p
+                    style="
+                      margin:7px 0;
+                      font-size:14px;
+                      color:#5f5a56;
+                    "
+                  >
+                    <strong>
+                      Email:
+                    </strong>
+
+                    <a
+                      href="mailto:${escapeHtml(
+                        customerEmail
+                      )}"
+                      style="
+                        color:#5f5a56;
+                      "
+                    >
+                      ${escapeHtml(
+                        customerEmail
+                      )}
+                    </a>
+                  </p>
+
+                  <p
+                    style="
+                      margin:7px 0;
+                      font-size:14px;
+                      color:#5f5a56;
+                    "
+                  >
+                    <strong>
+                      Meeting:
+                    </strong>
+
+                    ${escapeHtml(
+                      bookingTitle
+                    )}
+                  </p>
+
+                  <p
+                    style="
+                      margin:7px 0;
+                      font-size:14px;
+                      color:#5f5a56;
+                    "
+                  >
+                    <strong>
+                      Date:
+                    </strong>
+
+                    ${escapeHtml(
+                      formattedDate
+                    )}
+                  </p>
+
+                  <p
+                    style="
+                      margin:7px 0;
+                      font-size:14px;
+                      color:#5f5a56;
+                    "
+                  >
+                    <strong>
+                      Time:
+                    </strong>
+
+                    ${escapeHtml(
+                      formattedStartTime
+                    )}
+                    –
+                    ${escapeHtml(
+                      formattedEndTime
+                    )}
+                  </p>
+
+                  ${
+                    duration
+                      ? `
+                        <p
+                          style="
+                            margin:7px 0;
+                            font-size:14px;
+                            color:#5f5a56;
+                          "
+                        >
+                          <strong>
+                            Duration:
+                          </strong>
+
+                          ${duration}
+                          minutes
+                        </p>
+                      `
+                      : ""
+                  }
+
+                  ${
+                    location
+                      ? `
+                        <p
+                          style="
+                            margin:7px 0;
+                            font-size:14px;
+                            color:#5f5a56;
+                          "
+                        >
+                          <strong>
+                            Location:
+                          </strong>
+
+                          ${escapeHtml(
+                            location
+                          )}
+                        </p>
+                      `
+                      : ""
+                  }
+                </div>
+
+                <div
+                  style="
+                    margin-top:24px;
+                  "
+                >
+                  <a
+                    href="${escapeHtml(
+                      calendarUrl
+                    )}"
+                    style="
+                      display:inline-block;
+                      padding:13px 20px;
+                      border-radius:12px;
+                      background:#4f4a46;
+                      color:#ffffff;
+                      text-decoration:none;
+                      font-size:13px;
+                      font-weight:700;
+                    "
+                  >
+                    Open TOTS-OS
+                    Calendar
                   </a>
-                </p>
+                </div>
 
                 <p
                   style="
-                    margin:7px 0;
-                    font-size:14px;
-                    color:#5f5a56;
+                    margin:24px 0 0;
+                    font-size:12px;
+                    line-height:20px;
+                    color:#8b8682;
                   "
                 >
-                  <strong>Meeting:</strong>
-                  ${escapeHtml(
-                    bookingTitle
-                  )}
+                  This meeting has
+                  already been
+                  added to your
+                  TOTS-OS calendar.
+                  A calendar invite
+                  is also attached.
                 </p>
-
-                <p
-                  style="
-                    margin:7px 0;
-                    font-size:14px;
-                    color:#5f5a56;
-                  "
-                >
-                  <strong>Date:</strong>
-                  ${escapeHtml(
-                    formattedDate
-                  )}
-                </p>
-
-                <p
-                  style="
-                    margin:7px 0;
-                    font-size:14px;
-                    color:#5f5a56;
-                  "
-                >
-                  <strong>Time:</strong>
-                  ${escapeHtml(
-                    formattedStartTime
-                  )}
-                  –
-                  ${escapeHtml(
-                    formattedEndTime
-                  )}
-                </p>
-
-                ${
-                  duration
-                    ? `
-                      <p
-                        style="
-                          margin:7px 0;
-                          font-size:14px;
-                          color:#5f5a56;
-                        "
-                      >
-                        <strong>Duration:</strong>
-                        ${duration} minutes
-                      </p>
-                    `
-                    : ""
-                }
-
-                ${
-                  location
-                    ? `
-                      <p
-                        style="
-                          margin:7px 0;
-                          font-size:14px;
-                          color:#5f5a56;
-                        "
-                      >
-                        <strong>Location:</strong>
-                        ${escapeHtml(
-                          location
-                        )}
-                      </p>
-                    `
-                    : ""
-                }
-              </div>
-
-              <div
-                style="
-                  margin-top:24px;
-                "
-              >
-                <a
-                  href="${escapeHtml(
-                    dashboardUrl
-                  )}"
-                  style="
-                    display:inline-block;
-                    padding:13px 20px;
-                    border-radius:12px;
-                    background:#4f4a46;
-                    color:#ffffff;
-                    text-decoration:none;
-                    font-size:13px;
-                    font-weight:700;
-                  "
-                >
-                  Open TOTS-OS Calendar
-                </a>
-              </div>
-
-              <p
-                style="
-                  margin:24px 0 0;
-                  font-size:12px;
-                  line-height:20px;
-                  color:#8b8682;
-                "
-              >
-                This meeting has already
-                been added to your TOTS-OS
-                calendar. A calendar invite
-                is also attached.
-              </p>
-            `),
-        });
+              `),
+          }
+        );
 
       if (
         ownerResult.error
       ) {
-        ownerEmailError =
-          ownerResult.error;
-
         console.error(
-          "OWNER EMAIL ERROR:",
+          "OWNER EMAIL SEND ERROR:",
           ownerResult.error
         );
       } else {
@@ -1029,36 +1351,35 @@ export async function POST(
       }
     } else {
       console.error(
-        "OWNER EMAIL NOT AVAILABLE:",
+        "OWNER EMAIL COULD NOT BE RESOLVED:",
         {
           ownerUserId,
-          suppliedOwnerEmail:
-            body.ownerEmail,
         }
       );
     }
 
     // ========================================================
-    // RESPONSE
+    // SUCCESS
     // ========================================================
 
-    return NextResponse.json({
-      success: true,
+    return NextResponse.json(
+      {
+        success: true,
 
-      customerEmailSent:
-        true,
+        customerEmailSent:
+          true,
 
-      ownerEmailSent,
+        ownerEmailSent,
 
-      ownerEmail:
-        ownerEmail || null,
-
-      ownerEmailError:
-        ownerEmailError
-          ? "Owner notification failed"
-          : null,
-    });
-  } catch (error) {
+        ownerEmailResolved:
+          Boolean(
+            ownerEmail
+          ),
+      }
+    );
+  } catch (
+    error
+  ) {
     console.error(
       "BOOKING CONFIRMATION ERROR:",
       error
@@ -1067,7 +1388,8 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          error instanceof Error
+          error instanceof
+          Error
             ? error.message
             : "Failed to send booking confirmation emails",
       },

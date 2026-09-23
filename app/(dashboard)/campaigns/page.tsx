@@ -101,6 +101,12 @@ type ListSubscriber = {
   profileId: string | null;
   manualId: string | null;
   name: string | null;
+  firstName: string | null;
+  email: string;
+};
+
+type ManualSubscriberInput = {
+  firstName: string | null;
   email: string;
 };
 
@@ -417,6 +423,62 @@ function parseEmails(
         .filter(isValidEmail)
     )
   );
+}
+
+function parseManualSubscribers(
+  value: string
+): ManualSubscriberInput[] {
+  const byEmail = new Map<string, ManualSubscriberInput>();
+
+  for (const rawLine of value.split(/\r?\n/)) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      continue;
+    }
+
+    // Supports either:
+    // hello@example.com
+    // Sarah, sarah@example.com
+    // Sarah <sarah@example.com>
+    const angleMatch = line.match(
+      /^(.+?)\s*<([^<>\s]+@[^<>\s]+)>$/
+    );
+
+    let firstName: string | null = null;
+    let email = "";
+
+    if (angleMatch) {
+      firstName = angleMatch[1].trim().split(/\s+/)[0] || null;
+      email = cleanEmail(angleMatch[2]);
+    } else {
+      const parts = line.split(/[;,]/).map((part) => part.trim());
+
+      if (parts.length >= 2 && isValidEmail(parts[parts.length - 1])) {
+        email = cleanEmail(parts[parts.length - 1]);
+        firstName = parts[0]?.trim().split(/\s+/)[0] || null;
+      } else if (isValidEmail(line)) {
+        email = cleanEmail(line);
+      }
+    }
+
+    if (!email || !isValidEmail(email)) {
+      continue;
+    }
+
+    const cleanedFirstName = firstName
+      ? firstName.replace(/[<>]/g, "").trim().slice(0, 80)
+      : null;
+
+    const existing = byEmail.get(email);
+
+    byEmail.set(email, {
+      email,
+      firstName: cleanedFirstName || existing?.firstName || null,
+    });
+  }
+
+  return Array.from(byEmail.values());
 }
 
 function escapeHtml(
@@ -3095,7 +3157,7 @@ export default function CampaignsPage() {
                   "campaign_list_emails"
                 )
                 .select(
-                  "id,email"
+                  "id,email,first_name"
                 )
                 .eq(
                   "organisation_id",
@@ -3150,6 +3212,11 @@ export default function CampaignsPage() {
                   profile?.full_name ||
                   profile?.name ||
                   null,
+                firstName:
+                  (profile?.full_name || profile?.name || "")
+                    .trim()
+                    .split(/\s+/)[0] ||
+                  null,
                 email,
               }
             );
@@ -3184,6 +3251,10 @@ export default function CampaignsPage() {
                     row.id
                   ),
                 name:
+                  row.first_name ||
+                  null,
+                firstName:
+                  row.first_name ||
                   null,
                 email,
               }
@@ -3288,45 +3359,44 @@ export default function CampaignsPage() {
   const addManualEmails =
     async (
       listId: string,
-      emails: string[]
+      subscribers: ManualSubscriberInput[]
     ) => {
       if (
         !organisationId ||
-        emails.length ===
-          0
+        subscribers.length === 0
       ) {
         return;
       }
 
       const clean =
         Array.from(
-          new Set(
-            emails
-              .map(
-                cleanEmail
-              )
+          new Map(
+            subscribers
+              .map((subscriber) => ({
+                firstName:
+                  subscriber.firstName?.trim() ||
+                  null,
+                email:
+                  cleanEmail(subscriber.email),
+              }))
               .filter(
-                (
-                  email
-                ) =>
-                  email &&
-                  isValidEmail(
-                    email
-                  )
+                (subscriber) =>
+                  subscriber.email &&
+                  isValidEmail(subscriber.email)
               )
-          )
+              .map((subscriber) => [
+                subscriber.email,
+                subscriber,
+              ])
+          ).values()
         );
 
-      if (
-        clean.length ===
-        0
-      ) {
+      if (clean.length === 0) {
         return;
       }
 
       const {
-        data:
-          existing,
+        data: existing,
       } =
         await supabase
           .from(
@@ -3346,31 +3416,21 @@ export default function CampaignsPage() {
 
       const existingSet =
         new Set(
-          (
-            existing ||
-            []
-          ).map(
+          (existing || []).map(
             (row: any) =>
-              cleanEmail(
-                row.email
-              )
+              cleanEmail(row.email)
           )
         );
 
-      const newEmails =
+      const newSubscribers =
         clean.filter(
-          (
-            email
-          ) =>
+          (subscriber) =>
             !existingSet.has(
-              email
+              subscriber.email
             )
         );
 
-      if (
-        newEmails.length ===
-        0
-      ) {
+      if (newSubscribers.length === 0) {
         return;
       }
 
@@ -3382,15 +3442,16 @@ export default function CampaignsPage() {
             "campaign_list_emails"
           )
           .insert(
-            newEmails.map(
-              (
-                email
-              ) => ({
+            newSubscribers.map(
+              (subscriber) => ({
                 organisation_id:
                   organisationId,
                 list_id:
                   listId,
-                email,
+                email:
+                  subscriber.email,
+                first_name:
+                  subscriber.firstName,
               })
             )
           );
@@ -3409,7 +3470,7 @@ export default function CampaignsPage() {
       }
 
       const parsed =
-        parseEmails(
+        parseManualSubscribers(
           manualEmails
         );
 
@@ -7572,18 +7633,18 @@ await callSendApi(campaignId);
                         )
                       }
                       rows={6}
-                      placeholder={`hello@example.com\nclient@business.co.uk`}
+                      placeholder={`Sarah, sarah@example.com\nhello@business.co.uk`}
                       className="w-full rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm leading-7 outline-none"
                     />
 
                     <p className="mt-2 text-[10px] text-stone-400">
                       {
-                        parseEmails(
+                        parseManualSubscribers(
                           manualEmails
                         ).length
                       }{" "}
                       valid
-                      email(s)
+                      subscriber(s)
                     </p>
                   </div>
 

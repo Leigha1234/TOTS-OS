@@ -6573,165 +6573,201 @@ function RootedFundraiserSection({
 
   const quickAmounts = [5, 10, 20, 50];
 
+  const rootedGreen = "#315B45";
+  const rootedSage = "#DDE8DF";
+  const rootedCream = "#F6F1E7";
+  const rootedLime = "#DDF247";
+
   return (
     <section
       id="rooted-fundraising"
-      className="mt-20 border-t border-stone-200 pt-16 sm:mt-24 sm:pt-20"
+      className="relative mt-20 overflow-hidden rounded-[32px] bg-[#F6F1E7] sm:mt-24"
     >
-      <div className="grid gap-8 lg:grid-cols-[1fr_.8fr] lg:items-end">
-        <div>
-          <p
-            className="text-[10px] font-black uppercase tracking-[.2em]"
-            style={{ color: primary }}
-          >
-            Rooted × Moray Training Club
-          </p>
-
-          <h3 className="mt-4 max-w-3xl text-[clamp(2.5rem,6vw,5.5rem)] font-black uppercase leading-[.86] tracking-[-.055em] text-stone-950">
-            Support Rooted.
-            <br />
-            Support your community.
-          </h3>
-        </div>
-
-        <p className="max-w-xl text-base leading-7 text-stone-500 lg:justify-self-end lg:pb-2">
-          Every purchase helps Rooted create accessible activity, wellbeing
-          support and stronger community connections.
-        </p>
-      </div>
-
-      {fixedProducts.length > 0 && (
-        <div className="mt-12 grid border-y border-stone-200 md:grid-cols-3">
-          {fixedProducts.map((product, index) => (
-            <article
-              key={product.id}
-              className={`flex min-h-[310px] flex-col bg-white py-8 ${
-                index > 0
-                  ? "border-t border-stone-200 md:border-l md:border-t-0 md:pl-8"
-                  : ""
-              } ${
-                index < fixedProducts.length - 1
-                  ? "md:pr-8"
-                  : ""
-              }`}
-            >
-              <div className="flex items-start justify-between gap-6">
-                <div>
-                  <p
-                    className="text-[9px] font-black uppercase tracking-[.18em]"
-                    style={{ color: primary }}
-                  >
-                    Rooted fundraiser
-                  </p>
-
-                  <h4 className="mt-3 max-w-[280px] text-2xl font-black uppercase leading-[.95] tracking-[-.035em] text-stone-950">
-                    {product.name}
-                  </h4>
-                </div>
-
-                <span className="shrink-0 font-serif text-2xl italic text-stone-950">
-                  {formatCurrency(Number(product.price || 0))}
-                </span>
-              </div>
-
-              <p className="mt-6 flex-1 text-sm leading-6 text-stone-500">
-                {product.description || "Support Rooted CIC through MTC."}
-              </p>
-
-              <button
-                type="button"
-                onClick={() => onAdd(product)}
-                className="mt-8 flex w-full items-center justify-between rounded-full bg-stone-950 px-6 py-4 text-[10px] font-black uppercase tracking-[.14em] text-white transition hover:-translate-y-0.5 hover:bg-stone-800"
-              >
-                <span>
-                  {String(product.slug || "").toLowerCase() ===
-                  "rooted-donate-a-coffee"
-                    ? "Donate"
-                    : "Add to basket"}
-                </span>
-                <ArrowRight size={15} />
-              </button>
-            </article>
-          ))}
-        </div>
-      )}
-
-      {directDonation && (
+      <div className="relative overflow-hidden bg-[#315B45] px-7 py-10 text-white sm:px-10 sm:py-12 lg:px-14 lg:py-14">
         <div
-          id="rooted-direct-donation"
-          className="mt-10 overflow-hidden rounded-[28px] border border-stone-200 bg-stone-950 text-white shadow-[0_24px_70px_rgba(0,0,0,.10)]"
-        >
-          <div className="grid lg:grid-cols-[.9fr_1.1fr]">
-            <div className="flex flex-col justify-between border-b border-white/10 p-8 sm:p-10 lg:border-b-0 lg:border-r lg:p-12">
-              <div>
-                <p
-                  className="text-[10px] font-black uppercase tracking-[.2em]"
-                  style={{ color: primary }}
-                >
-                  Direct donation
-                </p>
+          aria-hidden="true"
+          className="absolute -right-20 -top-28 h-72 w-72 rounded-full border-[52px] border-white/[.05]"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute bottom-[-90px] right-[20%] h-44 w-44 rounded-full bg-[#DDF247]/10 blur-2xl"
+        />
 
-                <h4 className="mt-4 text-4xl font-black uppercase leading-[.9] tracking-[-.045em] sm:text-5xl">
-                  Give a little.
-                  <br />
-                  Help a lot.
-                </h4>
-
-                <p className="mt-6 max-w-md text-sm leading-6 text-white/60">
-                  {directDonation.description ||
-                    "Every contribution helps Rooted create accessible activity, wellbeing support and stronger community connections."}
-                </p>
-              </div>
-
-              <p className="mt-10 text-[9px] font-bold uppercase tracking-[.16em] text-white/35">
-                Every donation goes towards Rooted CIC community activity
-              </p>
+        <div className="relative grid gap-8 lg:grid-cols-[1.2fr_.8fr] lg:items-end">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-[.18em] text-[#DDF247] ring-1 ring-inset ring-white/15">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#DDF247]" />
+              Rooted CIC Fundraising
             </div>
 
-            <div className="bg-white p-8 text-stone-950 sm:p-10 lg:p-12">
-              <p className="text-[10px] font-black uppercase tracking-[.18em] text-stone-400">
-                Choose an amount
-              </p>
+            <h3 className="mt-6 max-w-4xl text-[clamp(2.7rem,6vw,5.7rem)] font-black uppercase leading-[.84] tracking-[-.055em]">
+              Big impact
+              <br />
+              starts local.
+            </h3>
+          </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {quickAmounts.map((amount) => {
-                  const selected =
-                    Number(donationAmount) === amount;
+          <div className="max-w-lg lg:justify-self-end">
+            <p className="text-base leading-7 text-white/70">
+              Help us make activity, wellbeing and community support more
+              accessible across Moray. Pick something fun, donate a coffee,
+              or simply give what you can.
+            </p>
 
-                  return (
-                    <button
-                      key={amount}
-                      type="button"
-                      onClick={() =>
-                        setDonationAmount(String(amount))
-                      }
-                      className={`rounded-2xl border px-4 py-5 text-lg font-black transition ${
-                        selected
-                          ? "border-stone-950 bg-stone-950 text-white shadow-sm"
-                          : "border-stone-200 bg-white text-stone-950 hover:border-stone-400"
-                      }`}
-                    >
-                      £{amount}
-                    </button>
-                  );
-                })}
+            <div className="mt-6 flex flex-wrap gap-2">
+              {["Community", "Wellbeing", "Accessible activity"].map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-white/15 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[.12em] text-white/70"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
+        {fixedProducts.length > 0 && (
+          <div className="grid gap-4 md:grid-cols-3">
+            {fixedProducts.map((product, index) => {
+              const slug = String(product.slug || "").toLowerCase();
+
+              const eyebrow =
+                slug === "rooted-childrens-fun-day-pass"
+                  ? "Open Day"
+                  : slug === "rooted-raffle-strip"
+                  ? "Try your luck"
+                  : "Pay it forward";
+
+              const cta =
+                slug === "rooted-donate-a-coffee"
+                  ? "Donate a coffee"
+                  : "Add to basket";
+
+              return (
+                <article
+                  key={product.id}
+                  className="group relative flex min-h-[330px] flex-col overflow-hidden rounded-[24px] border border-black/[.07] bg-white p-6 shadow-[0_10px_30px_rgba(49,91,69,.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(49,91,69,.12)] sm:p-7"
+                >
+                  <div
+                    aria-hidden="true"
+                    className="absolute right-[-30px] top-[-30px] h-28 w-28 rounded-full bg-[#DDE8DF] transition duration-300 group-hover:scale-125"
+                  />
+
+                  <div className="relative flex items-start justify-between gap-5">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[.18em] text-[#315B45]">
+                        {eyebrow}
+                      </p>
+
+                      <h4 className="mt-3 max-w-[260px] text-[1.65rem] font-black uppercase leading-[.92] tracking-[-.04em] text-stone-950">
+                        {product.name}
+                      </h4>
+                    </div>
+
+                    <span className="relative shrink-0 rounded-full bg-[#DDF247] px-3 py-2 text-sm font-black text-[#1D3327]">
+                      {formatCurrency(Number(product.price || 0))}
+                    </span>
+                  </div>
+
+                  <p className="relative mt-6 flex-1 text-sm leading-6 text-stone-500">
+                    {product.description || "Support Rooted CIC through MTC."}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => onAdd(product)}
+                    className="relative mt-8 flex w-full items-center justify-between rounded-full bg-[#315B45] px-5 py-4 text-[10px] font-black uppercase tracking-[.13em] text-white transition hover:bg-[#244535]"
+                  >
+                    <span>{cta}</span>
+                    <ArrowRight size={15} />
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        )}
+
+        {directDonation && (
+          <div
+            id="rooted-direct-donation"
+            className="mt-5 overflow-hidden rounded-[28px] bg-[#DDE8DF]"
+          >
+            <div className="grid lg:grid-cols-[.9fr_1.1fr]">
+              <div className="relative overflow-hidden bg-[#DDF247] p-8 text-[#1D3327] sm:p-10 lg:p-12">
+                <div
+                  aria-hidden="true"
+                  className="absolute -bottom-20 -right-16 h-60 w-60 rounded-full border-[45px] border-[#315B45]/10"
+                />
+
+                <div className="relative">
+                  <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#315B45]">
+                    Give any amount
+                  </p>
+
+                  <h4 className="mt-5 text-[clamp(2.5rem,5vw,4.7rem)] font-black uppercase leading-[.84] tracking-[-.055em]">
+                    Your £5
+                    <br />
+                    matters.
+                  </h4>
+
+                  <p className="mt-6 max-w-sm text-sm font-medium leading-6 text-[#315B45]/80">
+                    No donation is too small. Choose an amount that suits you
+                    and help Rooted keep creating opportunities for the local
+                    community.
+                  </p>
+                </div>
               </div>
 
-              <div className="my-6 flex items-center gap-4">
-                <span className="h-px flex-1 bg-stone-200" />
-                <span className="text-[9px] font-black uppercase tracking-[.16em] text-stone-400">
-                  Or choose your own
-                </span>
-                <span className="h-px flex-1 bg-stone-200" />
-              </div>
+              <div className="bg-[#315B45] p-8 text-white sm:p-10 lg:p-12">
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[.18em] text-[#DDF247]">
+                      Direct donation
+                    </p>
+                    <h5 className="mt-2 text-2xl font-black uppercase tracking-[-.035em]">
+                      Choose your amount
+                    </h5>
+                  </div>
 
-              <label className="block">
-                <span className="sr-only">
-                  Custom donation amount
-                </span>
+                  <span className="hidden text-[9px] font-bold uppercase tracking-[.14em] text-white/40 sm:block">
+                    Secure checkout
+                  </span>
+                </div>
 
-                <div className="flex items-center rounded-2xl border border-stone-200 bg-stone-50 px-5 focus-within:border-stone-950 focus-within:bg-white">
-                  <span className="text-xl font-black text-stone-400">
+                <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {quickAmounts.map((amount) => {
+                    const selected = Number(donationAmount) === amount;
+
+                    return (
+                      <button
+                        key={amount}
+                        type="button"
+                        onClick={() => setDonationAmount(String(amount))}
+                        className={`rounded-2xl border px-4 py-4 text-lg font-black transition ${
+                          selected
+                            ? "border-[#DDF247] bg-[#DDF247] text-[#1D3327]"
+                            : "border-white/15 bg-white/[.06] text-white hover:border-white/35 hover:bg-white/[.10]"
+                        }`}
+                      >
+                        £{amount}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="my-6 flex items-center gap-4">
+                  <span className="h-px flex-1 bg-white/15" />
+                  <span className="text-[9px] font-black uppercase tracking-[.15em] text-white/40">
+                    Or another amount
+                  </span>
+                  <span className="h-px flex-1 bg-white/15" />
+                </div>
+
+                <div className="flex items-center rounded-2xl bg-white px-5 shadow-sm ring-1 ring-inset ring-black/5">
+                  <span className="text-xl font-black text-[#315B45]">
                     £
                   </span>
 
@@ -6749,41 +6785,41 @@ function RootedFundraiserSection({
                     placeholder="Enter amount"
                   />
                 </div>
-              </label>
 
-              {!donationIsValid && (
-                <p className="mt-3 text-xs font-semibold text-red-600">
-                  Enter a donation between £1 and £5,000.
+                {!donationIsValid && (
+                  <p className="mt-3 text-xs font-semibold text-[#DDF247]">
+                    Enter a donation between £1 and £5,000.
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  disabled={!donationIsValid}
+                  onClick={() =>
+                    onAdd(
+                      directDonation,
+                      Number(parsedDonation.toFixed(2))
+                    )
+                  }
+                  className="mt-4 flex w-full items-center justify-between rounded-full bg-[#DDF247] px-6 py-4 text-[10px] font-black uppercase tracking-[.13em] text-[#1D3327] transition hover:-translate-y-0.5 hover:bg-[#E8F86F] disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  <span>
+                    Donate{" "}
+                    {donationIsValid
+                      ? formatCurrency(parsedDonation)
+                      : ""}
+                  </span>
+                  <ArrowRight size={15} />
+                </button>
+
+                <p className="mt-4 text-center text-[10px] leading-5 text-white/45">
+                  Every contribution supports Rooted CIC community projects.
                 </p>
-              )}
-
-              <button
-                type="button"
-                disabled={!donationIsValid}
-                onClick={() =>
-                  onAdd(
-                    directDonation,
-                    Number(parsedDonation.toFixed(2))
-                  )
-                }
-                className="mt-5 flex w-full items-center justify-between rounded-full bg-stone-950 px-6 py-4 text-[10px] font-black uppercase tracking-[.14em] text-white transition hover:-translate-y-0.5 hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-35"
-              >
-                <span>
-                  Donate{" "}
-                  {donationIsValid
-                    ? formatCurrency(parsedDonation)
-                    : ""}
-                </span>
-                <ArrowRight size={15} />
-              </button>
-
-              <p className="mt-4 text-center text-[10px] leading-5 text-stone-400">
-                Secure payment through the MTC checkout.
-              </p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </section>
   );
 }

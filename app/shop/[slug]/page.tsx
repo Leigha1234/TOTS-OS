@@ -2454,6 +2454,17 @@ export default function ShopFrontPage() {
   // CART ACTIONS
   // ==========================================================
 
+  function isRootedDirectDonation(
+    product: Product
+  ) {
+    return (
+      String(
+        product.slug || ""
+      ).toLowerCase() ===
+      "rooted-direct-donation"
+    );
+  }
+
   function addToCart(
     product: Product,
     customUnitPrice?: number
@@ -2466,6 +2477,40 @@ export default function ShopFrontPage() {
       return;
     }
 
+    if (
+      isRootedDirectDonation(
+        product
+      )
+    ) {
+      if (
+        typeof customUnitPrice !== "number" ||
+        !Number.isFinite(
+          customUnitPrice
+        ) ||
+        customUnitPrice < 1 ||
+        customUnitPrice > 5000
+      ) {
+        setCartOpen(false);
+
+        requestAnimationFrame(
+          () => {
+            document
+              .getElementById(
+                "rooted-direct-donation"
+              )
+              ?.scrollIntoView({
+                behavior:
+                  "smooth",
+                block:
+                  "center",
+              });
+          }
+        );
+
+        return;
+      }
+    }
+
     setCheckoutError(null);
 
     setCart(
@@ -2476,10 +2521,14 @@ export default function ShopFrontPage() {
           ];
 
         let nextQuantity =
-          existing
-            ? existing.quantity +
-              1
-            : 1;
+          isRootedDirectDonation(
+            product
+          )
+            ? 1
+            : existing
+              ? existing.quantity +
+                1
+              : 1;
 
         const available =
           getAvailableQuantity(
@@ -5795,61 +5844,69 @@ export default function ShopFrontPage() {
 
                               <div className="mt-3 flex items-center justify-between">
 
-                                <div className="flex items-center rounded-full border border-stone-200 bg-white p-1">
+                                {isRootedDirectDonation(
+                                  line.product
+                                ) ? (
+                                  <div className="rounded-full border border-stone-200 bg-white px-3 py-2 text-[9px] font-bold text-stone-500">
+                                    Chosen donation
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center rounded-full border border-stone-200 bg-white p-1">
 
-                                  <button
-                                    type="button"
-                                    aria-label="Decrease quantity"
-                                    disabled={
-                                      checkingOut
-                                    }
-                                    onClick={() =>
-                                      setQuantity(
-                                        line.product.id,
-                                        line.quantity -
-                                          1
-                                      )
-                                    }
-                                    className="flex h-7 w-7 items-center justify-center rounded-full text-stone-500 hover:bg-stone-50 disabled:opacity-40"
-                                  >
-                                    <Minus
-                                      size={10}
-                                    />
-                                  </button>
+                                    <button
+                                      type="button"
+                                      aria-label="Decrease quantity"
+                                      disabled={
+                                        checkingOut
+                                      }
+                                      onClick={() =>
+                                        setQuantity(
+                                          line.product.id,
+                                          line.quantity -
+                                            1
+                                        )
+                                      }
+                                      className="flex h-7 w-7 items-center justify-center rounded-full text-stone-500 hover:bg-stone-50 disabled:opacity-40"
+                                    >
+                                      <Minus
+                                        size={10}
+                                      />
+                                    </button>
 
-                                  <span className="min-w-7 text-center text-[10px] font-bold">
-                                    {
-                                      line.quantity
-                                    }
-                                  </span>
+                                    <span className="min-w-7 text-center text-[10px] font-bold">
+                                      {
+                                        line.quantity
+                                      }
+                                    </span>
 
-                                  <button
-                                    type="button"
-                                    aria-label="Increase quantity"
-                                    disabled={
-                                      checkingOut ||
-                                      (
-                                        maxStock !==
-                                          null &&
-                                        line.quantity >=
-                                          maxStock
-                                      )
-                                    }
-                                    onClick={() =>
-                                      setQuantity(
-                                        line.product.id,
-                                        line.quantity +
-                                          1
-                                      )
-                                    }
-                                    className="flex h-7 w-7 items-center justify-center rounded-full text-stone-500 hover:bg-stone-50 disabled:opacity-30"
-                                  >
-                                    <Plus
-                                      size={10}
-                                    />
-                                  </button>
+                                    <button
+                                      type="button"
+                                      aria-label="Increase quantity"
+                                      disabled={
+                                        checkingOut ||
+                                        (
+                                          maxStock !==
+                                            null &&
+                                          line.quantity >=
+                                            maxStock
+                                        )
+                                      }
+                                      onClick={() =>
+                                        setQuantity(
+                                          line.product.id,
+                                          line.quantity +
+                                            1
+                                        )
+                                      }
+                                      className="flex h-7 w-7 items-center justify-center rounded-full text-stone-500 hover:bg-stone-50 disabled:opacity-30"
+                                    >
+                                      <Plus
+                                        size={10}
+                                      />
+                                    </button>
 
-                                </div>
+                                  </div>
+                                )}
 
                                 <div className="text-right">
 
@@ -6652,7 +6709,10 @@ function RootedFundraiserSection({
       )}
 
       {directDonation && (
-        <div className="mt-6 rounded-[26px] border border-white/10 bg-black/25 p-6 sm:p-8">
+        <div
+          id="rooted-direct-donation"
+          className="mt-6 rounded-[26px] border border-white/10 bg-black/25 p-6 sm:p-8"
+        >
           <div className="grid gap-7 lg:grid-cols-[1fr_1.1fr] lg:items-center">
             <div>
               <p
@@ -7237,6 +7297,12 @@ function ProductCard({
     sellingModel ===
       "request_to_order";
 
+  const directRootedDonation =
+    String(
+      product.slug || ""
+    ).toLowerCase() ===
+    "rooted-direct-donation";
+
   const saving =
     onSale
       ? compareAt -
@@ -7405,7 +7471,9 @@ function ProductCard({
               <div className="flex items-end gap-2">
 
                 <p className="font-serif text-[1.8rem] italic leading-none text-stone-900">
-                  {formatCurrency(product.price)}
+                  {directRootedDonation
+                    ? "Choose amount"
+                    : formatCurrency(product.price)}
                   {product.purchase_type === "subscription" && product.billing_interval && (
                     <span className="ml-1 font-sans text-[10px] font-bold not-italic uppercase tracking-[0.08em] text-stone-400">
                       / {product.billing_interval}
@@ -7445,9 +7513,22 @@ function ProductCard({
               !requestAction
             }
             onClick={
-              requestAction
-                ? onRequest
-                : onAdd
+              directRootedDonation
+                ? () => {
+                    document
+                      .getElementById(
+                        "rooted-direct-donation"
+                      )
+                      ?.scrollIntoView({
+                        behavior:
+                          "smooth",
+                        block:
+                          "center",
+                      });
+                  }
+                : requestAction
+                  ? onRequest
+                  : onAdd
             }
             data-store-primary="true"
             className="store-primary-action mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-3.5 text-left transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
@@ -7463,9 +7544,11 @@ function ProductCard({
               {outOfStock &&
               !requestAction
                 ? "Unavailable"
-                : getProductActionLabel(
-                    product
-                  )}
+                : directRootedDonation
+                  ? "Choose donation amount"
+                  : getProductActionLabel(
+                      product
+                    )}
             </span>
 
             {(!outOfStock ||

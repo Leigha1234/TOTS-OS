@@ -3919,6 +3919,71 @@ export default function ShopFrontPage() {
         .mtc-app-store .membership-cart-footer .border-t { border-color: var(--mtc-line) !important; }
         .mtc-app-store .membership-cart-footer .store-primary-action { background: #111 !important; color: #fff !important; border-radius: 12px !important; }
 
+        /* =====================================================
+           ACCESSIBILITY
+           ===================================================== */
+        .mtc-app-store :is(a, button, input, select, textarea):focus-visible {
+          outline: 3px solid #1d4ed8 !important;
+          outline-offset: 3px !important;
+          box-shadow: 0 0 0 2px #ffffff !important;
+        }
+
+        .mtc-app-store button:disabled {
+          cursor: not-allowed !important;
+        }
+
+        .mtc-app-store .a11y-skip-link {
+          position: fixed;
+          left: 16px;
+          top: 12px;
+          z-index: 9999;
+          transform: translateY(-160%);
+          border-radius: 10px;
+          background: #111;
+          color: #fff !important;
+          padding: 12px 16px;
+          font-size: 14px;
+          font-weight: 800;
+          text-decoration: none;
+        }
+
+        .mtc-app-store .a11y-skip-link:focus {
+          transform: translateY(0);
+        }
+
+        .mtc-app-store .rooted-kicker,
+        .mtc-app-store .rooted-meta {
+          font-size: 12px !important;
+          line-height: 1.4 !important;
+        }
+
+        .mtc-app-store .rooted-body {
+          color: #3f4a43 !important;
+        }
+
+        .mtc-app-store .rooted-on-dark {
+          color: #ffffff !important;
+        }
+
+        .mtc-app-store .rooted-on-dark-muted {
+          color: #e5eee8 !important;
+        }
+
+        .mtc-app-store .rooted-on-lime {
+          color: #173023 !important;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .mtc-app-store *,
+          .mtc-app-store *::before,
+          .mtc-app-store *::after {
+            scroll-behavior: auto !important;
+            transition-duration: 0.01ms !important;
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+          }
+        }
+
         /* ====================================================
            MINIMAL — editorial, calm and premium
         ==================================================== */
@@ -4006,6 +4071,8 @@ export default function ShopFrontPage() {
           HEADER
       ===================================================== */}
 
+      <a href="#main-content" className="a11y-skip-link">Skip to main content</a>
+
       <header className="sticky top-0 z-40 border-b border-stone-200/80 backdrop-blur-xl" style={{ background: `${pageBackground}F2` }}>
         <div className="mx-auto flex h-[72px] max-w-[1360px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
 
@@ -4075,6 +4142,7 @@ export default function ShopFrontPage() {
                 <a href={mtcReturnUrl} className="text-xs font-semibold no-underline transition">Membership</a>
                 <a
                   href={mtcStoreBaseUrl}
+                  aria-current={mtcView === "hub" ? "page" : undefined}
                   className={`rounded-full px-4 py-2 text-xs font-black no-underline ${
                     mtcView === "hub" ? "mtc-membership-active" : ""
                   }`}
@@ -4083,6 +4151,7 @@ export default function ShopFrontPage() {
                 </a>
                 <a
                   href={mtcMembershipsStoreUrl}
+                  aria-current={mtcView === "memberships" ? "page" : undefined}
                   className={`rounded-full px-4 py-2 text-xs font-black no-underline ${
                     mtcView === "memberships" ? "mtc-membership-active" : ""
                   }`}
@@ -4091,6 +4160,7 @@ export default function ShopFrontPage() {
                 </a>
                 <a
                   href={mtcRootedStoreUrl}
+                  aria-current={mtcView === "rooted" ? "page" : undefined}
                   className={`rounded-full px-4 py-2 text-xs font-black no-underline ${
                     mtcView === "rooted" ? "mtc-membership-active" : ""
                   }`}
@@ -4576,7 +4646,7 @@ export default function ShopFrontPage() {
                             "smooth",
                         });
                     }}
-                    className="shrink-0 rounded-full border px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] transition"
+                    className="shrink-0 rounded-full border px-4 py-2.5 text-xs font-black uppercase tracking-[0.08em] transition"
                     style={
                       category ===
                       item
@@ -6067,7 +6137,7 @@ export default function ShopFrontPage() {
                       }}
                     />
 
-                    <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-500">
+                    <p className="text-xs font-black uppercase tracking-[0.08em] text-stone-500">
                       Have a discount code?
                     </p>
 
@@ -6114,7 +6184,7 @@ export default function ShopFrontPage() {
                         onClick={
                           removeDiscountCode
                         }
-                        className="text-[8px] font-black uppercase tracking-[0.12em] text-stone-400 underline disabled:opacity-40"
+                        className="text-xs font-black uppercase tracking-[0.08em] text-stone-400 underline disabled:opacity-40"
                       >
                         Remove
                       </button>
@@ -6175,7 +6245,7 @@ export default function ShopFrontPage() {
                         onClick={
                           applyDiscountCode
                         }
-                        className="shrink-0 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.13em] text-white disabled:opacity-40"
+                        className="shrink-0 rounded-xl bg-stone-900 px-5 py-3 text-xs font-black uppercase tracking-[0.08em] text-white disabled:opacity-40"
                       >
                         Apply
                       </button>
@@ -6184,7 +6254,7 @@ export default function ShopFrontPage() {
                   )}
 
                   {discountMessage && (
-                    <p className="mt-2 text-sm leading-5 text-white/55">
+                    <p role="status" aria-live="polite" className="mt-2 text-sm leading-5 text-stone-700">
                       {
                         discountMessage
                       }
@@ -6209,7 +6279,7 @@ export default function ShopFrontPage() {
                         }}
                       />
 
-                      <p className="text-[10px] leading-5 text-stone-500">
+                      <p className="text-sm leading-6 text-stone-700">
                         {
                           store.shipping_text
                         }
@@ -6239,7 +6309,7 @@ export default function ShopFrontPage() {
                         />
                       )}
 
-                      <p className="text-[10px] leading-5 text-stone-500">
+                      <p className="text-sm leading-6 text-stone-700">
                         {cartContainsPhysicalProduct
                           ? "Your basket includes a physical product. Delivery details will be confirmed during checkout."
                           : cartContainsCollectionProduct
@@ -6259,9 +6329,9 @@ export default function ShopFrontPage() {
                 {/* ERROR */}
 
                 {checkoutError && (
-                  <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/15 px-4 py-4">
+                  <div role="alert" aria-live="assertive" className="mt-4 rounded-xl border border-red-700 bg-red-50 px-4 py-4 text-red-900">
 
-                    <p className="text-sm font-semibold leading-6 text-red-200">
+                    <p className="text-sm font-semibold leading-6 text-red-900">
                       {
                         checkoutError
                       }
@@ -6273,7 +6343,7 @@ export default function ShopFrontPage() {
                         onClick={
                           removeDiscountCode
                         }
-                        className="mt-2 text-[8px] font-black uppercase tracking-[0.12em] text-red-500 underline"
+                        className="mt-2 text-xs font-black uppercase tracking-[0.08em] text-red-500 underline"
                       >
                         Remove discount code
                       </button>
@@ -6290,11 +6360,11 @@ export default function ShopFrontPage() {
 
                     <div>
 
-                      <p className="text-[9px] font-semibold text-stone-400">
+                      <p className="text-sm font-semibold text-stone-600">
                         Subtotal
                       </p>
 
-                      <p className="mt-1 text-[8px] text-stone-300">
+                      <p className="mt-1 text-xs text-stone-600">
                         Discounts applied at checkout
                       </p>
 
@@ -6381,6 +6451,9 @@ export default function ShopFrontPage() {
 
       {membershipSetupOpen && requiredBeneficiarySpecs.length > 0 && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="membership-setup-title"
           className="fixed inset-0 z-[190] overflow-y-auto"
           style={{ background: storeSurface, color: pageText }}
         >
@@ -6433,10 +6506,10 @@ export default function ShopFrontPage() {
                 <p className="text-sm font-black uppercase tracking-[0.16em]" style={{ color: primary }}>
                   Almost there
                 </p>
-                <h2 className="mt-3 font-serif text-4xl italic text-white sm:text-5xl lg:text-6xl">
+                <h2 id="membership-setup-title" className="mt-3 font-serif text-4xl italic text-white sm:text-5xl lg:text-6xl">
                   Who is this membership for?
                 </h2>
-                <p className="mt-4 max-w-2xl text-base leading-7 text-white/70 sm:text-lg">
+                <p className="mt-4 max-w-2xl rooted-on-dark-muted text-base leading-7 sm:text-lg">
                   Add the details for each person covered by the membership. We use these details to connect the correct access in the MTC app. Payment is handled securely by Stripe on the next step.
                 </p>
               </div>
@@ -6477,6 +6550,7 @@ export default function ShopFrontPage() {
                             disabled={checkingOut}
                             onChange={(event) => updateBeneficiaryDraft(spec, "firstName", event.target.value)}
                             autoComplete="given-name"
+                            required
                             className="w-full rounded-xl border border-white/20 bg-black/25 px-4 py-4 text-base font-semibold text-white outline-none transition placeholder:text-white/30 focus:border-white/45 focus:bg-black/35 disabled:opacity-50"
                           />
                         </label>
@@ -6489,6 +6563,7 @@ export default function ShopFrontPage() {
                             disabled={checkingOut}
                             onChange={(event) => updateBeneficiaryDraft(spec, "lastName", event.target.value)}
                             autoComplete="family-name"
+                            required
                             className="w-full rounded-xl border border-white/20 bg-black/25 px-4 py-4 text-base font-semibold text-white outline-none transition placeholder:text-white/30 focus:border-white/45 focus:bg-black/35 disabled:opacity-50"
                           />
                         </label>
@@ -6652,7 +6727,7 @@ function MtcMembershipHub({
         >
           <div className="absolute -bottom-24 -right-16 h-72 w-72 rounded-full border-[52px] border-[#DDF247]/10" />
           <div className="relative flex h-full flex-col">
-            <span className="w-fit rounded-full bg-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-[.18em] text-[#DDF247] ring-1 ring-inset ring-white/15">
+            <span className="w-fit rounded-full bg-white/10 px-4 py-2 rooted-kicker text-xs font-black uppercase tracking-[.12em] text-[#E9F77A] ring-1 ring-inset ring-white/15">
               Rooted CIC
             </span>
 
@@ -6667,7 +6742,7 @@ function MtcMembershipHub({
               your own amount to support Rooted community projects.
             </p>
 
-            <span className="mt-auto flex items-center justify-between rounded-full bg-[#DDF247] px-6 py-4 text-[10px] font-black uppercase tracking-[.13em] text-[#1D3327]">
+            <span className="mt-auto flex items-center justify-between rounded-full bg-[#DDF247] px-6 py-4 text-sm font-black uppercase tracking-[.08em] text-[#173023]">
               Donate to Rooted
               <ArrowRight size={16} />
             </span>
@@ -6758,7 +6833,7 @@ function RootedFundraiserSection({
 
         <div className="relative grid gap-8 lg:grid-cols-[1.2fr_.8fr] lg:items-end">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-[.18em] text-[#DDF247] ring-1 ring-inset ring-white/15">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 rooted-kicker text-xs font-black uppercase tracking-[.12em] text-[#E9F77A] ring-1 ring-inset ring-white/15">
               <span className="h-1.5 w-1.5 rounded-full bg-[#DDF247]" />
               Rooted CIC Fundraising
             </div>
@@ -6771,7 +6846,7 @@ function RootedFundraiserSection({
           </div>
 
           <div className="max-w-lg lg:justify-self-end">
-            <p className="text-base leading-7 text-white/70">
+            <p className="rooted-on-dark-muted text-base leading-7">
               Help us make activity, wellbeing and community support more
               accessible across Moray. Pick something fun, donate a coffee,
               or simply give what you can.
@@ -6781,7 +6856,7 @@ function RootedFundraiserSection({
               {["Community", "Wellbeing", "Accessible activity"].map((item) => (
                 <span
                   key={item}
-                  className="rounded-full border border-white/15 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[.12em] text-white/70"
+                  className="rounded-full border border-white/15 px-3 py-1.5 rooted-meta text-xs font-bold uppercase tracking-[.08em] text-white"
                 >
                   {item}
                 </span>
@@ -6821,7 +6896,7 @@ function RootedFundraiserSection({
 
                   <div className="relative flex items-start justify-between gap-5">
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-[.18em] text-[#315B45]">
+                      <p className="rooted-kicker text-xs font-black uppercase tracking-[.12em] text-[#254735]">
                         {eyebrow}
                       </p>
 
@@ -6835,14 +6910,15 @@ function RootedFundraiserSection({
                     </span>
                   </div>
 
-                  <p className="relative mt-6 flex-1 text-sm leading-6 text-stone-500">
+                  <p className="rooted-body relative mt-6 flex-1 text-base leading-7">
                     {product.description || "Support Rooted CIC through MTC."}
                   </p>
 
                   <button
                     type="button"
+                    aria-label={`${cta}: ${product.name}`}
                     onClick={() => onAdd(product)}
-                    className="relative mt-8 flex w-full items-center justify-between rounded-full bg-[#315B45] px-5 py-4 text-[10px] font-black uppercase tracking-[.13em] text-white transition hover:bg-[#244535]"
+                    className="relative mt-8 flex w-full items-center justify-between rounded-full bg-[#315B45] px-5 py-4 text-sm font-black uppercase tracking-[.08em] text-white transition hover:bg-[#244535]"
                   >
                     <span>{cta}</span>
                     <ArrowRight size={15} />
@@ -6866,7 +6942,7 @@ function RootedFundraiserSection({
                 />
 
                 <div className="relative">
-                  <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#315B45]">
+                  <p className="rooted-kicker text-xs font-black uppercase tracking-[.12em] text-[#254735]">
                     Give any amount
                   </p>
 
@@ -6876,7 +6952,7 @@ function RootedFundraiserSection({
                     matters.
                   </h4>
 
-                  <p className="mt-6 max-w-sm text-sm font-medium leading-6 text-[#315B45]/80">
+                  <p className="mt-6 max-w-sm text-base font-medium leading-7 text-[#254735]">
                     No donation is too small. Choose an amount that suits you
                     and help Rooted keep creating opportunities for the local
                     community.
@@ -6887,7 +6963,7 @@ function RootedFundraiserSection({
               <div className="bg-[#315B45] p-8 text-white sm:p-10 lg:p-12">
                 <div className="flex items-end justify-between gap-4">
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-[.18em] text-[#DDF247]">
+                    <p className="rooted-kicker text-xs font-black uppercase tracking-[.12em] text-[#E9F77A]">
                       Direct donation
                     </p>
                     <h5 className="mt-2 text-2xl font-black uppercase tracking-[-.035em]">
@@ -6895,7 +6971,7 @@ function RootedFundraiserSection({
                     </h5>
                   </div>
 
-                  <span className="hidden text-[9px] font-bold uppercase tracking-[.14em] text-white/40 sm:block">
+                  <span className="hidden rooted-meta text-xs font-bold uppercase tracking-[.08em] text-white sm:block">
                     Secure checkout
                   </span>
                 </div>
@@ -6908,6 +6984,8 @@ function RootedFundraiserSection({
                       <button
                         key={amount}
                         type="button"
+                        aria-pressed={selected}
+                        aria-label={`Donate £${amount}`}
                         onClick={() => setDonationAmount(String(amount))}
                         className={`rounded-2xl border px-4 py-4 text-lg font-black transition ${
                           selected
@@ -6923,7 +7001,7 @@ function RootedFundraiserSection({
 
                 <div className="my-6 flex items-center gap-4">
                   <span className="h-px flex-1 bg-white/15" />
-                  <span className="text-[9px] font-black uppercase tracking-[.15em] text-white/40">
+                  <span className="rooted-meta text-xs font-black uppercase tracking-[.08em] text-white">
                     Or another amount
                   </span>
                   <span className="h-px flex-1 bg-white/15" />
@@ -6934,7 +7012,13 @@ function RootedFundraiserSection({
                     £
                   </span>
 
+                  <label htmlFor="rooted-donation-amount" className="sr-only">
+                    Custom donation amount in pounds
+                  </label>
                   <input
+                    id="rooted-donation-amount"
+                    aria-describedby="rooted-donation-help"
+                    aria-invalid={!donationIsValid}
                     type="number"
                     min="1"
                     max="5000"
@@ -6950,13 +7034,24 @@ function RootedFundraiserSection({
                 </div>
 
                 {!donationIsValid && (
-                  <p className="mt-3 text-xs font-semibold text-[#DDF247]">
+                  <p id="rooted-donation-help" role="alert" className="mt-3 text-sm font-semibold text-[#F4FAAE]">
                     Enter a donation between £1 and £5,000.
+                  </p>
+                )}
+
+                {donationIsValid && (
+                  <p id="rooted-donation-help" className="sr-only">
+                    Enter an amount between £1 and £5,000.
                   </p>
                 )}
 
                 <button
                   type="button"
+                  aria-label={
+                    donationIsValid
+                      ? `Add ${formatCurrency(parsedDonation)} donation to basket`
+                      : "Enter a valid donation amount"
+                  }
                   disabled={!donationIsValid}
                   onClick={() =>
                     onAdd(
@@ -6964,7 +7059,7 @@ function RootedFundraiserSection({
                       Number(parsedDonation.toFixed(2))
                     )
                   }
-                  className="mt-4 flex w-full items-center justify-between rounded-full bg-[#DDF247] px-6 py-4 text-[10px] font-black uppercase tracking-[.13em] text-[#1D3327] transition hover:-translate-y-0.5 hover:bg-[#E8F86F] disabled:cursor-not-allowed disabled:opacity-35"
+                  className="mt-4 flex w-full items-center justify-between rounded-full bg-[#DDF247] px-6 py-4 text-sm font-black uppercase tracking-[.08em] text-[#173023] transition hover:-translate-y-0.5 hover:bg-[#E8F86F] disabled:cursor-not-allowed disabled:opacity-35"
                 >
                   <span>
                     Donate{" "}
@@ -6975,7 +7070,7 @@ function RootedFundraiserSection({
                   <ArrowRight size={15} />
                 </button>
 
-                <p className="mt-4 text-center text-[10px] leading-5 text-white/45">
+                <p className="mt-4 text-center text-sm leading-6 text-[#E5EEE8]">
                   Every contribution supports Rooted CIC community projects.
                 </p>
               </div>
@@ -7703,7 +7798,7 @@ function ProductCard({
                   : primary,
             }}
           >
-            <span className="text-[8px] font-black uppercase tracking-[0.13em]">
+            <span className="text-xs font-black uppercase tracking-[0.08em]">
               {outOfStock &&
               !requestAction
                 ? "Unavailable"
@@ -7788,7 +7883,7 @@ function TrustItem({
   primary: string;
 }) {
   return (
-    <div className="flex items-center gap-2 text-[9px] font-semibold text-stone-400">
+    <div className="flex items-center gap-2 text-sm font-semibold text-stone-600">
 
       <span
         style={{

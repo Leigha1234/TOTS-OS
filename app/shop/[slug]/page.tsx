@@ -204,6 +204,10 @@ type Product = {
 type CartLine = {
   product: Product;
   quantity: number;
+
+  // Used only for products that explicitly support a customer-selected
+  // price. The checkout API independently validates this value.
+  customUnitPrice?: number;
 };
 
 type BeneficiaryType =
@@ -2288,6 +2292,14 @@ export default function ShopFrontPage() {
     useCallback(
       (line: CartLine) => {
         if (
+          typeof line.customUnitPrice === "number" &&
+          Number.isFinite(line.customUnitPrice) &&
+          line.customUnitPrice > 0
+        ) {
+          return line.customUnitPrice;
+        }
+
+        if (
           hasCouplesMembershipInCart &&
           isFamilyKidsAddonProduct(
             line.product
@@ -2443,7 +2455,8 @@ export default function ShopFrontPage() {
   // ==========================================================
 
   function addToCart(
-    product: Product
+    product: Product,
+    customUnitPrice?: number
   ) {
     if (
       isOutOfStock(
@@ -2502,6 +2515,20 @@ export default function ShopFrontPage() {
 
             quantity:
               nextQuantity,
+
+            ...(typeof customUnitPrice === "number" &&
+            Number.isFinite(customUnitPrice) &&
+            customUnitPrice > 0
+              ? {
+                  customUnitPrice:
+                    Number(customUnitPrice.toFixed(2)),
+                }
+              : existing?.customUnitPrice
+                ? {
+                    customUnitPrice:
+                      existing.customUnitPrice,
+                  }
+                : {}),
           },
         };
       }
@@ -2881,6 +2908,15 @@ export default function ShopFrontPage() {
 
             quantity:
               line.quantity,
+
+            ...(typeof line.customUnitPrice === "number" &&
+            Number.isFinite(line.customUnitPrice) &&
+            line.customUnitPrice > 0
+              ? {
+                  customUnitPrice:
+                    line.customUnitPrice,
+                }
+              : {}),
           })
         );
 
@@ -4778,11 +4814,29 @@ export default function ShopFrontPage() {
           {visibleProducts.length >
           0 ? (
             membershipLayout ? (
-              <MembershipShopSections
-                products={visibleProducts}
-                primary={primary}
-                onChoose={addToCart}
-              />
+              <>
+                <MembershipShopSections
+                  products={visibleProducts.filter(
+                    (product) =>
+                      String(product.category || "").toLowerCase() !==
+                      "rooted cic"
+                  )}
+                  primary={primary}
+                  onChoose={addToCart}
+                />
+
+                {isMTC && (
+                  <RootedFundraiserSection
+                    products={visibleProducts.filter(
+                      (product) =>
+                        String(product.category || "").toLowerCase() ===
+                        "rooted cic"
+                    )}
+                    primary={primary}
+                    onAdd={addToCart}
+                  />
+                )}
+              </>
             ) : isOrganisedTypes && category === "All" && !search.trim() ? (
               <OrganisedTypesServiceSections
                 products={visibleProducts}
@@ -6483,6 +6537,215 @@ export default function ShopFrontPage() {
 // PRODUCT CARD
 // ============================================================
 
+
+function RootedFundraiserSection({
+  products,
+  primary,
+  onAdd,
+}: {
+  products: Product[];
+  primary: string;
+  onAdd: (product: Product, customUnitPrice?: number) => void;
+}) {
+  const [donationAmount, setDonationAmount] = useState("10");
+
+  if (!products.length) {
+    return null;
+  }
+
+  const directDonation = products.find(
+    (product) =>
+      String(product.slug || "").toLowerCase() ===
+      "rooted-direct-donation"
+  );
+
+  const fixedProducts = products.filter(
+    (product) =>
+      String(product.slug || "").toLowerCase() !==
+      "rooted-direct-donation"
+  );
+
+  const parsedDonation = Number(donationAmount);
+  const donationIsValid =
+    Number.isFinite(parsedDonation) &&
+    parsedDonation >= 1 &&
+    parsedDonation <= 5000;
+
+  const quickAmounts = [5, 10, 20, 50];
+
+  return (
+    <section
+      id="rooted-fundraising"
+      className="mt-16 overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.04] p-5 sm:p-8 lg:p-10"
+    >
+      <div className="flex flex-col gap-4 border-b border-white/10 pb-7 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p
+            className="text-sm font-black uppercase tracking-[.16em]"
+            style={{ color: primary }}
+          >
+            Rooted × MTC
+          </p>
+
+          <h3 className="mt-2 text-3xl font-black uppercase tracking-[-.035em] sm:text-4xl lg:text-5xl">
+            Support Rooted.
+            <br />
+            Support your community.
+          </h3>
+
+          <p
+            className="mt-4 max-w-2xl text-base leading-7"
+            style={{ color: "var(--store-muted)" }}
+          >
+            Get involved with our Open Day fundraising. Every purchase helps
+            Rooted create accessible activity, wellbeing support and stronger
+            community connections.
+          </p>
+        </div>
+
+        <div className="rounded-full border border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[.14em] text-white/70">
+          Rooted CIC Fundraising
+        </div>
+      </div>
+
+      {fixedProducts.length > 0 && (
+        <div className="mt-7 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {fixedProducts.map((product) => (
+            <div
+              key={product.id}
+              className="flex min-h-[250px] flex-col rounded-[24px] border border-white/10 bg-black/20 p-6"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p
+                    className="text-[9px] font-black uppercase tracking-[.16em]"
+                    style={{ color: primary }}
+                  >
+                    Fundraiser
+                  </p>
+                  <h4 className="mt-2 text-xl font-black uppercase tracking-[-.02em] text-white">
+                    {product.name}
+                  </h4>
+                </div>
+
+                <span className="shrink-0 font-serif text-2xl italic text-white">
+                  {formatCurrency(Number(product.price || 0))}
+                </span>
+              </div>
+
+              <p className="mt-4 flex-1 text-sm leading-6 text-white/60">
+                {product.description || "Support Rooted CIC through MTC."}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => onAdd(product)}
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-[10px] font-black uppercase tracking-[.12em] text-black transition hover:opacity-90"
+                style={{ background: primary }}
+              >
+                <ShoppingBag size={14} />
+                Add to basket
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {directDonation && (
+        <div className="mt-6 rounded-[26px] border border-white/10 bg-black/25 p-6 sm:p-8">
+          <div className="grid gap-7 lg:grid-cols-[1fr_1.1fr] lg:items-center">
+            <div>
+              <p
+                className="text-[9px] font-black uppercase tracking-[.16em]"
+                style={{ color: primary }}
+              >
+                Give any amount
+              </p>
+              <h4 className="mt-2 text-2xl font-black uppercase tracking-[-.025em] text-white sm:text-3xl">
+                Donate directly to Rooted
+              </h4>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-white/60">
+                {directDonation.description ||
+                  "Every contribution helps Rooted create accessible activity, wellbeing support and stronger community connections."}
+              </p>
+            </div>
+
+            <div>
+              <div className="grid grid-cols-4 gap-2">
+                {quickAmounts.map((amount) => {
+                  const selected = Number(donationAmount) === amount;
+
+                  return (
+                    <button
+                      key={amount}
+                      type="button"
+                      onClick={() => setDonationAmount(String(amount))}
+                      className={`rounded-xl border px-3 py-3 text-sm font-black transition ${
+                        selected
+                          ? "border-transparent text-black"
+                          : "border-white/10 bg-white/5 text-white hover:bg-white/10"
+                      }`}
+                      style={selected ? { background: primary } : undefined}
+                    >
+                      £{amount}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <label className="mt-3 block">
+                <span className="mb-2 block text-[9px] font-black uppercase tracking-[.14em] text-white/50">
+                  Or enter another amount
+                </span>
+
+                <div className="flex items-center rounded-xl border border-white/10 bg-white/5 px-4">
+                  <span className="font-black text-white/60">£</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5000"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={donationAmount}
+                    onChange={(event) => setDonationAmount(event.target.value)}
+                    className="min-w-0 flex-1 bg-transparent px-3 py-3 text-base font-black text-white outline-none"
+                    placeholder="10.00"
+                  />
+                </div>
+              </label>
+
+              {!donationIsValid && (
+                <p className="mt-2 text-xs font-semibold text-red-300">
+                  Enter a donation between £1 and £5,000.
+                </p>
+              )}
+
+              <button
+                type="button"
+                disabled={!donationIsValid}
+                onClick={() =>
+                  onAdd(
+                    directDonation,
+                    Number(parsedDonation.toFixed(2))
+                  )
+                }
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3.5 text-[10px] font-black uppercase tracking-[.12em] text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                style={{ background: primary }}
+              >
+                <ShoppingBag size={14} />
+                Add {donationIsValid ? formatCurrency(parsedDonation) : "donation"} to basket
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ============================================================
+// MTC MEMBERSHIP SECTIONS
+// ============================================================
 
 function MembershipShopSections({
   products,

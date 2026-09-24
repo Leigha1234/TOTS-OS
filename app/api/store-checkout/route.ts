@@ -97,6 +97,7 @@ type BeneficiaryType =
 type CheckoutCartItem = {
   productId: string;
   quantity: number;
+  customUnitPrice?: number;
 };
 
 type CheckoutBeneficiary = {
@@ -504,6 +505,47 @@ function priceToPence(
   return Math.round(
     value * 100
   );
+}
+
+// ============================================================
+// CUSTOMER-SELECTED PRICE PRODUCTS
+// ============================================================
+
+const ROOTED_DIRECT_DONATION_SLUG =
+  "rooted-direct-donation";
+
+const MIN_ROOTED_DONATION = 1;
+const MAX_ROOTED_DONATION = 5000;
+
+function supportsCustomUnitPrice(
+  product: StoreProductRow
+) {
+  return (
+    cleanString(product.slug).toLowerCase() ===
+    ROOTED_DIRECT_DONATION_SLUG
+  );
+}
+
+function validateCustomUnitPrice(
+  product: StoreProductRow,
+  value: unknown
+) {
+  if (!supportsCustomUnitPrice(product)) {
+    return null;
+  }
+
+  const amount = safeNumber(value, 0);
+
+  if (
+    amount < MIN_ROOTED_DONATION ||
+    amount > MAX_ROOTED_DONATION
+  ) {
+    throw new Error(
+      `Choose a donation between £${MIN_ROOTED_DONATION.toFixed(2)} and £${MAX_ROOTED_DONATION.toFixed(2)}.`
+    );
+  }
+
+  return moneyRound(amount);
 }
 
 // ============================================================
@@ -2550,6 +2592,12 @@ export async function POST(
         number
       >();
 
+    const customUnitPriceByProduct =
+      new Map<
+        string,
+        number
+      >();
+
     for (
       const item of
       requestedItems
@@ -2582,6 +2630,40 @@ export async function POST(
         ) +
           quantity
       );
+
+      const requestedCustomUnitPrice =
+        safeNumber(
+          item?.customUnitPrice,
+          0
+        );
+
+      if (
+        requestedCustomUnitPrice > 0
+      ) {
+        const existingCustomPrice =
+          customUnitPriceByProduct.get(
+            productId
+          );
+
+        if (
+          existingCustomPrice !== undefined &&
+          moneyRound(existingCustomPrice) !==
+            moneyRound(requestedCustomUnitPrice)
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                "The same product cannot be submitted with different custom prices.",
+            },
+            { status: 400 }
+          );
+        }
+
+        customUnitPriceByProduct.set(
+          productId,
+          moneyRound(requestedCustomUnitPrice)
+        );
+      }
     }
 
     const productIds =
@@ -2864,12 +2946,58 @@ export async function POST(
         );
       }
 
+      const submittedCustomPrice =
+        customUnitPriceByProduct.get(
+          product.id
+        );
+
+      if (
+        submittedCustomPrice !== undefined &&
+        !supportsCustomUnitPrice(product)
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              `${product.name} does not support a custom price.`,
+          },
+          { status: 400 }
+        );
+      }
+
       let unitPrice =
         Number(
           product.price
         );
 
       if (
+        supportsCustomUnitPrice(product)
+      ) {
+        try {
+          const customUnitPrice =
+            validateCustomUnitPrice(
+              product,
+              submittedCustomPrice
+            );
+
+          if (customUnitPrice === null) {
+            throw new Error(
+              "Choose a donation amount."
+            );
+          }
+
+          unitPrice = customUnitPrice;
+        } catch (donationError) {
+          return NextResponse.json(
+            {
+              error:
+                donationError instanceof Error
+                  ? donationError.message
+                  : "Choose a valid donation amount.",
+            },
+            { status: 400 }
+          );
+        }
+      } else if (
         hasCouplesMembershipRequested &&
         isFamilyKidsAddonProduct(product)
       ) {

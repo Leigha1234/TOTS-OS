@@ -1329,6 +1329,24 @@ export default function ShopFrontPage() {
   const requestedReturnTo =
     searchParams?.get("returnTo") || "";
 
+  const requestedMtcView =
+    (searchParams?.get("view") || "").toLowerCase();
+
+  const mtcView =
+    requestedMtcView === "memberships" ||
+    requestedMtcView === "rooted"
+      ? requestedMtcView
+      : "hub";
+
+  const mtcStoreBaseUrl =
+    `/shop/${encodeURIComponent(slug)}`;
+
+  const mtcMembershipsStoreUrl =
+    `${mtcStoreBaseUrl}?view=memberships`;
+
+  const mtcRootedStoreUrl =
+    `${mtcStoreBaseUrl}?view=rooted`;
+
   const mtcReturnUrl = (() => {
     if (!isMTC || !requestedReturnTo) {
       return MTC_MEMBERSHIP_URL;
@@ -4055,7 +4073,30 @@ export default function ShopFrontPage() {
                 <a href={`${MTC_APP_URL}/prs`} className="text-xs font-semibold no-underline transition">Progress</a>
                 <a href={`${MTC_APP_URL}/account`} className="text-xs font-semibold no-underline transition">Account</a>
                 <a href={mtcReturnUrl} className="text-xs font-semibold no-underline transition">Membership</a>
-                <span className="mtc-membership-active rounded-full px-4 py-2 text-xs font-black">Memberships</span>
+                <a
+                  href={mtcStoreBaseUrl}
+                  className={`rounded-full px-4 py-2 text-xs font-black no-underline ${
+                    mtcView === "hub" ? "mtc-membership-active" : ""
+                  }`}
+                >
+                  Membership Hub
+                </a>
+                <a
+                  href={mtcMembershipsStoreUrl}
+                  className={`rounded-full px-4 py-2 text-xs font-black no-underline ${
+                    mtcView === "memberships" ? "mtc-membership-active" : ""
+                  }`}
+                >
+                  Memberships
+                </a>
+                <a
+                  href={mtcRootedStoreUrl}
+                  className={`rounded-full px-4 py-2 text-xs font-black no-underline ${
+                    mtcView === "rooted" ? "mtc-membership-active" : ""
+                  }`}
+                >
+                  Rooted
+                </a>
               </>
             ) : (
               <>
@@ -4168,15 +4209,36 @@ export default function ShopFrontPage() {
               />
 
               {isMTC && (
-                <MobileMenuLink
-                  href={MTC_MEMBERSHIP_URL}
-                  label="Back to MTC App"
-                  onClick={() =>
-                    setMobileMenuOpen(
-                      false
-                    )
-                  }
-                />
+                <>
+                  <MobileMenuLink
+                    href={MTC_MEMBERSHIP_URL}
+                    label="Back to MTC App"
+                    onClick={() =>
+                      setMobileMenuOpen(false)
+                    }
+                  />
+                  <MobileMenuLink
+                    href={mtcStoreBaseUrl}
+                    label="Membership Hub"
+                    onClick={() =>
+                      setMobileMenuOpen(false)
+                    }
+                  />
+                  <MobileMenuLink
+                    href={mtcMembershipsStoreUrl}
+                    label="View Memberships"
+                    onClick={() =>
+                      setMobileMenuOpen(false)
+                    }
+                  />
+                  <MobileMenuLink
+                    href={mtcRootedStoreUrl}
+                    label="Support Rooted"
+                    onClick={() =>
+                      setMobileMenuOpen(false)
+                    }
+                  />
+                </>
               )}
 
               {featuredProducts.length >
@@ -4815,17 +4877,13 @@ export default function ShopFrontPage() {
           0 ? (
             membershipLayout ? (
               <>
-                <MembershipShopSections
-                  products={visibleProducts.filter(
-                    (product) =>
-                      String(product.category || "").toLowerCase() !==
-                      "rooted cic"
-                  )}
-                  primary={primary}
-                  onChoose={addToCart}
-                />
-
-                {isMTC && (
+                {isMTC && mtcView === "hub" ? (
+                  <MtcMembershipHub
+                    membershipsUrl={mtcMembershipsStoreUrl}
+                    rootedUrl={mtcRootedStoreUrl}
+                    appMembershipUrl={mtcReturnUrl}
+                  />
+                ) : isMTC && mtcView === "rooted" ? (
                   <RootedFundraiserSection
                     products={visibleProducts.filter(
                       (product) =>
@@ -4834,6 +4892,16 @@ export default function ShopFrontPage() {
                     )}
                     primary={primary}
                     onAdd={addToCart}
+                  />
+                ) : (
+                  <MembershipShopSections
+                    products={visibleProducts.filter(
+                      (product) =>
+                        String(product.category || "").toLowerCase() !==
+                        "rooted cic"
+                    )}
+                    primary={primary}
+                    onChoose={addToCart}
                   />
                 )}
               </>
@@ -6537,6 +6605,101 @@ export default function ShopFrontPage() {
 // PRODUCT CARD
 // ============================================================
 
+
+function MtcMembershipHub({
+  membershipsUrl,
+  rootedUrl,
+  appMembershipUrl,
+}: {
+  membershipsUrl: string;
+  rootedUrl: string;
+  appMembershipUrl: string;
+}) {
+  return (
+    <div className="mt-10">
+      <div className="grid gap-5 lg:grid-cols-2">
+        <a
+          href={membershipsUrl}
+          className="group relative min-h-[390px] overflow-hidden rounded-[28px] border border-white/10 bg-[#102535] p-8 text-white no-underline transition hover:-translate-y-1 hover:border-[#F3E600]/30 sm:p-10 lg:p-12"
+        >
+          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full border-[48px] border-white/[.035]" />
+          <div className="relative flex h-full flex-col">
+            <span className="w-fit rounded-full bg-[#F3E600]/10 px-4 py-2 text-[9px] font-black uppercase tracking-[.18em] text-[#F3E600] ring-1 ring-inset ring-[#F3E600]/20">
+              MTC Memberships
+            </span>
+
+            <h3 className="mt-8 max-w-md text-[clamp(2.6rem,5vw,4.6rem)] font-black leading-[.88] tracking-[-.055em]">
+              Find your
+              <br />
+              membership.
+            </h3>
+
+            <p className="mt-6 max-w-md text-sm leading-7 text-white/60">
+              Compare Adult, Couples and Kids memberships, choose the right
+              weekly allowance and start your membership securely.
+            </p>
+
+            <span className="mt-auto flex items-center justify-between rounded-full bg-[#F3E600] px-6 py-4 text-[10px] font-black uppercase tracking-[.13em] text-[#07131F]">
+              View memberships
+              <ArrowRight size={16} />
+            </span>
+          </div>
+        </a>
+
+        <a
+          href={rootedUrl}
+          className="group relative min-h-[390px] overflow-hidden rounded-[28px] bg-[#315B45] p-8 text-white no-underline transition hover:-translate-y-1 sm:p-10 lg:p-12"
+        >
+          <div className="absolute -bottom-24 -right-16 h-72 w-72 rounded-full border-[52px] border-[#DDF247]/10" />
+          <div className="relative flex h-full flex-col">
+            <span className="w-fit rounded-full bg-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-[.18em] text-[#DDF247] ring-1 ring-inset ring-white/15">
+              Rooted CIC
+            </span>
+
+            <h3 className="mt-8 max-w-md text-[clamp(2.6rem,5vw,4.6rem)] font-black leading-[.88] tracking-[-.055em]">
+              Support
+              <br />
+              your community.
+            </h3>
+
+            <p className="mt-6 max-w-md text-sm leading-7 text-white/65">
+              Buy a Fun Day Pass, raffle strips, donate a coffee or choose
+              your own amount to support Rooted community projects.
+            </p>
+
+            <span className="mt-auto flex items-center justify-between rounded-full bg-[#DDF247] px-6 py-4 text-[10px] font-black uppercase tracking-[.13em] text-[#1D3327]">
+              Donate to Rooted
+              <ArrowRight size={16} />
+            </span>
+          </div>
+        </a>
+      </div>
+
+      <div className="mt-5 flex flex-col gap-4 rounded-[22px] border border-white/10 bg-white/[.035] p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[.18em] text-[#F3E600]">
+            Already a member?
+          </p>
+          <p className="mt-2 text-sm text-white/60">
+            Manage your existing membership and account from the MTC app.
+          </p>
+        </div>
+
+        <a
+          href={appMembershipUrl}
+          className="inline-flex shrink-0 items-center justify-center gap-3 rounded-full border border-white/15 px-5 py-3 text-[9px] font-black uppercase tracking-[.13em] text-white no-underline transition hover:bg-white/10"
+        >
+          Manage membership
+          <ArrowRight size={14} />
+        </a>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// ROOTED CIC FUNDRAISING
+// ============================================================
 
 function RootedFundraiserSection({
   products,

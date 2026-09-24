@@ -2454,17 +2454,6 @@ export default function ShopFrontPage() {
   // CART ACTIONS
   // ==========================================================
 
-  function isRootedDirectDonation(
-    product: Product
-  ) {
-    return (
-      String(
-        product.slug || ""
-      ).toLowerCase() ===
-      "rooted-direct-donation"
-    );
-  }
-
   function addToCart(
     product: Product,
     customUnitPrice?: number
@@ -2477,40 +2466,6 @@ export default function ShopFrontPage() {
       return;
     }
 
-    if (
-      isRootedDirectDonation(
-        product
-      )
-    ) {
-      if (
-        typeof customUnitPrice !== "number" ||
-        !Number.isFinite(
-          customUnitPrice
-        ) ||
-        customUnitPrice < 1 ||
-        customUnitPrice > 5000
-      ) {
-        setCartOpen(false);
-
-        requestAnimationFrame(
-          () => {
-            document
-              .getElementById(
-                "rooted-direct-donation"
-              )
-              ?.scrollIntoView({
-                behavior:
-                  "smooth",
-                block:
-                  "center",
-              });
-          }
-        );
-
-        return;
-      }
-    }
-
     setCheckoutError(null);
 
     setCart(
@@ -2521,14 +2476,10 @@ export default function ShopFrontPage() {
           ];
 
         let nextQuantity =
-          isRootedDirectDonation(
-            product
-          )
-            ? 1
-            : existing
-              ? existing.quantity +
-                1
-              : 1;
+          existing
+            ? existing.quantity +
+              1
+            : 1;
 
         const available =
           getAvailableQuantity(
@@ -5844,69 +5795,61 @@ export default function ShopFrontPage() {
 
                               <div className="mt-3 flex items-center justify-between">
 
-                                {isRootedDirectDonation(
-                                  line.product
-                                ) ? (
-                                  <div className="rounded-full border border-stone-200 bg-white px-3 py-2 text-[9px] font-bold text-stone-500">
-                                    Chosen donation
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center rounded-full border border-stone-200 bg-white p-1">
+                                <div className="flex items-center rounded-full border border-stone-200 bg-white p-1">
 
-                                    <button
-                                      type="button"
-                                      aria-label="Decrease quantity"
-                                      disabled={
-                                        checkingOut
-                                      }
-                                      onClick={() =>
-                                        setQuantity(
-                                          line.product.id,
-                                          line.quantity -
-                                            1
-                                        )
-                                      }
-                                      className="flex h-7 w-7 items-center justify-center rounded-full text-stone-500 hover:bg-stone-50 disabled:opacity-40"
-                                    >
-                                      <Minus
-                                        size={10}
-                                      />
-                                    </button>
+                                  <button
+                                    type="button"
+                                    aria-label="Decrease quantity"
+                                    disabled={
+                                      checkingOut
+                                    }
+                                    onClick={() =>
+                                      setQuantity(
+                                        line.product.id,
+                                        line.quantity -
+                                          1
+                                      )
+                                    }
+                                    className="flex h-7 w-7 items-center justify-center rounded-full text-stone-500 hover:bg-stone-50 disabled:opacity-40"
+                                  >
+                                    <Minus
+                                      size={10}
+                                    />
+                                  </button>
 
-                                    <span className="min-w-7 text-center text-[10px] font-bold">
-                                      {
-                                        line.quantity
-                                      }
-                                    </span>
+                                  <span className="min-w-7 text-center text-[10px] font-bold">
+                                    {
+                                      line.quantity
+                                    }
+                                  </span>
 
-                                    <button
-                                      type="button"
-                                      aria-label="Increase quantity"
-                                      disabled={
-                                        checkingOut ||
-                                        (
-                                          maxStock !==
-                                            null &&
-                                          line.quantity >=
-                                            maxStock
-                                        )
-                                      }
-                                      onClick={() =>
-                                        setQuantity(
-                                          line.product.id,
-                                          line.quantity +
-                                            1
-                                        )
-                                      }
-                                      className="flex h-7 w-7 items-center justify-center rounded-full text-stone-500 hover:bg-stone-50 disabled:opacity-30"
-                                    >
-                                      <Plus
-                                        size={10}
-                                      />
-                                    </button>
+                                  <button
+                                    type="button"
+                                    aria-label="Increase quantity"
+                                    disabled={
+                                      checkingOut ||
+                                      (
+                                        maxStock !==
+                                          null &&
+                                        line.quantity >=
+                                          maxStock
+                                      )
+                                    }
+                                    onClick={() =>
+                                      setQuantity(
+                                        line.product.id,
+                                        line.quantity +
+                                          1
+                                      )
+                                    }
+                                    className="flex h-7 w-7 items-center justify-center rounded-full text-stone-500 hover:bg-stone-50 disabled:opacity-30"
+                                  >
+                                    <Plus
+                                      size={10}
+                                    />
+                                  </button>
 
-                                  </div>
-                                )}
+                                </div>
 
                                 <div className="text-right">
 
@@ -6633,77 +6576,82 @@ function RootedFundraiserSection({
   return (
     <section
       id="rooted-fundraising"
-      className="mt-16 overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.04] p-5 sm:p-8 lg:p-10"
+      className="mt-20 border-t border-stone-200 pt-16 sm:mt-24 sm:pt-20"
     >
-      <div className="flex flex-col gap-4 border-b border-white/10 pb-7 lg:flex-row lg:items-end lg:justify-between">
+      <div className="grid gap-8 lg:grid-cols-[1fr_.8fr] lg:items-end">
         <div>
           <p
-            className="text-sm font-black uppercase tracking-[.16em]"
+            className="text-[10px] font-black uppercase tracking-[.2em]"
             style={{ color: primary }}
           >
-            Rooted × MTC
+            Rooted × Moray Training Club
           </p>
 
-          <h3 className="mt-2 text-3xl font-black uppercase tracking-[-.035em] sm:text-4xl lg:text-5xl">
+          <h3 className="mt-4 max-w-3xl text-[clamp(2.5rem,6vw,5.5rem)] font-black uppercase leading-[.86] tracking-[-.055em] text-stone-950">
             Support Rooted.
             <br />
             Support your community.
           </h3>
-
-          <p
-            className="mt-4 max-w-2xl text-base leading-7"
-            style={{ color: "var(--store-muted)" }}
-          >
-            Get involved with our Open Day fundraising. Every purchase helps
-            Rooted create accessible activity, wellbeing support and stronger
-            community connections.
-          </p>
         </div>
 
-        <div className="rounded-full border border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[.14em] text-white/70">
-          Rooted CIC Fundraising
-        </div>
+        <p className="max-w-xl text-base leading-7 text-stone-500 lg:justify-self-end lg:pb-2">
+          Every purchase helps Rooted create accessible activity, wellbeing
+          support and stronger community connections.
+        </p>
       </div>
 
       {fixedProducts.length > 0 && (
-        <div className="mt-7 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {fixedProducts.map((product) => (
-            <div
+        <div className="mt-12 grid border-y border-stone-200 md:grid-cols-3">
+          {fixedProducts.map((product, index) => (
+            <article
               key={product.id}
-              className="flex min-h-[250px] flex-col rounded-[24px] border border-white/10 bg-black/20 p-6"
+              className={`flex min-h-[310px] flex-col bg-white py-8 ${
+                index > 0
+                  ? "border-t border-stone-200 md:border-l md:border-t-0 md:pl-8"
+                  : ""
+              } ${
+                index < fixedProducts.length - 1
+                  ? "md:pr-8"
+                  : ""
+              }`}
             >
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start justify-between gap-6">
                 <div>
                   <p
-                    className="text-[9px] font-black uppercase tracking-[.16em]"
+                    className="text-[9px] font-black uppercase tracking-[.18em]"
                     style={{ color: primary }}
                   >
-                    Fundraiser
+                    Rooted fundraiser
                   </p>
-                  <h4 className="mt-2 text-xl font-black uppercase tracking-[-.02em] text-white">
+
+                  <h4 className="mt-3 max-w-[280px] text-2xl font-black uppercase leading-[.95] tracking-[-.035em] text-stone-950">
                     {product.name}
                   </h4>
                 </div>
 
-                <span className="shrink-0 font-serif text-2xl italic text-white">
+                <span className="shrink-0 font-serif text-2xl italic text-stone-950">
                   {formatCurrency(Number(product.price || 0))}
                 </span>
               </div>
 
-              <p className="mt-4 flex-1 text-sm leading-6 text-white/60">
+              <p className="mt-6 flex-1 text-sm leading-6 text-stone-500">
                 {product.description || "Support Rooted CIC through MTC."}
               </p>
 
               <button
                 type="button"
                 onClick={() => onAdd(product)}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-[10px] font-black uppercase tracking-[.12em] text-black transition hover:opacity-90"
-                style={{ background: primary }}
+                className="mt-8 flex w-full items-center justify-between rounded-full bg-stone-950 px-6 py-4 text-[10px] font-black uppercase tracking-[.14em] text-white transition hover:-translate-y-0.5 hover:bg-stone-800"
               >
-                <ShoppingBag size={14} />
-                Add to basket
+                <span>
+                  {String(product.slug || "").toLowerCase() ===
+                  "rooted-donate-a-coffee"
+                    ? "Donate"
+                    : "Add to basket"}
+                </span>
+                <ArrowRight size={15} />
               </button>
-            </div>
+            </article>
           ))}
         </div>
       )}
@@ -6711,41 +6659,57 @@ function RootedFundraiserSection({
       {directDonation && (
         <div
           id="rooted-direct-donation"
-          className="mt-6 rounded-[26px] border border-white/10 bg-black/25 p-6 sm:p-8"
+          className="mt-10 overflow-hidden rounded-[28px] border border-stone-200 bg-stone-950 text-white shadow-[0_24px_70px_rgba(0,0,0,.10)]"
         >
-          <div className="grid gap-7 lg:grid-cols-[1fr_1.1fr] lg:items-center">
-            <div>
-              <p
-                className="text-[9px] font-black uppercase tracking-[.16em]"
-                style={{ color: primary }}
-              >
-                Give any amount
-              </p>
-              <h4 className="mt-2 text-2xl font-black uppercase tracking-[-.025em] text-white sm:text-3xl">
-                Donate directly to Rooted
-              </h4>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-white/60">
-                {directDonation.description ||
-                  "Every contribution helps Rooted create accessible activity, wellbeing support and stronger community connections."}
+          <div className="grid lg:grid-cols-[.9fr_1.1fr]">
+            <div className="flex flex-col justify-between border-b border-white/10 p-8 sm:p-10 lg:border-b-0 lg:border-r lg:p-12">
+              <div>
+                <p
+                  className="text-[10px] font-black uppercase tracking-[.2em]"
+                  style={{ color: primary }}
+                >
+                  Direct donation
+                </p>
+
+                <h4 className="mt-4 text-4xl font-black uppercase leading-[.9] tracking-[-.045em] sm:text-5xl">
+                  Give a little.
+                  <br />
+                  Help a lot.
+                </h4>
+
+                <p className="mt-6 max-w-md text-sm leading-6 text-white/60">
+                  {directDonation.description ||
+                    "Every contribution helps Rooted create accessible activity, wellbeing support and stronger community connections."}
+                </p>
+              </div>
+
+              <p className="mt-10 text-[9px] font-bold uppercase tracking-[.16em] text-white/35">
+                Every donation goes towards Rooted CIC community activity
               </p>
             </div>
 
-            <div>
-              <div className="grid grid-cols-4 gap-2">
+            <div className="bg-white p-8 text-stone-950 sm:p-10 lg:p-12">
+              <p className="text-[10px] font-black uppercase tracking-[.18em] text-stone-400">
+                Choose an amount
+              </p>
+
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {quickAmounts.map((amount) => {
-                  const selected = Number(donationAmount) === amount;
+                  const selected =
+                    Number(donationAmount) === amount;
 
                   return (
                     <button
                       key={amount}
                       type="button"
-                      onClick={() => setDonationAmount(String(amount))}
-                      className={`rounded-xl border px-3 py-3 text-sm font-black transition ${
+                      onClick={() =>
+                        setDonationAmount(String(amount))
+                      }
+                      className={`rounded-2xl border px-4 py-5 text-lg font-black transition ${
                         selected
-                          ? "border-transparent text-black"
-                          : "border-white/10 bg-white/5 text-white hover:bg-white/10"
+                          ? "border-stone-950 bg-stone-950 text-white shadow-sm"
+                          : "border-stone-200 bg-white text-stone-950 hover:border-stone-400"
                       }`}
-                      style={selected ? { background: primary } : undefined}
                     >
                       £{amount}
                     </button>
@@ -6753,13 +6717,24 @@ function RootedFundraiserSection({
                 })}
               </div>
 
-              <label className="mt-3 block">
-                <span className="mb-2 block text-[9px] font-black uppercase tracking-[.14em] text-white/50">
-                  Or enter another amount
+              <div className="my-6 flex items-center gap-4">
+                <span className="h-px flex-1 bg-stone-200" />
+                <span className="text-[9px] font-black uppercase tracking-[.16em] text-stone-400">
+                  Or choose your own
+                </span>
+                <span className="h-px flex-1 bg-stone-200" />
+              </div>
+
+              <label className="block">
+                <span className="sr-only">
+                  Custom donation amount
                 </span>
 
-                <div className="flex items-center rounded-xl border border-white/10 bg-white/5 px-4">
-                  <span className="font-black text-white/60">£</span>
+                <div className="flex items-center rounded-2xl border border-stone-200 bg-stone-50 px-5 focus-within:border-stone-950 focus-within:bg-white">
+                  <span className="text-xl font-black text-stone-400">
+                    £
+                  </span>
+
                   <input
                     type="number"
                     min="1"
@@ -6767,15 +6742,17 @@ function RootedFundraiserSection({
                     step="0.01"
                     inputMode="decimal"
                     value={donationAmount}
-                    onChange={(event) => setDonationAmount(event.target.value)}
-                    className="min-w-0 flex-1 bg-transparent px-3 py-3 text-base font-black text-white outline-none"
-                    placeholder="10.00"
+                    onChange={(event) =>
+                      setDonationAmount(event.target.value)
+                    }
+                    className="min-w-0 flex-1 bg-transparent px-3 py-5 text-xl font-black text-stone-950 outline-none"
+                    placeholder="Enter amount"
                   />
                 </div>
               </label>
 
               {!donationIsValid && (
-                <p className="mt-2 text-xs font-semibold text-red-300">
+                <p className="mt-3 text-xs font-semibold text-red-600">
                   Enter a donation between £1 and £5,000.
                 </p>
               )}
@@ -6789,12 +6766,20 @@ function RootedFundraiserSection({
                     Number(parsedDonation.toFixed(2))
                   )
                 }
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3.5 text-[10px] font-black uppercase tracking-[.12em] text-black transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                style={{ background: primary }}
+                className="mt-5 flex w-full items-center justify-between rounded-full bg-stone-950 px-6 py-4 text-[10px] font-black uppercase tracking-[.14em] text-white transition hover:-translate-y-0.5 hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-35"
               >
-                <ShoppingBag size={14} />
-                Add {donationIsValid ? formatCurrency(parsedDonation) : "donation"} to basket
+                <span>
+                  Donate{" "}
+                  {donationIsValid
+                    ? formatCurrency(parsedDonation)
+                    : ""}
+                </span>
+                <ArrowRight size={15} />
               </button>
+
+              <p className="mt-4 text-center text-[10px] leading-5 text-stone-400">
+                Secure payment through the MTC checkout.
+              </p>
             </div>
           </div>
         </div>
@@ -7297,12 +7282,6 @@ function ProductCard({
     sellingModel ===
       "request_to_order";
 
-  const directRootedDonation =
-    String(
-      product.slug || ""
-    ).toLowerCase() ===
-    "rooted-direct-donation";
-
   const saving =
     onSale
       ? compareAt -
@@ -7471,9 +7450,7 @@ function ProductCard({
               <div className="flex items-end gap-2">
 
                 <p className="font-serif text-[1.8rem] italic leading-none text-stone-900">
-                  {directRootedDonation
-                    ? "Choose amount"
-                    : formatCurrency(product.price)}
+                  {formatCurrency(product.price)}
                   {product.purchase_type === "subscription" && product.billing_interval && (
                     <span className="ml-1 font-sans text-[10px] font-bold not-italic uppercase tracking-[0.08em] text-stone-400">
                       / {product.billing_interval}
@@ -7513,22 +7490,9 @@ function ProductCard({
               !requestAction
             }
             onClick={
-              directRootedDonation
-                ? () => {
-                    document
-                      .getElementById(
-                        "rooted-direct-donation"
-                      )
-                      ?.scrollIntoView({
-                        behavior:
-                          "smooth",
-                        block:
-                          "center",
-                      });
-                  }
-                : requestAction
-                  ? onRequest
-                  : onAdd
+              requestAction
+                ? onRequest
+                : onAdd
             }
             data-store-primary="true"
             className="store-primary-action mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-3.5 text-left transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
@@ -7544,11 +7508,9 @@ function ProductCard({
               {outOfStock &&
               !requestAction
                 ? "Unavailable"
-                : directRootedDonation
-                  ? "Choose donation amount"
-                  : getProductActionLabel(
-                      product
-                    )}
+                : getProductActionLabel(
+                    product
+                  )}
             </span>
 
             {(!outOfStock ||

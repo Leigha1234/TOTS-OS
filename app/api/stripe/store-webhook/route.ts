@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
+import { Resend } from "resend";
 
 import {
   syncStoreSubscription,
@@ -45,6 +46,10 @@ const stripeSecretKey = requireEnv(
   "STRIPE_SECRET_KEY"
 );
 
+const resendApiKey = requireEnv(
+  "RESEND_API_KEY"
+);
+
 // ============================================================
 // CLIENTS
 // ============================================================
@@ -62,6 +67,10 @@ const supabaseAdmin = createClient(
 
 const stripe = new Stripe(
   stripeSecretKey
+);
+
+const resend = new Resend(
+  resendApiKey
 );
 
 // ============================================================
@@ -2571,6 +2580,20 @@ async function completeStoreOrder({
       );
     }
 
+    try {
+      await fulfilRaffleTickets({
+        order,
+        customerName,
+        customerEmail,
+      });
+    } catch (raffleError) {
+      console.error(
+        `[TOTS RAFFLE] Repair fulfilment failed for ${order.order_number}:`,
+        raffleError
+      );
+      throw raffleError;
+    }
+
     await createOrderNotifications({
       order,
       customerName,
@@ -2619,6 +2642,12 @@ async function completeStoreOrder({
     if (
       latest?.payment_status === "paid"
     ) {
+      await fulfilRaffleTickets({
+        order: latest,
+        customerName,
+        customerEmail,
+      });
+
       await createOrderNotifications({
         order:
           latest,
@@ -2708,6 +2737,20 @@ async function completeStoreOrder({
   }
 
   try {
+    await fulfilRaffleTickets({
+      order: updatedOrder,
+      customerName,
+      customerEmail,
+    });
+  } catch (raffleError) {
+    console.error(
+      `[TOTS RAFFLE] Fulfilment failed for ${updatedOrder.order_number}:`,
+      raffleError
+    );
+    throw raffleError;
+  }
+
+  try {
     await syncOrderToCrm({
       order:
         updatedOrder,
@@ -2743,6 +2786,289 @@ async function completeStoreOrder({
         stripeTotal
       ),
   });
+}
+
+// ============================================================
+// RAFFLE FULFILMENT
+// ============================================================
+
+type StoreRaffleRow = {
+  id: string;
+  organisation_id: string;
+  product_id: string;
+  name: string;
+  ticket_price: number | string;
+  first_online_ticket: number;
+  next_ticket_number: number;
+  is_active: boolean;
+};
+
+type StoreRaffleTicketRow = {
+  id: string;
+  raffle_id: string;
+  organisation_id: string;
+  order_id: string;
+  order_item_id: string;
+  ticket_number: number;
+  customer_name: string | null;
+  customer_email: string;
+  email_sent_at: string | null;
+  created_at: string;
+};
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+async function fulfilRaffleTickets({
+  order,
+  customerName,
+  customerEmail,
+}: {
+  order: StoreOrderRow;
+  customerName: string | null;
+  customerEmail: string | null;
+}) {
+  const email = normaliseEmail(
+    customerEmail || order.customer_email
+  );
+
+  const name =
+    asString(customerName) ||
+    asString(order.customer_name) ||
+    "there";
+
+  const items = await getOrderItems(order.id);
+  const productIds = Array.from(
+    new Set(
+      items
+        .map((item) => item.product_id)
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+
+  if (productIds.length === 0) {
+    return;
+  }
+
+  const {
+    data: raffleData,
+    error: raffleError,
+  } = await supabaseAdmin
+    .from("store_raffles")
+    .select(
+      "id, organisation_id, product_id, name, ticket_price, first_online_ticket, next_ticket_number, is_active"
+    )
+    .eq("organisation_id", order.organisation_id)
+    .eq("is_active", true)
+    .in("product_id", productIds);
+
+  if (raffleError) {
+    throw raffleError;
+  }
+
+  const raffles = (raffleData || []) as StoreRaffleRow[];
+
+  if (raffles.length === 0) {
+    return;
+  }
+
+  if (!email) {
+    throw new Error(
+      `Raffle order ${order.order_number} has no customer email address.`
+    );
+  }
+
+  const raffleByProductId = new Map(
+    raffles.map((raffle) => [raffle.product_id, raffle])
+  );
+
+  for (const item of items) {
+    if (!item.product_id) {
+      continue;
+    }
+
+    const raffle = raffleByProductId.get(item.product_id);
+
+    if (!raffle) {
+      continue;
+    }
+
+    const quantity = Math.max(0, safeInteger(item.quantity, 0));
+
+    if (quantity < 1) {
+      continue;
+    }
+
+    const { error: allocationError } = await supabaseAdmin.rpc(
+      "allocate_store_raffle_tickets",
+      {
+        p_raffle_id: raffle.id,
+        p_order_id: order.id,
+        p_order_item_id: item.id,
+        p_quantity: quantity,
+        p_customer_name: name,
+        p_customer_email: email,
+      }
+    );
+
+    if (allocationError) {
+      console.error(
+        `[TOTS RAFFLE] Ticket allocation failed for ${order.order_number}/${item.id}:`,
+        allocationError
+      );
+      throw allocationError;
+    }
+
+    const {
+      data: ticketData,
+      error: ticketError,
+    } = await supabaseAdmin
+      .from("store_raffle_tickets")
+      .select(
+        "id, raffle_id, organisation_id, order_id, order_item_id, ticket_number, customer_name, customer_email, email_sent_at, created_at"
+      )
+      .eq("raffle_id", raffle.id)
+      .eq("order_id", order.id)
+      .eq("order_item_id", item.id)
+      .order("ticket_number", { ascending: true });
+
+    if (ticketError) {
+      throw ticketError;
+    }
+
+    const tickets = (ticketData || []) as StoreRaffleTicketRow[];
+
+    if (tickets.length !== quantity) {
+      throw new Error(
+        `Raffle ticket count mismatch for ${order.order_number}. Expected ${quantity}, found ${tickets.length}.`
+      );
+    }
+
+    const alreadyEmailed =
+      tickets.length > 0 &&
+      tickets.every((ticket) => Boolean(ticket.email_sent_at));
+
+    if (alreadyEmailed) {
+      console.log(
+        `[TOTS RAFFLE] ${order.order_number} raffle email already sent for item ${item.id}.`
+      );
+      continue;
+    }
+
+    const ticketNumbers = tickets.map((ticket) => ticket.ticket_number);
+    const ticketLabels = ticketNumbers.map((number) => `#${number}`);
+    const ticketPrice = safeNumber(raffle.ticket_price, 2);
+    const raffleTotal = ticketPrice * quantity;
+    const escapedName = escapeHtml(name);
+    const escapedOrderNumber = escapeHtml(order.order_number);
+    const escapedRaffleName = escapeHtml(raffle.name);
+
+    const ticketHtml = ticketLabels
+      .map(
+        (ticket) =>
+          `<span style="display:inline-block;margin:6px;padding:12px 16px;border-radius:10px;background:#f3eee8;color:#1f1f1f;font-size:20px;font-weight:700;">${escapeHtml(ticket)}</span>`
+      )
+      .join("");
+
+    const { error: emailError } = await resend.emails.send(
+      {
+        from: "Rooted CIC <hello@tots-os.co.uk>",
+        to: email,
+        subject:
+          quantity === 1
+            ? "🎟️ Your Rooted CIC Raffle Ticket"
+            : "🎟️ Your Rooted CIC Raffle Tickets",
+        html: `
+          <!doctype html>
+          <html lang="en">
+            <body style="margin:0;padding:0;background:#f7f5f2;font-family:Arial,Helvetica,sans-serif;color:#222;">
+              <div style="max-width:640px;margin:0 auto;padding:32px 18px;">
+                <div style="background:#111;border-radius:18px 18px 0 0;padding:28px;text-align:center;">
+                  <div style="font-size:30px;font-weight:800;letter-spacing:2px;color:#f5efe5;">ROOTED</div>
+                  <div style="margin-top:5px;font-size:13px;letter-spacing:3px;color:#a9b897;">CIC</div>
+                </div>
+                <div style="background:#fff;border-radius:0 0 18px 18px;padding:32px;">
+                  <h1 style="margin:0 0 16px;font-size:26px;">Your raffle tickets are here 🎟️</h1>
+                  <p style="font-size:16px;line-height:1.6;">Hi ${escapedName},</p>
+                  <p style="font-size:16px;line-height:1.6;">Thank you for supporting Rooted CIC. Your payment has been confirmed and your unique online raffle ticket${quantity === 1 ? "" : "s"} ${quantity === 1 ? "has" : "have"} been allocated.</p>
+                  <div style="margin:26px 0;padding:22px;background:#faf8f5;border-radius:14px;text-align:center;">
+                    <div style="margin-bottom:12px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#666;">Your ticket number${quantity === 1 ? "" : "s"}</div>
+                    <div>${ticketHtml}</div>
+                  </div>
+                  <div style="border-top:1px solid #eee;border-bottom:1px solid #eee;padding:18px 0;margin:24px 0;line-height:1.8;">
+                    <strong>Raffle:</strong> ${escapedRaffleName}<br />
+                    <strong>Order:</strong> ${escapedOrderNumber}<br />
+                    <strong>Tickets:</strong> ${quantity}<br />
+                    <strong>Price per ticket:</strong> ${escapeHtml(formatMoney(ticketPrice, order.currency || "GBP"))}<br />
+                    <strong>Raffle ticket total:</strong> ${escapeHtml(formatMoney(raffleTotal, order.currency || "GBP"))}
+                  </div>
+                  <p style="font-size:16px;line-height:1.6;">Please keep this email safe as confirmation of your ticket number${quantity === 1 ? "" : "s"}.</p>
+                  <p style="font-size:16px;line-height:1.6;margin-bottom:0;">Good luck, and thank you for helping Rooted grow in our community. 💚</p>
+                </div>
+                <div style="padding:18px;text-align:center;font-size:12px;color:#777;">Sent by Rooted CIC via TOTS-OS</div>
+              </div>
+            </body>
+          </html>
+        `,
+        text: [
+          `Hi ${name},`,
+          "",
+          "Thank you for supporting Rooted CIC.",
+          "",
+          `Your raffle ticket number${quantity === 1 ? " is" : "s are"}: ${ticketLabels.join(", ")}`,
+          `Order: ${order.order_number}`,
+          `Tickets: ${quantity}`,
+          `Price per ticket: ${formatMoney(ticketPrice, order.currency || "GBP")}`,
+          `Raffle ticket total: ${formatMoney(raffleTotal, order.currency || "GBP")}`,
+          "",
+          "Please keep this email safe as confirmation of your ticket numbers.",
+          "",
+          "Good luck, and thank you for supporting Rooted CIC.",
+        ].join("\n"),
+      },
+      {
+        idempotencyKey: `rooted-raffle-${order.id}-${item.id}`,
+      }
+    );
+
+    if (emailError) {
+      console.error(
+        `[TOTS RAFFLE] Email failed for ${order.order_number}/${item.id}:`,
+        emailError
+      );
+      throw new Error(
+        `Raffle tickets were allocated for ${order.order_number}, but the confirmation email could not be sent.`
+      );
+    }
+
+    const sentAt = new Date().toISOString();
+
+    const { error: markSentError } = await supabaseAdmin
+      .from("store_raffle_tickets")
+      .update({ email_sent_at: sentAt })
+      .eq("raffle_id", raffle.id)
+      .eq("order_id", order.id)
+      .eq("order_item_id", item.id)
+      .is("email_sent_at", null);
+
+    if (markSentError) {
+      console.error(
+        `[TOTS RAFFLE] Email sent but email_sent_at update failed for ${order.order_number}/${item.id}:`,
+        markSentError
+      );
+      throw markSentError;
+    }
+
+    console.log(
+      `[TOTS RAFFLE] ${order.order_number} allocated and emailed ${ticketLabels.join(", ")}.`
+    );
+  }
 }
 
 // ============================================================

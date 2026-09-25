@@ -4956,9 +4956,21 @@ export default function ShopFrontPage() {
                 ) : isMTC && mtcView === "rooted" ? (
                   <RootedFundraiserSection
                     products={visibleProducts.filter(
-                      (product) =>
-                        String(product.category || "").toLowerCase() ===
-                        "rooted cic"
+                      (product) => {
+                        const category = String(
+                          product.category || ""
+                        ).toLowerCase();
+
+                        const slug = String(
+                          product.slug || ""
+                        ).toLowerCase();
+
+                        return (
+                          category === "rooted cic" ||
+                          category === "raffle" ||
+                          slug === "rooted-raffle-ticket"
+                        );
+                      }
                     )}
                     primary={primary}
                     onAdd={addToCart}
@@ -6872,16 +6884,22 @@ function RootedFundraiserSection({
             {fixedProducts.map((product, index) => {
               const slug = String(product.slug || "").toLowerCase();
 
+              const isRaffle =
+                slug === "rooted-raffle-ticket" ||
+                slug === "rooted-raffle-strip";
+
               const eyebrow =
                 slug === "rooted-childrens-fun-day-pass"
                   ? "Open Day"
-                  : slug === "rooted-raffle-strip"
-                  ? "Try your luck"
+                  : isRaffle
+                  ? "£2 = 1 entry"
                   : "Pay it forward";
 
               const cta =
                 slug === "rooted-donate-a-coffee"
                   ? "Donate a coffee"
+                  : isRaffle
+                  ? "Add raffle ticket"
                   : "Add to basket";
 
               return (
@@ -6911,7 +6929,9 @@ function RootedFundraiserSection({
                   </div>
 
                   <p className="rooted-body relative mt-6 flex-1 text-base leading-7">
-                    {product.description || "Support Rooted CIC through MTC."}
+                    {isRaffle
+                      ? "Every £2 gives you one unique raffle entry. Add as many tickets as you like — your ticket number(s) will be emailed to you automatically after payment."
+                      : product.description || "Support Rooted CIC through MTC."}
                   </p>
 
                   <button

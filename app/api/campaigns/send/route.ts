@@ -139,6 +139,23 @@ type Delivery = {
 };
 
 // ==================================================
+// QUEUE TYPES
+// ==================================================
+
+type CampaignRecipient = {
+  id: string;
+  email: string;
+  source: RecipientSource;
+};
+
+type ExistingDelivery = {
+  id: string;
+  email: string;
+  status: string;
+  attempts: number;
+};
+
+// ==================================================
 // HELPERS
 // ==================================================
 
@@ -1835,6 +1852,874 @@ async function processCampaign() {
 
     ...progress,
   };
+}
+
+// ==================================================
+// AUTHENTICATE DASHBOARD REQUEST
+// ==================================================
+
+async function getAuthenticatedUser(
+  req: NextRequest
+) {
+  const authorization =
+    req.headers.get(
+      "authorization"
+    );
+
+  if (
+    !authorization ||
+    !authorization.startsWith(
+      "Bearer "
+    )
+  ) {
+    return null;
+  }
+
+  const accessToken =
+    authorization
+      .slice(
+        "Bearer ".length
+      )
+      .trim();
+
+  if (!accessToken) {
+    return null;
+  }
+
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin.auth
+      .getUser(
+        accessToken
+      );
+
+  if (
+    error ||
+    !data.user
+  ) {
+    return null;
+  }
+
+  return data.user;
+}
+
+// ==================================================
+// LOAD SUPPRESSED EMAILS
+// ==================================================
+
+async function loadSuppressedEmails(
+  organisationId: string
+): Promise<Set<string>> {
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "campaign_unsubscribes"
+      )
+      .select(
+        "email"
+      )
+      .eq(
+        "organisation_id",
+        organisationId
+      );
+
+  if (error) {
+    // Keep queueing compatible with deployments where
+    // the suppression table has not yet been created.
+    console.warn(
+      "Could not load campaign_unsubscribes:",
+      error.message
+    );
+
+    return new Set<string>();
+  }
+
+  return new Set(
+    (data || [])
+      .map(
+        (row: any) =>
+          cleanEmail(
+            row.email
+          )
+      )
+      .filter(Boolean)
+  );
+}
+
+// ==================================================
+// LOAD CAMPAIGN RECIPIENTS
+// ==================================================
+
+async function loadCampaignRecipients(
+  campaign: any
+): Promise<CampaignRecipient[]> {
+  if (
+    !campaign.list_id
+  ) {
+    return [];
+  }
+
+  if (
+    !campaign.organisation_id
+  ) {
+    throw new Error(
+      "Campaign missing organisation_id"
+    );
+  }
+
+  const recipients:
+    CampaignRecipient[] =
+    [];
+
+  const suppressedEmails =
+    await loadSuppressedEmails(
+      campaign.organisation_id
+    );
+
+  // ----------------------------------------------
+  // Profile subscribers
+  // ----------------------------------------------
+
+  const {
+    data: profileLinks,
+    error: profileError,
+  } =
+    await supabaseAdmin
+      .from(
+        "profile_subscriber_lists"
+      )
+      .select(`
+        profile_id,
+        profiles (
+          id,
+          email,
+          is_subscribed
+        )
+      `)
+      .eq(
+        "list_id",
+        campaign.list_id
+      )
+      .eq(
+        "organisation_id",
+        campaign.organisation_id
+      );
+
+  if (profileError) {
+    throw new Error(
+      `Failed to load profile recipients: ${profileError.message}`
+    );
+  }
+
+  for (
+    const row of
+    profileLinks || []
+  ) {
+    const profile =
+      Array.isArray(
+        row.profiles
+      )
+        ? row.profiles[0]
+        : row.profiles;
+
+    if (!profile) {
+      continue;
+    }
+
+    if (
+      profile.is_subscribed ===
+      false
+    ) {
+      continue;
+    }
+
+    const email =
+      cleanEmail(
+        profile.email
+      );
+
+    if (
+      !email ||
+      !isValidEmail(
+        email
+      ) ||
+      suppressedEmails.has(
+        email
+      )
+    ) {
+      continue;
+    }
+
+    recipients.push({
+      id: String(
+        profile.id ||
+          row.profile_id
+      ),
+
+      email,
+
+      source:
+        "profile",
+    });
+  }
+
+  // ----------------------------------------------
+  // Manually entered subscribers
+  // ----------------------------------------------
+
+  const {
+    data: manualRows,
+    error: manualError,
+  } =
+    await supabaseAdmin
+      .from(
+        "campaign_list_emails"
+      )
+      .select(
+        "id,email,organisation_id"
+      )
+      .eq(
+        "list_id",
+        campaign.list_id
+      )
+      .eq(
+        "organisation_id",
+        campaign.organisation_id
+      );
+
+  if (manualError) {
+    throw new Error(
+      `Failed to load manual recipients: ${manualError.message}`
+    );
+  }
+
+  for (
+    const row of
+    manualRows || []
+  ) {
+    const email =
+      cleanEmail(
+        row.email
+      );
+
+    if (
+      !email ||
+      !isValidEmail(
+        email
+      ) ||
+      suppressedEmails.has(
+        email
+      )
+    ) {
+      continue;
+    }
+
+    recipients.push({
+      id: String(
+        row.id
+      ),
+
+      email,
+
+      source:
+        "manual",
+    });
+  }
+
+  // ----------------------------------------------
+  // Dedupe by email
+  // ----------------------------------------------
+
+  const seen =
+    new Set<string>();
+
+  return recipients.filter(
+    (recipient) => {
+      if (
+        seen.has(
+          recipient.email
+        )
+      ) {
+        return false;
+      }
+
+      seen.add(
+        recipient.email
+      );
+
+      return true;
+    }
+  );
+}
+
+// ==================================================
+// POST — QUEUE "SEND CAMPAIGN NOW"
+// ==================================================
+
+export async function POST(
+  req: NextRequest
+) {
+  try {
+    const user =
+      await getAuthenticatedUser(
+        req
+      );
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success:
+            false,
+
+          error:
+            "Unauthorized",
+        },
+        {
+          status:
+            401,
+        }
+      );
+    }
+
+    const body =
+      await req
+        .json()
+        .catch(
+          () => null
+        );
+
+    const campaignId =
+      typeof body?.campaignId ===
+      "string"
+        ? body.campaignId.trim()
+        : "";
+
+    if (!campaignId) {
+      return NextResponse.json(
+        {
+          success:
+            false,
+
+          error:
+            "Missing campaignId",
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
+
+    // ----------------------------------------------
+    // Resolve the signed-in user's organisation.
+    // ----------------------------------------------
+
+    const {
+      data: profile,
+      error: profileError,
+    } =
+      await supabaseAdmin
+        .from(
+          "profiles"
+        )
+        .select(
+          "id,organisation_id"
+        )
+        .eq(
+          "id",
+          user.id
+        )
+        .maybeSingle();
+
+    if (profileError) {
+      throw new Error(
+        `Could not load your profile: ${profileError.message}`
+      );
+    }
+
+    const userOrganisationId =
+      String(
+        profile?.organisation_id ||
+          ""
+      ).trim();
+
+    if (!userOrganisationId) {
+      return NextResponse.json(
+        {
+          success:
+            false,
+
+          error:
+            "No active organisation found for your account.",
+        },
+        {
+          status:
+            403,
+        }
+      );
+    }
+
+    // ----------------------------------------------
+    // Load the exact campaign requested.
+    // ----------------------------------------------
+
+    const {
+      data: campaign,
+      error: campaignError,
+    } =
+      await supabaseAdmin
+        .from(
+          "campaigns"
+        )
+        .select(
+          "*"
+        )
+        .eq(
+          "id",
+          campaignId
+        )
+        .maybeSingle();
+
+    if (
+      campaignError ||
+      !campaign
+    ) {
+      return NextResponse.json(
+        {
+          success:
+            false,
+
+          error:
+            campaignError?.message ||
+            "Campaign not found",
+        },
+        {
+          status:
+            404,
+        }
+      );
+    }
+
+    if (
+      campaign.organisation_id !==
+      userOrganisationId
+    ) {
+      return NextResponse.json(
+        {
+          success:
+            false,
+
+          error:
+            "You do not have access to this campaign.",
+        },
+        {
+          status:
+            403,
+        }
+      );
+    }
+
+    if (
+      !campaign.list_id
+    ) {
+      return NextResponse.json(
+        {
+          success:
+            false,
+
+          error:
+            "Choose an audience before sending this campaign.",
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
+
+    if (
+      campaign.status ===
+        "processing" ||
+      campaign.status ===
+        "sending"
+    ) {
+      return NextResponse.json(
+        {
+          success:
+            true,
+
+          message:
+            "Campaign is already queued and processing.",
+
+          campaignId,
+
+          status:
+            campaign.status,
+        }
+      );
+    }
+
+    // ----------------------------------------------
+    // Resolve current subscribed recipients.
+    // ----------------------------------------------
+
+    const recipients =
+      await loadCampaignRecipients(
+        campaign
+      );
+
+    if (
+      recipients.length ===
+      0
+    ) {
+      return NextResponse.json(
+        {
+          success:
+            false,
+
+          error:
+            "No subscribed recipients were found in this audience.",
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
+
+    // ----------------------------------------------
+    // Preserve rows that were already sent.
+    // ----------------------------------------------
+
+    const {
+      data: existingRows,
+      error: existingError,
+    } =
+      await supabaseAdmin
+        .from(
+          "campaign_deliveries"
+        )
+        .select(
+          "id,email,status,attempts"
+        )
+        .eq(
+          "campaign_id",
+          campaignId
+        );
+
+    if (existingError) {
+      throw new Error(
+        `Failed to load existing deliveries: ${existingError.message}`
+      );
+    }
+
+    const existingMap =
+      new Map<
+        string,
+        ExistingDelivery
+      >();
+
+    for (
+      const row of
+      existingRows || []
+    ) {
+      const email =
+        cleanEmail(
+          row.email
+        );
+
+      if (!email) {
+        continue;
+      }
+
+      existingMap.set(
+        email,
+        {
+          id:
+            String(
+              row.id
+            ),
+
+          email,
+
+          status:
+            String(
+              row.status ||
+                ""
+            ),
+
+          attempts:
+            Number(
+              row.attempts ||
+                0
+            ),
+        }
+      );
+    }
+
+    const alreadySent =
+      recipients.filter(
+        (recipient) =>
+          existingMap.get(
+            recipient.email
+          )?.status ===
+          "sent"
+      );
+
+    const needsSending =
+      recipients.filter(
+        (recipient) =>
+          existingMap.get(
+            recipient.email
+          )?.status !==
+          "sent"
+      );
+
+    if (
+      needsSending.length ===
+      0
+    ) {
+      const now =
+        new Date()
+          .toISOString();
+
+      const {
+        error,
+      } =
+        await supabaseAdmin
+          .from(
+            "campaigns"
+          )
+          .update({
+            status:
+              "sent",
+
+            sent_count:
+              alreadySent.length,
+
+            sent_at:
+              campaign.sent_at ||
+              now,
+          })
+          .eq(
+            "id",
+            campaignId
+          );
+
+      if (error) {
+        throw new Error(
+          `Failed to finalise campaign: ${error.message}`
+        );
+      }
+
+      return NextResponse.json({
+        success:
+          true,
+
+        message:
+          "All recipients for this campaign have already been sent.",
+
+        campaignId,
+
+        totalRecipients:
+          recipients.length,
+
+        alreadySent:
+          alreadySent.length,
+
+        queued:
+          0,
+      });
+    }
+
+    const now =
+      new Date()
+        .toISOString();
+
+    const queueRows =
+      needsSending.map(
+        (recipient) => ({
+          campaign_id:
+            campaignId,
+
+          organisation_id:
+            campaign.organisation_id,
+
+          recipient_id:
+            recipient.id,
+
+          recipient_source:
+            recipient.source,
+
+          email:
+            recipient.email,
+
+          status:
+            "pending",
+
+          attempts:
+            0,
+
+          resend_id:
+            null,
+
+          last_error:
+            null,
+
+          sent_at:
+            null,
+
+          updated_at:
+            now,
+        })
+      );
+
+    const {
+      error: queueError,
+    } =
+      await supabaseAdmin
+        .from(
+          "campaign_deliveries"
+        )
+        .upsert(
+          queueRows,
+          {
+            onConflict:
+              "campaign_id,email",
+          }
+        );
+
+    if (queueError) {
+      throw new Error(
+        `Failed to queue recipients: ${queueError.message}`
+      );
+    }
+
+    const {
+      error:
+        campaignUpdateError,
+    } =
+      await supabaseAdmin
+        .from(
+          "campaigns"
+        )
+        .update({
+          status:
+            "processing",
+
+          scheduled_for:
+            null,
+
+          sent_count:
+            alreadySent.length,
+        })
+        .eq(
+          "id",
+          campaignId
+        );
+
+    if (
+      campaignUpdateError
+    ) {
+      throw new Error(
+        `Failed to update campaign: ${campaignUpdateError.message}`
+      );
+    }
+
+    // Keep campaign_jobs in sync when the table is present.
+    // The sender itself works from campaigns + campaign_deliveries.
+    const {
+      error: jobError,
+    } =
+      await supabaseAdmin
+        .from(
+          "campaign_jobs"
+        )
+        .insert({
+          campaign_id:
+            campaignId,
+
+          status:
+            "processing",
+
+          created_at:
+            now,
+        });
+
+    if (jobError) {
+      console.warn(
+        "Could not create campaign job:",
+        jobError.message
+      );
+    }
+
+    console.log(
+      "CAMPAIGN QUEUED:",
+      {
+        campaignId,
+
+        userId:
+          user.id,
+
+        organisationId:
+          campaign.organisation_id,
+
+        totalRecipients:
+          recipients.length,
+
+        alreadySent:
+          alreadySent.length,
+
+        queued:
+          needsSending.length,
+      }
+    );
+
+    return NextResponse.json({
+      success:
+        true,
+
+      message:
+        "Campaign queued successfully.",
+
+      campaignId,
+
+      totalRecipients:
+        recipients.length,
+
+      alreadySent:
+        alreadySent.length,
+
+      queued:
+        needsSending.length,
+    });
+  } catch (error) {
+    console.error(
+      "CAMPAIGN QUEUE ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success:
+          false,
+
+        error:
+          getErrorMessage(
+            error
+          ),
+      },
+      {
+        status:
+          500,
+      }
+    );
+  }
 }
 
 // ==================================================

@@ -4347,6 +4347,21 @@ export default function CampaignsPage() {
     async (
       campaignId: string
     ) => {
+      const {
+        data: sessionData,
+      } =
+        await supabase.auth.getSession();
+
+      const accessToken =
+        sessionData.session
+          ?.access_token;
+
+      if (!accessToken) {
+        throw new Error(
+          "You need to be signed in to send a campaign."
+        );
+      }
+
       const response =
         await fetch(
           "/api/campaigns/send",
@@ -4357,6 +4372,9 @@ export default function CampaignsPage() {
             headers: {
               "Content-Type":
                 "application/json",
+
+              Authorization:
+                `Bearer ${accessToken}`,
             },
 
             body: JSON.stringify(

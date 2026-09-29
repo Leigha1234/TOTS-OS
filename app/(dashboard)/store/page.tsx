@@ -122,6 +122,15 @@ type Subscription = {
   cancel_at_period_end?: boolean | null;
   cancelled_at?: string | null;
   stripe_subscription_id?: string | null;
+  legacy_billing?: boolean | null;
+  payment_provider?: string | null;
+  legacy_membership_name?: string | null;
+  migrated_from?: string | null;
+  processor_verification_status?: string | null;
+  cutover_status?: string | null;
+  collection_enabled?: boolean | null;
+  teamup_billing_active?: boolean | null;
+  external_subscription_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -581,11 +590,25 @@ export default function StoreDashboardPage() {
       0,
     );
 
-    const activeSubscriptions = subscriptions.filter(
+    const membershipRecords = subscriptions.filter(
       (subscription) => subscription.status?.toLowerCase() === "active",
     );
 
-    const monthlySubscriptionValue = activeSubscriptions.reduce(
+    // Only count subscriptions that TOTS-OS is actually authorised to collect.
+    // Legacy TeamUp records deliberately remain visible in this register, but
+    // they are NOT TOTS recurring revenue while collection_enabled = false.
+    const collectingSubscriptions = membershipRecords.filter(
+      (subscription) => subscription.collection_enabled === true,
+    );
+
+    const teamupBillingRecords = membershipRecords.filter(
+      (subscription) =>
+        subscription.legacy_billing === true &&
+        subscription.teamup_billing_active === true &&
+        subscription.collection_enabled !== true,
+    );
+
+    const monthlySubscriptionValue = collectingSubscriptions.reduce(
       (sum, subscription) => {
         const amount = toNumber(subscription.unit_amount_pence) / 100;
         const quantity = subscription.quantity ?? 1;
@@ -593,6 +616,10 @@ export default function StoreDashboardPage() {
 
         if (["year", "yearly", "annual"].includes(interval ?? "")) {
           return sum + (amount * quantity) / 12;
+        }
+
+        if (["week", "weekly"].includes(interval ?? "")) {
+          return sum + amount * quantity * (52 / 12);
         }
 
         return sum + amount * quantity;
@@ -604,7 +631,9 @@ export default function StoreDashboardPage() {
       activeProducts,
       revenue,
       paidOrders: paidOrders.length,
-      activeSubscriptions: activeSubscriptions.length,
+      membershipRecords: membershipRecords.length,
+      collectingSubscriptions: collectingSubscriptions.length,
+      teamupBillingRecords: teamupBillingRecords.length,
       monthlySubscriptionValue,
     };
   }, [products, orders, subscriptions]);
@@ -1072,16 +1101,16 @@ export default function StoreDashboardPage() {
 
           <MetricCard
             icon={CreditCard}
-            label="Active subscriptions"
-            value={String(metrics.activeSubscriptions)}
-            detail={`${subscriptions.length} total`}
+            label="Membership records"
+            value={String(metrics.membershipRecords)}
+            detail={`${metrics.teamupBillingRecords} still billed by TeamUp`}
           />
 
           <MetricCard
             icon={BadgePoundSterling}
-            label="Monthly subscription value"
+            label="TOTS monthly recurring"
             value={formatMoney(metrics.monthlySubscriptionValue)}
-            detail="Approx. monthly recurring"
+            detail={`${metrics.collectingSubscriptions} collecting through TOTS`}
           />
         </div>
 
@@ -1440,7 +1469,7 @@ export default function StoreDashboardPage() {
           <section className="mt-6 overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
             <SectionHeader
               title="Subscriptions"
-              description="Recurring memberships and subscriptions attached to this store."
+              description="Membership register, including legacy TeamUp records and subscriptions collected through TOTS-OS."
             >
               <SearchBox
                 value={search}
@@ -1457,9 +1486,10 @@ export default function StoreDashboardPage() {
                       <th className="px-6 py-4">Customer</th>
                       <th className="px-4 py-4">Amount</th>
                       <th className="px-4 py-4">Interval</th>
+                      <th className="px-4 py-4">Billing</th>
                       <th className="px-4 py-4">Status</th>
                       <th className="px-4 py-4">Started</th>
-                      <th className="px-6 py-4">Subscription ID</th>
+                      <th className="px-6 py-4">Membership</th>
                     </tr>
                   </thead>
 
@@ -1490,9 +1520,31 @@ export default function StoreDashboardPage() {
                         </td>
 
                         <td className="px-4 py-4">
-                          <StatusBadge
-                            status={subscription.status || "unknown"}
-                          />
+                          {subscription.collection_enabled === true ? (
+                            <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                              TOTS collecting
+                            </span>
+                          ) : subscription.teamup_billing_active === true ? (
+                            <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
+                              TeamUp billing
+                            </span>
+                          ) : (
+                            <span className="inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-600 ring-1 ring-inset ring-stone-200">
+                              Not collecting
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          {subscription.legacy_billing === true ? (
+                            <span className="inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-700 ring-1 ring-inset ring-stone-200">
+                              Legacy
+                            </span>
+                          ) : (
+                            <StatusBadge
+                              status={subscription.status || "unknown"}
+                            />
+                          )}
                         </td>
 
                         <td className="px-4 py-4 text-sm text-stone-500">
@@ -1503,8 +1555,13 @@ export default function StoreDashboardPage() {
                         </td>
 
                         <td className="px-6 py-4">
-                          <p className="max-w-[260px] truncate font-mono text-xs text-stone-500">
-                            {subscription.stripe_subscription_id || "—"}
+                          <p className="max-w-[260px] truncate text-xs font-medium text-stone-700">
+                            {subscription.legacy_membership_name || "Membership"}
+                          </p>
+                          <p className="mt-0.5 max-w-[260px] truncate font-mono text-[11px] text-stone-400">
+                            {subscription.stripe_subscription_id ||
+                              subscription.external_subscription_id ||
+                              (subscription.legacy_billing ? "Legacy TeamUp record" : "—")}
                           </p>
                         </td>
                       </tr>
@@ -1515,8 +1572,8 @@ export default function StoreDashboardPage() {
             ) : (
               <EmptyState
                 icon={CreditCard}
-                title="No subscriptions"
-                description="Active store subscriptions and memberships will appear here."
+                title="No membership records"
+                description="Membership and subscription records will appear here."
               />
             )}
           </section>

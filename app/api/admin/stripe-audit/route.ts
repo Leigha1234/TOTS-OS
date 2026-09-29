@@ -21,6 +21,27 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // ============================================================
+// CONFIGURATION
+// ============================================================
+
+/*
+ * Stripe account visible in the TeamUp Stripe dashboard URL:
+ *
+ * https://dashboard.stripe.com/acct_1MtG4wPm08azSDKq/...
+ *
+ * IMPORTANT:
+ *
+ * This does NOT mean the TOTS Stripe key automatically has
+ * permission to access this account.
+ *
+ * The audit below will test that safely.
+ */
+
+const TEAMUP_STRIPE_ACCOUNT_ID =
+  process.env.TEAMUP_STRIPE_ACCOUNT_ID ||
+  "acct_1MtG4wPm08azSDKq";
+
+// ============================================================
 // TYPES
 // ============================================================
 
@@ -43,19 +64,71 @@ type RecentSuccessfulPayment = {
   description: string | null;
 };
 
-type StripeAuditResult = {
-  name: string;
-  email: string | null;
+type StripeContext =
+  | "TOTS_DEFAULT"
+  | "TEAMUP_ACCOUNT";
 
-  suppliedCustomerId:
+type StripeAccountInfo = {
+  context: StripeContext;
+
+  requestedAccountId:
     | string
     | null;
+
+  accessible: boolean;
+
+  accountId:
+    | string
+    | null;
+
+  displayName:
+    | string
+    | null;
+
+  country:
+    | string
+    | null;
+
+  chargesEnabled:
+    | boolean
+    | null;
+
+  payoutsEnabled:
+    | boolean
+    | null;
+
+  error:
+    | string
+    | null;
+};
+
+type CustomerLookup = {
+  customer:
+    | Stripe.Customer
+    | null;
+
+  multipleEmailMatches:
+    boolean;
+
+  invalidCustomerId:
+    boolean;
+};
+
+type ContextAudit = {
+  context: StripeContext;
+
+  stripeAccountId:
+    | string
+    | null;
+
+  accountAccessible:
+    boolean;
+
+  found: boolean;
 
   stripeCustomerId:
     | string
     | null;
-
-  found: boolean;
 
   stripeEmail:
     | string
@@ -97,17 +170,104 @@ type StripeAuditResult = {
   recentSuccessfulPayments:
     RecentSuccessfulPayment[];
 
+  matchingRecentPayment:
+    boolean;
+
+  multipleEmailMatches:
+    boolean;
+
+  invalidCustomerId:
+    boolean;
+
+  error:
+    | string
+    | null;
+};
+
+type StripeAuditResult = {
+  name: string;
+
+  email:
+    | string
+    | null;
+
+  suppliedCustomerId:
+    | string
+    | null;
+
   expectedAmountPence:
     | number
     | null;
 
+  found: boolean;
+
+  foundInContext:
+    | StripeContext
+    | null;
+
+  foundInStripeAccountId:
+    | string
+    | null;
+
+  stripeCustomerId:
+    | string
+    | null;
+
+  stripeEmail:
+    | string
+    | null;
+
+  stripeName:
+    | string
+    | null;
+
+  defaultPaymentMethodId:
+    | string
+    | null;
+
+  paymentMethodType:
+    | string
+    | null;
+
+  cardBrand:
+    | string
+    | null;
+
+  cardLast4:
+    | string
+    | null;
+
+  cardExpiry:
+    | string
+    | null;
+
+  hasReusablePaymentMethod:
+    boolean;
+
+  activeStripeSubscriptions:
+    number;
+
+  stripeSubscriptionIds:
+    string[];
+
+  recentSuccessfulPayments:
+    RecentSuccessfulPayment[];
+
   matchingRecentPayment:
     boolean;
 
+  totsContext:
+    ContextAudit;
+
+  teamupContext:
+    ContextAudit;
+
   auditStatus:
-    | "VERIFIED_CUSTOMER_AND_PAYMENT_METHOD"
+    | "VERIFIED_IN_TOTS_ACCOUNT"
+    | "VERIFIED_IN_TEAMUP_ACCOUNT"
     | "CUSTOMER_FOUND_NO_PAYMENT_METHOD"
     | "CUSTOMER_NOT_FOUND"
+    | "TEAMUP_ACCOUNT_NOT_ACCESSIBLE"
     | "MULTIPLE_EMAIL_MATCHES"
     | "INVALID_CUSTOMER_ID"
     | "ERROR";
@@ -183,6 +343,36 @@ function unixToIso(
   ).toISOString();
 }
 
+function getAccountDisplayName(
+  account: Stripe.Account
+): string | null {
+  return (
+    account.settings
+      ?.dashboard
+      ?.display_name ??
+    account.business_profile
+      ?.name ??
+    null
+  );
+}
+
+// ============================================================
+// STRIPE REQUEST OPTIONS
+// ============================================================
+
+function stripeOptions(
+  stripeAccountId?: string | null
+): Stripe.RequestOptions | undefined {
+  if (!stripeAccountId) {
+    return undefined;
+  }
+
+  return {
+    stripeAccount:
+      stripeAccountId,
+  };
+}
+
 // ============================================================
 // AUTHENTICATION
 // ============================================================
@@ -243,8 +433,9 @@ async function authenticateUser() {
               );
             } catch {
               /*
-               * This route only needs to
-               * read the current session.
+               * This route only needs
+               * to read the current
+               * authentication session.
                */
             }
           },
@@ -267,25 +458,184 @@ async function authenticateUser() {
 }
 
 // ============================================================
+// STRIPE ACCOUNT AUDIT
+// ============================================================
+
+async function auditDefaultStripeAccount():
+  Promise<StripeAccountInfo> {
+  try {
+    /*
+     * With no stripeAccount option,
+     * this asks Stripe which account
+     * owns the configured secret key.
+     */
+
+    const account =
+      await stripe.accounts.retrieve();
+
+    return {
+      context:
+        "TOTS_DEFAULT",
+
+      requestedAccountId:
+        null,
+
+      accessible:
+        true,
+
+      accountId:
+        account.id,
+
+      displayName:
+        getAccountDisplayName(
+          account
+        ),
+
+      country:
+        account.country ??
+        null,
+
+      chargesEnabled:
+        account.charges_enabled,
+
+      payoutsEnabled:
+        account.payouts_enabled,
+
+      error:
+        null,
+    };
+  } catch (error) {
+    return {
+      context:
+        "TOTS_DEFAULT",
+
+      requestedAccountId:
+        null,
+
+      accessible:
+        false,
+
+      accountId:
+        null,
+
+      displayName:
+        null,
+
+      country:
+        null,
+
+      chargesEnabled:
+        null,
+
+      payoutsEnabled:
+        null,
+
+      error:
+        getErrorMessage(
+          error
+        ),
+    };
+  }
+}
+
+async function auditTeamUpStripeAccount():
+  Promise<StripeAccountInfo> {
+  try {
+    /*
+     * This is a READ-ONLY Connect request.
+     *
+     * It tests whether the TOTS Stripe key
+     * has permission to act on behalf of
+     * the Stripe account visible in the
+     * TeamUp dashboard URL.
+     */
+
+    const account =
+      await stripe.accounts.retrieve(
+        TEAMUP_STRIPE_ACCOUNT_ID
+      );
+
+    return {
+      context:
+        "TEAMUP_ACCOUNT",
+
+      requestedAccountId:
+        TEAMUP_STRIPE_ACCOUNT_ID,
+
+      accessible:
+        true,
+
+      accountId:
+        account.id,
+
+      displayName:
+        getAccountDisplayName(
+          account
+        ),
+
+      country:
+        account.country ??
+        null,
+
+      chargesEnabled:
+        account.charges_enabled,
+
+      payoutsEnabled:
+        account.payouts_enabled,
+
+      error:
+        null,
+    };
+  } catch (error) {
+    return {
+      context:
+        "TEAMUP_ACCOUNT",
+
+      requestedAccountId:
+        TEAMUP_STRIPE_ACCOUNT_ID,
+
+      accessible:
+        false,
+
+      accountId:
+        null,
+
+      displayName:
+        null,
+
+      country:
+        null,
+
+      chargesEnabled:
+        null,
+
+      payoutsEnabled:
+        null,
+
+      error:
+        getErrorMessage(
+          error
+        ),
+    };
+  }
+}
+
+// ============================================================
 // FIND CUSTOMER
 // ============================================================
 
 async function findCustomer(
-  member: AuditMember
-): Promise<{
-  customer:
-    | Stripe.Customer
-    | null;
-
-  multipleEmailMatches:
-    boolean;
-
-  invalidCustomerId:
-    boolean;
-}> {
+  member: AuditMember,
+  stripeAccountId?: string | null
+): Promise<CustomerLookup> {
   const customerId =
     nullableString(
       member.customerId
+    );
+
+  const options =
+    stripeOptions(
+      stripeAccountId
     );
 
   // ----------------------------------------------------------
@@ -293,22 +643,18 @@ async function findCustomer(
   // ----------------------------------------------------------
 
   if (customerId) {
-    /*
-     * Only normal Stripe customer IDs are accepted here.
-     *
-     * This deliberately prevents gcus_... or other identifiers
-     * from being treated as verified Stripe cus_ customers.
-     */
-
     if (
       !customerId.startsWith(
         "cus_"
       )
     ) {
       return {
-        customer: null,
+        customer:
+          null,
+
         multipleEmailMatches:
           false,
+
         invalidCustomerId:
           true,
       };
@@ -316,15 +662,21 @@ async function findCustomer(
 
     try {
       const customer =
-        await stripe.customers.retrieve(
-          customerId
-        );
+        await stripe
+          .customers
+          .retrieve(
+            customerId,
+            options
+          );
 
       if (customer.deleted) {
         return {
-          customer: null,
+          customer:
+            null,
+
           multipleEmailMatches:
             false,
+
           invalidCustomerId:
             false,
         };
@@ -332,29 +684,26 @@ async function findCustomer(
 
       return {
         customer,
+
         multipleEmailMatches:
           false,
+
         invalidCustomerId:
           false,
       };
     } catch (error) {
-      /*
-       * A customer ID may have come from another Stripe account
-       * or may simply no longer exist.
-       *
-       * Treat a Stripe "not found" style request error as an
-       * unsuccessful lookup rather than a fatal audit error.
-       */
-
       if (
         error instanceof
         Stripe.errors
           .StripeInvalidRequestError
       ) {
         return {
-          customer: null,
+          customer:
+            null,
+
           multipleEmailMatches:
             false,
+
           invalidCustomerId:
             false,
         };
@@ -375,47 +724,55 @@ async function findCustomer(
 
   if (!email) {
     return {
-      customer: null,
+      customer:
+        null,
+
       multipleEmailMatches:
         false,
+
       invalidCustomerId:
         false,
     };
   }
 
   const customers =
-    await stripe.customers.list({
-      email,
-      limit: 10,
-    });
+    await stripe
+      .customers
+      .list(
+        {
+          email,
+          limit: 10,
+        },
+        options
+      );
 
   if (
-    customers.data.length === 0
+    customers.data.length ===
+    0
   ) {
     return {
-      customer: null,
+      customer:
+        null,
+
       multipleEmailMatches:
         false,
+
       invalidCustomerId:
         false,
     };
   }
 
-  /*
-   * Do not guess if multiple Stripe customers use the same
-   * email address.
-   *
-   * This is especially important for MTC guardian/child and
-   * other shared-email memberships.
-   */
-
   if (
-    customers.data.length > 1
+    customers.data.length >
+    1
   ) {
     return {
-      customer: null,
+      customer:
+        null,
+
       multipleEmailMatches:
         true,
+
       invalidCustomerId:
         false,
     };
@@ -438,16 +795,22 @@ async function findCustomer(
 // ============================================================
 
 async function getPaymentMethod(
-  customer: Stripe.Customer
+  customer: Stripe.Customer,
+  stripeAccountId?: string | null
 ): Promise<
   Stripe.PaymentMethod | null
 > {
+  const options =
+    stripeOptions(
+      stripeAccountId
+    );
+
   let paymentMethod:
     | Stripe.PaymentMethod
     | null = null;
 
   // ----------------------------------------------------------
-  // 1. CUSTOMER DEFAULT PAYMENT METHOD
+  // CUSTOMER DEFAULT
   // ----------------------------------------------------------
 
   const invoiceDefault =
@@ -464,10 +827,12 @@ async function getPaymentMethod(
         await stripe
           .paymentMethods
           .retrieve(
-            invoiceDefault
+            invoiceDefault,
+            options
           );
     } catch {
-      paymentMethod = null;
+      paymentMethod =
+        null;
     }
   } else if (
     invoiceDefault &&
@@ -479,21 +844,26 @@ async function getPaymentMethod(
   }
 
   // ----------------------------------------------------------
-  // 2. ATTACHED CARD FALLBACK
+  // ATTACHED CARD FALLBACK
   // ----------------------------------------------------------
 
   if (!paymentMethod) {
     const methods =
       await stripe
         .paymentMethods
-        .list({
-          customer:
-            customer.id,
+        .list(
+          {
+            customer:
+              customer.id,
 
-          type: "card",
+            type:
+              "card",
 
-          limit: 10,
-        });
+            limit:
+              10,
+          },
+          options
+        );
 
     if (
       methods.data.length >
@@ -512,31 +882,29 @@ async function getPaymentMethod(
 // ============================================================
 
 async function getSubscriptions(
-  customerId: string
-): Promise<Stripe.Subscription[]> {
+  customerId: string,
+  stripeAccountId?: string | null
+): Promise<
+  Stripe.Subscription[]
+> {
   const subscriptions =
     await stripe
       .subscriptions
-      .list({
-        customer:
-          customerId,
+      .list(
+        {
+          customer:
+            customerId,
 
-        status:
-          "all",
+          status:
+            "all",
 
-        limit:
-          100,
-      });
-
-  /*
-   * TeamUp appears to create individual membership payments
-   * rather than Stripe Billing subscriptions for legacy MTC
-   * memberships.
-   *
-   * We still audit Stripe subscriptions so we can detect any
-   * member who DOES already have one and avoid accidentally
-   * creating duplicate recurring billing later.
-   */
+          limit:
+            100,
+        },
+        stripeOptions(
+          stripeAccountId
+        )
+      );
 
   return subscriptions.data.filter(
     subscription =>
@@ -550,24 +918,30 @@ async function getSubscriptions(
 }
 
 // ============================================================
-// RECENT SUCCESSFUL PAYMENTS
+// RECENT PAYMENTS
 // ============================================================
 
 async function getRecentPayments(
-  customerId: string
+  customerId: string,
+  stripeAccountId?: string | null
 ): Promise<
   RecentSuccessfulPayment[]
 > {
   const intents =
     await stripe
       .paymentIntents
-      .list({
-        customer:
-          customerId,
+      .list(
+        {
+          customer:
+            customerId,
 
-        limit:
-          20,
-      });
+          limit:
+            20,
+        },
+        stripeOptions(
+          stripeAccountId
+        )
+      );
 
   return intents.data
     .filter(
@@ -599,41 +973,31 @@ async function getRecentPayments(
 }
 
 // ============================================================
-// EMPTY RESULT HELPER
+// EMPTY CONTEXT RESULT
 // ============================================================
 
-function emptyResult(
-  member: {
-    name: string;
-    email: string | null;
-    suppliedCustomerId:
-      | string
-      | null;
-    expectedAmountPence:
-      | number
-      | null;
-  },
-
-  auditStatus:
-    StripeAuditResult["auditStatus"],
-
-  message: string
-): StripeAuditResult {
+function emptyContextAudit(
+  context: StripeContext,
+  stripeAccountId:
+    | string
+    | null,
+  accountAccessible: boolean,
+  error:
+    | string
+    | null = null
+): ContextAudit {
   return {
-    name:
-      member.name,
+    context,
 
-    email:
-      member.email,
+    stripeAccountId,
 
-    suppliedCustomerId:
-      member.suppliedCustomerId,
-
-    stripeCustomerId:
-      null,
+    accountAccessible,
 
     found:
       false,
+
+    stripeCustomerId:
+      null,
 
     stripeEmail:
       null,
@@ -668,39 +1032,38 @@ function emptyResult(
     recentSuccessfulPayments:
       [],
 
-    expectedAmountPence:
-      member.expectedAmountPence,
-
     matchingRecentPayment:
       false,
 
-    auditStatus,
+    multipleEmailMatches:
+      false,
 
-    message,
+    invalidCustomerId:
+      false,
+
+    error,
   };
 }
 
 // ============================================================
-// AUDIT ONE MEMBER
+// AUDIT MEMBER IN ONE STRIPE CONTEXT
 // ============================================================
 
-async function auditMember(
-  member: AuditMember
-): Promise<StripeAuditResult> {
-  const name =
-    cleanString(
-      member.name
+async function auditMemberInContext(
+  member: AuditMember,
+  context: StripeContext,
+  accountAccessible: boolean,
+  stripeAccountId?: string | null
+): Promise<ContextAudit> {
+  if (!accountAccessible) {
+    return emptyContextAudit(
+      context,
+      stripeAccountId ??
+        null,
+      false,
+      "Stripe account is not accessible using the configured TOTS Stripe credentials."
     );
-
-  const email =
-    normaliseEmail(
-      member.email
-    ) || null;
-
-  const suppliedCustomerId =
-    nullableString(
-      member.customerId
-    );
+  }
 
   const expectedAmountPence =
     Number.isInteger(
@@ -714,80 +1077,58 @@ async function auditMember(
         )
       : null;
 
-  const base = {
-    name,
-    email,
-    suppliedCustomerId,
-    expectedAmountPence,
-  };
-
   try {
-    // --------------------------------------------------------
-    // BASIC INPUT VALIDATION
-    // --------------------------------------------------------
-
-    if (!name) {
-      return emptyResult(
-        base,
-        "ERROR",
-        "Member name is required."
-      );
-    }
-
-    if (
-      !email &&
-      !suppliedCustomerId
-    ) {
-      return emptyResult(
-        base,
-        "CUSTOMER_NOT_FOUND",
-        "No Stripe customer ID or email was supplied."
-      );
-    }
-
-    // --------------------------------------------------------
-    // CUSTOMER LOOKUP
-    // --------------------------------------------------------
-
     const lookup =
       await findCustomer(
-        member
+        member,
+        stripeAccountId
       );
 
     if (
       lookup.invalidCustomerId
     ) {
-      return emptyResult(
-        base,
-        "INVALID_CUSTOMER_ID",
-        `Supplied customer ID "${suppliedCustomerId}" is not a normal Stripe cus_ customer ID.`
-      );
+      const result =
+        emptyContextAudit(
+          context,
+          stripeAccountId ??
+            null,
+          true
+        );
+
+      result.invalidCustomerId =
+        true;
+
+      return result;
     }
 
     if (
       lookup.multipleEmailMatches
     ) {
-      return emptyResult(
-        base,
-        "MULTIPLE_EMAIL_MATCHES",
-        "Multiple Stripe customers use this email. Manual matching is required."
-      );
+      const result =
+        emptyContextAudit(
+          context,
+          stripeAccountId ??
+            null,
+          true
+        );
+
+      result.multipleEmailMatches =
+        true;
+
+      return result;
     }
 
     const customer =
       lookup.customer;
 
     if (!customer) {
-      return emptyResult(
-        base,
-        "CUSTOMER_NOT_FOUND",
-        "No unique Stripe customer could be found."
+      return emptyContextAudit(
+        context,
+        stripeAccountId ??
+          null,
+        true
       );
     }
-
-    // --------------------------------------------------------
-    // READ-ONLY STRIPE AUDIT
-    // --------------------------------------------------------
 
     const [
       paymentMethod,
@@ -796,25 +1137,23 @@ async function auditMember(
     ] =
       await Promise.all([
         getPaymentMethod(
-          customer
+          customer,
+          stripeAccountId
         ),
 
         getSubscriptions(
-          customer.id
+          customer.id,
+          stripeAccountId
         ),
 
         getRecentPayments(
-          customer.id
+          customer.id,
+          stripeAccountId
         ),
       ]);
 
     const card =
       paymentMethod?.card;
-
-    /*
-     * Stripe PaymentMethod.customer can be a string, Customer,
-     * DeletedCustomer or null depending on API expansion/state.
-     */
 
     const paymentMethodCustomer =
       paymentMethod?.customer;
@@ -824,6 +1163,8 @@ async function auditMember(
       "string"
         ? paymentMethodCustomer
         : paymentMethodCustomer &&
+            typeof paymentMethodCustomer ===
+              "object" &&
             "id" in
               paymentMethodCustomer
           ? paymentMethodCustomer.id
@@ -846,15 +1187,20 @@ async function auditMember(
       );
 
     return {
-      name,
-      email,
-      suppliedCustomerId,
+      context,
 
-      stripeCustomerId:
-        customer.id,
+      stripeAccountId:
+        stripeAccountId ??
+        null,
+
+      accountAccessible:
+        true,
 
       found:
         true,
+
+      stripeCustomerId:
+        customer.id,
 
       stripeEmail:
         customer.email ??
@@ -904,36 +1250,477 @@ async function auditMember(
       recentSuccessfulPayments:
         payments,
 
-      expectedAmountPence,
-
       matchingRecentPayment,
 
-      auditStatus:
-        hasReusablePaymentMethod
-          ? "VERIFIED_CUSTOMER_AND_PAYMENT_METHOD"
-          : "CUSTOMER_FOUND_NO_PAYMENT_METHOD",
+      multipleEmailMatches:
+        false,
 
-      message:
-        hasReusablePaymentMethod
-          ? matchingRecentPayment
-            ? "Stripe customer exists, has an attached payment method, and a recent successful payment matches the expected legacy amount."
-            : "Stripe customer exists and has an attached payment method. No recent successful payment matched the expected legacy amount, or no expected amount was supplied."
-          : "Stripe customer exists but no attached reusable card payment method was found.",
+      invalidCustomerId:
+        false,
+
+      error:
+        null,
     };
   } catch (error) {
-    console.error(
-      `[MTC STRIPE AUDIT] ${name}:`,
-      error
-    );
-
-    return emptyResult(
-      base,
-      "ERROR",
+    return emptyContextAudit(
+      context,
+      stripeAccountId ??
+        null,
+      true,
       getErrorMessage(
         error
       )
     );
   }
+}
+
+// ============================================================
+// EMPTY FINAL RESULT
+// ============================================================
+
+function emptyResult(
+  member: {
+    name: string;
+    email: string | null;
+    suppliedCustomerId:
+      | string
+      | null;
+    expectedAmountPence:
+      | number
+      | null;
+  },
+
+  totsContext:
+    ContextAudit,
+
+  teamupContext:
+    ContextAudit,
+
+  auditStatus:
+    StripeAuditResult["auditStatus"],
+
+  message: string
+): StripeAuditResult {
+  return {
+    name:
+      member.name,
+
+    email:
+      member.email,
+
+    suppliedCustomerId:
+      member.suppliedCustomerId,
+
+    expectedAmountPence:
+      member.expectedAmountPence,
+
+    found:
+      false,
+
+    foundInContext:
+      null,
+
+    foundInStripeAccountId:
+      null,
+
+    stripeCustomerId:
+      null,
+
+    stripeEmail:
+      null,
+
+    stripeName:
+      null,
+
+    defaultPaymentMethodId:
+      null,
+
+    paymentMethodType:
+      null,
+
+    cardBrand:
+      null,
+
+    cardLast4:
+      null,
+
+    cardExpiry:
+      null,
+
+    hasReusablePaymentMethod:
+      false,
+
+    activeStripeSubscriptions:
+      0,
+
+    stripeSubscriptionIds:
+      [],
+
+    recentSuccessfulPayments:
+      [],
+
+    matchingRecentPayment:
+      false,
+
+    totsContext,
+
+    teamupContext,
+
+    auditStatus,
+
+    message,
+  };
+}
+
+// ============================================================
+// AUDIT ONE MEMBER
+// ============================================================
+
+async function auditMember(
+  member: AuditMember,
+  defaultAccount:
+    StripeAccountInfo,
+  teamupAccount:
+    StripeAccountInfo
+): Promise<StripeAuditResult> {
+  const name =
+    cleanString(
+      member.name
+    );
+
+  const email =
+    normaliseEmail(
+      member.email
+    ) || null;
+
+  const suppliedCustomerId =
+    nullableString(
+      member.customerId
+    );
+
+  const expectedAmountPence =
+    Number.isInteger(
+      member.expectedAmountPence
+    ) &&
+    Number(
+      member.expectedAmountPence
+    ) > 0
+      ? Number(
+          member.expectedAmountPence
+        )
+      : null;
+
+  const base = {
+    name,
+    email,
+    suppliedCustomerId,
+    expectedAmountPence,
+  };
+
+  // ----------------------------------------------------------
+  // INVALID BASIC INPUT
+  // ----------------------------------------------------------
+
+  if (!name) {
+    const totsContext =
+      emptyContextAudit(
+        "TOTS_DEFAULT",
+        defaultAccount.accountId,
+        defaultAccount.accessible
+      );
+
+    const teamupContext =
+      emptyContextAudit(
+        "TEAMUP_ACCOUNT",
+        TEAMUP_STRIPE_ACCOUNT_ID,
+        teamupAccount.accessible
+      );
+
+    return emptyResult(
+      base,
+      totsContext,
+      teamupContext,
+      "ERROR",
+      "Member name is required."
+    );
+  }
+
+  if (
+    !email &&
+    !suppliedCustomerId
+  ) {
+    const totsContext =
+      emptyContextAudit(
+        "TOTS_DEFAULT",
+        defaultAccount.accountId,
+        defaultAccount.accessible
+      );
+
+    const teamupContext =
+      emptyContextAudit(
+        "TEAMUP_ACCOUNT",
+        TEAMUP_STRIPE_ACCOUNT_ID,
+        teamupAccount.accessible
+      );
+
+    return emptyResult(
+      base,
+      totsContext,
+      teamupContext,
+      "CUSTOMER_NOT_FOUND",
+      "No Stripe customer ID or email was supplied."
+    );
+  }
+
+  // ==========================================================
+  // 1. CHECK NORMAL TOTS STRIPE CONTEXT
+  // ==========================================================
+
+  const totsContext =
+    await auditMemberInContext(
+      member,
+      "TOTS_DEFAULT",
+      defaultAccount.accessible,
+      null
+    );
+
+  // ==========================================================
+  // 2. CHECK TEAMUP STRIPE ACCOUNT
+  // ==========================================================
+
+  const teamupContext =
+    await auditMemberInContext(
+      member,
+      "TEAMUP_ACCOUNT",
+      teamupAccount.accessible,
+      TEAMUP_STRIPE_ACCOUNT_ID
+    );
+
+  // ==========================================================
+  // INVALID CUSTOMER ID
+  // ==========================================================
+
+  if (
+    totsContext.invalidCustomerId ||
+    teamupContext.invalidCustomerId
+  ) {
+    return emptyResult(
+      base,
+      totsContext,
+      teamupContext,
+      "INVALID_CUSTOMER_ID",
+      `Supplied customer ID "${suppliedCustomerId}" is not a normal Stripe cus_ customer ID.`
+    );
+  }
+
+  // ==========================================================
+  // MULTIPLE EMAIL MATCHES
+  // ==========================================================
+
+  if (
+    !suppliedCustomerId &&
+    (
+      totsContext.multipleEmailMatches ||
+      teamupContext.multipleEmailMatches
+    )
+  ) {
+    return emptyResult(
+      base,
+      totsContext,
+      teamupContext,
+      "MULTIPLE_EMAIL_MATCHES",
+      "Multiple Stripe customers use this email in at least one Stripe context. Manual matching is required."
+    );
+  }
+
+  // ==========================================================
+  // PREFER TEAMUP RESULT FOR LEGACY MIGRATION
+  // ==========================================================
+
+  /*
+   * These are legacy TeamUp members.
+   *
+   * If the supplied legacy customer exists in the TeamUp
+   * account, that is the authoritative migration result.
+   */
+
+  const selected =
+    teamupContext.found
+      ? teamupContext
+      : totsContext.found
+        ? totsContext
+        : null;
+
+  // ==========================================================
+  // CUSTOMER FOUND
+  // ==========================================================
+
+  if (selected) {
+    let auditStatus:
+      StripeAuditResult["auditStatus"];
+
+    if (
+      selected.hasReusablePaymentMethod
+    ) {
+      auditStatus =
+        selected.context ===
+        "TEAMUP_ACCOUNT"
+          ? "VERIFIED_IN_TEAMUP_ACCOUNT"
+          : "VERIFIED_IN_TOTS_ACCOUNT";
+    } else {
+      auditStatus =
+        "CUSTOMER_FOUND_NO_PAYMENT_METHOD";
+    }
+
+    let message: string;
+
+    if (
+      selected.context ===
+      "TEAMUP_ACCOUNT"
+    ) {
+      if (
+        selected.hasReusablePaymentMethod
+      ) {
+        message =
+          selected.matchingRecentPayment
+            ? "Legacy Stripe customer was verified inside the TeamUp Stripe account. It has an attached payment method and a recent successful payment matches the expected legacy amount. No billing changes were made."
+            : "Legacy Stripe customer was verified inside the TeamUp Stripe account and has an attached payment method. No recent successful payment matched the expected amount, or no expected amount was supplied. No billing changes were made.";
+      } else {
+        message =
+          "Legacy Stripe customer exists inside the TeamUp Stripe account, but no attached reusable card PaymentMethod was found. No billing changes were made.";
+      }
+    } else {
+      if (
+        selected.hasReusablePaymentMethod
+      ) {
+        message =
+          selected.matchingRecentPayment
+            ? "Stripe customer was verified in the default TOTS Stripe account with an attached payment method and matching recent payment. No billing changes were made."
+            : "Stripe customer was verified in the default TOTS Stripe account with an attached payment method. No matching recent payment was found, or no expected amount was supplied. No billing changes were made.";
+      } else {
+        message =
+          "Stripe customer exists in the default TOTS Stripe account, but no attached reusable card PaymentMethod was found. No billing changes were made.";
+      }
+    }
+
+    return {
+      name,
+      email,
+      suppliedCustomerId,
+      expectedAmountPence,
+
+      found:
+        true,
+
+      foundInContext:
+        selected.context,
+
+      foundInStripeAccountId:
+        selected.stripeAccountId,
+
+      stripeCustomerId:
+        selected.stripeCustomerId,
+
+      stripeEmail:
+        selected.stripeEmail,
+
+      stripeName:
+        selected.stripeName,
+
+      defaultPaymentMethodId:
+        selected.defaultPaymentMethodId,
+
+      paymentMethodType:
+        selected.paymentMethodType,
+
+      cardBrand:
+        selected.cardBrand,
+
+      cardLast4:
+        selected.cardLast4,
+
+      cardExpiry:
+        selected.cardExpiry,
+
+      hasReusablePaymentMethod:
+        selected.hasReusablePaymentMethod,
+
+      activeStripeSubscriptions:
+        selected.activeStripeSubscriptions,
+
+      stripeSubscriptionIds:
+        selected.stripeSubscriptionIds,
+
+      recentSuccessfulPayments:
+        selected.recentSuccessfulPayments,
+
+      matchingRecentPayment:
+        selected.matchingRecentPayment,
+
+      totsContext,
+
+      teamupContext,
+
+      auditStatus,
+
+      message,
+    };
+  }
+
+  // ==========================================================
+  // TEAMUP ACCOUNT NOT ACCESSIBLE
+  // ==========================================================
+
+  if (
+    !teamupAccount.accessible
+  ) {
+    return emptyResult(
+      base,
+      totsContext,
+      teamupContext,
+      "TEAMUP_ACCOUNT_NOT_ACCESSIBLE",
+      "The customer was not found in the default TOTS Stripe account, and the configured TOTS Stripe credentials cannot access the TeamUp Stripe account. This means the legacy customer cannot currently be verified or reused through this Stripe key."
+    );
+  }
+
+  // ==========================================================
+  // ERRORS
+  // ==========================================================
+
+  if (
+    totsContext.error ||
+    teamupContext.error
+  ) {
+    return emptyResult(
+      base,
+      totsContext,
+      teamupContext,
+      "ERROR",
+      [
+        totsContext.error
+          ? `TOTS: ${totsContext.error}`
+          : null,
+
+        teamupContext.error
+          ? `TeamUp: ${teamupContext.error}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" | ")
+    );
+  }
+
+  // ==========================================================
+  // NOT FOUND ANYWHERE
+  // ==========================================================
+
+  return emptyResult(
+    base,
+    totsContext,
+    teamupContext,
+    "CUSTOMER_NOT_FOUND",
+    "No unique Stripe customer could be found in either accessible Stripe context."
+  );
 }
 
 // ============================================================
@@ -1072,24 +1859,35 @@ export async function POST(
     }
 
     // ========================================================
-    // AUDIT
+    // DETERMINE STRIPE ACCOUNT ACCESS
     // ========================================================
-    //
-    // Sequential on purpose.
-    //
-    // This endpoint only READS:
-    //
-    // - Stripe customers
-    // - attached payment methods
-    // - Stripe Billing subscriptions
-    // - successful PaymentIntents
-    //
-    // It does NOT create or modify payments.
+
+    /*
+     * Both calls are READ ONLY.
+     */
+
+    const [
+      defaultStripeAccount,
+      teamupStripeAccount,
+    ] =
+      await Promise.all([
+        auditDefaultStripeAccount(),
+        auditTeamUpStripeAccount(),
+      ]);
+
+    // ========================================================
+    // AUDIT MEMBERS
     // ========================================================
 
     const results:
       StripeAuditResult[] =
       [];
+
+    /*
+     * Sequential on purpose to avoid
+     * hammering Stripe while auditing
+     * a large migration batch.
+     */
 
     for (
       const member of
@@ -1097,7 +1895,9 @@ export async function POST(
     ) {
       results.push(
         await auditMember(
-          member
+          member,
+          defaultStripeAccount,
+          teamupStripeAccount
         )
       );
     }
@@ -1106,19 +1906,28 @@ export async function POST(
     // SUMMARY
     // ========================================================
 
-    const verified =
+    const verifiedInTots =
       results.filter(
         result =>
           result.auditStatus ===
-          "VERIFIED_CUSTOMER_AND_PAYMENT_METHOD"
+          "VERIFIED_IN_TOTS_ACCOUNT"
+      ).length;
+
+    const verifiedInTeamUp =
+      results.filter(
+        result =>
+          result.auditStatus ===
+          "VERIFIED_IN_TEAMUP_ACCOUNT"
       ).length;
 
     const verifiedWithMatchingPayment =
       results.filter(
         result =>
-          result.auditStatus ===
-            "VERIFIED_CUSTOMER_AND_PAYMENT_METHOD" &&
-          result.matchingRecentPayment
+          result.found &&
+          result
+            .hasReusablePaymentMethod &&
+          result
+            .matchingRecentPayment
       ).length;
 
     const noPaymentMethod =
@@ -1133,6 +1942,13 @@ export async function POST(
         result =>
           result.auditStatus ===
           "CUSTOMER_NOT_FOUND"
+      ).length;
+
+    const teamupAccountNotAccessible =
+      results.filter(
+        result =>
+          result.auditStatus ===
+          "TEAMUP_ACCOUNT_NOT_ACCESSIBLE"
       ).length;
 
     const multipleMatches =
@@ -1187,6 +2003,26 @@ export async function POST(
           new Date()
             .toISOString(),
 
+        stripeAccounts: {
+          totsDefault:
+            defaultStripeAccount,
+
+          teamup:
+            teamupStripeAccount,
+
+          sameAccount:
+            Boolean(
+              defaultStripeAccount
+                .accountId &&
+              teamupStripeAccount
+                .accountId &&
+              defaultStripeAccount
+                .accountId ===
+                teamupStripeAccount
+                  .accountId
+            ),
+        },
+
         safety: {
           customersCreated:
             0,
@@ -1223,13 +2059,21 @@ export async function POST(
           requested:
             results.length,
 
-          verified,
+          verified:
+            verifiedInTots +
+            verifiedInTeamUp,
+
+          verifiedInTots,
+
+          verifiedInTeamUp,
 
           verifiedWithMatchingPayment,
 
           noPaymentMethod,
 
           notFound,
+
+          teamupAccountNotAccessible,
 
           multipleMatches,
 

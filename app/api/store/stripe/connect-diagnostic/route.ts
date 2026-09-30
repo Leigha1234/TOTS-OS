@@ -148,9 +148,10 @@ export async function GET() {
       {
         method: "GET",
         headers: {
-          Authorization: `Bearer ${stripeSecretKey}`,
-          Accept: "application/json",
-        },
+  Authorization: `Bearer ${stripeSecretKey}`,
+  "Stripe-Version": "2026-08-26.dahlia",
+  Accept: "application/json",
+},
         cache: "no-store",
       }
     );

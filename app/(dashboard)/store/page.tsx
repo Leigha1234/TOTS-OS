@@ -389,6 +389,7 @@ export default function StoreDashboardPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [draft, setDraft] = useState<ProductDraft>(blankProduct);
   const [savingProduct, setSavingProduct] = useState(false);
+  const [billingActionId, setBillingActionId] = useState<string | null>(null);
 
   const resolveOrganisationId = useCallback(async () => {
     // 1. Prefer an already-selected organisation stored by TOTS-OS.
@@ -661,6 +662,59 @@ export default function StoreDashboardPage() {
         order.customer_email?.toLowerCase().includes(query),
     );
   }, [orders, search]);
+
+
+  const runBillingMigrationAction = useCallback(async (
+    subscription: Subscription,
+    action: "setup" | "verify" | "teamup_stopped" | "activate",
+  ) => {
+    try {
+      setBillingActionId(subscription.id);
+      setError(null);
+
+      if (action === "teamup_stopped") {
+        const confirmedStopped = window.confirm(
+          "This does NOT cancel TeamUp for you. Only continue if you have already stopped this member’s billing inside TeamUp. Mark TeamUp billing as stopped?",
+        );
+        if (!confirmedStopped) return;
+      }
+
+      if (action === "activate") {
+        const confirmed = window.confirm(
+          "Only continue after this member’s TeamUp billing has been stopped. Activating TOTS billing can charge the member through Stripe. Continue?",
+        );
+        if (!confirmed) return;
+      }
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("You are not signed in.");
+
+      const response = await fetch("/api/admin/store/billing-migration", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ subscriptionId: subscription.id, action }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Billing migration action failed.");
+
+      if (result.url) {
+        await navigator.clipboard.writeText(result.url).catch(() => undefined);
+        window.open(result.url, "_blank", "noopener,noreferrer");
+        window.alert("Payment setup link opened and copied to your clipboard. Send it to the member if needed.");
+      }
+
+      await loadStore(true);
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Billing migration action failed.");
+    } finally {
+      setBillingActionId(null);
+    }
+  }, [loadStore]);
 
   const filteredSubscriptions = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -1489,6 +1543,7 @@ export default function StoreDashboardPage() {
                       <th className="px-4 py-4">Billing</th>
                       <th className="px-4 py-4">Status</th>
                       <th className="px-4 py-4">Started</th>
+                      <th className="px-4 py-4">Migration</th>
                       <th className="px-6 py-4">Membership</th>
                     </tr>
                   </thead>
@@ -1551,6 +1606,60 @@ export default function StoreDashboardPage() {
                           {formatDate(
                             subscription.current_period_start ||
                               subscription.created_at,
+                          )}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          {subscription.collection_enabled === true ? (
+                            <span className="text-xs font-semibold text-emerald-700">Live on TOTS</span>
+                          ) : subscription.billing_interval && subscription.unit_amount_pence && subscription.unit_amount_pence > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {subscription.cutover_status === "payment_method_ready" ? (
+                                <div className="flex flex-wrap gap-2">
+                                  {subscription.teamup_billing_active === true && (
+                                    <button
+                                      type="button"
+                                      disabled={billingActionId === subscription.id}
+                                      onClick={() => runBillingMigrationAction(subscription, "teamup_stopped")}
+                                      className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 disabled:opacity-50"
+                                    >
+                                      Mark TeamUp stopped
+                                    </button>
+                                  )}
+                                  <button
+                                  type="button"
+                                  disabled={billingActionId === subscription.id}
+                                  onClick={() => runBillingMigrationAction(subscription, "activate")}
+                                  className="rounded-lg bg-stone-950 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                                >
+                                  {billingActionId === subscription.id ? "Working…" : "Activate TOTS"}
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={billingActionId === subscription.id}
+                                    onClick={() => runBillingMigrationAction(subscription, "setup")}
+                                    className="rounded-lg bg-stone-950 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                                  >
+                                    {billingActionId === subscription.id ? "Working…" : subscription.cutover_status === "payment_setup_sent" ? "New setup link" : "Payment setup"}
+                                  </button>
+                                  {subscription.cutover_status === "payment_setup_sent" && (
+                                    <button
+                                      type="button"
+                                      disabled={billingActionId === subscription.id}
+                                      onClick={() => runBillingMigrationAction(subscription, "verify")}
+                                      className="rounded-lg border border-stone-200 px-3 py-2 text-xs font-semibold text-stone-700 disabled:opacity-50"
+                                    >
+                                      Check setup
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-stone-400">No recurring billing</span>
                           )}
                         </td>
 

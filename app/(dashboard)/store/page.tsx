@@ -210,6 +210,31 @@ type StoreSettings = {
   custom_css?: string | null;
 };
 
+
+type StripeStoreStatus = {
+  connected: boolean;
+  accountId: string | null;
+  accountUnavailable: boolean;
+  accountType: string | null;
+  country: string | null;
+  defaultCurrency: string;
+  email: string | null;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  detailsSubmitted: boolean;
+  onboardingComplete: boolean;
+  requirements: {
+    currentlyDue: string[];
+    eventuallyDue: string[];
+    pastDue: string[];
+    disabledReason: string | null;
+  };
+  balance: {
+    available: Array<{ currency: string; amount: number; formatted: string }>;
+    pending: Array<{ currency: string; amount: number; formatted: string }>;
+  };
+};
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -390,6 +415,9 @@ export default function StoreDashboardPage() {
   const [draft, setDraft] = useState<ProductDraft>(blankProduct);
   const [savingProduct, setSavingProduct] = useState(false);
   const [billingActionId, setBillingActionId] = useState<string | null>(null);
+  const [stripeStatus, setStripeStatus] = useState<StripeStoreStatus | null>(null);
+  const [stripeStatusLoading, setStripeStatusLoading] = useState(true);
+  const [stripeConnectLoading, setStripeConnectLoading] = useState(false);
 
   const resolveOrganisationId = useCallback(async () => {
     // 1. Prefer an already-selected organisation stored by TOTS-OS.
@@ -457,6 +485,90 @@ export default function StoreDashboardPage() {
       "We could not determine which organisation is currently active.",
     );
   }, []);
+
+  const getAccessToken = useCallback(async () => {
+    const { data, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+
+    const token = data.session?.access_token;
+    if (!token) throw new Error("You are not signed in.");
+
+    return token;
+  }, []);
+
+  const loadStripeStatus = useCallback(async (silent = false) => {
+    if (!silent) setStripeStatusLoading(true);
+
+    try {
+      const token = await getAccessToken();
+      const response = await fetch("/api/store/stripe/status", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Stripe status could not be loaded.");
+      }
+
+      setStripeStatus(result as StripeStoreStatus);
+    } catch (statusError) {
+      console.error("Store Stripe status load error:", statusError);
+      setStripeStatus(null);
+      if (!silent) {
+        setError(
+          statusError instanceof Error
+            ? statusError.message
+            : "Stripe status could not be loaded.",
+        );
+      }
+    } finally {
+      if (!silent) setStripeStatusLoading(false);
+    }
+  }, [getAccessToken]);
+
+  const connectStripe = useCallback(async () => {
+    try {
+      setStripeConnectLoading(true);
+      setError(null);
+
+      const token = await getAccessToken();
+      const response = await fetch("/api/store/stripe/connect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Stripe onboarding could not be started.");
+      }
+
+      const onboardingUrl =
+        typeof result.onboardingUrl === "string"
+          ? result.onboardingUrl
+          : typeof result.url === "string"
+            ? result.url
+            : "";
+
+      if (!onboardingUrl || !onboardingUrl.startsWith("https://")) {
+        throw new Error("Stripe did not return a valid onboarding link.");
+      }
+
+      window.location.assign(onboardingUrl);
+    } catch (connectError) {
+      console.error("Stripe connect error:", connectError);
+      setError(
+        connectError instanceof Error
+          ? connectError.message
+          : "Stripe onboarding could not be started.",
+      );
+      setStripeConnectLoading(false);
+    }
+  }, [getAccessToken]);
 
   const loadStore = useCallback(
     async (silent = false) => {
@@ -573,7 +685,20 @@ export default function StoreDashboardPage() {
 
   useEffect(() => {
     void loadStore();
-  }, [loadStore]);
+    void loadStripeStatus();
+  }, [loadStore, loadStripeStatus]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const stripeReturn = params.get("stripe");
+
+    if (stripeReturn === "connected" || stripeReturn === "refresh") {
+      void loadStripeStatus(true);
+
+      const cleanUrl = `${window.location.pathname}${window.location.hash || ""}`;
+      window.history.replaceState({}, "", cleanUrl);
+    }
+  }, [loadStripeStatus]);
 
   const metrics = useMemo(() => {
     const activeProducts = products.filter(
@@ -672,6 +797,30 @@ export default function StoreDashboardPage() {
       setBillingActionId(subscription.id);
       setError(null);
 
+      if (action === "setup") {
+        if (stripeStatusLoading) {
+          throw new Error("Stripe status is still loading. Try again in a moment.");
+        }
+
+        if (!stripeStatus?.connected) {
+          setBillingActionId(null);
+          const shouldConnect = window.confirm(
+            "Moray Training Club needs its TOTS Stripe account connected before member payment setup can begin. Open Stripe setup now?",
+          );
+          if (shouldConnect) await connectStripe();
+          return;
+        }
+
+        if (!stripeStatus.onboardingComplete) {
+          setBillingActionId(null);
+          const shouldContinue = window.confirm(
+            "The MTC Stripe account exists, but Stripe onboarding is not complete yet. Continue Stripe setup now?",
+          );
+          if (shouldContinue) await connectStripe();
+          return;
+        }
+      }
+
       if (action === "teamup_stopped") {
         const confirmedStopped = window.confirm(
           "This does NOT cancel TeamUp for you. Only continue if you have already stopped this member’s billing inside TeamUp. Mark TeamUp billing as stopped?",
@@ -714,7 +863,7 @@ export default function StoreDashboardPage() {
     } finally {
       setBillingActionId(null);
     }
-  }, [loadStore]);
+  }, [connectStripe, loadStore, stripeStatus, stripeStatusLoading]);
 
   const filteredSubscriptions = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -1099,7 +1248,10 @@ export default function StoreDashboardPage() {
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={() => void loadStore(true)}
+              onClick={() => {
+                void loadStore(true);
+                void loadStripeStatus(true);
+              }}
               disabled={refreshing}
               className="inline-flex h-11 items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-stone-700 shadow-sm transition hover:bg-stone-50 disabled:opacity-50"
             >
@@ -1130,6 +1282,50 @@ export default function StoreDashboardPage() {
             <button type="button" onClick={() => setError(null)}>
               <X className="h-4 w-4" />
             </button>
+          </div>
+        )}
+
+        {!stripeStatusLoading && (!stripeStatus?.connected || !stripeStatus.onboardingComplete) && (
+          <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <CreditCard className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+              <div>
+                <p className="text-sm font-semibold text-amber-950">
+                  {!stripeStatus?.connected
+                    ? "Connect MTC to Stripe before moving member billing to TOTS-OS"
+                    : "Finish MTC Stripe setup before moving member billing to TOTS-OS"}
+                </p>
+                <p className="mt-1 max-w-3xl text-sm text-amber-800">
+                  {!stripeStatus?.connected
+                    ? "The 356 legacy membership records stay billed by TeamUp. Connecting Stripe only creates the MTC payment account; it does not charge members or stop TeamUp."
+                    : "The Stripe account has been created, but onboarding is not fully operational yet. TeamUp billing remains unchanged until each member is deliberately cut over."}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void connectStripe()}
+              disabled={stripeConnectLoading}
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-stone-950 px-5 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:opacity-50"
+            >
+              {stripeConnectLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ExternalLink className="h-4 w-4" />
+              )}
+              {stripeStatus?.connected ? "Continue Stripe setup" : "Connect Stripe"}
+            </button>
+          </div>
+        )}
+
+        {!stripeStatusLoading && stripeStatus?.connected && stripeStatus.onboardingComplete && (
+          <div className="mt-5 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-800">
+            <Check className="h-5 w-5 shrink-0" />
+            <div>
+              <span className="font-semibold">MTC Stripe is ready.</span>{" "}
+              Member payment setup can now be moved to TOTS-OS one member at a time. TeamUp remains active until you explicitly mark it stopped for that member.
+            </div>
           </div>
         )}
 

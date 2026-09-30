@@ -68,7 +68,7 @@ type StoreSubscription = {
   legacy_membership_name: string | null;
 
   payment_provider: string | null;
-  billing_provider: string;
+  billing_provider: string | null;
 
   legacy_billing: boolean;
 
@@ -105,6 +105,16 @@ type MigrationSource = {
   [key: string]: unknown;
 };
 
+type CustomerCandidate = {
+  customer: Stripe.Customer;
+  paymentMethod: Stripe.PaymentMethod | null;
+
+  source:
+    | "email"
+    | "existing_stripe_customer_id"
+    | "external_customer_id";
+};
+
 type ScanResult = {
   subscriptionId: string;
   customerName: string | null;
@@ -112,16 +122,20 @@ type ScanResult = {
 
   result:
     | "verified"
-    | "waiting_for_stripe_copy"
-    | "multiple_customers"
+    | "already_verified"
+    | "no_email"
+    | "customer_not_found"
+    | "multiple_card_customers"
     | "no_payment_method"
     | "not_stripe"
     | "non_recurring"
-    | "already_verified"
     | "error";
 
   stripeCustomerId?: string | null;
   paymentMethodId?: string | null;
+
+  candidates?: number;
+  cardReadyCandidates?: number;
 
   message?: string;
 };
@@ -144,6 +158,7 @@ async function requireUser(req: NextRequest) {
       persistSession: false,
       autoRefreshToken: false,
     },
+
     global: {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -188,14 +203,18 @@ async function getConnectedAccount() {
     throw new Error("MTC Stripe account is not connected.");
   }
 
-  const account = await stripe.accounts.retrieve(data.stripe_account_id);
+  const accountId = String(data.stripe_account_id);
+
+  const account = await stripe.accounts.retrieve(accountId);
 
   if (!account.charges_enabled) {
-    throw new Error("MTC Stripe account cannot currently accept payments.");
+    throw new Error(
+      "MTC Stripe account cannot currently accept payments.",
+    );
   }
 
   return {
-    accountId: data.stripe_account_id as string,
+    accountId,
     account,
   };
 }
@@ -204,7 +223,9 @@ async function getConnectedAccount() {
 // DATABASE HELPERS
 // ============================================================
 
-async function loadSubscription(id: string): Promise<StoreSubscription> {
+async function loadSubscription(
+  id: string,
+): Promise<StoreSubscription> {
   const { data, error } = await admin
     .from("store_subscriptions")
     .select("*")
@@ -213,7 +234,30 @@ async function loadSubscription(id: string): Promise<StoreSubscription> {
     .single();
 
   if (error) throw error;
-  if (!data) throw new Error("Subscription record not found.");
+
+  if (!data) {
+    throw new Error("Subscription record not found.");
+  }
+
+  return data as StoreSubscription;
+}
+
+async function patchSubscription(
+  id: string,
+  values: Record<string, unknown>,
+) {
+  const { data, error } = await admin
+    .from("store_subscriptions")
+    .update({
+      ...values,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("organisation_id", ORGANISATION_ID)
+    .select("*")
+    .single();
+
+  if (error) throw error;
 
   return data as StoreSubscription;
 }
@@ -242,7 +286,9 @@ async function getMigrationSource(
     return null;
   }
 
-  if (!data?.length) return null;
+  if (!data?.length) {
+    return null;
+  }
 
   return data[0] as MigrationSource;
 }
@@ -251,26 +297,6 @@ function metadata(row: StoreSubscription) {
   return {
     ...(row.metadata ?? {}),
   } as Record<string, unknown>;
-}
-
-async function patchSubscription(
-  id: string,
-  values: Record<string, unknown>,
-) {
-  const { data, error } = await admin
-    .from("store_subscriptions")
-    .update({
-      ...values,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("organisation_id", ORGANISATION_ID)
-    .select("*")
-    .single();
-
-  if (error) throw error;
-
-  return data as StoreSubscription;
 }
 
 // ============================================================
@@ -288,11 +314,22 @@ function isRecurring(row: StoreSubscription) {
 }
 
 function isStripeRecord(row: StoreSubscription) {
-  const provider = String(
-    row.payment_provider ?? row.billing_provider ?? "",
+  const paymentProvider = String(
+    row.payment_provider ?? "",
   ).toLowerCase();
 
-  return provider === "stripe";
+  const billingProvider = String(
+    row.billing_provider ?? "",
+  ).toLowerCase();
+
+  return (
+    paymentProvider === "stripe" ||
+    billingProvider === "stripe"
+  );
+}
+
+function isStripeRecurring(row: StoreSubscription) {
+  return isStripeRecord(row) && isRecurring(row);
 }
 
 function stripeInterval(
@@ -309,24 +346,35 @@ function stripeInterval(
       return "year";
 
     default:
-      throw new Error(`Unsupported billing interval: ${interval}`);
+      throw new Error(
+        `Unsupported billing interval: ${interval}`,
+      );
   }
 }
 
 // ============================================================
-// STRIPE CUSTOMER MATCHING
+// STRIPE CUSTOMER HELPERS
 // ============================================================
 
 async function retrieveCustomer(
   accountId: string,
   customerId: string,
 ): Promise<Stripe.Customer | null> {
-  try {
-    const result = await stripe.customers.retrieve(customerId, {
-      stripeAccount: accountId,
-    });
+  if (!customerId.startsWith("cus_")) {
+    return null;
+  }
 
-    if (result.deleted) return null;
+  try {
+    const result = await stripe.customers.retrieve(
+      customerId,
+      {
+        stripeAccount: accountId,
+      },
+    );
+
+    if (result.deleted) {
+      return null;
+    }
 
     return result;
   } catch {
@@ -334,14 +382,48 @@ async function retrieveCustomer(
   }
 }
 
-async function searchCustomersByEmail(
+async function listCustomersByEmail(
   accountId: string,
   email: string,
 ): Promise<Stripe.Customer[]> {
-  const escaped = email.replace(/'/g, "\\'");
+  const normalised = email.trim().toLowerCase();
+
+  /**
+   * IMPORTANT:
+   *
+   * LIST is deliberately used first.
+   *
+   * Stripe Search can have indexing delay after a large customer
+   * migration. We therefore do not depend on Search for this migration.
+   */
+
+  const listed = await stripe.customers.list(
+    {
+      email: normalised,
+      limit: 100,
+    },
+    {
+      stripeAccount: accountId,
+    },
+  );
+
+  const exact = listed.data.filter(
+    (customer) =>
+      customer.email?.trim().toLowerCase() === normalised,
+  );
+
+  if (exact.length > 0) {
+    return exact;
+  }
+
+  /**
+   * Search fallback.
+   */
 
   try {
-    const result = await stripe.customers.search(
+    const escaped = normalised.replace(/'/g, "\\'");
+
+    const searched = await stripe.customers.search(
       {
         query: `email:'${escaped}'`,
         limit: 100,
@@ -351,153 +433,96 @@ async function searchCustomersByEmail(
       },
     );
 
-    return result.data;
+    return searched.data.filter(
+      (customer) =>
+        customer.email?.trim().toLowerCase() === normalised,
+    );
   } catch (error) {
-    console.warn("[STRIPE CUSTOMER SEARCH]", error);
-
-    // Fallback for accounts where search indexing is delayed.
-    const result = await stripe.customers.list(
-      {
-        email,
-        limit: 100,
-      },
-      {
-        stripeAccount: accountId,
-      },
+    console.warn(
+      "[MTC STRIPE CUSTOMER SEARCH FALLBACK]",
+      error,
     );
 
-    return result.data;
+    return [];
   }
-}
-
-async function findCopiedCustomer(
-  row: StoreSubscription,
-  accountId: string,
-) {
-  /**
-   * FIRST CHOICE:
-   * The customer-copy operation is expected to preserve Stripe Customer IDs
-   * where supported.
-   *
-   * Therefore external_customer_id is the strongest match.
-   */
-
-  const importedCustomerId =
-    row.external_customer_id?.startsWith("cus_")
-      ? row.external_customer_id
-      : null;
-
-  if (importedCustomerId) {
-    const exact = await retrieveCustomer(accountId, importedCustomerId);
-
-    if (exact) {
-      return {
-        customer: exact,
-        match: "external_customer_id" as const,
-        candidates: [exact],
-      };
-    }
-  }
-
-  /**
-   * SECOND CHOICE:
-   * Existing stripe_customer_id.
-   *
-   * Be careful: our earlier Sam Hill setup attempts created new empty
-   * customers in this connected account. We therefore don't automatically
-   * trust this more than the imported TeamUp customer ID.
-   */
-
-  if (row.stripe_customer_id?.startsWith("cus_")) {
-    const existing = await retrieveCustomer(
-      accountId,
-      row.stripe_customer_id,
-    );
-
-    if (existing) {
-      return {
-        customer: existing,
-        match: "existing_stripe_customer_id" as const,
-        candidates: [existing],
-      };
-    }
-  }
-
-  /**
-   * THIRD CHOICE:
-   * Email.
-   *
-   * We only auto-select an email match when exactly one candidate exists.
-   * Shared emails and duplicate Stripe customers must not be guessed.
-   */
-
-  if (!row.customer_email) {
-    return {
-      customer: null,
-      match: "none" as const,
-      candidates: [] as Stripe.Customer[],
-    };
-  }
-
-  const candidates = await searchCustomersByEmail(
-    accountId,
-    row.customer_email.trim(),
-  );
-
-  if (candidates.length === 1) {
-    return {
-      customer: candidates[0],
-      match: "email" as const,
-      candidates,
-    };
-  }
-
-  return {
-    customer: null,
-    match:
-      candidates.length > 1
-        ? ("multiple_email_matches" as const)
-        : ("none" as const),
-    candidates,
-  };
 }
 
 // ============================================================
 // PAYMENT METHOD DISCOVERY
 // ============================================================
 
+function cardIsExpired(
+  paymentMethod: Stripe.PaymentMethod,
+) {
+  if (paymentMethod.type !== "card") {
+    return false;
+  }
+
+  const card = paymentMethod.card;
+
+  if (!card?.exp_year || !card.exp_month) {
+    return false;
+  }
+
+  const now = new Date();
+
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1;
+
+  if (card.exp_year < year) {
+    return true;
+  }
+
+  if (
+    card.exp_year === year &&
+    card.exp_month < month
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 async function findReusablePaymentMethod(
   accountId: string,
   customer: Stripe.Customer,
-) {
+): Promise<Stripe.PaymentMethod | null> {
   /**
-   * Check invoice_settings.default_payment_method first.
+   * 1. Default payment method
    */
 
-  const defaultPm = customer.invoice_settings?.default_payment_method;
+  const defaultPm =
+    customer.invoice_settings?.default_payment_method;
 
-  if (typeof defaultPm === "string" && defaultPm.startsWith("pm_")) {
+  const defaultPmId =
+    typeof defaultPm === "string"
+      ? defaultPm
+      : defaultPm?.id;
+
+  if (defaultPmId?.startsWith("pm_")) {
     try {
-      const paymentMethod = await stripe.paymentMethods.retrieve(
-        defaultPm,
-        {
-          stripeAccount: accountId,
-        },
-      );
+      const paymentMethod =
+        await stripe.paymentMethods.retrieve(
+          defaultPmId,
+          {
+            stripeAccount: accountId,
+          },
+        );
 
       if (
         paymentMethod.customer === customer.id &&
-        paymentMethod.type === "card"
+        paymentMethod.type === "card" &&
+        !cardIsExpired(paymentMethod)
       ) {
         return paymentMethod;
       }
     } catch {
-      // Continue to list methods.
+      // Continue.
     }
   }
 
   /**
-   * Then list reusable card payment methods attached to the customer.
+   * 2. Attached reusable cards
    */
 
   const methods = await stripe.paymentMethods.list(
@@ -511,36 +536,213 @@ async function findReusablePaymentMethod(
     },
   );
 
-  if (!methods.data.length) {
+  const valid = methods.data.filter(
+    (method) =>
+      method.customer === customer.id &&
+      method.type === "card" &&
+      !cardIsExpired(method),
+  );
+
+  if (!valid.length) {
     return null;
   }
 
   /**
-   * Prefer a non-expired card.
+   * Prefer the newest attached valid payment method.
    */
 
-  const now = new Date();
-  const currentYear = now.getUTCFullYear();
-  const currentMonth = now.getUTCMonth() + 1;
+  valid.sort((a, b) => b.created - a.created);
 
-  const valid = methods.data.find((method) => {
-    const card = method.card;
-
-    if (!card?.exp_year || !card?.exp_month) return true;
-
-    if (card.exp_year > currentYear) return true;
-
-    return (
-      card.exp_year === currentYear &&
-      card.exp_month >= currentMonth
-    );
-  });
-
-  return valid ?? methods.data[0];
+  return valid[0];
 }
 
 // ============================================================
-// VERIFY A SINGLE MIGRATED MEMBER
+// CANDIDATE COLLECTION
+// ============================================================
+
+async function buildCandidates(
+  row: StoreSubscription,
+  accountId: string,
+): Promise<CustomerCandidate[]> {
+  const customerMap = new Map<
+    string,
+    {
+      customer: Stripe.Customer;
+      sources: Set<CustomerCandidate["source"]>;
+    }
+  >();
+
+  async function addCustomer(
+    customer: Stripe.Customer | null,
+    source: CustomerCandidate["source"],
+  ) {
+    if (!customer) return;
+
+    const existing = customerMap.get(customer.id);
+
+    if (existing) {
+      existing.sources.add(source);
+      return;
+    }
+
+    customerMap.set(customer.id, {
+      customer,
+      sources: new Set([source]),
+    });
+  }
+
+  /**
+   * Existing TOTS Stripe customer ID.
+   *
+   * This is only a candidate.
+   * It is NOT automatically trusted.
+   */
+
+  if (row.stripe_customer_id?.startsWith("cus_")) {
+    await addCustomer(
+      await retrieveCustomer(
+        accountId,
+        row.stripe_customer_id,
+      ),
+      "existing_stripe_customer_id",
+    );
+  }
+
+  /**
+   * Imported TeamUp Stripe customer ID.
+   *
+   * If Stripe preserved it during copy, this will resolve.
+   * If not, it simply won't resolve in the new account.
+   */
+
+  if (row.external_customer_id?.startsWith("cus_")) {
+    await addCustomer(
+      await retrieveCustomer(
+        accountId,
+        row.external_customer_id,
+      ),
+      "external_customer_id",
+    );
+  }
+
+  /**
+   * Email candidates from the NEW MTC connected account.
+   */
+
+  if (row.customer_email) {
+    const emailCustomers = await listCustomersByEmail(
+      accountId,
+      row.customer_email,
+    );
+
+    for (const customer of emailCustomers) {
+      await addCustomer(customer, "email");
+    }
+  }
+
+  const candidates: CustomerCandidate[] = [];
+
+  for (const entry of customerMap.values()) {
+    const paymentMethod =
+      await findReusablePaymentMethod(
+        accountId,
+        entry.customer,
+      );
+
+    /**
+     * Source is informational only.
+     *
+     * Prefer external ID as the descriptive source if present,
+     * then email, then existing TOTS ID.
+     */
+
+    let source: CustomerCandidate["source"] =
+      "existing_stripe_customer_id";
+
+    if (entry.sources.has("external_customer_id")) {
+      source = "external_customer_id";
+    } else if (entry.sources.has("email")) {
+      source = "email";
+    }
+
+    candidates.push({
+      customer: entry.customer,
+      paymentMethod,
+      source,
+    });
+  }
+
+  return candidates;
+}
+
+// ============================================================
+// SELECT SAFE COPIED CUSTOMER
+// ============================================================
+
+async function selectSafeCustomer(
+  row: StoreSubscription,
+  accountId: string,
+) {
+  const candidates = await buildCandidates(
+    row,
+    accountId,
+  );
+
+  const cardReady = candidates.filter(
+    (candidate) => candidate.paymentMethod !== null,
+  );
+
+  /**
+   * SAFE AUTO-MATCH:
+   *
+   * Exactly ONE customer candidate has a reusable payment method.
+   */
+
+  if (cardReady.length === 1) {
+    return {
+      status: "matched" as const,
+      selected: cardReady[0],
+      candidates,
+      cardReady,
+    };
+  }
+
+  /**
+   * Multiple card-ready customers = NEVER GUESS.
+   */
+
+  if (cardReady.length > 1) {
+    return {
+      status: "multiple_card_customers" as const,
+      selected: null,
+      candidates,
+      cardReady,
+    };
+  }
+
+  /**
+   * Customer(s) exist, but none has a reusable card.
+   */
+
+  if (candidates.length > 0) {
+    return {
+      status: "no_payment_method" as const,
+      selected: null,
+      candidates,
+      cardReady,
+    };
+  }
+
+  return {
+    status: "customer_not_found" as const,
+    selected: null,
+    candidates,
+    cardReady,
+  };
+}
+
+// ============================================================
+// SCAN ONE STRIPE RECURRING MEMBER
 // ============================================================
 
 async function scanOne(
@@ -566,9 +768,25 @@ async function scanOne(
       };
     }
 
+    if (!row.customer_email) {
+      return {
+        subscriptionId: row.id,
+        customerName: row.customer_name,
+        email: null,
+        result: "no_email",
+        message:
+          "Recurring Stripe member has no email address. Manual review required.",
+      };
+    }
+
+    /**
+     * Already verified records are not modified again.
+     */
+
     if (
       row.processor_verification_status === "verified" &&
-      row.cutover_status === "verified"
+      row.cutover_status === "verified" &&
+      row.stripe_customer_id
     ) {
       return {
         subscriptionId: row.id,
@@ -579,92 +797,115 @@ async function scanOne(
       };
     }
 
-    const match = await findCopiedCustomer(row, accountId);
+    const selection = await selectSafeCustomer(
+      row,
+      accountId,
+    );
 
     if (
-      match.match === "multiple_email_matches" &&
-      !match.customer
+      selection.status ===
+      "multiple_card_customers"
     ) {
       return {
         subscriptionId: row.id,
         customerName: row.customer_name,
         email: row.customer_email,
-        result: "multiple_customers",
-        message: `${match.candidates.length} Stripe customers have this email. Manual match required.`,
-      };
-    }
 
-    if (!match.customer) {
-      return {
-        subscriptionId: row.id,
-        customerName: row.customer_name,
-        email: row.customer_email,
-        result: "waiting_for_stripe_copy",
-        message: "Copied Stripe customer not found yet.",
-      };
-    }
+        result: "multiple_card_customers",
 
-    const paymentMethod = await findReusablePaymentMethod(
-      accountId,
-      match.customer,
-    );
+        candidates: selection.candidates.length,
+        cardReadyCandidates:
+          selection.cardReady.length,
 
-    if (!paymentMethod) {
-      return {
-        subscriptionId: row.id,
-        customerName: row.customer_name,
-        email: row.customer_email,
-        result: "no_payment_method",
-        stripeCustomerId: match.customer.id,
         message:
-          "Customer exists in the new MTC Stripe account but no reusable card payment method is available yet.",
+          `${selection.cardReady.length} Stripe customers with reusable cards match this member. TOTS refused to guess.`,
       };
+    }
+
+    if (
+      selection.status ===
+      "customer_not_found"
+    ) {
+      return {
+        subscriptionId: row.id,
+        customerName: row.customer_name,
+        email: row.customer_email,
+
+        result: "customer_not_found",
+
+        candidates: 0,
+        cardReadyCandidates: 0,
+
+        message:
+          "No matching customer was found in the new MTC Stripe account.",
+      };
+    }
+
+    if (
+      selection.status ===
+      "no_payment_method"
+    ) {
+      return {
+        subscriptionId: row.id,
+        customerName: row.customer_name,
+        email: row.customer_email,
+
+        result: "no_payment_method",
+
+        candidates: selection.candidates.length,
+        cardReadyCandidates: 0,
+
+        message:
+          "Matching Stripe customer exists, but no reusable non-expired card was found.",
+      };
+    }
+
+    const selected = selection.selected;
+
+    if (
+      !selected ||
+      !selected.paymentMethod
+    ) {
+      throw new Error(
+        "Safe Stripe customer selection unexpectedly failed.",
+      );
     }
 
     const source = await getMigrationSource(row);
 
-    const meta = metadata(row);
-
     const now = new Date().toISOString();
 
-    const newMetadata = {
-      ...meta,
+    const meta = metadata(row);
 
-      mtc_auto_migration: true,
-      mtc_auto_verified_at: now,
-
-      mtc_stripe_customer_match: match.match,
-
-      mtc_copied_customer_id: match.customer.id,
-      mtc_copied_payment_method_id: paymentMethod.id,
-
-      mtc_payment_method_type: paymentMethod.type,
-
-      mtc_source_last_payment_at:
-        source?.last_payment_at ??
-        row.last_payment_at ??
-        null,
-
-      mtc_source_last_payment_amount_pence:
-        source?.last_payment_amount_pence ??
-        row.last_payment_amount_pence ??
-        null,
-    };
+    const previousStripeCustomerId =
+      row.stripe_customer_id;
 
     await patchSubscription(row.id, {
       stripe_account_id: accountId,
 
-      stripe_customer_id: match.customer.id,
+      /**
+       * This becomes the authoritative Stripe customer
+       * for the NEW MTC connected account.
+       */
+      stripe_customer_id:
+        selected.customer.id,
 
-      processor_verification_status: "verified",
+      payment_provider: "stripe",
+      billing_provider: "stripe",
+
+      processor_verification_status:
+        "verified",
+
       processor_verified_at: now,
 
       cutover_status: "verified",
 
+      /**
+       * ABSOLUTE SAFETY:
+       */
       collection_enabled: false,
+      collection_enabled_at: null,
 
-      // CRITICAL:
-      // Stripe copy/verification must never disable TeamUp.
       teamup_billing_active: true,
 
       last_payment_at:
@@ -677,10 +918,50 @@ async function scanOne(
         row.last_payment_amount_pence ??
         null,
 
-      metadata: newMetadata,
+      metadata: {
+        ...meta,
+
+        mtc_stripe_copy_reconciled: true,
+
+        mtc_stripe_copy_reconciled_at: now,
+
+        mtc_stripe_connected_account:
+          accountId,
+
+        mtc_stripe_customer_match_source:
+          selected.source,
+
+        mtc_previous_stripe_customer_id:
+          previousStripeCustomerId ?? null,
+
+        mtc_verified_stripe_customer_id:
+          selected.customer.id,
+
+        mtc_verified_payment_method_id:
+          selected.paymentMethod.id,
+
+        mtc_payment_method_type:
+          selected.paymentMethod.type,
+
+        mtc_customer_candidate_count:
+          selection.candidates.length,
+
+        mtc_card_ready_candidate_count:
+          selection.cardReady.length,
+
+        mtc_source_last_payment_at:
+          source?.last_payment_at ??
+          row.last_payment_at ??
+          null,
+
+        mtc_source_last_payment_amount_pence:
+          source?.last_payment_amount_pence ??
+          row.last_payment_amount_pence ??
+          null,
+      },
 
       migration_notes:
-        "Copied Stripe customer and reusable payment method verified automatically. TeamUp remains active. TOTS collection remains disabled.",
+        "Stripe customer copy reconciled successfully. Exactly one matching customer has a reusable payment method. TeamUp remains active. TOTS collection remains disabled.",
     });
 
     return {
@@ -690,11 +971,20 @@ async function scanOne(
 
       result: "verified",
 
-      stripeCustomerId: match.customer.id,
-      paymentMethodId: paymentMethod.id,
+      stripeCustomerId:
+        selected.customer.id,
+
+      paymentMethodId:
+        selected.paymentMethod.id,
+
+      candidates:
+        selection.candidates.length,
+
+      cardReadyCandidates:
+        selection.cardReady.length,
 
       message:
-        "Copied customer/payment method verified. No payment collected.",
+        "Copied Stripe customer and reusable payment method verified. No payment collected.",
     };
   } catch (error) {
     return {
@@ -707,26 +997,25 @@ async function scanOne(
       message:
         error instanceof Error
           ? error.message
-          : "Unknown migration error.",
+          : "Unknown Stripe reconciliation error.",
     };
   }
 }
 
 // ============================================================
-// BULK SCAN
+// BULK STRIPE RECONCILIATION
 // ============================================================
 
 async function bulkScan(accountId: string) {
   /**
-   * Only inspect:
+   * IMPORTANT:
    *
-   * - MTC organisation
-   * - legacy TeamUp billing records
-   * - collection currently OFF
+   * Only fetch actual paid recurring Stripe records.
    *
-   * We deliberately DO NOT require cutover_status=awaiting_processor,
-   * because the historical import may contain not_started or other valid
-   * pre-cutover states.
+   * This deliberately excludes:
+   * - 139 non-recurring records
+   * - 38 GoCardless recurring records
+   * - Craig's blocked/manual-review record
    */
 
   const { data, error } = await admin
@@ -736,36 +1025,97 @@ async function bulkScan(accountId: string) {
     .eq("legacy_billing", true)
     .eq("collection_enabled", false)
     .eq("teamup_billing_active", true)
-    .order("customer_name", { ascending: true });
+    .eq("payment_provider", "stripe")
+    .gt("unit_amount_pence", 0)
+    .in("billing_interval", [
+      "week",
+      "month",
+      "year",
+    ])
+    .order("customer_name", {
+      ascending: true,
+    });
 
   if (error) throw error;
 
-  const rows = (data ?? []) as StoreSubscription[];
+  const rows = (data ?? []).filter(
+    isStripeRecurring,
+  ) as StoreSubscription[];
 
   const results: ScanResult[] = [];
 
   /**
-   * Sequential intentionally.
+   * Sequential by design.
    *
-   * There are only a few hundred records and this avoids hammering Stripe
-   * with hundreds of simultaneous API calls.
+   * This avoids hammering Stripe with hundreds of
+   * customer/payment-method calls at once.
    */
 
   for (const row of rows) {
-    const result = await scanOne(row, accountId);
+    const result = await scanOne(
+      row,
+      accountId,
+    );
+
     results.push(result);
   }
 
-  const counts = results.reduce<Record<string, number>>(
-    (acc, item) => {
-      acc[item.result] = (acc[item.result] ?? 0) + 1;
-      return acc;
-    },
-    {},
-  );
+  const counts = results.reduce<
+    Record<string, number>
+  >((acc, item) => {
+    acc[item.result] =
+      (acc[item.result] ?? 0) + 1;
+
+    return acc;
+  }, {});
+
+  const verifiedNow =
+    counts.verified ?? 0;
+
+  const alreadyVerified =
+    counts.already_verified ?? 0;
+
+  const ready =
+    verifiedNow + alreadyVerified;
+
+  const needsReview =
+    (counts.no_email ?? 0) +
+    (counts.customer_not_found ?? 0) +
+    (counts.multiple_card_customers ?? 0) +
+    (counts.no_payment_method ?? 0) +
+    (counts.error ?? 0);
 
   return {
     scanned: results.length,
+
+    summary: {
+      stripeRecurringScanned:
+        results.length,
+
+      verifiedNow,
+
+      alreadyVerified,
+
+      totalVerified: ready,
+
+      needsReview,
+
+      noEmail:
+        counts.no_email ?? 0,
+
+      customerNotFound:
+        counts.customer_not_found ?? 0,
+
+      multipleCardCustomers:
+        counts.multiple_card_customers ?? 0,
+
+      noPaymentMethod:
+        counts.no_payment_method ?? 0,
+
+      errors:
+        counts.error ?? 0,
+    },
+
     counts,
     results,
   };
@@ -792,36 +1142,112 @@ async function createFallbackSetup(
   }
 
   if (row.collection_enabled) {
-    throw new Error("TOTS collection is already enabled.");
+    throw new Error(
+      "TOTS collection is already enabled.",
+    );
   }
 
   /**
-   * First try to use the copied customer.
+   * IMPORTANT:
+   *
+   * Reconcile the Stripe copy BEFORE creating anything.
    */
 
-  const match = await findCopiedCustomer(row, accountId);
+  const selection = await selectSafeCustomer(
+    row,
+    accountId,
+  );
 
-  let customer = match.customer;
+  if (
+    selection.status === "matched" &&
+    selection.selected?.paymentMethod
+  ) {
+    /**
+     * There is already a safe copied payment method.
+     * No setup session is necessary.
+     */
+
+    const automatic = await scanOne(
+      row,
+      accountId,
+    );
+
+    return {
+      automatic: true,
+      result: automatic,
+
+      url: null,
+
+      safety: {
+        customerCreated: false,
+        checkoutSessionCreated: false,
+        subscriptionCreated: false,
+        paymentCollected: false,
+        collectionEnabled: false,
+        teamupBillingActive: true,
+      },
+    };
+  }
 
   /**
-   * Only create a customer as a LAST RESORT fallback.
+   * DO NOT silently create another Stripe customer when:
+   * - multiple customers match
+   * - customer exists but has no card
+   *
+   * The operator should know why a setup link is required.
    */
 
-  if (!customer) {
+  if (
+    selection.status ===
+    "multiple_card_customers"
+  ) {
+    throw new Error(
+      "Multiple Stripe customers with reusable cards match this member. Resolve the customer match before creating a payment setup link.",
+    );
+  }
+
+  let customer: Stripe.Customer;
+
+  if (
+    selection.status === "no_payment_method" &&
+    selection.candidates.length === 1
+  ) {
+    customer =
+      selection.candidates[0].customer;
+  } else if (
+    selection.status === "customer_not_found"
+  ) {
+    /**
+     * Only here may we create a new Stripe customer,
+     * because no copied customer exists.
+     */
+
     customer = await stripe.customers.create(
       {
-        email: row.customer_email ?? undefined,
-        name: row.customer_name ?? undefined,
+        email:
+          row.customer_email ?? undefined,
+
+        name:
+          row.customer_name ?? undefined,
 
         metadata: {
-          tots_store_subscription_id: row.id,
-          mtc_payment_setup_fallback: "true",
+          tots_store_subscription_id:
+            row.id,
+
+          mtc_payment_setup_fallback:
+            "true",
         },
       },
       {
         stripeAccount: accountId,
-        idempotencyKey: `mtc-fallback-customer-${row.id}`,
+
+        idempotencyKey:
+          `mtc-fallback-customer-${row.id}`,
       },
+    );
+  } else {
+    throw new Error(
+      "This member requires manual review before a payment setup link can be created.",
     );
   }
 
@@ -835,60 +1261,72 @@ async function createFallbackSetup(
     );
   }
 
-  const session = await stripe.checkout.sessions.create(
-    {
-      mode: "setup",
+  const session =
+    await stripe.checkout.sessions.create(
+      {
+        mode: "setup",
 
-      customer: customer.id,
+        customer: customer.id,
 
-      payment_method_types: ["card"],
+        payment_method_types: ["card"],
 
-      success_url: `${appUrl}/store?payment_setup=success`,
-      cancel_url: `${appUrl}/store?payment_setup=cancelled`,
+        success_url:
+          `${appUrl}/store?payment_setup=success`,
 
-      metadata: {
-        tots_store_subscription_id: row.id,
-        mtc_migration: "true",
-        mtc_payment_setup_fallback: "true",
-      },
+        cancel_url:
+          `${appUrl}/store?payment_setup=cancelled`,
 
-      setup_intent_data: {
         metadata: {
-          tots_store_subscription_id: row.id,
+          tots_store_subscription_id:
+            row.id,
+
           mtc_migration: "true",
+
+          mtc_payment_setup_fallback:
+            "true",
+        },
+
+        setup_intent_data: {
+          metadata: {
+            tots_store_subscription_id:
+              row.id,
+
+            mtc_migration: "true",
+          },
         },
       },
-    },
-    {
-      stripeAccount: accountId,
+      {
+        stripeAccount: accountId,
 
-      /**
-       * A timestamp bucket allows a genuinely new setup session later
-       * instead of permanently returning an expired Checkout Session.
-       */
-
-      idempotencyKey:
-        `mtc-fallback-setup-${row.id}-${Math.floor(
-          Date.now() / (30 * 60 * 1000),
-        )}`,
-    },
-  );
+        idempotencyKey:
+          `mtc-fallback-setup-${row.id}-${Math.floor(
+            Date.now() /
+              (30 * 60 * 1000),
+          )}`,
+      },
+    );
 
   const meta = metadata(row);
 
   await patchSubscription(row.id, {
     stripe_account_id: accountId,
-    stripe_customer_id: customer.id,
 
-    cutover_status: "awaiting_processor",
+    stripe_customer_id:
+      customer.id,
+
+    cutover_status:
+      "awaiting_processor",
 
     collection_enabled: false,
+
     teamup_billing_active: true,
 
     metadata: {
       ...meta,
 
-      mtc_migration_setup_session_id: session.id,
+      mtc_migration_setup_session_id:
+        session.id,
+
       mtc_migration_setup_created_at:
         new Date().toISOString(),
 
@@ -896,10 +1334,12 @@ async function createFallbackSetup(
     },
 
     migration_notes:
-      "Fallback payment setup requested because copied reusable payment method was unavailable. TeamUp remains active.",
+      "Fallback payment setup requested. TeamUp remains active and TOTS collection remains disabled.",
   });
 
   return {
+    automatic: false,
+
     url: session.url,
 
     safety: {
@@ -920,26 +1360,27 @@ async function verifyFallbackSetup(
   accountId: string,
 ) {
   /**
-   * First attempt automatic copied-payment verification.
+   * Always try automatic reconciliation first.
    */
 
-  const automatic = await scanOne(row, accountId);
+  const automatic = await scanOne(
+    row,
+    accountId,
+  );
 
   if (
     automatic.result === "verified" ||
-    automatic.result === "already_verified"
+    automatic.result ===
+      "already_verified"
   ) {
     return automatic;
   }
 
-  /**
-   * Otherwise verify the Checkout setup fallback.
-   */
-
   const meta = metadata(row);
 
   const sessionId =
-    typeof meta.mtc_migration_setup_session_id === "string"
+    typeof meta.mtc_migration_setup_session_id ===
+    "string"
       ? meta.mtc_migration_setup_session_id
       : null;
 
@@ -949,15 +1390,16 @@ async function verifyFallbackSetup(
     );
   }
 
-  const session = await stripe.checkout.sessions.retrieve(
-    sessionId,
-    {
-      expand: ["setup_intent"],
-    },
-    {
-      stripeAccount: accountId,
-    },
-  );
+  const session =
+    await stripe.checkout.sessions.retrieve(
+      sessionId,
+      {
+        expand: ["setup_intent"],
+      },
+      {
+        stripeAccount: accountId,
+      },
+    );
 
   if (session.status !== "complete") {
     throw new Error(
@@ -965,7 +1407,8 @@ async function verifyFallbackSetup(
     );
   }
 
-  const setupIntent = session.setup_intent;
+  const setupIntent =
+    session.setup_intent;
 
   if (
     !setupIntent ||
@@ -976,14 +1419,17 @@ async function verifyFallbackSetup(
     );
   }
 
-  if (setupIntent.status !== "succeeded") {
+  if (
+    setupIntent.status !== "succeeded"
+  ) {
     throw new Error(
       `Stripe payment setup is ${setupIntent.status}.`,
     );
   }
 
   const paymentMethodId =
-    typeof setupIntent.payment_method === "string"
+    typeof setupIntent.payment_method ===
+    "string"
       ? setupIntent.payment_method
       : setupIntent.payment_method?.id;
 
@@ -999,14 +1445,17 @@ async function verifyFallbackSetup(
       : session.customer?.id;
 
   if (!customerId) {
-    throw new Error("Stripe customer is missing.");
+    throw new Error(
+      "Stripe customer is missing.",
+    );
   }
 
   await stripe.customers.update(
     customerId,
     {
       invoice_settings: {
-        default_payment_method: paymentMethodId,
+        default_payment_method:
+          paymentMethodId,
       },
     },
     {
@@ -1018,14 +1467,22 @@ async function verifyFallbackSetup(
 
   await patchSubscription(row.id, {
     stripe_account_id: accountId,
-    stripe_customer_id: customerId,
 
-    processor_verification_status: "verified",
+    stripe_customer_id:
+      customerId,
+
+    payment_provider: "stripe",
+    billing_provider: "stripe",
+
+    processor_verification_status:
+      "verified",
+
     processor_verified_at: now,
 
     cutover_status: "verified",
 
     collection_enabled: false,
+
     teamup_billing_active: true,
 
     metadata: {
@@ -1034,7 +1491,8 @@ async function verifyFallbackSetup(
       mtc_migration_payment_method_id:
         paymentMethodId,
 
-      mtc_payment_method_verified_at: now,
+      mtc_payment_method_verified_at:
+        now,
     },
 
     migration_notes:
@@ -1044,7 +1502,9 @@ async function verifyFallbackSetup(
   return {
     verified: true,
 
-    stripeCustomerId: customerId,
+    stripeCustomerId:
+      customerId,
+
     paymentMethodId,
 
     safety: {
@@ -1064,29 +1524,38 @@ async function ensureRecurringPrice(
   row: StoreSubscription,
   accountId: string,
 ) {
-  if (!row.unit_amount_pence || row.unit_amount_pence <= 0) {
-    throw new Error("Membership has no recurring amount.");
+  if (
+    !row.unit_amount_pence ||
+    row.unit_amount_pence <= 0
+  ) {
+    throw new Error(
+      "Membership has no recurring amount.",
+    );
   }
 
   if (!row.billing_interval) {
-    throw new Error("Membership has no billing interval.");
+    throw new Error(
+      "Membership has no billing interval.",
+    );
   }
 
   const meta = metadata(row);
 
   const savedPriceId =
-    typeof meta.mtc_migration_price_id === "string"
+    typeof meta.mtc_migration_price_id ===
+    "string"
       ? meta.mtc_migration_price_id
       : null;
 
   if (savedPriceId) {
     try {
-      const existing = await stripe.prices.retrieve(
-        savedPriceId,
-        {
-          stripeAccount: accountId,
-        },
-      );
+      const existing =
+        await stripe.prices.retrieve(
+          savedPriceId,
+          {
+            stripeAccount: accountId,
+          },
+        );
 
       if (existing.active) {
         return existing;
@@ -1096,45 +1565,61 @@ async function ensureRecurringPrice(
     }
   }
 
-  const product = await stripe.products.create(
-    {
-      name:
-        row.legacy_membership_name ??
-        "Moray Training Club Membership",
+  const product =
+    await stripe.products.create(
+      {
+        name:
+          row.legacy_membership_name ??
+          "Moray Training Club Membership",
 
-      metadata: {
-        tots_store_subscription_id: row.id,
-        mtc_legacy_membership: "true",
+        metadata: {
+          tots_store_subscription_id:
+            row.id,
+
+          mtc_legacy_membership:
+            "true",
+        },
       },
-    },
-    {
-      stripeAccount: accountId,
-      idempotencyKey: `mtc-migration-product-${row.id}`,
-    },
-  );
+      {
+        stripeAccount: accountId,
 
-  const price = await stripe.prices.create(
-    {
-      product: product.id,
-
-      currency: row.currency || "gbp",
-
-      unit_amount: row.unit_amount_pence,
-
-      recurring: {
-        interval: stripeInterval(row.billing_interval),
+        idempotencyKey:
+          `mtc-migration-product-${row.id}`,
       },
+    );
 
-      metadata: {
-        tots_store_subscription_id: row.id,
-        mtc_legacy_membership: "true",
+  const price =
+    await stripe.prices.create(
+      {
+        product: product.id,
+
+        currency:
+          row.currency || "gbp",
+
+        unit_amount:
+          row.unit_amount_pence,
+
+        recurring: {
+          interval: stripeInterval(
+            row.billing_interval,
+          ),
+        },
+
+        metadata: {
+          tots_store_subscription_id:
+            row.id,
+
+          mtc_legacy_membership:
+            "true",
+        },
       },
-    },
-    {
-      stripeAccount: accountId,
-      idempotencyKey: `mtc-migration-price-${row.id}`,
-    },
-  );
+      {
+        stripeAccount: accountId,
+
+        idempotencyKey:
+          `mtc-migration-price-${row.id}`,
+      },
+    );
 
   await patchSubscription(row.id, {
     stripe_price_id: price.id,
@@ -1142,8 +1627,11 @@ async function ensureRecurringPrice(
     metadata: {
       ...meta,
 
-      mtc_migration_product_id: product.id,
-      mtc_migration_price_id: price.id,
+      mtc_migration_product_id:
+        product.id,
+
+      mtc_migration_price_id:
+        price.id,
     },
   });
 
@@ -1154,10 +1642,15 @@ async function ensureRecurringPrice(
 // TEAMUP STOP CONFIRMATION
 // ============================================================
 
-async function markTeamupStopped(row: StoreSubscription) {
+async function markTeamupStopped(
+  row: StoreSubscription,
+) {
   if (
-    row.processor_verification_status !== "verified" ||
-    !["verified", "ready"].includes(row.cutover_status)
+    row.processor_verification_status !==
+      "verified" ||
+    !["verified", "ready"].includes(
+      row.cutover_status,
+    )
   ) {
     throw new Error(
       "Payment method must be verified before TeamUp can be marked stopped.",
@@ -1172,17 +1665,20 @@ async function markTeamupStopped(row: StoreSubscription) {
 
   const now = new Date().toISOString();
 
-  const updated = await patchSubscription(row.id, {
-    teamup_billing_active: false,
-    teamup_billing_disabled_at: now,
+  const updated =
+    await patchSubscription(row.id, {
+      teamup_billing_active: false,
 
-    cutover_status: "ready",
+      teamup_billing_disabled_at:
+        now,
 
-    collection_enabled: false,
+      cutover_status: "ready",
 
-    migration_notes:
-      "TeamUp billing confirmed stopped externally. TOTS is ready for controlled activation but is not collecting yet.",
-  });
+      collection_enabled: false,
+
+      migration_notes:
+        "TeamUp billing confirmed stopped externally. TOTS is ready for controlled activation but is not collecting yet.",
+    });
 
   return {
     subscription: updated,
@@ -1207,12 +1703,14 @@ async function activate(
   row: StoreSubscription,
   accountId: string,
 ) {
-  /**
-   * HARD SAFETY LOCKS
-   */
+  // ----------------------------------------------------------
+  // HARD SAFETY LOCKS
+  // ----------------------------------------------------------
 
   if (row.collection_enabled) {
-    throw new Error("TOTS collection is already enabled.");
+    throw new Error(
+      "TOTS collection is already enabled.",
+    );
   }
 
   if (row.teamup_billing_active) {
@@ -1227,7 +1725,10 @@ async function activate(
     );
   }
 
-  if (row.processor_verification_status !== "verified") {
+  if (
+    row.processor_verification_status !==
+    "verified"
+  ) {
     throw new Error(
       "REFUSED: Stripe payment method has not been verified.",
     );
@@ -1246,13 +1747,16 @@ async function activate(
   }
 
   if (!row.stripe_customer_id) {
-    throw new Error("Verified Stripe customer ID is missing.");
+    throw new Error(
+      "Verified Stripe customer ID is missing.",
+    );
   }
 
-  const customer = await retrieveCustomer(
-    accountId,
-    row.stripe_customer_id,
-  );
+  const customer =
+    await retrieveCustomer(
+      accountId,
+      row.stripe_customer_id,
+    );
 
   if (!customer) {
     throw new Error(
@@ -1260,10 +1764,11 @@ async function activate(
     );
   }
 
-  const paymentMethod = await findReusablePaymentMethod(
-    accountId,
-    customer,
-  );
+  const paymentMethod =
+    await findReusablePaymentMethod(
+      accountId,
+      customer,
+    );
 
   if (!paymentMethod) {
     throw new Error(
@@ -1272,11 +1777,7 @@ async function activate(
   }
 
   /**
-   * IMPORTANT BILLING-DATE SAFETY
-   *
-   * We do NOT guess a billing date.
-   *
-   * Activation requires next_payment_at to have been deliberately populated.
+   * NEVER GUESS BILLING DATE.
    */
 
   if (!row.next_payment_at) {
@@ -1285,9 +1786,14 @@ async function activate(
     );
   }
 
-  const nextPayment = new Date(row.next_payment_at);
+  const nextPayment =
+    new Date(row.next_payment_at);
 
-  if (Number.isNaN(nextPayment.getTime())) {
+  if (
+    Number.isNaN(
+      nextPayment.getTime(),
+    )
+  ) {
     throw new Error(
       "REFUSED: next_payment_at is not a valid date.",
     );
@@ -1295,31 +1801,28 @@ async function activate(
 
   const now = new Date();
 
-  /**
-   * Require at least a small future buffer.
-   */
-
-  if (nextPayment.getTime() <= now.getTime() + 5 * 60 * 1000) {
+  if (
+    nextPayment.getTime() <=
+    now.getTime() + 5 * 60 * 1000
+  ) {
     throw new Error(
       "REFUSED: next_payment_at must be in the future. Review this member before activation.",
     );
   }
 
-  const price = await ensureRecurringPrice(
-    row,
-    accountId,
-  );
+  const price =
+    await ensureRecurringPrice(
+      row,
+      accountId,
+    );
 
   const meta = metadata(row);
 
   /**
-   * Create the subscription with a trial ending at the member's
-   * next intended collection date.
+   * Subscription starts billing on the deliberately
+   * verified next-payment date.
    *
-   * This prevents an immediate charge today.
-   *
-   * At trial_end Stripe begins normal recurring billing using the
-   * migrated membership price.
+   * It is NOT intended to charge immediately.
    */
 
   const subscription =
@@ -1334,7 +1837,8 @@ async function activate(
           },
         ],
 
-        default_payment_method: paymentMethod.id,
+        default_payment_method:
+          paymentMethod.id,
 
         trial_end: Math.floor(
           nextPayment.getTime() / 1000,
@@ -1343,73 +1847,108 @@ async function activate(
         proration_behavior: "none",
 
         metadata: {
-          tots_store_subscription_id: row.id,
+          tots_store_subscription_id:
+            row.id,
+
           mtc_migration: "true",
+
           migrated_from: "teamup",
+
           legacy_membership:
-            row.legacy_membership_name ?? "",
+            row.legacy_membership_name ??
+            "",
         },
       },
       {
         stripeAccount: accountId,
 
-        idempotencyKey: `mtc-cutover-${row.id}`,
+        idempotencyKey:
+          `mtc-cutover-${row.id}`,
       },
     );
 
-  const activatedAt = new Date().toISOString();
+  const activatedAt =
+    new Date().toISOString();
 
-  const updated = await patchSubscription(row.id, {
-    stripe_account_id: accountId,
-    stripe_customer_id: customer.id,
+  const updated =
+    await patchSubscription(row.id, {
+      stripe_account_id:
+        accountId,
 
-    stripe_subscription_id: subscription.id,
-    stripe_price_id: price.id,
+      stripe_customer_id:
+        customer.id,
 
-    external_subscription_id: subscription.id,
-
-    billing_provider: "stripe",
-    payment_provider: "stripe",
-
-    status: subscription.status,
-
-    legacy_billing: false,
-
-    collection_enabled: true,
-    collection_enabled_at: activatedAt,
-
-    teamup_billing_active: false,
-
-    cutover_status: "live",
-
-    processor_verification_status: "verified",
-
-    metadata: {
-      ...meta,
-
-      mtc_live_subscription_id:
+      stripe_subscription_id:
         subscription.id,
 
-      mtc_live_price_id: price.id,
+      stripe_price_id:
+        price.id,
 
-      mtc_activation_at: activatedAt,
+      external_subscription_id:
+        subscription.id,
 
-      mtc_first_tots_payment_at:
-        nextPayment.toISOString(),
-    },
+      billing_provider:
+        "stripe",
 
-    migration_notes:
-      `TOTS Stripe subscription activated. First intended TOTS collection: ${nextPayment.toISOString()}. TeamUp billing previously confirmed stopped.`,
-  });
+      payment_provider:
+        "stripe",
+
+      status:
+        subscription.status,
+
+      legacy_billing:
+        false,
+
+      collection_enabled:
+        true,
+
+      collection_enabled_at:
+        activatedAt,
+
+      teamup_billing_active:
+        false,
+
+      cutover_status:
+        "live",
+
+      processor_verification_status:
+        "verified",
+
+      metadata: {
+        ...meta,
+
+        mtc_live_subscription_id:
+          subscription.id,
+
+        mtc_live_price_id:
+          price.id,
+
+        mtc_activation_at:
+          activatedAt,
+
+        mtc_first_tots_payment_at:
+          nextPayment.toISOString(),
+      },
+
+      migration_notes:
+        `TOTS Stripe subscription activated. First intended TOTS collection: ${nextPayment.toISOString()}. TeamUp billing previously confirmed stopped.`,
+    });
 
   return {
     subscription: updated,
 
     stripe: {
-      subscriptionId: subscription.id,
-      status: subscription.status,
-      customerId: customer.id,
-      priceId: price.id,
+      subscriptionId:
+        subscription.id,
+
+      status:
+        subscription.status,
+
+      customerId:
+        customer.id,
+
+      priceId:
+        price.id,
 
       firstTotsPaymentAt:
         nextPayment.toISOString(),
@@ -1417,14 +1956,11 @@ async function activate(
 
     safety: {
       teamupBillingActive: false,
+
       totsCollectionEnabled: true,
 
-      /**
-       * Because we used trial_end, creation should not intentionally
-       * collect the recurring membership fee immediately.
-       */
-
-      intendedImmediateMembershipCharge: false,
+      intendedImmediateMembershipCharge:
+        false,
     },
   };
 }
@@ -1433,15 +1969,22 @@ async function activate(
 // POST
 // ============================================================
 
-export async function POST(req: NextRequest) {
+export async function POST(
+  req: NextRequest,
+) {
   try {
-    const user = await requireUser(req);
+    const user =
+      await requireUser(req);
 
-    const body = await req.json();
+    const body =
+      await req.json();
 
-    const action = body?.action as Action | undefined;
+    const action =
+      body?.action as Action | undefined;
+
     const subscriptionId =
-      typeof body?.subscriptionId === "string"
+      typeof body?.subscriptionId ===
+      "string"
         ? body.subscriptionId
         : null;
 
@@ -1459,38 +2002,47 @@ export async function POST(req: NextRequest) {
     const { accountId } =
       await getConnectedAccount();
 
-    // --------------------------------------------------------
-    // BULK SCAN
-    // --------------------------------------------------------
+    // ========================================================
+    // BULK STRIPE RECONCILIATION
+    // ========================================================
 
     if (action === "scan") {
-      const result = await bulkScan(accountId);
+      const result =
+        await bulkScan(accountId);
 
       return NextResponse.json({
         ok: true,
 
         action: "scan",
 
-        stripeAccountId: accountId,
+        stripeAccountId:
+          accountId,
 
         ...result,
 
         safety: {
           paymentsCollected: 0,
           subscriptionsCreated: 0,
+          customersCreated: 0,
+          checkoutSessionsCreated: 0,
           teamupBillingDisabled: 0,
           totsCollectionEnabled: 0,
         },
 
-        performedBy: user.email ?? user.id,
+        performedBy:
+          user.email ?? user.id,
       });
     }
 
-    // Everything below requires a subscription.
+    // ========================================================
+    // EVERYTHING BELOW REQUIRES ONE RECORD
+    // ========================================================
+
     if (!subscriptionId) {
       return NextResponse.json(
         {
-          error: "Missing subscriptionId.",
+          error:
+            "Missing subscriptionId.",
         },
         {
           status: 400,
@@ -1499,50 +2051,59 @@ export async function POST(req: NextRequest) {
     }
 
     const row =
-      await loadSubscription(subscriptionId);
+      await loadSubscription(
+        subscriptionId,
+      );
 
-    // --------------------------------------------------------
-    // SINGLE AUTOMATIC SCAN
-    // --------------------------------------------------------
+    // ========================================================
+    // SINGLE SAFE RECONCILIATION
+    // ========================================================
 
     if (action === "scan_one") {
-      const result = await scanOne(
-        row,
-        accountId,
-      );
+      const result =
+        await scanOne(
+          row,
+          accountId,
+        );
 
       return NextResponse.json({
         ok: true,
+
         action: "scan_one",
+
         result,
 
         safety: {
           paymentsCollected: 0,
           subscriptionsCreated: 0,
+          customersCreated: 0,
+          checkoutSessionsCreated: 0,
           teamupBillingDisabled: 0,
           totsCollectionEnabled: 0,
         },
       });
     }
 
-    // --------------------------------------------------------
+    // ========================================================
     // FALLBACK PAYMENT SETUP
-    // --------------------------------------------------------
+    // ========================================================
 
     if (action === "setup") {
       /**
-       * Before generating a link, always try the automatic copied
-       * payment method first.
+       * Try Stripe copy reconciliation first.
        */
 
-      const automatic = await scanOne(
-        row,
-        accountId,
-      );
+      const automatic =
+        await scanOne(
+          row,
+          accountId,
+        );
 
       if (
-        automatic.result === "verified" ||
-        automatic.result === "already_verified"
+        automatic.result ===
+          "verified" ||
+        automatic.result ===
+          "already_verified"
       ) {
         return NextResponse.json({
           ok: true,
@@ -1552,41 +2113,44 @@ export async function POST(req: NextRequest) {
           automatic: true,
 
           message:
-            "No payment setup link is required. Stripe's copied customer/payment method was found and verified automatically.",
+            "No payment setup link is required. The copied Stripe customer/payment method was verified automatically.",
 
           result: automatic,
 
           safety: {
             paymentsCollected: 0,
             subscriptionsCreated: 0,
+            customersCreated: 0,
+            checkoutSessionsCreated: 0,
             teamupBillingDisabled: 0,
             totsCollectionEnabled: 0,
           },
         });
       }
 
-      const setup = await createFallbackSetup(
-        row,
-        accountId,
-      );
+      const setup =
+        await createFallbackSetup(
+          row,
+          accountId,
+        );
 
       return NextResponse.json({
         ok: true,
 
         action: "setup",
 
-        automatic: false,
-
         message:
-          "Copied reusable payment method was unavailable. A fallback payment setup link was created.",
+          setup.automatic
+            ? "Copied Stripe payment method was verified automatically."
+            : "A fallback Stripe payment setup link was created.",
 
         ...setup,
       });
     }
 
-    // --------------------------------------------------------
-    // VERIFY
-    // --------------------------------------------------------
+    // ========================================================
+    // VERIFY FALLBACK
+    // ========================================================
 
     if (action === "verify") {
       const result =
@@ -1597,46 +2161,62 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         ok: true,
+
         action: "verify",
+
         result,
       });
     }
 
-    // --------------------------------------------------------
-    // TEAMUP STOPPED
-    // --------------------------------------------------------
+    // ========================================================
+    // RECORD TEAMUP STOP
+    // ========================================================
 
-    if (action === "teamup_stopped") {
+    if (
+      action ===
+      "teamup_stopped"
+    ) {
       const result =
-        await markTeamupStopped(row);
+        await markTeamupStopped(
+          row,
+        );
 
       return NextResponse.json({
         ok: true,
-        action: "teamup_stopped",
+
+        action:
+          "teamup_stopped",
+
         ...result,
       });
     }
 
-    // --------------------------------------------------------
-    // ACTIVATE
-    // --------------------------------------------------------
+    // ========================================================
+    // ACTIVATE TOTS
+    // ========================================================
 
-    if (action === "activate") {
-      const result = await activate(
-        row,
-        accountId,
-      );
+    if (
+      action === "activate"
+    ) {
+      const result =
+        await activate(
+          row,
+          accountId,
+        );
 
       return NextResponse.json({
         ok: true,
+
         action: "activate",
+
         ...result,
       });
     }
 
     return NextResponse.json(
       {
-        error: `Unknown action: ${action}`,
+        error:
+          `Unknown action: ${action}`,
       },
       {
         status: 400,

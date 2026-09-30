@@ -33,7 +33,7 @@ const stripe =
   );
 
 // ============================================================
-// SAFE ERROR SERIALISER
+// ERROR SERIALISER
 // ============================================================
 
 function serialiseError(
@@ -44,7 +44,8 @@ function serialiseError(
     Stripe.errors.StripeError
   ) {
     return {
-      stripeError: true,
+      stripeError:
+        true,
 
       type:
         error.type,
@@ -64,11 +65,11 @@ function serialiseError(
   }
 
   if (
-    error instanceof
-    Error
+    error instanceof Error
   ) {
     return {
-      stripeError: false,
+      stripeError:
+        false,
 
       type:
         error.name,
@@ -88,7 +89,8 @@ function serialiseError(
   }
 
   return {
-    stripeError: false,
+    stripeError:
+      false,
 
     type:
       "UnknownError",
@@ -97,7 +99,9 @@ function serialiseError(
       null,
 
     message:
-      String(error),
+      String(
+        error
+      ),
 
     statusCode:
       null,
@@ -108,104 +112,53 @@ function serialiseError(
 }
 
 // ============================================================
+// SAFE RESPONSE PARSER
+// ============================================================
+
+async function readResponseBody(
+  response:
+    Response
+) {
+  const text =
+    await response.text();
+
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(
+      text
+    );
+  } catch {
+    return text;
+  }
+}
+
+// ============================================================
 // GET
 //
-// IMPORTANT:
+// READ-ONLY DIAGNOSTIC.
 //
-// This endpoint is deliberately READ ONLY.
+// THIS ROUTE DOES NOT:
 //
-// It does NOT:
-//
-// - create a connected account
-// - create an Account Link
-// - create a Customer
-// - create a Subscription
-// - create a PaymentIntent
-// - charge anybody
+// - create Stripe accounts
+// - create customers
+// - create subscriptions
+// - create payment intents
+// - create account links
+// - charge anyone
 // - write to Supabase
-// - alter TeamUp
+// - modify TeamUp
 //
-// It only asks Stripe what the current live platform can see.
 // ============================================================
 
 export async function GET() {
-  const result: {
-    checkedAt:
-      string;
+  // ==========================================================
+  // RESULT
+  // ==========================================================
 
-    mode:
-      "live" | "test" | "unknown";
-
-    platform: {
-      ok:
-        boolean;
-
-      accountId:
-        string | null;
-
-      country:
-        string | null;
-
-      defaultCurrency:
-        string | null;
-
-      chargesEnabled:
-        boolean | null;
-
-      payoutsEnabled:
-        boolean | null;
-
-      detailsSubmitted:
-        boolean | null;
-
-      controller:
-        unknown;
-
-      error:
-        ReturnType<
-          typeof serialiseError
-        > | null;
-    };
-
-    connectV1: {
-      ok:
-        boolean;
-
-      accountCountReturned:
-        number | null;
-
-      hasMore:
-        boolean | null;
-
-      firstAccountIds:
-        string[];
-
-      error:
-        ReturnType<
-          typeof serialiseError
-        > | null;
-    };
-
-    safety: {
-      createdAccounts:
-        number;
-
-      createdCustomers:
-        number;
-
-      createdSubscriptions:
-        number;
-
-      createdPaymentIntents:
-        number;
-
-      databaseWrites:
-        number;
-
-      teamupChanges:
-        number;
-    };
-  } = {
+  const result: any = {
     checkedAt:
       new Date()
         .toISOString(),
@@ -267,6 +220,29 @@ export async function GET() {
         null,
     },
 
+    connectV2: {
+      attempted:
+        true,
+
+      readOnly:
+        true,
+
+      endpoint:
+        "/v2/core/accounts",
+
+      ok:
+        false,
+
+      httpStatus:
+        null,
+
+      stripeRequestId:
+        null,
+
+      response:
+        null,
+    },
+
     safety: {
       createdAccounts:
         0,
@@ -280,6 +256,9 @@ export async function GET() {
       createdPaymentIntents:
         0,
 
+      createdAccountLinks:
+        0,
+
       databaseWrites:
         0,
 
@@ -289,17 +268,16 @@ export async function GET() {
   };
 
   // ==========================================================
-  // 1. RETRIEVE PLATFORM ACCOUNT
+  // 1. PLATFORM ACCOUNT
   //
-  // stripe.accounts.retrieve() with no account ID retrieves the
-  // Stripe account belonging to the API key.
-  //
-  // READ ONLY.
+  // READ ONLY
   // ==========================================================
 
   try {
     const platform =
-      await stripe.accounts.retrieve();
+      await stripe
+        .accounts
+        .retrieve();
 
     result.platform = {
       ok:
@@ -309,26 +287,32 @@ export async function GET() {
         platform.id,
 
       country:
-        platform.country || null,
+        platform.country ||
+        null,
 
       defaultCurrency:
-        platform.default_currency ||
+        platform
+          .default_currency ||
         null,
 
       chargesEnabled:
-        platform.charges_enabled ===
+        platform
+          .charges_enabled ===
         true,
 
       payoutsEnabled:
-        platform.payouts_enabled ===
+        platform
+          .payouts_enabled ===
         true,
 
       detailsSubmitted:
-        platform.details_submitted ===
+        platform
+          .details_submitted ===
         true,
 
       controller:
-        platform.controller || null,
+        platform.controller ||
+        null,
 
       error:
         null,
@@ -344,41 +328,42 @@ export async function GET() {
   }
 
   // ==========================================================
-  // 2. TEST READ ACCESS TO CONNECTED ACCOUNTS V1
+  // 2. CONNECT V1 LIST
   //
-  // This LISTS accounts only.
-  //
-  // It does NOT call:
-  //
-  // stripe.accounts.create()
-  //
-  // Therefore it cannot create an MTC account.
+  // READ ONLY
   // ==========================================================
 
   try {
     const accounts =
-      await stripe.accounts.list({
-        limit:
-          3,
-      });
+      await stripe
+        .accounts
+        .list({
+          limit:
+            3,
+        });
 
     result.connectV1 = {
       ok:
         true,
 
       accountCountReturned:
-        accounts.data.length,
+        accounts
+          .data
+          .length,
 
       hasMore:
-        accounts.has_more,
+        accounts
+          .has_more,
 
       firstAccountIds:
-        accounts.data.map(
-          (
-            account
-          ) =>
-            account.id
-        ),
+        accounts
+          .data
+          .map(
+            (
+              account
+            ) =>
+              account.id
+          ),
 
       error:
         null,
@@ -391,6 +376,102 @@ export async function GET() {
       serialiseError(
         error
       );
+  }
+
+  // ==========================================================
+  // 3. ACCOUNTS V2 READ TEST
+  //
+  // IMPORTANT:
+  //
+  // GET ONLY.
+  //
+  // There is deliberately NO POST request here.
+  //
+  // Therefore this cannot create a connected account.
+  // ==========================================================
+
+  try {
+    const response =
+      await fetch(
+        "https://api.stripe.com/v2/core/accounts?limit=1",
+        {
+          method:
+            "GET",
+
+          headers: {
+            Authorization:
+              `Bearer ${stripeSecretKey}`,
+
+            Accept:
+              "application/json",
+          },
+
+          cache:
+            "no-store",
+        }
+      );
+
+    const body =
+      await readResponseBody(
+        response
+      );
+
+    result.connectV2 = {
+      attempted:
+        true,
+
+      readOnly:
+        true,
+
+      endpoint:
+        "/v2/core/accounts",
+
+      ok:
+        response.ok,
+
+      httpStatus:
+        response.status,
+
+      stripeRequestId:
+        response.headers.get(
+          "request-id"
+        ) ||
+        response.headers.get(
+          "stripe-request-id"
+        ) ||
+        null,
+
+      response:
+        body,
+    };
+  } catch (
+    error:
+      unknown
+  ) {
+    result.connectV2 = {
+      attempted:
+        true,
+
+      readOnly:
+        true,
+
+      endpoint:
+        "/v2/core/accounts",
+
+      ok:
+        false,
+
+      httpStatus:
+        null,
+
+      stripeRequestId:
+        null,
+
+      response:
+        serialiseError(
+          error
+        ),
+    };
   }
 
   // ==========================================================

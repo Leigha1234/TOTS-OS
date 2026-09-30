@@ -4654,36 +4654,182 @@ function approvedMigrationBillingDate(
   return parsed.toISOString();
 }
 
+function finishDuplicateKey(row: StoreSubscription) {
+  const name = normalisedPersonName(row.customer_name);
+  const email = normaliseEmail(row.customer_email);
+  const membership = normaliseText(row.legacy_membership_name);
+  const amount = Number(row.unit_amount_pence ?? 0);
+  const interval = normaliseText(row.billing_interval);
+
+  // Deliberately conservative. We only collapse rows that describe the same
+  // person AND the same paid membership obligation. Shared family emails alone
+  // are never enough to combine records.
+  if (!name || !membership || amount <= 0 || !interval) return null;
+
+  return [
+    name,
+    email || "no-email",
+    membership,
+    String(amount),
+    interval,
+  ].join("|");
+}
+
+async function canonicaliseFinishDuplicates(rows: StoreSubscription[]) {
+  const groups = new Map<string, StoreSubscription[]>();
+  const passthrough: StoreSubscription[] = [];
+
+  for (const row of rows) {
+    const key = finishDuplicateKey(row);
+    if (!key) {
+      passthrough.push(row);
+      continue;
+    }
+
+    const group = groups.get(key) ?? [];
+    group.push(row);
+    groups.set(key, group);
+  }
+
+  const canonicalRows: StoreSubscription[] = [...passthrough];
+  const duplicateRows: StoreSubscription[] = [];
+
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      canonicalRows.push(group[0]);
+      continue;
+    }
+
+    const canonical = chooseBestCanonical(group);
+    canonicalRows.push(canonical);
+
+    for (const duplicate of group) {
+      if (duplicate.id === canonical.id) continue;
+
+      // Never destroy/cancel anything in Stripe or GoCardless here. This only
+      // marks the redundant TOTS legacy row so it can never collect separately.
+      const now = new Date().toISOString();
+      const updated = await patchSubscription(duplicate.id, {
+        collection_enabled: false,
+        cutover_status: "duplicate",
+        metadata: {
+          ...metadata(duplicate),
+          mtc_redundant_duplicate: true,
+          mtc_duplicate_record: true,
+          mtc_duplicate_of_subscription_id: canonical.id,
+          mtc_duplicate_marked_at: now,
+          mtc_duplicate_marked_by: "finish_payment_preparation",
+        },
+        migration_notes: appendMigrationNote(
+          duplicate,
+          `DO NOT COLLECT: duplicate legacy billing record. Canonical subscription: ${canonical.id}.`,
+        ),
+      });
+
+      duplicateRows.push(updated);
+    }
+  }
+
+  return { canonicalRows, duplicateRows };
+}
+
+function storedProposedBillingDate(row: StoreSubscription) {
+  const value = metadata(row).mtc_proposed_next_payment_at;
+  if (typeof value !== "string" || !value) return null;
+
+  const parsed = new Date(value);
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.getTime() <= Date.now() + 30 * 60 * 1000
+  ) {
+    return null;
+  }
+
+  return parsed.toISOString();
+}
+
+async function finaliseApprovedProposedBillingDate(row: StoreSubscription) {
+  if (row.next_payment_at) {
+    const existing = new Date(row.next_payment_at);
+    if (
+      !Number.isNaN(existing.getTime()) &&
+      existing.getTime() > Date.now() + 30 * 60 * 1000
+    ) {
+      return { row, finalised: false, date: existing.toISOString() };
+    }
+  }
+
+  let proposedDate = storedProposedBillingDate(row);
+  let confidence = String(
+    metadata(row).mtc_next_payment_confidence ?? "existing_proposal",
+  );
+
+  if (!proposedDate) {
+    const source = await getMigrationSource(row);
+    const proposal = inferNextPaymentAt(row, source);
+    proposedDate = approvedMigrationBillingDate(row, proposal.date);
+    confidence = proposal.confidence;
+  }
+
+  if (!proposedDate) {
+    return { row, finalised: false, date: null };
+  }
+
+  const now = new Date().toISOString();
+  const updated = await patchSubscription(row.id, {
+    next_payment_at: proposedDate,
+    metadata: {
+      ...metadata(row),
+      mtc_proposed_next_payment_at: proposedDate,
+      mtc_next_payment_confidence: confidence,
+      mtc_next_payment_requires_confirmation: false,
+      mtc_next_payment_finalised_from_proposal: true,
+      mtc_next_payment_finalised_at: now,
+      mtc_next_payment_finalised_source: "migration_approval",
+    },
+    migration_notes: appendMigrationNote(
+      row,
+      `Existing proposed billing date ${proposedDate} finalised under migration approval. No fallback billing date was invented. TeamUp remains active and TOTS collection remains OFF until cutover.`,
+    ),
+  });
+
+  return { row: updated, finalised: true, date: proposedDate };
+}
+
 async function finishPaymentPreparation(accountId: string) {
   const allRows = await loadMigrationRows();
 
-  const duplicateOrHistorical = allRows.filter((row) => isMarkedDuplicate(row));
-  const accessOnly = allRows.filter(
-    (row) => !isMarkedDuplicate(row) && isKnownAccessOnlyDependent(row),
-  );
-  const nonRecurring = allRows.filter(
+  const alreadyMarkedDuplicate = allRows.filter((row) => isMarkedDuplicate(row));
+  const initiallyEligible = allRows.filter((row) => !isMarkedDuplicate(row));
+
+  // First combine exact duplicate paid obligations into one canonical TOTS row.
+  // This is non-destructive: redundant rows are marked DO NOT COLLECT.
+  const { canonicalRows, duplicateRows } =
+    await canonicaliseFinishDuplicates(initiallyEligible);
+
+  const accessOnly = canonicalRows.filter((row) => isKnownAccessOnlyDependent(row));
+  const nonRecurring = canonicalRows.filter(
     (row) =>
-      !isMarkedDuplicate(row) &&
       !isKnownAccessOnlyDependent(row) &&
       (!isRecurring(row) || Number(row.unit_amount_pence ?? 0) <= 0),
   );
 
-  const rows = allRows.filter(
+  const rows = canonicalRows.filter(
     (row) =>
-      !isMarkedDuplicate(row) &&
       !isKnownAccessOnlyDependent(row) &&
       isRecurring(row) &&
       Number(row.unit_amount_pence ?? 0) > 0,
   );
 
   const results: Array<Record<string, unknown>> = [];
+  let proposedDatesFinalised = 0;
 
   for (const original of rows) {
     try {
       let row = await loadSubscription(original.id);
 
-      // If this row matches the supplied GoCardless export, treat it as
-      // GoCardless even when a stale legacy Stripe customer ID is also present.
+      // The supplied/current GoCardless evidence wins over stale legacy Stripe
+      // identifiers. We only reconcile IDs here; we never create a GC debit.
       const gcEvidence = findGoCardlessEvidence(row);
       const detectedProvider = await detectProvider(row);
       const provider: Provider = gcEvidence ? "gocardless" : detectedProvider;
@@ -4699,8 +4845,10 @@ async function finishPaymentPreparation(accountId: string) {
           provider,
           result: gc.result,
           match: gc.match,
-          externalCustomerId: gc.evidence?.customerId ?? row.external_customer_id ?? null,
-          mandateId: gc.evidence?.mandateId ?? row.external_mandate_id ?? null,
+          externalCustomerId:
+            gc.evidence?.customerId ?? row.external_customer_id ?? null,
+          mandateId:
+            gc.evidence?.mandateId ?? row.external_mandate_id ?? null,
           exportedChargeDate: gc.evidence?.chargeDate ?? null,
           exportedAmountPence: gc.evidence?.amountPence ?? null,
           exportedStatus: gc.evidence?.status ?? null,
@@ -4717,10 +4865,12 @@ async function finishPaymentPreparation(accountId: string) {
           amountPence: row.unit_amount_pence,
           provider,
           result: "provider_review",
+          reason: "Paid recurring membership provider could not be safely confirmed.",
         });
         continue;
       }
 
+      // Absolutely preserve anything already prepared in Stripe.
       const existingPrepared = await retrievePreparedStripeSubscription(
         row,
         accountId,
@@ -4744,35 +4894,15 @@ async function finishPaymentPreparation(accountId: string) {
       const scan = await scanOne(row, accountId);
       row = await loadSubscription(row.id);
 
+      // The operator has approved finalising legitimate dates that TOTS already
+      // proposed. Reuse that exact proposal; never invent a 28th/fallback date.
       if (
         row.processor_verification_status === "verified" &&
         !row.next_payment_at
       ) {
-        const source = await getMigrationSource(row);
-        const proposed = inferNextPaymentAt(row, source);
-        const approvedDate = approvedMigrationBillingDate(row, proposed.date);
-
-        if (approvedDate) {
-          await patchSubscription(row.id, {
-            next_payment_at: approvedDate,
-            metadata: {
-              ...metadata(row),
-              mtc_proposed_next_payment_at: proposed.date,
-              mtc_next_payment_confidence: proposed.confidence,
-              mtc_next_payment_requires_confirmation: false,
-              mtc_next_payment_finalised_from_proposal: true,
-              mtc_next_payment_finalised_at: new Date().toISOString(),
-              mtc_next_payment_finalised_source:
-                "operator_approved_existing_proposal",
-            },
-            migration_notes: appendMigrationNote(
-              row,
-              `Proposed billing date ${approvedDate} finalised for migration. This is the existing TOTS proposal; no fallback billing date was invented. TeamUp remains active and TOTS collection remains OFF until cutover.`,
-            ),
-          });
-
-          row = await loadSubscription(row.id);
-        }
+        const finalised = await finaliseApprovedProposedBillingDate(row);
+        row = finalised.row;
+        if (finalised.finalised) proposedDatesFinalised += 1;
       }
 
       if (
@@ -4780,6 +4910,7 @@ async function finishPaymentPreparation(accountId: string) {
         row.next_payment_at
       ) {
         const prepared = await prepareCutover(row, accountId);
+
         if (
           prepared.result === "prepared" ||
           prepared.result === "already_prepared"
@@ -4813,10 +4944,10 @@ async function finishPaymentPreparation(accountId: string) {
         fresh.processor_verification_status === "verified" &&
         !fresh.next_payment_at
       ) {
-        result = "stripe_date_confirmation_required";
+        result = "stripe_billing_date_missing";
         reason = proposed.date
-          ? `Payment method verified. Proposed next billing date is ${proposed.date}, but it requires confirmation before a Stripe subscription is prepared.`
-          : "Payment method verified, but no confirmed next billing date is available.";
+          ? `A proposed date exists (${proposed.date}) but could not be safely finalised.`
+          : "Payment method verified, but no legitimate proposed/confirmed next billing date is available.";
       }
 
       results.push({
@@ -4854,10 +4985,16 @@ async function finishPaymentPreparation(accountId: string) {
     ),
   );
 
-  const gcVerified = results.filter(
+  const goCardless = results.filter(
+    (item) => String(item.provider) === "gocardless",
+  );
+
+  const gcVerified = goCardless.filter(
     (item) => item.result === "gocardless_mandate_verified",
   );
 
+  // Only unresolved PAID RECURRING canonical obligations belong here.
+  // £0/trials/packs/access-only/duplicate rows are intentionally absent.
   const exceptions = results.filter(
     (item) =>
       ![
@@ -4867,40 +5004,91 @@ async function finishPaymentPreparation(accountId: string) {
       ].includes(String(item.result)),
   );
 
+  const unresolvedBreakdown = {
+    noSafeStripeCustomer: count("customer_not_found"),
+    noReusableCard: count("no_payment_method"),
+    multipleStripeMatches: count("multiple_card_customers"),
+    billingDateConfirmation: count("stripe_billing_date_missing"),
+    noEmail: count("no_email"),
+    errorsProviderReview:
+      count("error") +
+      count("provider_review") +
+      count("unknown_provider"),
+    goCardlessMandateMissing: count("gocardless_mandate_missing"),
+  };
+
+  const duplicateRowsExcluded =
+    alreadyMarkedDuplicate.length + duplicateRows.length;
+
   return {
+    // Current/clear fields.
+    rawSubscriptionRows: allRows.length,
     recurringPaidMemberships: rows.length,
     excludedNonRecurring: nonRecurring.length,
-    duplicatesHistoricalExcluded: duplicateOrHistorical.length,
+    duplicatesHistoricalExcluded: duplicateRowsExcluded,
+    duplicateRowsExcluded,
+    duplicatesCombinedNow: duplicateRows.length,
     accessOnlyDependentsExcluded: accessOnly.length,
 
     stripeReadyForTomorrow: stripeReady.length,
     stripeAlreadyPrepared: count("stripe_already_prepared"),
     stripePreparedNow: count("stripe_prepared_now"),
-    stripeDateConfirmationRequired: count("stripe_date_confirmation_required"),
+    stripeDateConfirmationRequired: count("stripe_billing_date_missing"),
     stripeNoSafeCustomer: count("customer_not_found"),
     stripeNoPaymentMethod: count("no_payment_method"),
     stripeMultipleCustomers: count("multiple_card_customers"),
     stripeNoEmail: count("no_email"),
 
+    goCardlessRecurring: goCardless.length,
     goCardlessVerifiedMandates: gcVerified.length,
     goCardlessMandateMissing: count("gocardless_mandate_missing"),
     goCardlessAmountReview: count("gocardless_amount_review"),
 
-    unknownProvider: count("provider_review"),
+    unknownProvider: count("provider_review") + count("unknown_provider"),
     errors: count("error"),
     unresolved: exceptions.length,
+    unresolvedBreakdown,
 
+    // Compatibility aliases used by the existing Store UI.
+    paidRecurringMemberships: rows.length,
+    stripeReady: stripeReady.length,
     goCardlessVerified: gcVerified,
+    goCardless,
     exceptions,
+    membersStillRequiringAction: exceptions,
+
+    duplicateRows: duplicateRows.map((row) => ({
+      subscriptionId: row.id,
+      customerName: row.customer_name,
+      email: row.customer_email,
+      membership: row.legacy_membership_name,
+      result: "duplicate_excluded",
+      canonicalSubscriptionId:
+        metadata(row).mtc_duplicate_of_subscription_id ?? null,
+    })),
+
+    excluded: {
+      nonRecurring: nonRecurring.map((row) => ({
+        subscriptionId: row.id,
+        customerName: row.customer_name,
+        membership: row.legacy_membership_name,
+        amountPence: row.unit_amount_pence,
+        result: "non_recurring_excluded",
+      })),
+      accessOnlyDependents: accessOnly.map((row) => ({
+        subscriptionId: row.id,
+        customerName: row.customer_name,
+        membership: row.legacy_membership_name,
+        result: "access_only_dependent_excluded",
+      })),
+    },
 
     safety: {
       paymentsCollected: 0,
       goCardlessDebitsCreated: 0,
       teamupBillingDisabled: 0,
       totsCollectionEnabled: 0,
-      proposedStripeDatesFinalised: results.filter(
-        (item) => item.result === "stripe_prepared_now",
-      ).length,
+      proposedStripeDatesFinalised: proposedDatesFinalised,
       fallbackStripeDatesInvented: 0,
       existingPreparedSubscriptionsPreserved: true,
     },

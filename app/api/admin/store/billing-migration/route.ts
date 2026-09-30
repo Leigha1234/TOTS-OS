@@ -36,6 +36,7 @@ const stripe = new Stripe(stripeSecretKey);
 
 type Action =
   | "prepare_all_for_mtc_import"
+  | "finish_payment_preparation"
   | "scan"
   | "scan_one"
   | "prepare_all"
@@ -4138,6 +4139,316 @@ async function prepareAll(
 }
 
 // ============================================================
+// FINISH PAYMENT PREPARATION
+//
+// Purpose:
+// - paid recurring memberships only
+// - preserve every already-prepared Stripe subscription
+// - retry Stripe customer/payment-method reconciliation
+// - auto-confirm an inferred renewal date ONLY when recent payment
+//   history matches the recurring amount exactly
+// - prepare the Stripe replacement subscription where safe
+// - classify GoCardless separately
+// - never charge now, never disable TeamUp, never enable collection
+// ============================================================
+
+function maxHistoryAgeMs(interval: string | null) {
+  switch (normaliseText(interval)) {
+    case "week":
+      return 21 * 24 * 60 * 60 * 1000;
+    case "month":
+      return 62 * 24 * 60 * 60 * 1000;
+    case "year":
+      return 400 * 24 * 60 * 60 * 1000;
+    default:
+      return 0;
+  }
+}
+
+async function confirmNextPaymentFromExactHistory(
+  row: StoreSubscription,
+) {
+  if (row.next_payment_at) {
+    return {
+      confirmed: true,
+      date: row.next_payment_at,
+      reason: "existing_confirmed_date",
+    };
+  }
+
+  const source = await getMigrationSource(row);
+  const lastPaymentAt = source?.last_payment_at ?? row.last_payment_at;
+  const lastAmount = source?.last_payment_amount_pence ?? row.last_payment_amount_pence;
+  const recurringAmount = row.unit_amount_pence;
+
+  if (
+    !lastPaymentAt ||
+    !recurringAmount ||
+    recurringAmount <= 0 ||
+    !lastAmount ||
+    lastAmount !== recurringAmount ||
+    !row.billing_interval
+  ) {
+    return {
+      confirmed: false,
+      date: null,
+      reason: "insufficient_exact_history",
+    };
+  }
+
+  const last = new Date(lastPaymentAt);
+  if (Number.isNaN(last.getTime())) {
+    return {
+      confirmed: false,
+      date: null,
+      reason: "invalid_last_payment_date",
+    };
+  }
+
+  const maxAge = maxHistoryAgeMs(row.billing_interval);
+  if (!maxAge || Date.now() - last.getTime() > maxAge) {
+    return {
+      confirmed: false,
+      date: null,
+      reason: "payment_history_too_old",
+    };
+  }
+
+  const inferred = inferNextPaymentAt(row, source);
+  if (!inferred.date || inferred.confidence !== "inferred_from_history") {
+    return {
+      confirmed: false,
+      date: null,
+      reason: "could_not_infer_next_date",
+    };
+  }
+
+  const next = new Date(inferred.date);
+  if (
+    Number.isNaN(next.getTime()) ||
+    next.getTime() <= Date.now() + 30 * 60 * 1000
+  ) {
+    return {
+      confirmed: false,
+      date: null,
+      reason: "inferred_date_not_safely_future",
+    };
+  }
+
+  const now = new Date().toISOString();
+  await patchSubscription(row.id, {
+    next_payment_at: next.toISOString(),
+    metadata: {
+      ...metadata(row),
+      mtc_next_payment_auto_confirmed: true,
+      mtc_next_payment_auto_confirmed_at: now,
+      mtc_next_payment_auto_confirmed_from: "exact_recent_payment_history",
+      mtc_next_payment_history_amount_pence: lastAmount,
+      mtc_next_payment_history_at: lastPaymentAt,
+    },
+    migration_notes: appendMigrationNote(
+      row,
+      `Next billing date ${next.toISOString()} auto-confirmed from recent exact-amount payment history (${lastAmount}p). TeamUp remains active; TOTS collection remains OFF.`,
+    ),
+  });
+
+  return {
+    confirmed: true,
+    date: next.toISOString(),
+    reason: "exact_recent_payment_history",
+  };
+}
+
+async function finishPaymentPreparation(accountId: string) {
+  const allRows = await loadMigrationRows();
+  const rows = allRows.filter(
+    (row) =>
+      !isMarkedDuplicate(row) &&
+      isRecurring(row) &&
+      Number(row.unit_amount_pence ?? 0) > 0,
+  );
+
+  const results: Array<Record<string, unknown>> = [];
+
+  for (const original of rows) {
+    try {
+      let row = await loadSubscription(original.id);
+      const provider = await detectProvider(row);
+
+      if (provider === "gocardless") {
+        results.push({
+          subscriptionId: row.id,
+          customerName: row.customer_name,
+          email: row.customer_email,
+          membership: row.legacy_membership_name,
+          amountPence: row.unit_amount_pence,
+          provider,
+          result: "gocardless_ready_for_separate_cutover",
+          mandateId: row.external_mandate_id ?? null,
+          externalCustomerId: row.external_customer_id ?? null,
+        });
+        continue;
+      }
+
+      if (provider !== "stripe") {
+        results.push({
+          subscriptionId: row.id,
+          customerName: row.customer_name,
+          email: row.customer_email,
+          membership: row.legacy_membership_name,
+          amountPence: row.unit_amount_pence,
+          provider,
+          result: "provider_review",
+        });
+        continue;
+      }
+
+      const existingPrepared = await retrievePreparedStripeSubscription(
+        row,
+        accountId,
+      );
+
+      if (existingPrepared) {
+        results.push({
+          subscriptionId: row.id,
+          customerName: row.customer_name,
+          email: row.customer_email,
+          membership: row.legacy_membership_name,
+          amountPence: row.unit_amount_pence,
+          provider,
+          result: "stripe_already_prepared",
+          stripeSubscriptionId: existingPrepared.id,
+          firstPaymentAt: row.next_payment_at,
+        });
+        continue;
+      }
+
+      const scan = await scanOne(row, accountId);
+      row = await loadSubscription(row.id);
+
+      if (row.processor_verification_status === "verified" && !row.next_payment_at) {
+        await confirmNextPaymentFromExactHistory(row);
+        row = await loadSubscription(row.id);
+      }
+
+      if (
+        row.processor_verification_status === "verified" &&
+        row.next_payment_at
+      ) {
+        const prepared = await prepareCutover(row, accountId);
+        if (
+          prepared.result === "prepared" ||
+          prepared.result === "already_prepared"
+        ) {
+          results.push({
+            subscriptionId: row.id,
+            customerName: row.customer_name,
+            email: row.customer_email,
+            membership: row.legacy_membership_name,
+            amountPence: row.unit_amount_pence,
+            provider,
+            result:
+              prepared.result === "prepared"
+                ? "stripe_prepared_now"
+                : "stripe_already_prepared",
+            stripeSubscriptionId: prepared.stripeSubscriptionId ?? null,
+            firstPaymentAt: prepared.firstPaymentAt ?? row.next_payment_at,
+          });
+          continue;
+        }
+      }
+
+      const fresh = await loadSubscription(row.id);
+      const proposed = await confirmNextPaymentFromExactHistory(fresh);
+
+      let reason = scan.message ?? scan.result;
+      if (
+        fresh.processor_verification_status === "verified" &&
+        !fresh.next_payment_at
+      ) {
+        reason = `Payment method verified but next billing date is not safely confirmable (${proposed.reason}).`;
+      }
+
+      results.push({
+        subscriptionId: fresh.id,
+        customerName: fresh.customer_name,
+        email: fresh.customer_email,
+        membership: fresh.legacy_membership_name,
+        amountPence: fresh.unit_amount_pence,
+        provider,
+        result: scan.result,
+        reason,
+        candidates: scan.candidates ?? null,
+        cardReadyCandidates: scan.cardReadyCandidates ?? null,
+      });
+    } catch (error) {
+      results.push({
+        subscriptionId: original.id,
+        customerName: original.customer_name,
+        email: original.customer_email,
+        membership: original.legacy_membership_name,
+        amountPence: original.unit_amount_pence,
+        result: "error",
+        reason: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+
+  const count = (result: string) =>
+    results.filter((item) => item.result === result).length;
+
+  const readyStripe = results.filter((item) =>
+    ["stripe_prepared_now", "stripe_already_prepared"].includes(
+      String(item.result),
+    ),
+  );
+
+  const goCardless = results.filter(
+    (item) => item.result === "gocardless_ready_for_separate_cutover",
+  );
+
+  const exceptions = results.filter(
+    (item) =>
+      ![
+        "stripe_prepared_now",
+        "stripe_already_prepared",
+        "gocardless_ready_for_separate_cutover",
+      ].includes(String(item.result)),
+  );
+
+  return {
+    recurringPaidMemberships: rows.length,
+    stripeReadyForTomorrow: readyStripe.length,
+    stripeAlreadyPrepared: count("stripe_already_prepared"),
+    stripePreparedNow: count("stripe_prepared_now"),
+    goCardlessRecurring: goCardless.length,
+    unresolved: exceptions.length,
+    unresolvedBreakdown: {
+      customerNotFound: count("customer_not_found"),
+      noPaymentMethod: count("no_payment_method"),
+      multipleCardCustomers: count("multiple_card_customers"),
+      noEmail: count("no_email"),
+      unknownProvider: count("provider_review"),
+      errors: count("error"),
+      verifiedButDateStillUnconfirmed: exceptions.filter(
+        (item) =>
+          String(item.reason ?? "").includes(
+            "next billing date is not safely confirmable",
+          ),
+      ).length,
+    },
+    exceptions,
+    goCardless,
+    safety: {
+      paymentsCollected: 0,
+      teamupBillingDisabled: 0,
+      totsCollectionEnabled: 0,
+      existingPreparedSubscriptionsPreserved: true,
+    },
+  };
+}
+
+// ============================================================
 // EXISTING BULK PREPARE CUTOVER
 // ============================================================
 
@@ -5091,6 +5402,32 @@ export async function POST(
 
         ...result,
 
+        performedBy:
+          user.email ??
+          user.id,
+      });
+    }
+
+    // ========================================================
+    // FINISH ALL PAID RECURRING PAYMENT PREPARATION
+    // ========================================================
+
+    if (
+      action ===
+      "finish_payment_preparation"
+    ) {
+      const result =
+        await finishPaymentPreparation(
+          accountId,
+        );
+
+      return NextResponse.json({
+        ok: true,
+        action:
+          "finish_payment_preparation",
+        stripeAccountId:
+          accountId,
+        ...result,
         performedBy:
           user.email ??
           user.id,

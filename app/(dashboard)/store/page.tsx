@@ -415,6 +415,10 @@ export default function StoreDashboardPage() {
   const [draft, setDraft] = useState<ProductDraft>(blankProduct);
   const [savingProduct, setSavingProduct] = useState(false);
   const [billingActionId, setBillingActionId] = useState<string | null>(null);
+  const [reconcilingStripe, setReconcilingStripe] = useState(false);
+  const [reconcileProgress, setReconcileProgress] = useState<{ current: number; total: number } | null>(null);
+  const [reconcileSummary, setReconcileSummary] = useState<Record<string, number> | null>(null);
+  const [migrationMessages, setMigrationMessages] = useState<Record<string, string>>({});
   const [stripeStatus, setStripeStatus] = useState<StripeStoreStatus | null>(null);
   const [stripeStatusLoading, setStripeStatusLoading] = useState(true);
   const [stripeConnectLoading, setStripeConnectLoading] = useState(false);
@@ -789,36 +793,111 @@ export default function StoreDashboardPage() {
   }, [orders, search]);
 
 
+  const getBillingToken = useCallback(async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) throw new Error("You are not signed in.");
+    return token;
+  }, []);
+
+  const postBillingMigration = useCallback(async (
+    token: string,
+    body: Record<string, unknown>,
+  ) => {
+    const response = await fetch("/api/admin/store/billing-migration", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Billing migration action failed.");
+    return result;
+  }, []);
+
+  const reconcileCopiedStripeCustomers = useCallback(async () => {
+    if (reconcilingStripe) return;
+
+    const targets = subscriptions.filter((subscription) => {
+      const provider = String(subscription.payment_provider ?? "").toLowerCase();
+      const recurring =
+        typeof subscription.unit_amount_pence === "number" &&
+        subscription.unit_amount_pence > 0 &&
+        ["week", "month", "year"].includes(String(subscription.billing_interval ?? "").toLowerCase());
+
+      return (
+        provider === "stripe" &&
+        recurring &&
+        subscription.collection_enabled !== true &&
+        subscription.teamup_billing_active === true &&
+        subscription.processor_verification_status !== "verified"
+      );
+    });
+
+    if (!targets.length) {
+      window.alert("There are no unverified recurring Stripe memberships left to reconcile.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Reconcile ${targets.length} recurring Stripe memberships against the 599 copied customers? This only verifies copied customer/payment methods. It will NOT collect money, create subscriptions, or stop TeamUp billing.`,
+    );
+    if (!confirmed) return;
+
+    try {
+      setReconcilingStripe(true);
+      setError(null);
+      setReconcileSummary(null);
+      setReconcileProgress({ current: 0, total: targets.length });
+
+      const token = await getBillingToken();
+      const counts: Record<string, number> = {};
+      const messages: Record<string, string> = {};
+
+      for (let index = 0; index < targets.length; index += 1) {
+        const subscription = targets[index];
+        try {
+          const response = await postBillingMigration(token, {
+            subscriptionId: subscription.id,
+            action: "scan_one",
+          });
+          const result = response.result;
+          const key = String(result?.result ?? "error");
+          counts[key] = (counts[key] ?? 0) + 1;
+          if (result?.message) messages[subscription.id] = result.message;
+        } catch (scanError) {
+          counts.error = (counts.error ?? 0) + 1;
+          messages[subscription.id] = scanError instanceof Error ? scanError.message : "Reconciliation failed.";
+        }
+        setReconcileProgress({ current: index + 1, total: targets.length });
+      }
+
+      setMigrationMessages((current) => ({ ...current, ...messages }));
+      setReconcileSummary(counts);
+      await loadStore(true);
+    } catch (scanError) {
+      setError(scanError instanceof Error ? scanError.message : "Stripe reconciliation failed.");
+    } finally {
+      setReconcilingStripe(false);
+      setReconcileProgress(null);
+    }
+  }, [getBillingToken, loadStore, postBillingMigration, reconcilingStripe, subscriptions]);
+
   const runBillingMigrationAction = useCallback(async (
     subscription: Subscription,
-    action: "setup" | "verify" | "teamup_stopped" | "activate",
+    action: "scan_one" | "setup" | "verify" | "teamup_stopped" | "activate",
   ) => {
     try {
       setBillingActionId(subscription.id);
       setError(null);
 
       if (action === "setup") {
-        if (stripeStatusLoading) {
-          throw new Error("Stripe status is still loading. Try again in a moment.");
-        }
-
-        if (!stripeStatus?.connected) {
-          setBillingActionId(null);
-          const shouldConnect = window.confirm(
-            "Moray Training Club needs its TOTS Stripe account connected before member payment setup can begin. Open Stripe setup now?",
-          );
-          if (shouldConnect) await connectStripe();
-          return;
-        }
-
-        if (!stripeStatus.onboardingComplete) {
-          setBillingActionId(null);
-          const shouldContinue = window.confirm(
-            "The MTC Stripe account exists, but Stripe onboarding is not complete yet. Continue Stripe setup now?",
-          );
-          if (shouldContinue) await connectStripe();
-          return;
-        }
+        if (stripeStatusLoading) throw new Error("Stripe status is still loading. Try again in a moment.");
+        if (!stripeStatus?.connected) throw new Error("MTC Stripe is not connected.");
+        if (!stripeStatus.onboardingComplete) throw new Error("MTC Stripe onboarding is not complete.");
       }
 
       if (action === "teamup_stopped") {
@@ -830,40 +909,39 @@ export default function StoreDashboardPage() {
 
       if (action === "activate") {
         const confirmed = window.confirm(
-          "Only continue after this member’s TeamUp billing has been stopped. Activating TOTS billing can charge the member through Stripe. Continue?",
+          "Only continue after TeamUp billing is stopped AND the member's next payment date has been verified. Continue with TOTS activation?",
         );
         if (!confirmed) return;
       }
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) throw new Error("You are not signed in.");
+      const token = await getBillingToken();
+      const result = await postBillingMigration(token, { subscriptionId: subscription.id, action });
 
-      const response = await fetch("/api/admin/store/billing-migration", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ subscriptionId: subscription.id, action }),
-      });
-
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Billing migration action failed.");
+      const scanResult = result.result?.result ? result.result : result.result;
+      if (action === "scan_one" && scanResult) {
+        setMigrationMessages((current) => ({
+          ...current,
+          [subscription.id]: scanResult.message || String(scanResult.result || "Checked"),
+        }));
+      }
 
       if (result.url) {
         await navigator.clipboard.writeText(result.url).catch(() => undefined);
         window.open(result.url, "_blank", "noopener,noreferrer");
-        window.alert("Payment setup link opened and copied to your clipboard. Send it to the member if needed.");
+        window.alert("Payment setup link opened and copied to your clipboard. TeamUp remains active.");
+      } else if (action === "setup" && result.automatic) {
+        window.alert("Copied Stripe payment method verified automatically. No setup link is needed and no payment was collected.");
       }
 
       await loadStore(true);
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Billing migration action failed.");
+      const message = actionError instanceof Error ? actionError.message : "Billing migration action failed.";
+      setMigrationMessages((current) => ({ ...current, [subscription.id]: message }));
+      setError(message);
     } finally {
       setBillingActionId(null);
     }
-  }, [connectStripe, loadStore, stripeStatus, stripeStatusLoading]);
+  }, [getBillingToken, loadStore, postBillingMigration, stripeStatus, stripeStatusLoading]);
 
   const filteredSubscriptions = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -1721,12 +1799,32 @@ export default function StoreDashboardPage() {
               title="Subscriptions"
               description="Membership register, including legacy TeamUp records and subscriptions collected through TOTS-OS."
             >
-              <SearchBox
-                value={search}
-                onChange={setSearch}
-                placeholder="Search subscriptions..."
-              />
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={reconcileCopiedStripeCustomers}
+                  disabled={reconcilingStripe}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-stone-950 px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {reconcilingStripe ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  {reconcilingStripe && reconcileProgress
+                    ? `Reconciling ${reconcileProgress.current}/${reconcileProgress.total}`
+                    : "Reconcile copied Stripe customers"}
+                </button>
+                <SearchBox
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Search subscriptions..."
+                />
+              </div>
             </SectionHeader>
+
+            {reconcileSummary && (
+              <div className="border-b border-stone-100 bg-emerald-50/60 px-6 py-4 text-xs text-stone-700">
+                <span className="font-semibold text-emerald-800">Stripe reconciliation finished.</span>{" "}
+                Verified: {(reconcileSummary.verified ?? 0) + (reconcileSummary.already_verified ?? 0)} · No payment method: {reconcileSummary.no_payment_method ?? 0} · Multiple matches: {reconcileSummary.multiple_customers ?? 0} · Not found: {reconcileSummary.waiting_for_stripe_copy ?? 0} · Errors: {reconcileSummary.error ?? 0}. No payments collected; TeamUp remains active.
+              </div>
+            )}
 
             {filteredSubscriptions.length > 0 ? (
               <div className="overflow-x-auto">
@@ -1772,90 +1870,62 @@ export default function StoreDashboardPage() {
 
                         <td className="px-4 py-4">
                           {subscription.collection_enabled === true ? (
-                            <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
-                              TOTS collecting
-                            </span>
-                          ) : subscription.teamup_billing_active === true ? (
-                            <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
-                              TeamUp billing
-                            </span>
-                          ) : (
-                            <span className="inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-600 ring-1 ring-inset ring-stone-200">
-                              Not collecting
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          {subscription.legacy_billing === true ? (
-                            <span className="inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-700 ring-1 ring-inset ring-stone-200">
-                              Legacy
-                            </span>
-                          ) : (
-                            <StatusBadge
-                              status={subscription.status || "unknown"}
-                            />
-                          )}
-                        </td>
-
-                        <td className="px-4 py-4 text-sm text-stone-500">
-                          {formatDate(
-                            subscription.current_period_start ||
-                              subscription.created_at,
-                          )}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          {subscription.collection_enabled === true ? (
                             <span className="text-xs font-semibold text-emerald-700">Live on TOTS</span>
-                          ) : subscription.billing_interval && subscription.unit_amount_pence && subscription.unit_amount_pence > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                              {subscription.cutover_status === "payment_method_ready" ? (
-                                <div className="flex flex-wrap gap-2">
-                                  {subscription.teamup_billing_active === true && (
-                                    <button
-                                      type="button"
-                                      disabled={billingActionId === subscription.id}
-                                      onClick={() => runBillingMigrationAction(subscription, "teamup_stopped")}
-                                      className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 disabled:opacity-50"
-                                    >
-                                      Mark TeamUp stopped
-                                    </button>
-                                  )}
-                                  <button
+                          ) : !(subscription.billing_interval && subscription.unit_amount_pence && subscription.unit_amount_pence > 0) ? (
+                            <span className="text-xs text-stone-400">No recurring billing</span>
+                          ) : String(subscription.payment_provider ?? "").toLowerCase() === "gocardless" ? (
+                            <span className="text-xs font-semibold text-sky-700">GoCardless migration</span>
+                          ) : String(subscription.payment_provider ?? "").toLowerCase() !== "stripe" ? (
+                            <span className="text-xs font-semibold text-amber-700">Manual review</span>
+                          ) : subscription.processor_verification_status === "verified" && subscription.cutover_status === "verified" ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">Payment verified</span>
+                              {subscription.teamup_billing_active === true ? (
+                                <button
                                   type="button"
                                   disabled={billingActionId === subscription.id}
-                                  onClick={() => runBillingMigrationAction(subscription, "activate")}
+                                  onClick={() => runBillingMigrationAction(subscription, "teamup_stopped")}
+                                  className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 disabled:opacity-50"
+                                >
+                                  Mark TeamUp stopped
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : subscription.cutover_status === "ready" && subscription.teamup_billing_active === false ? (
+                            <button
+                              type="button"
+                              disabled={billingActionId === subscription.id}
+                              onClick={() => runBillingMigrationAction(subscription, "activate")}
+                              className="rounded-lg bg-stone-950 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                            >
+                              {billingActionId === subscription.id ? "Working…" : "Activate TOTS"}
+                            </button>
+                          ) : (
+                            <div className="flex max-w-[260px] flex-col gap-1.5">
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  disabled={billingActionId === subscription.id || reconcilingStripe}
+                                  onClick={() => runBillingMigrationAction(subscription, "scan_one")}
+                                  className="rounded-lg border border-stone-200 px-3 py-2 text-xs font-semibold text-stone-700 disabled:opacity-50"
+                                >
+                                  {billingActionId === subscription.id ? "Checking…" : "Reconcile"}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={billingActionId === subscription.id || reconcilingStripe}
+                                  onClick={() => runBillingMigrationAction(subscription, "setup")}
                                   className="rounded-lg bg-stone-950 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
                                 >
-                                  {billingActionId === subscription.id ? "Working…" : "Activate TOTS"}
-                                  </button>
-                                </div>
+                                  Fallback setup
+                                </button>
+                              </div>
+                              {migrationMessages[subscription.id] ? (
+                                <span className="text-[11px] leading-4 text-stone-500">{migrationMessages[subscription.id]}</span>
                               ) : (
-                                <>
-                                  <button
-                                    type="button"
-                                    disabled={billingActionId === subscription.id}
-                                    onClick={() => runBillingMigrationAction(subscription, "setup")}
-                                    className="rounded-lg bg-stone-950 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                                  >
-                                    {billingActionId === subscription.id ? "Working…" : subscription.cutover_status === "payment_setup_sent" ? "New setup link" : "Payment setup"}
-                                  </button>
-                                  {subscription.cutover_status === "payment_setup_sent" && (
-                                    <button
-                                      type="button"
-                                      disabled={billingActionId === subscription.id}
-                                      onClick={() => runBillingMigrationAction(subscription, "verify")}
-                                      className="rounded-lg border border-stone-200 px-3 py-2 text-xs font-semibold text-stone-700 disabled:opacity-50"
-                                    >
-                                      Check setup
-                                    </button>
-                                  )}
-                                </>
+                                <span className="text-[11px] text-stone-400">Awaiting copied Stripe payment verification</span>
                               )}
                             </div>
-                          ) : (
-                            <span className="text-xs text-stone-400">No recurring billing</span>
                           )}
                         </td>
 

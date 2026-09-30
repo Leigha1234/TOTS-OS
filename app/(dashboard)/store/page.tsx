@@ -119,6 +119,7 @@ type Subscription = {
   billing_interval?: string | null;
   current_period_start?: string | null;
   current_period_end?: string | null;
+  next_payment_at?: string | null;
   cancel_at_period_end?: boolean | null;
   cancelled_at?: string | null;
   stripe_subscription_id?: string | null;
@@ -416,6 +417,8 @@ export default function StoreDashboardPage() {
   const [savingProduct, setSavingProduct] = useState(false);
   const [billingActionId, setBillingActionId] = useState<string | null>(null);
   const [reconcilingStripe, setReconcilingStripe] = useState(false);
+  const [preparingCutover, setPreparingCutover] = useState(false);
+  const [bulkCutoverMessage, setBulkCutoverMessage] = useState<string | null>(null);
   const [reconcileProgress, setReconcileProgress] = useState<{ current: number; total: number } | null>(null);
   const [reconcileSummary, setReconcileSummary] = useState<Record<string, number> | null>(null);
   const [migrationMessages, setMigrationMessages] = useState<Record<string, string>>({});
@@ -885,6 +888,73 @@ export default function StoreDashboardPage() {
       setReconcileProgress(null);
     }
   }, [getBillingToken, loadStore, postBillingMigration, reconcilingStripe, subscriptions]);
+
+  const prepareEligibleStripeCutover = useCallback(async () => {
+    if (preparingCutover) return;
+
+    const readyCount = subscriptions.filter((subscription) => {
+      const provider = String(subscription.payment_provider ?? "").toLowerCase();
+      const recurring =
+        typeof subscription.unit_amount_pence === "number" &&
+        subscription.unit_amount_pence > 0 &&
+        ["week", "month", "year"].includes(String(subscription.billing_interval ?? "").toLowerCase());
+
+      return (
+        provider === "stripe" &&
+        recurring &&
+        subscription.collection_enabled !== true &&
+        subscription.teamup_billing_active === true &&
+        subscription.processor_verification_status === "verified" &&
+        Boolean(subscription.next_payment_at)
+      );
+    }).length;
+
+    if (!readyCount) {
+      window.alert("There are no verified Stripe memberships with a confirmed next payment date ready to prepare.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Prepare all ${readyCount} eligible Stripe memberships for TOTS-OS cutover? This creates/schedules the destination Stripe subscriptions for their existing renewal dates. It does NOT charge anyone now and it does NOT cancel TeamUp.`,
+    );
+    if (!confirmed) return;
+
+    try {
+      setPreparingCutover(true);
+      setBulkCutoverMessage(null);
+      setError(null);
+
+      const token = await getBillingToken();
+      const result = await postBillingMigration(token, { action: "prepare_cutover_all" });
+
+      const prepared =
+        result?.summary?.prepared ??
+        result?.prepared ??
+        result?.created ??
+        result?.summary?.created ??
+        0;
+      const alreadyPrepared =
+        result?.summary?.alreadyPrepared ??
+        result?.alreadyPrepared ??
+        result?.summary?.already_prepared ??
+        0;
+      const failed =
+        result?.summary?.failed ??
+        result?.failed ??
+        result?.summary?.errors ??
+        0;
+
+      setBulkCutoverMessage(
+        `TOTS cutover preparation finished. Prepared: ${prepared} · Already prepared: ${alreadyPrepared} · Failed/review: ${failed}. No immediate payments were taken and TeamUp has not been marked stopped.`,
+      );
+
+      await loadStore(true);
+    } catch (prepareError) {
+      setError(prepareError instanceof Error ? prepareError.message : "Bulk cutover preparation failed.");
+    } finally {
+      setPreparingCutover(false);
+    }
+  }, [getBillingToken, loadStore, postBillingMigration, preparingCutover, subscriptions]);
 
   const runBillingMigrationAction = useCallback(async (
     subscription: Subscription,
@@ -1802,6 +1872,15 @@ export default function StoreDashboardPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
+                  onClick={prepareEligibleStripeCutover}
+                  disabled={preparingCutover || reconcilingStripe}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {preparingCutover ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                  {preparingCutover ? "Preparing TOTS cutover…" : "Prepare all ready members"}
+                </button>
+                <button
+                  type="button"
                   onClick={reconcileCopiedStripeCustomers}
                   disabled={reconcilingStripe}
                   className="inline-flex h-10 items-center gap-2 rounded-xl bg-stone-950 px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
@@ -1818,6 +1897,12 @@ export default function StoreDashboardPage() {
                 />
               </div>
             </SectionHeader>
+
+            {bulkCutoverMessage && (
+              <div className="border-b border-stone-100 bg-emerald-50 px-6 py-4 text-xs font-medium text-emerald-900">
+                {bulkCutoverMessage}
+              </div>
+            )}
 
             {reconcileSummary && (
               <div className="border-b border-stone-100 bg-emerald-50/60 px-6 py-4 text-xs text-stone-700">

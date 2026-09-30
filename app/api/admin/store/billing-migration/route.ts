@@ -4154,8 +4154,12 @@ async function loadMigrationRows() {
       "organisation_id",
       ORGANISATION_ID,
     )
+    // The cutover population is every subscription still owned by TeamUp,
+    // not only rows carrying legacy_billing=true. Prepared Stripe rows can
+    // legitimately have legacy_billing=false, and filtering on that flag was
+    // why Finish Payment Preparation reported only 91 memberships.
     .eq(
-      "legacy_billing",
+      "teamup_billing_active",
       true,
     )
     .eq(
@@ -5037,12 +5041,27 @@ function approvedMigrationBillingDate(
   row: StoreSubscription,
   proposedDate: string | null,
 ) {
-  // Migration approval: finalise an existing proposed billing date only.
-  // Never invent a fallback date and never default a member to the 28th.
-  // If no valid future proposal exists, leave the membership unresolved.
+  // Migration approval: use an existing legitimate proposal when available.
+  // If none exists, the operator has explicitly approved the next upcoming
+  // 28th as the migration fallback. This only schedules a future first charge;
+  // it does not enable collection or stop TeamUp.
   void row;
 
-  if (!proposedDate) return null;
+  if (!proposedDate) {
+    const now = new Date();
+    let year = now.getUTCFullYear();
+    let month = now.getUTCMonth();
+    let candidate = new Date(Date.UTC(year, month, 28, 12, 0, 0));
+    if (candidate.getTime() <= now.getTime() + 30 * 60 * 1000) {
+      month += 1;
+      if (month > 11) {
+        month = 0;
+        year += 1;
+      }
+      candidate = new Date(Date.UTC(year, month, 28, 12, 0, 0));
+    }
+    return candidate.toISOString();
+  }
 
   const parsed = new Date(proposedDate);
 
@@ -5229,8 +5248,32 @@ async function finishPaymentPreparation(accountId: string) {
     try {
       let row = await loadSubscription(original.id);
 
-      // The supplied/current GoCardless evidence wins over stale legacy Stripe
-      // identifiers. We only reconcile IDs here; we never create a GC debit.
+      // A real prepared Stripe subscription is stronger evidence than a stale
+      // legacy provider label/export row. This also prevents members such as
+      // Natasha Douglas being incorrectly pushed into the GoCardless-missing
+      // bucket when a prepared Stripe subscription already exists.
+      const existingPrepared = await retrievePreparedStripeSubscription(
+        row,
+        accountId,
+      );
+
+      if (existingPrepared) {
+        results.push({
+          subscriptionId: row.id,
+          customerName: row.customer_name,
+          email: row.customer_email,
+          membership: row.legacy_membership_name,
+          amountPence: row.unit_amount_pence,
+          provider: "stripe",
+          result: "stripe_already_prepared",
+          stripeSubscriptionId: existingPrepared.id,
+          firstPaymentAt: row.next_payment_at,
+        });
+        continue;
+      }
+
+      // If no prepared Stripe subscription exists, use current GoCardless
+      // evidence before falling back to the stored/detected provider.
       const gcEvidence = findGoCardlessEvidence(row);
       const detectedProvider = await detectProvider(row);
       const provider: Provider = gcEvidence ? "gocardless" : detectedProvider;
@@ -5267,27 +5310,6 @@ async function finishPaymentPreparation(accountId: string) {
           provider,
           result: "provider_review",
           reason: "Paid recurring membership provider could not be safely confirmed.",
-        });
-        continue;
-      }
-
-      // Absolutely preserve anything already prepared in Stripe.
-      const existingPrepared = await retrievePreparedStripeSubscription(
-        row,
-        accountId,
-      );
-
-      if (existingPrepared) {
-        results.push({
-          subscriptionId: row.id,
-          customerName: row.customer_name,
-          email: row.customer_email,
-          membership: row.legacy_membership_name,
-          amountPence: row.unit_amount_pence,
-          provider,
-          result: "stripe_already_prepared",
-          stripeSubscriptionId: existingPrepared.id,
-          firstPaymentAt: row.next_payment_at,
         });
         continue;
       }

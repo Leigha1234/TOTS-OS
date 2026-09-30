@@ -4563,7 +4563,6 @@ async function persistGoCardlessEvidence(row: StoreSubscription) {
       processor_verified_at: now,
       last_payment_at: evidence.chargeDate,
       last_payment_amount_pence: evidence.amountPence,
-      cutover_status: "gocardless_verified_pending_external_cutover",
       collection_enabled: false,
       teamup_billing_active: true,
       metadata: {
@@ -4602,7 +4601,6 @@ async function persistGoCardlessEvidence(row: StoreSubscription) {
     processor_verified_at: now,
     last_payment_at: evidence.chargeDate,
     last_payment_amount_pence: evidence.amountPence,
-    cutover_status: "gocardless_verified_pending_external_cutover",
     collection_enabled: false,
     teamup_billing_active: true,
     metadata: {
@@ -4711,7 +4709,6 @@ async function canonicaliseFinishDuplicates(rows: StoreSubscription[]) {
       const now = new Date().toISOString();
       const updated = await patchSubscription(duplicate.id, {
         collection_enabled: false,
-        cutover_status: "duplicate",
         metadata: {
           ...metadata(duplicate),
           mtc_redundant_duplicate: true,

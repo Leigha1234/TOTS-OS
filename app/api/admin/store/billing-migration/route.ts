@@ -4326,8 +4326,32 @@ async function finishPaymentPreparation(accountId: string) {
       const scan = await scanOne(row, accountId);
       row = await loadSubscription(row.id);
 
-      if (row.processor_verification_status === "verified" && !row.next_payment_at) {
-        await confirmNextPaymentFromExactHistory(row);
+      if (
+        row.processor_verification_status === "verified" &&
+        !row.next_payment_at
+      ) {
+        const source = await getMigrationSource(row);
+        const proposed = inferNextPaymentAt(row, source);
+
+        await patchSubscription(row.id, {
+          metadata: {
+            ...metadata(row),
+            mtc_proposed_next_payment_at: proposed.date,
+            mtc_next_payment_confidence: proposed.confidence,
+            mtc_next_payment_requires_confirmation: Boolean(proposed.date),
+          },
+          migration_notes:
+            proposed.date
+              ? appendMigrationNote(
+                  row,
+                  `Proposed next billing date ${proposed.date} derived from legacy payment history. It has NOT been activated as a contractual billing date. TeamUp remains active; TOTS collection remains OFF.`,
+                )
+              : appendMigrationNote(
+                  row,
+                  "Stripe payment method verified but no reliable next billing date could be established. TeamUp remains active; TOTS collection remains OFF.",
+                ),
+        });
+
         row = await loadSubscription(row.id);
       }
 
@@ -4359,14 +4383,18 @@ async function finishPaymentPreparation(accountId: string) {
       }
 
       const fresh = await loadSubscription(row.id);
-      const proposed = await confirmNextPaymentFromExactHistory(fresh);
+      const source = await getMigrationSource(fresh);
+      const proposed = inferNextPaymentAt(fresh, source);
 
       let reason = scan.message ?? scan.result;
       if (
         fresh.processor_verification_status === "verified" &&
         !fresh.next_payment_at
       ) {
-        reason = `Payment method verified but next billing date is not safely confirmable (${proposed.reason}).`;
+        reason =
+          proposed.date
+            ? `Payment method verified. Proposed next billing date is ${proposed.date}, but it still requires confirmation before a Stripe subscription is prepared.`
+            : "Payment method verified, but no reliable next billing date could be established.";
       }
 
       results.push({

@@ -1263,15 +1263,19 @@ function providerFromText(
 async function detectProvider(
   row: StoreSubscription,
 ): Promise<Provider> {
-  if (
-    looksLikeStripeCustomerId(
-      row.stripe_customer_id,
-    ) ||
-    looksLikeStripeCustomerId(
-      row.external_customer_id,
-    )
-  ) {
-    return "stripe";
+  // Provider labels and GoCardless mandate/customer IDs are authoritative for
+  // migrated Direct Debit rows. Some legacy rows also contain a stale Stripe
+  // customer reference, so do not let that incorrectly turn them into Stripe.
+  const explicit =
+    providerFromText(
+      row.payment_provider,
+    ) ??
+    providerFromText(
+      row.billing_provider,
+    );
+
+  if (explicit === "gocardless") {
+    return "gocardless";
   }
 
   if (
@@ -1285,16 +1289,19 @@ async function detectProvider(
     return "gocardless";
   }
 
-  const explicit =
-    providerFromText(
-      row.payment_provider,
-    ) ??
-    providerFromText(
-      row.billing_provider,
-    );
+  if (explicit === "stripe") {
+    return "stripe";
+  }
 
-  if (explicit) {
-    return explicit;
+  if (
+    looksLikeStripeCustomerId(
+      row.stripe_customer_id,
+    ) ||
+    looksLikeStripeCustomerId(
+      row.external_customer_id,
+    )
+  ) {
+    return "stripe";
   }
 
   const sources =
@@ -4543,25 +4550,43 @@ async function persistGoCardlessEvidence(row: StoreSubscription) {
   const { evidence, match: matchType } = match;
 
   if (matchType === "email_only_amount_review") {
-    await patchSubscription(row.id, {
+    // The payer + mandate identity can still be verified safely from the export.
+    // Keep the TOTS membership amount unchanged; record the historic exported
+    // payment amount as evidence rather than blocking mandate verification.
+    const now = new Date().toISOString();
+    const updated = await patchSubscription(row.id, {
+      payment_provider: "gocardless",
+      billing_provider: "gocardless",
+      external_customer_id: evidence.customerId,
+      external_mandate_id: evidence.mandateId,
+      processor_verification_status: "verified",
+      processor_verified_at: now,
+      last_payment_at: evidence.chargeDate,
+      last_payment_amount_pence: evidence.amountPence,
+      cutover_status: "gocardless_verified_pending_external_cutover",
+      collection_enabled: false,
+      teamup_billing_active: true,
       metadata: {
         ...metadata(row),
+        mtc_gocardless_export_verified: true,
+        mtc_gocardless_export_verified_at: now,
+        mtc_gocardless_export_match: matchType,
         mtc_gocardless_export_customer_id: evidence.customerId,
         mtc_gocardless_export_mandate_id: evidence.mandateId,
         mtc_gocardless_export_charge_date: evidence.chargeDate,
         mtc_gocardless_export_amount_pence: evidence.amountPence,
         mtc_gocardless_export_status: evidence.status,
-        mtc_gocardless_amount_requires_review: true,
+        mtc_gocardless_amount_differs_from_current_membership: true,
       },
       migration_notes: appendMigrationNote(
         row,
-        `GoCardless export matched by payer email, but exported payment amount ${evidence.amountPence}p does not match the TOTS recurring amount ${Number(row.unit_amount_pence ?? 0)}p. IDs recorded for review only; no debit created.`,
+        `GoCardless payer and mandate verified by exact payer email (${evidence.customerId} / ${evidence.mandateId}). Historic exported payment was ${evidence.amountPence}p; current TOTS membership remains ${Number(row.unit_amount_pence ?? 0)}p. No debit created. TeamUp remains active; TOTS collection remains OFF.`,
       ),
     });
 
     return {
-      result: "gocardless_amount_review" as const,
-      row: await loadSubscription(row.id),
+      result: "gocardless_mandate_verified" as const,
+      row: updated,
       evidence,
       match: matchType,
     };
@@ -4606,6 +4631,43 @@ async function persistGoCardlessEvidence(row: StoreSubscription) {
   };
 }
 
+function approvedMigrationBillingDate(
+  row: StoreSubscription,
+  proposedDate: string | null,
+) {
+  // Explicitly approved by the operator on 30 Sep 2026:
+  // use each member's proposed date where one exists; otherwise monthly
+  // recurring memberships use the next 28th. This is migration-only logic.
+  if (proposedDate) return proposedDate;
+
+  if (normaliseText(row.billing_interval) !== "month") return null;
+
+  const now = new Date();
+  let candidate = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    28,
+    9,
+    0,
+    0,
+    0,
+  ));
+
+  if (candidate.getTime() <= now.getTime()) {
+    candidate = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth() + 1,
+      28,
+      9,
+      0,
+      0,
+      0,
+    ));
+  }
+
+  return candidate.toISOString();
+}
+
 async function finishPaymentPreparation(accountId: string) {
   const allRows = await loadMigrationRows();
 
@@ -4633,7 +4695,12 @@ async function finishPaymentPreparation(accountId: string) {
   for (const original of rows) {
     try {
       let row = await loadSubscription(original.id);
-      const provider = await detectProvider(row);
+
+      // If this row matches the supplied GoCardless export, treat it as
+      // GoCardless even when a stale legacy Stripe customer ID is also present.
+      const gcEvidence = findGoCardlessEvidence(row);
+      const detectedProvider = await detectProvider(row);
+      const provider: Provider = gcEvidence ? "gocardless" : detectedProvider;
 
       if (provider === "gocardless") {
         const gc = await persistGoCardlessEvidence(row);
@@ -4697,26 +4764,31 @@ async function finishPaymentPreparation(accountId: string) {
       ) {
         const source = await getMigrationSource(row);
         const proposed = inferNextPaymentAt(row, source);
+        const approvedDate = approvedMigrationBillingDate(row, proposed.date);
 
-        await patchSubscription(row.id, {
-          metadata: {
-            ...metadata(row),
-            mtc_proposed_next_payment_at: proposed.date,
-            mtc_next_payment_confidence: proposed.confidence,
-            mtc_next_payment_requires_confirmation: Boolean(proposed.date),
-          },
-          migration_notes: proposed.date
-            ? appendMigrationNote(
-                row,
-                `Proposed next billing date ${proposed.date} derived from legacy history. It is NOT a confirmed contractual billing date and has NOT been activated. TeamUp remains active; TOTS collection remains OFF.`,
-              )
-            : appendMigrationNote(
-                row,
-                "Stripe payment method verified but no confirmed next billing date is available. TeamUp remains active; TOTS collection remains OFF.",
-              ),
-        });
+        if (approvedDate) {
+          await patchSubscription(row.id, {
+            next_payment_at: approvedDate,
+            metadata: {
+              ...metadata(row),
+              mtc_proposed_next_payment_at: proposed.date,
+              mtc_next_payment_confidence: proposed.date
+                ? proposed.confidence
+                : "operator_approved_28th_fallback",
+              mtc_next_payment_requires_confirmation: false,
+              mtc_next_payment_operator_approved: true,
+              mtc_next_payment_operator_approved_at: new Date().toISOString(),
+            },
+            migration_notes: appendMigrationNote(
+              row,
+              proposed.date
+                ? `Billing date ${approvedDate} confirmed for migration from the existing proposed date. TeamUp remains active; TOTS collection remains OFF until cutover.`
+                : `No legacy next billing date was available. Operator-approved migration fallback set to ${approvedDate} (next 28th). TeamUp remains active; TOTS collection remains OFF until cutover.`,
+            ),
+          });
 
-        row = await loadSubscription(row.id);
+          row = await loadSubscription(row.id);
+        }
       }
 
       if (
@@ -4750,7 +4822,7 @@ async function finishPaymentPreparation(accountId: string) {
       const source = await getMigrationSource(fresh);
       const proposed = inferNextPaymentAt(fresh, source);
 
-      let result: string = scan.result;
+      let result = scan.result;
       let reason = scan.message ?? scan.result;
 
       if (

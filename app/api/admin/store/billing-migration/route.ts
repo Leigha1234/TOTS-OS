@@ -38,10 +38,13 @@ type Action =
   | "scan"
   | "scan_one"
   | "prepare_all"
+  | "prepare_cutover"
+  | "prepare_cutover_all"
   | "setup"
   | "verify"
   | "teamup_stopped"
-  | "activate";
+  | "activate"
+  | "activate_all";
 
 type StoreSubscription = {
   id: string;
@@ -117,10 +120,7 @@ type MigrationSource = {
   [key: string]: unknown;
 };
 
-type Provider =
-  | "stripe"
-  | "gocardless"
-  | "unknown";
+type Provider = "stripe" | "gocardless" | "unknown";
 
 type ScanResult = {
   subscriptionId: string;
@@ -155,12 +155,27 @@ type Candidate = {
   paymentMethod: Stripe.PaymentMethod | null;
 
   sources: Set<
-    | "stripe_customer_id"
-    | "external_customer_id"
-    | "email"
+    "stripe_customer_id" | "external_customer_id" | "email"
   >;
 
   exactExternalId: boolean;
+};
+
+type PrepareCutoverResult = {
+  subscriptionId: string;
+  customerName: string | null;
+  email: string | null;
+
+  result:
+    | "prepared"
+    | "already_prepared"
+    | "skipped"
+    | "error";
+
+  stripeSubscriptionId?: string | null;
+  stripeStatus?: string | null;
+  firstPaymentAt?: string | null;
+  message?: string;
 };
 
 // ============================================================
@@ -174,9 +189,7 @@ async function requireUser(req: NextRequest) {
     throw new Error("Unauthorised");
   }
 
-  const token = authorization
-    .slice("Bearer ".length)
-    .trim();
+  const token = authorization.slice("Bearer ".length).trim();
 
   const authClient = createClient(
     supabaseUrl,
@@ -229,17 +242,12 @@ async function getConnectedAccount() {
   if (error) throw error;
 
   if (!data?.stripe_account_id) {
-    throw new Error(
-      "MTC Stripe account is not connected.",
-    );
+    throw new Error("MTC Stripe account is not connected.");
   }
 
-  const accountId = String(
-    data.stripe_account_id,
-  );
+  const accountId = String(data.stripe_account_id);
 
-  const account =
-    await stripe.accounts.retrieve(accountId);
+  const account = await stripe.accounts.retrieve(accountId);
 
   if (!account.charges_enabled) {
     throw new Error(
@@ -270,9 +278,7 @@ async function loadSubscription(
   if (error) throw error;
 
   if (!data) {
-    throw new Error(
-      "Subscription record not found.",
-    );
+    throw new Error("Subscription record not found.");
   }
 
   return data as StoreSubscription;
@@ -306,19 +312,27 @@ function normaliseEmail(
     .toLowerCase();
 }
 
-function normaliseMembership(
-  value: string | null | undefined,
-) {
-  return String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-}
-
 function metadata(row: StoreSubscription) {
   return {
     ...(row.metadata ?? {}),
   } as Record<string, unknown>;
+}
+
+function appendMigrationNote(
+  row: StoreSubscription,
+  note: string,
+) {
+  const existing = String(row.migration_notes ?? "").trim();
+
+  if (!existing) {
+    return note;
+  }
+
+  if (existing.includes(note)) {
+    return existing;
+  }
+
+  return `${existing}\n${note}`;
 }
 
 // ============================================================
@@ -350,14 +364,31 @@ function isMarkedDuplicate(
 ) {
   const meta = metadata(row);
 
-  return metadataBoolean(meta, [
-    "mtc_redundant_duplicate",
-    "redundant_duplicate",
-    "migration_duplicate",
-    "mtc_duplicate_record",
-    "duplicate_record",
-    "is_duplicate",
-  ]);
+  if (
+    metadataBoolean(meta, [
+      "mtc_redundant_duplicate",
+      "redundant_duplicate",
+      "migration_duplicate",
+      "mtc_duplicate_record",
+      "duplicate_record",
+      "is_duplicate",
+    ])
+  ) {
+    return true;
+  }
+
+  const notes = String(
+    row.migration_notes ?? "",
+  ).toLowerCase();
+
+  return (
+    notes.includes(
+      "duplicate legacy record",
+    ) ||
+    notes.includes(
+      "do not collect",
+    )
+  );
 }
 
 // ============================================================
@@ -369,13 +400,18 @@ async function getMigrationSources(
 ): Promise<MigrationSource[]> {
   if (!row.customer_email) return [];
 
+  const email = normaliseEmail(
+    row.customer_email,
+  );
+
+  if (!email || email === "null") {
+    return [];
+  }
+
   let query = admin
     .from("mtc_billing_migration_source")
     .select("*")
-    .ilike(
-      "email",
-      row.customer_email.trim(),
-    );
+    .ilike("email", email);
 
   if (row.legacy_membership_name) {
     query = query.ilike(
@@ -430,7 +466,10 @@ function looksLikeGoCardlessCustomerId(
 ) {
   return (
     typeof value === "string" &&
-    /^CU[A-Z0-9]+$/i.test(value)
+    (
+      value.toLowerCase().startsWith("gcus_") ||
+      /^CU[A-Z0-9]+$/i.test(value)
+    )
   );
 }
 
@@ -469,10 +508,6 @@ function providerFromText(
 async function detectProvider(
   row: StoreSubscription,
 ): Promise<Provider> {
-  /**
-   * Strongest evidence: processor-shaped IDs.
-   */
-
   if (
     looksLikeStripeCustomerId(
       row.external_customer_id,
@@ -495,21 +530,17 @@ async function detectProvider(
     return "gocardless";
   }
 
-  /**
-   * Explicit provider columns.
-   */
-
   const explicit =
-    providerFromText(row.payment_provider) ??
-    providerFromText(row.billing_provider);
+    providerFromText(
+      row.payment_provider,
+    ) ??
+    providerFromText(
+      row.billing_provider,
+    );
 
   if (explicit) {
     return explicit;
   }
-
-  /**
-   * Migration source fallback.
-   */
 
   const sources =
     await getMigrationSources(row);
@@ -615,7 +646,10 @@ async function retrieveCustomer(
         },
       );
 
-    if ("deleted" in result && result.deleted) {
+    if (
+      "deleted" in result &&
+      result.deleted
+    ) {
       return null;
     }
 
@@ -632,14 +666,12 @@ async function listCustomersByEmail(
   const target =
     normaliseEmail(email);
 
-  if (!target) return [];
-
-  /**
-   * Stripe LIST first.
-   *
-   * This avoids depending on Search indexing
-   * immediately after the 599-customer copy.
-   */
+  if (
+    !target ||
+    target === "null"
+  ) {
+    return [];
+  }
 
   const listed =
     await stripe.customers.list(
@@ -652,19 +684,17 @@ async function listCustomersByEmail(
       },
     );
 
-  const exact = listed.data.filter(
-    (customer) =>
-      normaliseEmail(customer.email) ===
-      target,
-  );
+  const exact =
+    listed.data.filter(
+      (customer) =>
+        normaliseEmail(
+          customer.email,
+        ) === target,
+    );
 
   if (exact.length) {
     return exact;
   }
-
-  /**
-   * Search fallback.
-   */
 
   try {
     const escaped =
@@ -673,7 +703,8 @@ async function listCustomersByEmail(
     const searched =
       await stripe.customers.search(
         {
-          query: `email:'${escaped}'`,
+          query:
+            `email:'${escaped}'`,
           limit: 100,
         },
         {
@@ -683,8 +714,9 @@ async function listCustomersByEmail(
 
     return searched.data.filter(
       (customer) =>
-        normaliseEmail(customer.email) ===
-        target,
+        normaliseEmail(
+          customer.email,
+        ) === target,
     );
   } catch (error) {
     console.warn(
@@ -727,8 +759,10 @@ function cardIsExpired(
 
   return (
     exp_year < year ||
-    (exp_year === year &&
-      exp_month < month)
+    (
+      exp_year === year &&
+      exp_month < month
+    )
   );
 }
 
@@ -736,10 +770,6 @@ async function findReusablePaymentMethod(
   accountId: string,
   customer: Stripe.Customer,
 ) {
-  /**
-   * First try the default PM.
-   */
-
   const defaultPaymentMethod =
     customer.invoice_settings
       ?.default_payment_method;
@@ -766,7 +796,9 @@ async function findReusablePaymentMethod(
 
       if (
         paymentMethod.type === "card" &&
-        !cardIsExpired(paymentMethod)
+        !cardIsExpired(
+          paymentMethod,
+        )
       ) {
         return paymentMethod;
       }
@@ -774,10 +806,6 @@ async function findReusablePaymentMethod(
       // Continue to attached cards.
     }
   }
-
-  /**
-   * Then list cards attached to this customer.
-   */
 
   const methods =
     await stripe.paymentMethods.list(
@@ -795,7 +823,9 @@ async function findReusablePaymentMethod(
     methods.data.filter(
       (paymentMethod) =>
         paymentMethod.type === "card" &&
-        !cardIsExpired(paymentMethod),
+        !cardIsExpired(
+          paymentMethod,
+        ),
     );
 
   if (!valid.length) {
@@ -803,7 +833,8 @@ async function findReusablePaymentMethod(
   }
 
   valid.sort(
-    (a, b) => b.created - a.created,
+    (a, b) =>
+      b.created - a.created,
   );
 
   return valid[0];
@@ -845,7 +876,9 @@ async function buildCandidates(
       map.get(customer.id);
 
     if (existing) {
-      existing.sources.add(source);
+      existing.sources.add(
+        source,
+      );
 
       if (
         source ===
@@ -860,16 +893,13 @@ async function buildCandidates(
 
     map.set(customer.id, {
       customer,
-      sources: new Set([source]),
+      sources:
+        new Set([source]),
       exactExternalId:
         source ===
         "external_customer_id",
     });
   }
-
-  /**
-   * Existing TOTS value.
-   */
 
   if (
     looksLikeStripeCustomerId(
@@ -885,14 +915,6 @@ async function buildCandidates(
     );
   }
 
-  /**
-   * Legacy Stripe ID.
-   *
-   * If Stripe preserved the Customer ID
-   * during the account copy, this is the
-   * strongest possible match.
-   */
-
   if (
     looksLikeStripeCustomerId(
       row.external_customer_id,
@@ -907,25 +929,37 @@ async function buildCandidates(
     );
   }
 
-  /**
-   * Email fallback.
-   */
+  const email =
+    normaliseEmail(
+      row.customer_email,
+    );
 
-  if (row.customer_email) {
+  if (
+    email &&
+    email !== "null"
+  ) {
     const customers =
       await listCustomersByEmail(
         accountId,
-        row.customer_email,
+        email,
       );
 
-    for (const customer of customers) {
-      await add(customer, "email");
+    for (
+      const customer of customers
+    ) {
+      await add(
+        customer,
+        "email",
+      );
     }
   }
 
-  const candidates: Candidate[] = [];
+  const candidates: Candidate[] =
+    [];
 
-  for (const entry of map.values()) {
+  for (
+    const entry of map.values()
+  ) {
     const paymentMethod =
       await findReusablePaymentMethod(
         accountId,
@@ -933,9 +967,14 @@ async function buildCandidates(
       );
 
     candidates.push({
-      customer: entry.customer,
+      customer:
+        entry.customer,
+
       paymentMethod,
-      sources: entry.sources,
+
+      sources:
+        entry.sources,
+
       exactExternalId:
         entry.exactExternalId,
     });
@@ -958,13 +997,6 @@ async function selectSafeCustomer(
       accountId,
     );
 
-  /**
-   * Highest priority:
-   *
-   * exact legacy Stripe Customer ID that
-   * exists in the destination AND has a card.
-   */
-
   const exactExternal =
     candidates.filter(
       (candidate) =>
@@ -972,26 +1004,31 @@ async function selectSafeCustomer(
         candidate.paymentMethod,
     );
 
-  if (exactExternal.length === 1) {
+  if (
+    exactExternal.length === 1
+  ) {
     return {
-      status: "matched" as const,
-      selected: exactExternal[0],
+      status:
+        "matched" as const,
+
+      selected:
+        exactExternal[0],
+
       candidates,
     };
   }
 
-  if (exactExternal.length > 1) {
+  if (
+    exactExternal.length > 1
+  ) {
     return {
       status:
         "multiple_card_customers" as const,
+
       selected: null,
       candidates,
     };
   }
-
-  /**
-   * Otherwise exactly one card-ready candidate.
-   */
 
   const cardReady =
     candidates.filter(
@@ -1001,8 +1038,12 @@ async function selectSafeCustomer(
 
   if (cardReady.length === 1) {
     return {
-      status: "matched" as const,
-      selected: cardReady[0],
+      status:
+        "matched" as const,
+
+      selected:
+        cardReady[0],
+
       candidates,
     };
   }
@@ -1011,6 +1052,7 @@ async function selectSafeCustomer(
     return {
       status:
         "multiple_card_customers" as const,
+
       selected: null,
       candidates,
     };
@@ -1020,6 +1062,7 @@ async function selectSafeCustomer(
     return {
       status:
         "no_payment_method" as const,
+
       selected: null,
       candidates,
     };
@@ -1028,6 +1071,7 @@ async function selectSafeCustomer(
   return {
     status:
       "customer_not_found" as const,
+
     selected: null,
     candidates,
   };
@@ -1076,53 +1120,54 @@ function inferNextPaymentAt(
   row: StoreSubscription,
   source: MigrationSource | null,
 ) {
-  /**
-   * Explicit source date wins.
-   */
-
   const explicit =
     source?.next_payment_at;
 
   if (
     typeof explicit === "string"
   ) {
-    const date = new Date(explicit);
+    const date =
+      new Date(explicit);
 
     if (
-      !Number.isNaN(date.getTime()) &&
-      date.getTime() > Date.now()
+      !Number.isNaN(
+        date.getTime(),
+      ) &&
+      date.getTime() >
+        Date.now()
     ) {
       return {
-        date: date.toISOString(),
-        confidence: "explicit" as const,
+        date:
+          date.toISOString(),
+
+        confidence:
+          "explicit" as const,
       };
     }
   }
-
-  /**
-   * Existing verified DB date.
-   */
 
   if (row.next_payment_at) {
     const date =
-      new Date(row.next_payment_at);
+      new Date(
+        row.next_payment_at,
+      );
 
     if (
-      !Number.isNaN(date.getTime()) &&
-      date.getTime() > Date.now()
+      !Number.isNaN(
+        date.getTime(),
+      ) &&
+      date.getTime() >
+        Date.now()
     ) {
       return {
-        date: date.toISOString(),
-        confidence: "existing" as const,
+        date:
+          date.toISOString(),
+
+        confidence:
+          "existing" as const,
       };
     }
   }
-
-  /**
-   * Historical payment date can give us a
-   * PROPOSED date, but we do NOT treat this
-   * as sufficient to activate billing.
-   */
 
   const last =
     source?.last_payment_at ??
@@ -1134,7 +1179,8 @@ function inferNextPaymentAt(
   ) {
     return {
       date: null,
-      confidence: "none" as const,
+      confidence:
+        "none" as const,
     };
   }
 
@@ -1142,18 +1188,22 @@ function inferNextPaymentAt(
     new Date(last);
 
   if (
-    Number.isNaN(candidate.getTime())
+    Number.isNaN(
+      candidate.getTime(),
+    )
   ) {
     return {
       date: null,
-      confidence: "none" as const,
+      confidence:
+        "none" as const,
     };
   }
 
   let guard = 0;
 
   while (
-    candidate.getTime() <= Date.now() &&
+    candidate.getTime() <=
+      Date.now() &&
     guard < 100
   ) {
     const next =
@@ -1165,7 +1215,8 @@ function inferNextPaymentAt(
     if (!next) {
       return {
         date: null,
-        confidence: "none" as const,
+        confidence:
+          "none" as const,
       };
     }
 
@@ -1174,7 +1225,9 @@ function inferNextPaymentAt(
   }
 
   return {
-    date: candidate.toISOString(),
+    date:
+      candidate.toISOString(),
+
     confidence:
       "inferred_from_history" as const,
   };
@@ -1192,70 +1245,103 @@ async function scanOne(
     if (isMarkedDuplicate(row)) {
       return {
         subscriptionId: row.id,
-        customerName: row.customer_name,
-        email: row.customer_email,
-        result: "duplicate",
+        customerName:
+          row.customer_name,
+        email:
+          row.customer_email,
+
+        result:
+          "duplicate",
+
         message:
           "Record is marked as a redundant migration duplicate and was ignored.",
       };
     }
 
-    if (row.collection_enabled) {
+    if (
+      row.collection_enabled
+    ) {
       return {
         subscriptionId: row.id,
-        customerName: row.customer_name,
-        email: row.customer_email,
-        result: "already_live",
+        customerName:
+          row.customer_name,
+        email:
+          row.customer_email,
+        result:
+          "already_live",
       };
     }
 
     if (!isRecurring(row)) {
       return {
         subscriptionId: row.id,
-        customerName: row.customer_name,
-        email: row.customer_email,
-        result: "non_recurring",
+        customerName:
+          row.customer_name,
+        email:
+          row.customer_email,
+        result:
+          "non_recurring",
       };
     }
 
     const provider =
       await detectProvider(row);
 
-    if (provider === "gocardless") {
+    if (
+      provider ===
+      "gocardless"
+    ) {
       return {
         subscriptionId: row.id,
-        customerName: row.customer_name,
-        email: row.customer_email,
-        result: "gocardless",
+        customerName:
+          row.customer_name,
+        email:
+          row.customer_email,
+
+        result:
+          "gocardless",
+
         message:
           "GoCardless membership left untouched for separate migration.",
       };
     }
 
-    if (provider !== "stripe") {
+    if (
+      provider !== "stripe"
+    ) {
       return {
         subscriptionId: row.id,
-        customerName: row.customer_name,
-        email: row.customer_email,
-        result: "unknown_provider",
+        customerName:
+          row.customer_name,
+        email:
+          row.customer_email,
+
+        result:
+          "unknown_provider",
+
         message:
           "Could not safely determine billing provider.",
       };
     }
 
-    if (!row.customer_email) {
+    const email =
+      normaliseEmail(
+        row.customer_email,
+      );
+
+    if (
+      !email ||
+      email === "null"
+    ) {
       return {
         subscriptionId: row.id,
-        customerName: row.customer_name,
+        customerName:
+          row.customer_name,
         email: null,
-        result: "no_email",
+        result:
+          "no_email",
       };
     }
-
-    /**
-     * Don't blindly trust old verification.
-     * Recheck the actual Stripe customer/card.
-     */
 
     const selection =
       await selectSafeCustomer(
@@ -1269,10 +1355,14 @@ async function scanOne(
     ) {
       return {
         subscriptionId: row.id,
-        customerName: row.customer_name,
-        email: row.customer_email,
+        customerName:
+          row.customer_name,
+        email:
+          row.customer_email,
+
         result:
           "customer_not_found",
+
         candidates: 0,
       };
     }
@@ -1283,16 +1373,23 @@ async function scanOne(
     ) {
       return {
         subscriptionId: row.id,
-        customerName: row.customer_name,
-        email: row.customer_email,
+        customerName:
+          row.customer_name,
+        email:
+          row.customer_email,
+
         result:
           "multiple_card_customers",
+
         candidates:
           selection.candidates.length,
+
         cardReadyCandidates:
           selection.candidates.filter(
-            (x) => x.paymentMethod,
+            (x) =>
+              x.paymentMethod,
           ).length,
+
         message:
           "Multiple card-ready Stripe customers matched. TOTS refused to guess.",
       };
@@ -1304,12 +1401,17 @@ async function scanOne(
     ) {
       return {
         subscriptionId: row.id,
-        customerName: row.customer_name,
-        email: row.customer_email,
+        customerName:
+          row.customer_name,
+        email:
+          row.customer_email,
+
         result:
           "no_payment_method",
+
         candidates:
           selection.candidates.length,
+
         cardReadyCandidates: 0,
       };
     }
@@ -1327,7 +1429,9 @@ async function scanOne(
     }
 
     const source =
-      await getMigrationSource(row);
+      await getMigrationSource(
+        row,
+      );
 
     const proposedNext =
       inferNextPaymentAt(
@@ -1338,23 +1442,21 @@ async function scanOne(
     const now =
       new Date().toISOString();
 
-    const meta = metadata(row);
-
-    /**
-     * Set default PM so future Stripe invoices
-     * can use the verified copied card.
-     */
+    const meta =
+      metadata(row);
 
     await stripe.customers.update(
       selected.customer.id,
       {
         invoice_settings: {
           default_payment_method:
-            selected.paymentMethod.id,
+            selected
+              .paymentMethod.id,
         },
       },
       {
-        stripeAccount: accountId,
+        stripeAccount:
+          accountId,
       },
     );
 
@@ -1380,13 +1482,10 @@ async function scanOne(
           now,
 
         cutover_status:
-          "verified",
+          row.stripe_subscription_id
+            ? row.cutover_status
+            : "verified",
 
-        /**
-         * CRITICAL:
-         *
-         * Scanning NEVER starts collection.
-         */
         collection_enabled:
           false,
 
@@ -1406,14 +1505,6 @@ async function scanOne(
           row.last_payment_amount_pence ??
           null,
 
-        /**
-         * Only write next_payment_at automatically
-         * when it came from an explicit/existing
-         * date.
-         *
-         * Inferred dates stay metadata-only until
-         * reviewed.
-         */
         next_payment_at:
           proposedNext.confidence ===
             "explicit" ||
@@ -1438,7 +1529,8 @@ async function scanOne(
             selected.customer.id,
 
           mtc_verified_payment_method_id:
-            selected.paymentMethod.id,
+            selected
+              .paymentMethod.id,
 
           mtc_customer_match_sources:
             Array.from(
@@ -1449,7 +1541,8 @@ async function scanOne(
             selected.exactExternalId,
 
           mtc_customer_candidate_count:
-            selection.candidates.length,
+            selection
+              .candidates.length,
 
           mtc_proposed_next_payment_at:
             proposedNext.date,
@@ -1469,22 +1562,32 @@ async function scanOne(
         migration_notes:
           proposedNext.confidence ===
           "inferred_from_history"
-            ? "Stripe customer/payment method verified. Proposed renewal date inferred from payment history and requires confirmation. TeamUp remains active; TOTS collection remains OFF."
-            : "Stripe customer/payment method verified. TeamUp remains active; TOTS collection remains OFF.",
+            ? appendMigrationNote(
+                row,
+                "Stripe customer/payment method verified. Proposed renewal date inferred from payment history and requires confirmation. TeamUp remains active; TOTS collection remains OFF.",
+              )
+            : appendMigrationNote(
+                row,
+                "Stripe customer/payment method verified. TeamUp remains active; TOTS collection remains OFF.",
+              ),
       },
     );
 
     return {
       subscriptionId: row.id,
-      customerName: row.customer_name,
-      email: row.customer_email,
+      customerName:
+        row.customer_name,
+      email:
+        row.customer_email,
+
       result: "verified",
 
       stripeCustomerId:
         selected.customer.id,
 
       paymentMethodId:
-        selected.paymentMethod.id,
+        selected
+          .paymentMethod.id,
 
       candidates:
         selection.candidates.length,
@@ -1502,8 +1605,10 @@ async function scanOne(
   } catch (error) {
     return {
       subscriptionId: row.id,
-      customerName: row.customer_name,
-      email: row.customer_email,
+      customerName:
+        row.customer_name,
+      email:
+        row.customer_email,
 
       result: "error",
 
@@ -1516,7 +1621,7 @@ async function scanOne(
 }
 
 // ============================================================
-// LOAD ALL MIGRATION RECORDS
+// LOAD MIGRATION RECORDS
 // ============================================================
 
 async function loadMigrationRows() {
@@ -1527,11 +1632,20 @@ async function loadMigrationRows() {
       "organisation_id",
       ORGANISATION_ID,
     )
-    .eq("legacy_billing", true)
-    .eq("collection_enabled", false)
-    .order("customer_name", {
-      ascending: true,
-    });
+    .eq(
+      "legacy_billing",
+      true,
+    )
+    .eq(
+      "collection_enabled",
+      false,
+    )
+    .order(
+      "customer_name",
+      {
+        ascending: true,
+      },
+    );
 
   if (error) throw error;
 
@@ -1540,8 +1654,50 @@ async function loadMigrationRows() {
   );
 }
 
+async function loadPreparedCutoverRows() {
+  const { data, error } = await admin
+    .from("store_subscriptions")
+    .select("*")
+    .eq(
+      "organisation_id",
+      ORGANISATION_ID,
+    )
+    .eq(
+      "processor_verification_status",
+      "verified",
+    )
+    .eq(
+      "collection_enabled",
+      false,
+    )
+    .eq(
+      "teamup_billing_active",
+      true,
+    )
+    .not(
+      "next_payment_at",
+      "is",
+      null,
+    )
+    .order(
+      "customer_name",
+      {
+        ascending: true,
+      },
+    );
+
+  if (error) throw error;
+
+  return (
+    (data ?? []) as StoreSubscription[]
+  ).filter(
+    (row) =>
+      !isMarkedDuplicate(row),
+  );
+}
+
 // ============================================================
-// BULK PREPARE
+// BULK SCAN / PREPARE DATA
 // ============================================================
 
 async function prepareAll(
@@ -1550,14 +1706,8 @@ async function prepareAll(
   const rows =
     await loadMigrationRows();
 
-  const results: ScanResult[] = [];
-
-  /**
-   * Sequential deliberately.
-   *
-   * 356 records × multiple Stripe calls is
-   * safer sequentially than blasting Stripe.
-   */
+  const results: ScanResult[] =
+    [];
 
   for (const row of rows) {
     const result =
@@ -1572,15 +1722,20 @@ async function prepareAll(
   const counts =
     results.reduce<
       Record<string, number>
-    >((acc, item) => {
-      acc[item.result] =
-        (acc[item.result] ?? 0) + 1;
+    >(
+      (acc, item) => {
+        acc[item.result] =
+          (acc[item.result] ?? 0) +
+          1;
 
-      return acc;
-    }, {});
+        return acc;
+      },
+      {},
+    );
 
   return {
-    scanned: results.length,
+    scanned:
+      results.length,
 
     summary: {
       totalRecords:
@@ -1588,7 +1743,8 @@ async function prepareAll(
 
       stripeVerified:
         (counts.verified ?? 0) +
-        (counts.already_verified ?? 0),
+        (counts.already_verified ??
+          0),
 
       duplicateRecords:
         counts.duplicate ?? 0,
@@ -1597,22 +1753,28 @@ async function prepareAll(
         counts.gocardless ?? 0,
 
       nonRecurring:
-        counts.non_recurring ?? 0,
+        counts.non_recurring ??
+        0,
 
       unknownProvider:
-        counts.unknown_provider ?? 0,
+        counts.unknown_provider ??
+        0,
 
       noEmail:
         counts.no_email ?? 0,
 
       customerNotFound:
-        counts.customer_not_found ?? 0,
+        counts.customer_not_found ??
+        0,
 
       noPaymentMethod:
-        counts.no_payment_method ?? 0,
+        counts.no_payment_method ??
+        0,
 
       multipleCardCustomers:
-        counts.multiple_card_customers ?? 0,
+        counts
+          .multiple_card_customers ??
+        0,
 
       alreadyLive:
         counts.already_live ?? 0,
@@ -1623,27 +1785,29 @@ async function prepareAll(
 
     counts,
 
-    /**
-     * Only return review items in detail.
-     * Keeps response manageable.
-     */
-
-    review: results.filter(
-      (item) =>
-        ![
-          "verified",
-          "already_verified",
-          "duplicate",
-          "non_recurring",
-          "gocardless",
-          "already_live",
-        ].includes(item.result),
-    ),
+    review:
+      results.filter(
+        (item) =>
+          ![
+            "verified",
+            "already_verified",
+            "duplicate",
+            "non_recurring",
+            "gocardless",
+            "already_live",
+          ].includes(
+            item.result,
+          ),
+      ),
 
     safety: {
-      stripeSubscriptionsCreated: 0,
+      stripeSubscriptionsCreated:
+        0,
+
       paymentsCollected: 0,
+
       teamupBillingDisabled: 0,
+
       totsCollectionEnabled: 0,
     },
   };
@@ -1674,7 +1838,9 @@ async function createFallbackSetup(
     );
   }
 
-  if (row.collection_enabled) {
+  if (
+    row.collection_enabled
+  ) {
     throw new Error(
       "TOTS collection is already enabled.",
     );
@@ -1687,7 +1853,8 @@ async function createFallbackSetup(
     );
 
   if (
-    selection.status === "matched"
+    selection.status ===
+    "matched"
   ) {
     return {
       automatic: true,
@@ -1711,15 +1878,18 @@ async function createFallbackSetup(
     );
   }
 
-  let customer: Stripe.Customer;
+  let customer:
+    Stripe.Customer;
 
   if (
     selection.status ===
       "no_payment_method" &&
-    selection.candidates.length === 1
+    selection.candidates.length ===
+      1
   ) {
     customer =
-      selection.candidates[0]
+      selection
+        .candidates[0]
         .customer;
   } else if (
     selection.status ===
@@ -1745,7 +1915,8 @@ async function createFallbackSetup(
           },
         },
         {
-          stripeAccount: accountId,
+          stripeAccount:
+            accountId,
 
           idempotencyKey:
             `mtc-fallback-customer-${row.id}`,
@@ -1758,8 +1929,10 @@ async function createFallbackSetup(
   }
 
   const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.NEXT_PUBLIC_SITE_URL;
+    process.env
+      .NEXT_PUBLIC_APP_URL ??
+    process.env
+      .NEXT_PUBLIC_SITE_URL;
 
   if (!appUrl) {
     throw new Error(
@@ -1804,7 +1977,8 @@ async function createFallbackSetup(
         },
       },
       {
-        stripeAccount: accountId,
+        stripeAccount:
+          accountId,
 
         idempotencyKey:
           `mtc-fallback-setup-${row.id}-${Math.floor(
@@ -1849,7 +2023,10 @@ async function createFallbackSetup(
       },
 
       migration_notes:
-        "Fallback Stripe card setup requested. TeamUp remains active. TOTS collection remains OFF.",
+        appendMigrationNote(
+          row,
+          "Fallback Stripe card setup requested. TeamUp remains active. TOTS collection remains OFF.",
+        ),
     },
   );
 
@@ -1858,10 +2035,17 @@ async function createFallbackSetup(
     url: session.url,
 
     safety: {
-      paymentCollected: false,
-      subscriptionCreated: false,
-      teamupBillingDisabled: false,
-      collectionEnabled: false,
+      paymentCollected:
+        false,
+
+      subscriptionCreated:
+        false,
+
+      teamupBillingDisabled:
+        false,
+
+      collectionEnabled:
+        false,
     },
   };
 }
@@ -1889,7 +2073,8 @@ async function verifyFallbackSetup(
     return automatic;
   }
 
-  const meta = metadata(row);
+  const meta =
+    metadata(row);
 
   const sessionId =
     typeof meta
@@ -1914,12 +2099,14 @@ async function verifyFallbackSetup(
         ],
       },
       {
-        stripeAccount: accountId,
+        stripeAccount:
+          accountId,
       },
     );
 
   if (
-    session.status !== "complete"
+    session.status !==
+    "complete"
   ) {
     throw new Error(
       "The member has not completed payment setup.",
@@ -1931,7 +2118,8 @@ async function verifyFallbackSetup(
 
   if (
     !setupIntent ||
-    typeof setupIntent === "string"
+    typeof setupIntent ===
+      "string"
   ) {
     throw new Error(
       "Stripe SetupIntent could not be loaded.",
@@ -1948,10 +2136,13 @@ async function verifyFallbackSetup(
   }
 
   const paymentMethodId =
-    typeof setupIntent.payment_method ===
+    typeof setupIntent
+      .payment_method ===
     "string"
-      ? setupIntent.payment_method
-      : setupIntent.payment_method?.id;
+      ? setupIntent
+          .payment_method
+      : setupIntent
+          .payment_method?.id;
 
   const customerId =
     typeof session.customer ===
@@ -1977,7 +2168,8 @@ async function verifyFallbackSetup(
       },
     },
     {
-      stripeAccount: accountId,
+      stripeAccount:
+        accountId,
     },
   );
 
@@ -2025,7 +2217,10 @@ async function verifyFallbackSetup(
       },
 
       migration_notes:
-        "Stripe payment method verified. TeamUp remains active. TOTS collection remains OFF.",
+        appendMigrationNote(
+          row,
+          "Stripe payment method verified. TeamUp remains active. TOTS collection remains OFF.",
+        ),
     },
   );
 }
@@ -2048,18 +2243,28 @@ async function ensureRecurringPrice(
     );
   }
 
-  /**
-   * Existing Stripe price first.
-   */
+  const expectedCurrency =
+    (
+      row.currency ??
+      "gbp"
+    ).toLowerCase();
 
-  if (row.stripe_price_id) {
+  const expectedInterval =
+    stripeInterval(
+      row.billing_interval,
+    );
+
+  if (
+    row.stripe_price_id
+  ) {
     try {
       const price =
         await stripe.prices.retrieve(
           row.stripe_price_id,
           {},
           {
-            stripeAccount: accountId,
+            stripeAccount:
+              accountId,
           },
         );
 
@@ -2068,7 +2273,9 @@ async function ensureRecurringPrice(
         price.unit_amount ===
           row.unit_amount_pence &&
         price.currency ===
-          (row.currency ?? "gbp")
+          expectedCurrency &&
+        price.recurring?.interval ===
+          expectedInterval
       ) {
         return price;
       }
@@ -2093,7 +2300,8 @@ async function ensureRecurringPrice(
         },
       },
       {
-        stripeAccount: accountId,
+        stripeAccount:
+          accountId,
 
         idempotencyKey:
           `mtc-product-${row.id}`,
@@ -2103,19 +2311,18 @@ async function ensureRecurringPrice(
   const price =
     await stripe.prices.create(
       {
-        product: product.id,
+        product:
+          product.id,
 
         currency:
-          row.currency ?? "gbp",
+          expectedCurrency,
 
         unit_amount:
           row.unit_amount_pence,
 
         recurring: {
           interval:
-            stripeInterval(
-              row.billing_interval,
-            ),
+            expectedInterval,
         },
 
         metadata: {
@@ -2127,7 +2334,8 @@ async function ensureRecurringPrice(
         },
       },
       {
-        stripeAccount: accountId,
+        stripeAccount:
+          accountId,
 
         idempotencyKey:
           `mtc-price-${row.id}`,
@@ -2156,12 +2364,679 @@ async function ensureRecurringPrice(
 }
 
 // ============================================================
+// STRIPE SUBSCRIPTION VALIDATION
+// ============================================================
+
+function isUsablePreparedSubscription(
+  subscription:
+    Stripe.Subscription,
+) {
+  return ![
+    "canceled",
+    "incomplete_expired",
+  ].includes(
+    subscription.status,
+  );
+}
+
+async function retrievePreparedStripeSubscription(
+  row: StoreSubscription,
+  accountId: string,
+) {
+  if (
+    !row.stripe_subscription_id
+  ) {
+    return null;
+  }
+
+  try {
+    const subscription =
+      await stripe.subscriptions.retrieve(
+        row.stripe_subscription_id,
+        {},
+        {
+          stripeAccount:
+            accountId,
+        },
+      );
+
+    if (
+      !isUsablePreparedSubscription(
+        subscription,
+      )
+    ) {
+      return null;
+    }
+
+    return subscription;
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================
+// PREPARE CUTOVER
+//
+// IMPORTANT:
+//
+// This DOES create the replacement Stripe subscription.
+//
+// It DOES NOT:
+// - charge the normal recurring amount immediately
+// - mark TOTS collection live
+// - mark TeamUp stopped
+//
+// Stripe trial_end is the confirmed future renewal date.
+// ============================================================
+
+async function prepareCutover(
+  row: StoreSubscription,
+  accountId: string,
+): Promise<PrepareCutoverResult> {
+  try {
+    if (
+      isMarkedDuplicate(row)
+    ) {
+      return {
+        subscriptionId:
+          row.id,
+
+        customerName:
+          row.customer_name,
+
+        email:
+          row.customer_email,
+
+        result:
+          "skipped",
+
+        message:
+          "Redundant duplicate record.",
+      };
+    }
+
+    if (
+      row.collection_enabled
+    ) {
+      return {
+        subscriptionId:
+          row.id,
+
+        customerName:
+          row.customer_name,
+
+        email:
+          row.customer_email,
+
+        result:
+          "skipped",
+
+        message:
+          "TOTS collection is already enabled.",
+      };
+    }
+
+    if (
+      row.processor_verification_status !==
+      "verified"
+    ) {
+      throw new Error(
+        "Stripe payment method is not verified.",
+      );
+    }
+
+    if (
+      !row.teamup_billing_active
+    ) {
+      throw new Error(
+        "TeamUp is already marked stopped. Use activation/recovery flow instead.",
+      );
+    }
+
+    if (
+      !isRecurring(row)
+    ) {
+      throw new Error(
+        "Not a paid recurring membership.",
+      );
+    }
+
+    const provider =
+      await detectProvider(row);
+
+    if (
+      provider !== "stripe"
+    ) {
+      throw new Error(
+        "This preparation path is Stripe-only.",
+      );
+    }
+
+    if (
+      !row.stripe_customer_id
+    ) {
+      throw new Error(
+        "Stripe customer ID is missing.",
+      );
+    }
+
+    if (
+      !row.next_payment_at
+    ) {
+      throw new Error(
+        "Confirmed next_payment_at is missing.",
+      );
+    }
+
+    const nextPayment =
+      new Date(
+        row.next_payment_at,
+      );
+
+    if (
+      Number.isNaN(
+        nextPayment.getTime(),
+      )
+    ) {
+      throw new Error(
+        "next_payment_at is invalid.",
+      );
+    }
+
+    if (
+      nextPayment.getTime() <=
+      Date.now() +
+        30 * 60 * 1000
+    ) {
+      throw new Error(
+        "next_payment_at must be safely in the future.",
+      );
+    }
+
+    /**
+     * If already prepared, verify it rather
+     * than creating another subscription.
+     */
+
+    const existing =
+      await retrievePreparedStripeSubscription(
+        row,
+        accountId,
+      );
+
+    if (existing) {
+      const now =
+        new Date().toISOString();
+
+      await patchSubscription(
+        row.id,
+        {
+          status:
+            existing.status,
+
+          cutover_status:
+            "verified",
+
+          collection_enabled:
+            false,
+
+          teamup_billing_active:
+            true,
+
+          metadata: {
+            ...metadata(row),
+
+            mtc_cutover_prepared:
+              true,
+
+            mtc_cutover_prepared_at:
+              (
+                metadata(row)
+                  .mtc_cutover_prepared_at ??
+                now
+              ),
+
+            mtc_prepared_stripe_subscription_id:
+              existing.id,
+
+            mtc_first_tots_payment_at:
+              nextPayment.toISOString(),
+          },
+
+          migration_notes:
+            appendMigrationNote(
+              row,
+              `Replacement Stripe subscription ${existing.id} is prepared. TeamUp remains active. TOTS collection remains OFF until TeamUp is stopped.`,
+            ),
+        },
+      );
+
+      return {
+        subscriptionId:
+          row.id,
+
+        customerName:
+          row.customer_name,
+
+        email:
+          row.customer_email,
+
+        result:
+          "already_prepared",
+
+        stripeSubscriptionId:
+          existing.id,
+
+        stripeStatus:
+          existing.status,
+
+        firstPaymentAt:
+          nextPayment.toISOString(),
+      };
+    }
+
+    const customer =
+      await retrieveCustomer(
+        accountId,
+        row.stripe_customer_id,
+      );
+
+    if (!customer) {
+      throw new Error(
+        "Verified Stripe customer no longer exists.",
+      );
+    }
+
+    const paymentMethod =
+      await findReusablePaymentMethod(
+        accountId,
+        customer,
+      );
+
+    if (!paymentMethod) {
+      throw new Error(
+        "Verified Stripe customer no longer has a reusable card.",
+      );
+    }
+
+    await stripe.customers.update(
+      customer.id,
+      {
+        invoice_settings: {
+          default_payment_method:
+            paymentMethod.id,
+        },
+      },
+      {
+        stripeAccount:
+          accountId,
+      },
+    );
+
+    const price =
+      await ensureRecurringPrice(
+        row,
+        accountId,
+      );
+
+    /**
+     * IMPORTANT:
+     *
+     * This creates a subscription in Stripe
+     * with a trial ending on the confirmed
+     * next billing date.
+     *
+     * Therefore Stripe should not collect the
+     * normal recurring membership price now.
+     */
+
+    const subscription =
+      await stripe.subscriptions.create(
+        {
+          customer:
+            customer.id,
+
+          items: [
+            {
+              price:
+                price.id,
+              quantity: 1,
+            },
+          ],
+
+          default_payment_method:
+            paymentMethod.id,
+
+          trial_end:
+            Math.floor(
+              nextPayment.getTime() /
+                1000,
+            ),
+
+          proration_behavior:
+            "none",
+
+          metadata: {
+            tots_store_subscription_id:
+              row.id,
+
+            mtc_migration:
+              "true",
+
+            migrated_from:
+              "teamup",
+
+            migration_stage:
+              "prepared_cutover",
+
+            legacy_membership:
+              row.legacy_membership_name ??
+              "",
+          },
+        },
+        {
+          stripeAccount:
+            accountId,
+
+          idempotencyKey:
+            `mtc-prepare-cutover-${row.id}`,
+        },
+      );
+
+    /**
+     * Verify Stripe really returned a usable
+     * subscription before recording it.
+     */
+
+    const verified =
+      await stripe.subscriptions.retrieve(
+        subscription.id,
+        {},
+        {
+          stripeAccount:
+            accountId,
+        },
+      );
+
+    if (
+      !isUsablePreparedSubscription(
+        verified,
+      )
+    ) {
+      throw new Error(
+        `Stripe created ${verified.id} but returned unusable status ${verified.status}.`,
+      );
+    }
+
+    const preparedAt =
+      new Date().toISOString();
+
+    await patchSubscription(
+      row.id,
+      {
+        stripe_account_id:
+          accountId,
+
+        stripe_customer_id:
+          customer.id,
+
+        stripe_subscription_id:
+          verified.id,
+
+        stripe_price_id:
+          price.id,
+
+        external_subscription_id:
+          verified.id,
+
+        payment_provider:
+          "stripe",
+
+        billing_provider:
+          "stripe",
+
+        status:
+          verified.status,
+
+        /**
+         * Still legacy until TeamUp is
+         * genuinely stopped.
+         */
+        legacy_billing:
+          true,
+
+        /**
+         * CRITICAL:
+         *
+         * Do not mark TOTS live yet.
+         */
+        collection_enabled:
+          false,
+
+        collection_enabled_at:
+          null,
+
+        /**
+         * CRITICAL:
+         *
+         * TeamUp is STILL active.
+         */
+        teamup_billing_active:
+          true,
+
+        teamup_billing_disabled_at:
+          null,
+
+        /**
+         * Keep within existing allowed
+         * cutover statuses.
+         *
+         * "verified" means the destination
+         * Stripe subscription has been
+         * prepared and verified.
+         */
+        cutover_status:
+          "verified",
+
+        processor_verification_status:
+          "verified",
+
+        metadata: {
+          ...metadata(row),
+
+          mtc_cutover_prepared:
+            true,
+
+          mtc_cutover_prepared_at:
+            preparedAt,
+
+          mtc_prepared_stripe_subscription_id:
+            verified.id,
+
+          mtc_prepared_payment_method_id:
+            paymentMethod.id,
+
+          mtc_prepared_price_id:
+            price.id,
+
+          mtc_first_tots_payment_at:
+            nextPayment.toISOString(),
+
+          mtc_teamup_still_active_at_prepare:
+            true,
+        },
+
+        migration_notes:
+          appendMigrationNote(
+            row,
+            `Replacement Stripe subscription ${verified.id} prepared with first intended billing date ${nextPayment.toISOString()}. TeamUp remains active. TOTS collection remains OFF until TeamUp is stopped.`,
+          ),
+      },
+    );
+
+    return {
+      subscriptionId:
+        row.id,
+
+      customerName:
+        row.customer_name,
+
+      email:
+        row.customer_email,
+
+      result:
+        "prepared",
+
+      stripeSubscriptionId:
+        verified.id,
+
+      stripeStatus:
+        verified.status,
+
+      firstPaymentAt:
+        nextPayment.toISOString(),
+
+      message:
+        "Replacement Stripe subscription prepared. No TOTS cutover flag enabled; TeamUp remains active.",
+    };
+  } catch (error) {
+    return {
+      subscriptionId:
+        row.id,
+
+      customerName:
+        row.customer_name,
+
+      email:
+        row.customer_email,
+
+      result:
+        "error",
+
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unknown cutover preparation error.",
+    };
+  }
+}
+
+// ============================================================
+// PREPARE ALL CUTOVERS
+// ============================================================
+
+async function prepareCutoverAll(
+  accountId: string,
+) {
+  const rows =
+    await loadPreparedCutoverRows();
+
+  const results:
+    PrepareCutoverResult[] =
+    [];
+
+  /**
+   * Sequential deliberately.
+   *
+   * We are creating real Stripe subscription
+   * objects, so do not blast the API.
+   */
+
+  for (const row of rows) {
+    const result =
+      await prepareCutover(
+        row,
+        accountId,
+      );
+
+    results.push(result);
+  }
+
+  const prepared =
+    results.filter(
+      (x) =>
+        x.result ===
+        "prepared",
+    ).length;
+
+  const alreadyPrepared =
+    results.filter(
+      (x) =>
+        x.result ===
+        "already_prepared",
+    ).length;
+
+  const skipped =
+    results.filter(
+      (x) =>
+        x.result ===
+        "skipped",
+    ).length;
+
+  const errors =
+    results.filter(
+      (x) =>
+        x.result ===
+        "error",
+    );
+
+  return {
+    attempted:
+      results.length,
+
+    prepared,
+
+    alreadyPrepared,
+
+    totalPrepared:
+      prepared +
+      alreadyPrepared,
+
+    skipped,
+
+    errors:
+      errors.length,
+
+    failures:
+      errors,
+
+    safety: {
+      /**
+       * These are real Stripe subscription
+       * objects, but they are future-dated
+       * using trial_end.
+       */
+      stripeSubscriptionsPrepared:
+        prepared,
+
+      teamupBillingDisabled:
+        0,
+
+      totsCollectionEnabled:
+        0,
+
+      immediateMigrationChargesRequested:
+        0,
+    },
+  };
+}
+
+// ============================================================
 // TEAMUP STOP CONFIRMATION
 // ============================================================
 
 async function markTeamupStopped(
   row: StoreSubscription,
+  accountId: string,
 ) {
+  if (
+    isMarkedDuplicate(row)
+  ) {
+    throw new Error(
+      "REFUSED: duplicate record.",
+    );
+  }
+
   if (
     row.processor_verification_status !==
     "verified"
@@ -2172,36 +3047,38 @@ async function markTeamupStopped(
   }
 
   if (
-    row.cutover_status !==
-      "verified" &&
-    row.cutover_status !==
-      "ready"
+    row.collection_enabled
   ) {
-    throw new Error(
-      "Member is not ready for cutover.",
-    );
-  }
-
-  if (row.collection_enabled) {
     throw new Error(
       "TOTS is already collecting.",
     );
   }
 
-  if (!row.next_payment_at) {
+  if (
+    !row.next_payment_at
+  ) {
     throw new Error(
-      "Confirm next_payment_at before marking TeamUp stopped.",
+      "next_payment_at must be confirmed.",
     );
   }
 
-  const date =
-    new Date(row.next_payment_at);
+  /**
+   * NEW SAFETY RULE:
+   *
+   * TeamUp cannot be marked stopped until the
+   * replacement Stripe subscription actually
+   * exists and is usable.
+   */
 
-  if (
-    Number.isNaN(date.getTime())
-  ) {
+  const prepared =
+    await retrievePreparedStripeSubscription(
+      row,
+      accountId,
+    );
+
+  if (!prepared) {
     throw new Error(
-      "next_payment_at is invalid.",
+      "REFUSED: replacement Stripe subscription has not been prepared/verified yet.",
     );
   }
 
@@ -2224,41 +3101,70 @@ async function markTeamupStopped(
         collection_enabled:
           false,
 
+        metadata: {
+          ...metadata(row),
+
+          mtc_teamup_stop_confirmed_at:
+            now,
+
+          mtc_teamup_stop_confirmed_manually:
+            true,
+        },
+
         migration_notes:
-          "TeamUp billing confirmed stopped externally. TOTS is ready to activate.",
+          appendMigrationNote(
+            row,
+            "TeamUp billing confirmed stopped externally. Replacement Stripe subscription already exists. TOTS is ready to go live.",
+          ),
       },
     );
 
   return {
-    subscription: updated,
+    subscription:
+      updated,
+
+    stripeSubscription: {
+      id:
+        prepared.id,
+
+      status:
+        prepared.status,
+    },
 
     warning:
-      "This records the external TeamUp stop. It does NOT call TeamUp itself.",
+      "This records the external TeamUp stop. It does NOT contact TeamUp itself.",
   };
 }
 
 // ============================================================
-// ACTIVATE
+// ACTIVATE PREPARED SUBSCRIPTION
 // ============================================================
 
 async function activate(
   row: StoreSubscription,
   accountId: string,
 ) {
-  if (row.collection_enabled) {
-    throw new Error(
-      "TOTS collection is already enabled.",
-    );
+  if (
+    row.collection_enabled
+  ) {
+    return {
+      subscription: row,
+
+      alreadyLive: true,
+    };
   }
 
-  if (row.teamup_billing_active) {
+  if (
+    row.teamup_billing_active
+  ) {
     throw new Error(
       "REFUSED: TeamUp billing is still marked active.",
     );
   }
 
   if (
-    row.cutover_status !== "ready"
+    row.cutover_status !==
+    "ready"
   ) {
     throw new Error(
       `REFUSED: cutover_status is ${row.cutover_status}; expected ready.`,
@@ -2274,98 +3180,45 @@ async function activate(
     );
   }
 
-  const provider =
-    await detectProvider(row);
-
-  if (provider !== "stripe") {
+  if (
+    isMarkedDuplicate(row)
+  ) {
     throw new Error(
-      "REFUSED: this activation path is Stripe-only.",
-    );
-  }
-
-  if (!isRecurring(row)) {
-    throw new Error(
-      "REFUSED: not a paid recurring membership.",
-    );
-  }
-
-  if (!row.stripe_customer_id) {
-    throw new Error(
-      "Stripe customer ID is missing.",
+      "REFUSED: duplicate migration record.",
     );
   }
 
   /**
-   * Idempotency / duplicate protection.
+   * Do NOT create another subscription here.
+   *
+   * The replacement must already have been
+   * prepared while TeamUp was active.
    */
 
+  const subscription =
+    await retrievePreparedStripeSubscription(
+      row,
+      accountId,
+    );
+
+  if (!subscription) {
+    throw new Error(
+      "REFUSED: prepared Stripe subscription is missing or unusable.",
+    );
+  }
+
   if (
-    row.stripe_subscription_id
+    !row.next_payment_at
   ) {
-    try {
-      const existing =
-        await stripe.subscriptions.retrieve(
-          row.stripe_subscription_id,
-          {},
-          {
-            stripeAccount: accountId,
-          },
-        );
-
-      if (
-        ![
-          "canceled",
-          "incomplete_expired",
-        ].includes(existing.status)
-      ) {
-        throw new Error(
-          `REFUSED: Stripe subscription ${existing.id} already exists with status ${existing.status}.`,
-        );
-      }
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.startsWith(
-          "REFUSED:",
-        )
-      ) {
-        throw error;
-      }
-    }
-  }
-
-  const customer =
-    await retrieveCustomer(
-      accountId,
-      row.stripe_customer_id,
-    );
-
-  if (!customer) {
     throw new Error(
-      "Verified Stripe customer no longer exists.",
-    );
-  }
-
-  const paymentMethod =
-    await findReusablePaymentMethod(
-      accountId,
-      customer,
-    );
-
-  if (!paymentMethod) {
-    throw new Error(
-      "Verified Stripe customer no longer has a reusable card.",
-    );
-  }
-
-  if (!row.next_payment_at) {
-    throw new Error(
-      "REFUSED: next_payment_at must be confirmed before activation.",
+      "REFUSED: next_payment_at is missing.",
     );
   }
 
   const nextPayment =
-    new Date(row.next_payment_at);
+    new Date(
+      row.next_payment_at,
+    );
 
   if (
     Number.isNaN(
@@ -2373,81 +3226,9 @@ async function activate(
     )
   ) {
     throw new Error(
-      "REFUSED: invalid next_payment_at.",
+      "REFUSED: next_payment_at is invalid.",
     );
   }
-
-  if (
-    nextPayment.getTime() <=
-    Date.now() + 10 * 60 * 1000
-  ) {
-    throw new Error(
-      "REFUSED: next_payment_at must be safely in the future.",
-    );
-  }
-
-  const price =
-    await ensureRecurringPrice(
-      row,
-      accountId,
-    );
-
-  /**
-   * Create the Stripe subscription.
-   *
-   * trial_end means the migrated member is
-   * not intended to be charged now; the first
-   * invoice is scheduled for the confirmed
-   * renewal date.
-   */
-
-  const subscription =
-    await stripe.subscriptions.create(
-      {
-        customer:
-          customer.id,
-
-        items: [
-          {
-            price: price.id,
-            quantity: 1,
-          },
-        ],
-
-        default_payment_method:
-          paymentMethod.id,
-
-        trial_end:
-          Math.floor(
-            nextPayment.getTime() /
-              1000,
-          ),
-
-        proration_behavior:
-          "none",
-
-        metadata: {
-          tots_store_subscription_id:
-            row.id,
-
-          mtc_migration:
-            "true",
-
-          migrated_from:
-            "teamup",
-
-          legacy_membership:
-            row.legacy_membership_name ??
-            "",
-        },
-      },
-      {
-        stripeAccount: accountId,
-
-        idempotencyKey:
-          `mtc-cutover-${row.id}`,
-      },
-    );
 
   const activatedAt =
     new Date().toISOString();
@@ -2456,26 +3237,11 @@ async function activate(
     await patchSubscription(
       row.id,
       {
-        stripe_account_id:
-          accountId,
-
-        stripe_customer_id:
-          customer.id,
-
         stripe_subscription_id:
           subscription.id,
 
-        stripe_price_id:
-          price.id,
-
         external_subscription_id:
           subscription.id,
-
-        payment_provider:
-          "stripe",
-
-        billing_provider:
-          "stripe",
 
         status:
           subscription.status,
@@ -2504,23 +3270,27 @@ async function activate(
           mtc_live_subscription_id:
             subscription.id,
 
-          mtc_live_price_id:
-            price.id,
-
           mtc_activation_at:
             activatedAt,
 
           mtc_first_tots_payment_at:
             nextPayment.toISOString(),
+
+          mtc_cutover_complete:
+            true,
         },
 
         migration_notes:
-          `TOTS Stripe billing activated. First intended billing date: ${nextPayment.toISOString()}.`,
+          appendMigrationNote(
+            row,
+            `TOTS Stripe billing is now live using prepared Stripe subscription ${subscription.id}. First intended billing date: ${nextPayment.toISOString()}.`,
+          ),
       },
     );
 
   return {
-    subscription: updated,
+    subscription:
+      updated,
 
     stripe: {
       subscriptionId:
@@ -2530,17 +3300,128 @@ async function activate(
         subscription.status,
 
       customerId:
-        customer.id,
-
-      paymentMethodId:
-        paymentMethod.id,
-
-      priceId:
-        price.id,
+        typeof subscription.customer ===
+        "string"
+          ? subscription.customer
+          : subscription.customer.id,
 
       firstPaymentAt:
         nextPayment.toISOString(),
     },
+  };
+}
+
+// ============================================================
+// ACTIVATE ALL READY RECORDS
+// ============================================================
+
+async function activateAll(
+  accountId: string,
+) {
+  const { data, error } =
+    await admin
+      .from(
+        "store_subscriptions",
+      )
+      .select("*")
+      .eq(
+        "organisation_id",
+        ORGANISATION_ID,
+      )
+      .eq(
+        "cutover_status",
+        "ready",
+      )
+      .eq(
+        "teamup_billing_active",
+        false,
+      )
+      .eq(
+        "collection_enabled",
+        false,
+      )
+      .eq(
+        "processor_verification_status",
+        "verified",
+      )
+      .order(
+        "customer_name",
+        {
+          ascending: true,
+        },
+      );
+
+  if (error) throw error;
+
+  const rows =
+    (
+      (data ?? []) as StoreSubscription[]
+    ).filter(
+      (row) =>
+        !isMarkedDuplicate(row),
+    );
+
+  const successes: Array<{
+    id: string;
+    name: string | null;
+    stripeSubscriptionId:
+      string | null;
+  }> = [];
+
+  const failures: Array<{
+    id: string;
+    name: string | null;
+    error: string;
+  }> = [];
+
+  for (const row of rows) {
+    try {
+      const result =
+        await activate(
+          row,
+          accountId,
+        );
+
+      successes.push({
+        id:
+          row.id,
+
+        name:
+          row.customer_name,
+
+        stripeSubscriptionId:
+          result.subscription
+            .stripe_subscription_id,
+      });
+    } catch (error) {
+      failures.push({
+        id:
+          row.id,
+
+        name:
+          row.customer_name,
+
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown activation error.",
+      });
+    }
+  }
+
+  return {
+    attempted:
+      rows.length,
+
+    activated:
+      successes.length,
+
+    failed:
+      failures.length,
+
+    successes,
+
+    failures,
   };
 }
 
@@ -2564,7 +3445,8 @@ export async function POST(
         | undefined;
 
     const subscriptionId =
-      typeof body?.subscriptionId ===
+      typeof body
+        ?.subscriptionId ===
       "string"
         ? body.subscriptionId
         : null;
@@ -2573,7 +3455,8 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
-          error: "Missing action.",
+          error:
+            "Missing action.",
         },
         {
           status: 400,
@@ -2585,7 +3468,7 @@ export async function POST(
       await getConnectedAccount();
 
     // ========================================================
-    // BULK PREPARE
+    // BULK SCAN / VERIFY
     // ========================================================
 
     if (
@@ -2602,6 +3485,66 @@ export async function POST(
 
         action:
           "prepare_all",
+
+        stripeAccountId:
+          accountId,
+
+        ...result,
+
+        performedBy:
+          user.email ??
+          user.id,
+      });
+    }
+
+    // ========================================================
+    // BULK PREPARE REAL STRIPE SUBSCRIPTIONS
+    // ========================================================
+
+    if (
+      action ===
+      "prepare_cutover_all"
+    ) {
+      const result =
+        await prepareCutoverAll(
+          accountId,
+        );
+
+      return NextResponse.json({
+        ok: true,
+
+        action:
+          "prepare_cutover_all",
+
+        stripeAccountId:
+          accountId,
+
+        ...result,
+
+        performedBy:
+          user.email ??
+          user.id,
+      });
+    }
+
+    // ========================================================
+    // BULK ACTIVATE READY RECORDS
+    // ========================================================
+
+    if (
+      action ===
+      "activate_all"
+    ) {
+      const result =
+        await activateAll(
+          accountId,
+        );
+
+      return NextResponse.json({
+        ok: true,
+
+        action:
+          "activate_all",
 
         stripeAccountId:
           accountId,
@@ -2659,11 +3602,49 @@ export async function POST(
         result,
 
         safety: {
-          paymentsCollected: 0,
-          subscriptionsCreated: 0,
-          teamupBillingDisabled: 0,
-          totsCollectionEnabled: 0,
+          paymentsCollected:
+            0,
+
+          subscriptionsCreated:
+            0,
+
+          teamupBillingDisabled:
+            0,
+
+          totsCollectionEnabled:
+            0,
         },
+      });
+    }
+
+    // ========================================================
+    // PREPARE ONE REAL STRIPE SUBSCRIPTION
+    // ========================================================
+
+    if (
+      action ===
+      "prepare_cutover"
+    ) {
+      const fresh =
+        await loadSubscription(
+          subscriptionId,
+        );
+
+      const result =
+        await prepareCutover(
+          fresh,
+          accountId,
+        );
+
+      return NextResponse.json({
+        ok:
+          result.result !==
+          "error",
+
+        action:
+          "prepare_cutover",
+
+        result,
       });
     }
 
@@ -2671,7 +3652,9 @@ export async function POST(
     // SETUP
     // ========================================================
 
-    if (action === "setup") {
+    if (
+      action === "setup"
+    ) {
       const result =
         await createFallbackSetup(
           row,
@@ -2681,7 +3664,8 @@ export async function POST(
       return NextResponse.json({
         ok: true,
 
-        action: "setup",
+        action:
+          "setup",
 
         ...result,
       });
@@ -2691,7 +3675,9 @@ export async function POST(
     // VERIFY
     // ========================================================
 
-    if (action === "verify") {
+    if (
+      action === "verify"
+    ) {
       const result =
         await verifyFallbackSetup(
           row,
@@ -2701,7 +3687,8 @@ export async function POST(
       return NextResponse.json({
         ok: true,
 
-        action: "verify",
+        action:
+          "verify",
 
         result,
       });
@@ -2715,9 +3702,15 @@ export async function POST(
       action ===
       "teamup_stopped"
     ) {
+      const fresh =
+        await loadSubscription(
+          subscriptionId,
+        );
+
       const result =
         await markTeamupStopped(
-          row,
+          fresh,
+          accountId,
         );
 
       return NextResponse.json({
@@ -2735,13 +3728,9 @@ export async function POST(
     // ========================================================
 
     if (
-      action === "activate"
+      action ===
+      "activate"
     ) {
-      /**
-       * Reload immediately before activation so
-       * stale request state cannot bypass a lock.
-       */
-
       const fresh =
         await loadSubscription(
           subscriptionId,

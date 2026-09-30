@@ -49,6 +49,24 @@ type GoCardlessMandate = {
   };
 };
 
+type GoCardlessCustomer = {
+  id: string;
+  email?: string | null;
+  given_name?: string | null;
+  family_name?: string | null;
+};
+
+type GoCardlessListResponse<T> = {
+  customers?: T[];
+  mandates?: T[];
+  meta?: {
+    cursors?: {
+      after?: string | null;
+      before?: string | null;
+    };
+  };
+};
+
 type GoCardlessSubscription = {
   id: string;
   status: string;
@@ -4319,9 +4337,9 @@ async function prepareAll(
 // - paid recurring memberships only
 // - preserves already-prepared Stripe subscriptions
 // - never turns payment history into a contractual Stripe renewal date
-// - verifies GoCardless customer/mandate details only from the supplied
-//   GoCardless export evidence below
-// - does not create GoCardless debits (this route has no GC API client)
+// - verifies/recover GoCardless mandates LIVE using existing IDs, curated
+//   migration evidence, then exact-email unique-customer/unique-mandate lookup
+// - does not create GoCardless debits during payment preparation
 // - never charges now, disables TeamUp, or enables TOTS collection
 // ============================================================
 
@@ -4702,82 +4720,298 @@ function findGoCardlessEvidence(row: StoreSubscription) {
   return null;
 }
 
-async function persistGoCardlessEvidence(row: StoreSubscription) {
-  const match = findGoCardlessEvidence(row);
+async function listAllGoCardlessCustomers() {
+  const customers: GoCardlessCustomer[] = [];
+  let after: string | null = null;
 
-  if (!match) {
+  // We deliberately page through the live creditor's customers and then do
+  // an exact normalised-email match locally. This avoids fuzzy matching and
+  // means a member is only auto-recovered when the live account is unambiguous.
+  for (let page = 0; page < 50; page += 1) {
+    const query = new URLSearchParams({ limit: "500" });
+    if (after) query.set("after", after);
+
+    const body = await goCardlessRequest<GoCardlessListResponse<GoCardlessCustomer>>(
+      `/customers?${query.toString()}`,
+    );
+
+    const batch = body.customers ?? [];
+    customers.push(...batch);
+
+    const next = body.meta?.cursors?.after ?? null;
+    if (!next || batch.length === 0 || next === after) break;
+    after = next;
+  }
+
+  return customers;
+}
+
+async function listGoCardlessMandatesForCustomer(customerId: string) {
+  const mandates: GoCardlessMandate[] = [];
+  let after: string | null = null;
+
+  for (let page = 0; page < 20; page += 1) {
+    const query = new URLSearchParams({ customer: customerId, limit: "500" });
+    if (after) query.set("after", after);
+
+    const body = await goCardlessRequest<GoCardlessListResponse<GoCardlessMandate>>(
+      `/mandates?${query.toString()}`,
+    );
+
+    const batch = body.mandates ?? [];
+    mandates.push(...batch);
+
+    const next = body.meta?.cursors?.after ?? null;
+    if (!next || batch.length === 0 || next === after) break;
+    after = next;
+  }
+
+  return mandates;
+}
+
+async function discoverLiveGoCardlessMandate(row: StoreSubscription) {
+  const email = normaliseEmail(row.customer_email);
+  if (!email) {
     return {
-      result: "gocardless_mandate_missing" as const,
-      row,
-      evidence: null,
-      match: null,
+      status: "no_email" as const,
+      customer: null,
+      mandate: null,
+      customerMatches: 0,
+      activeMandates: 0,
     };
   }
 
-  const { evidence, match: matchType } = match;
+  const customers = await listAllGoCardlessCustomers();
+  const matches = customers.filter(
+    (customer) => normaliseEmail(customer.email) === email,
+  );
 
+  if (matches.length !== 1) {
+    return {
+      status: matches.length === 0 ? "customer_not_found" as const : "multiple_customers" as const,
+      customer: null,
+      mandate: null,
+      customerMatches: matches.length,
+      activeMandates: 0,
+    };
+  }
+
+  const customer = matches[0];
+  const mandates = await listGoCardlessMandatesForCustomer(customer.id);
+  const active = mandates.filter((mandate) => mandate.status === "active");
+
+  if (active.length !== 1) {
+    return {
+      status: active.length === 0 ? "no_active_mandate" as const : "multiple_active_mandates" as const,
+      customer,
+      mandate: null,
+      customerMatches: 1,
+      activeMandates: active.length,
+    };
+  }
+
+  return {
+    status: "matched" as const,
+    customer,
+    mandate: active[0],
+    customerMatches: 1,
+    activeMandates: 1,
+  };
+}
+
+async function persistGoCardlessEvidence(row: StoreSubscription) {
+  const now = new Date().toISOString();
+
+  // 1) Strongest path: the database already contains a mandate ID. Verify it
+  // live, even if the historical export constant does not contain this member.
+  if (looksLikeGoCardlessMandate(row.external_mandate_id)) {
+    try {
+      const mandate = await verifyLiveGoCardlessMandate(
+        row.external_mandate_id!,
+        looksLikeGoCardlessCustomerId(row.external_customer_id)
+          ? row.external_customer_id
+          : null,
+      );
+      const customerId = mandate.links?.customer ?? row.external_customer_id ?? null;
+      const existingNext = row.next_payment_at;
+      const nextPaymentAt = existingNext ?? next28thIso(mandate.next_possible_charge_date);
+
+      const updated = await patchSubscription(row.id, {
+        payment_provider: "gocardless",
+        billing_provider: "gocardless",
+        external_customer_id: customerId,
+        external_mandate_id: mandate.id,
+        processor_verification_status: "verified",
+        processor_verified_at: now,
+        next_payment_at: nextPaymentAt,
+        collection_enabled: false,
+        teamup_billing_active: true,
+        metadata: {
+          ...metadata(row),
+          mtc_gocardless_api_verified: true,
+          mtc_gocardless_api_verified_at: now,
+          mtc_gocardless_mandate_status: mandate.status,
+          mtc_gocardless_next_possible_charge_date: mandate.next_possible_charge_date ?? null,
+          mtc_gocardless_recovery_method: "existing_mandate_id_live_api",
+          mtc_defaulted_billing_day_to_28th: !existingNext,
+        },
+        migration_notes: appendMigrationNote(
+          row,
+          `GoCardless mandate ${mandate.id} verified LIVE via API${customerId ? ` for customer ${customerId}` : ""}. No debit/subscription created. TeamUp remains active; TOTS collection remains OFF.`,
+        ),
+      });
+
+      return {
+        result: "gocardless_mandate_verified" as const,
+        row: updated,
+        evidence: null,
+        match: "existing_mandate_id_live_api" as const,
+        mandateStatus: mandate.status,
+      };
+    } catch (error) {
+      // Continue into export/live-email recovery. A stale stored ID must not
+      // prevent recovery of the member's actual current mandate.
+    }
+  }
+
+  // 2) Historical/current payment evidence already curated during migration.
+  const match = findGoCardlessEvidence(row);
+  if (match) {
+    const { evidence, match: matchType } = match;
+    try {
+      const mandate = await verifyLiveGoCardlessMandate(
+        evidence.mandateId,
+        evidence.customerId,
+      );
+
+      const existingNext = row.next_payment_at;
+      const nextPaymentAt = existingNext ?? next28thIso(mandate.next_possible_charge_date);
+      const amountDiffers = evidence.amountPence !== Number(row.unit_amount_pence ?? 0);
+
+      const updated = await patchSubscription(row.id, {
+        payment_provider: "gocardless",
+        billing_provider: "gocardless",
+        external_customer_id: evidence.customerId,
+        external_mandate_id: evidence.mandateId,
+        processor_verification_status: "verified",
+        processor_verified_at: now,
+        next_payment_at: nextPaymentAt,
+        last_payment_at: evidence.chargeDate,
+        last_payment_amount_pence: evidence.amountPence,
+        collection_enabled: false,
+        teamup_billing_active: true,
+        metadata: {
+          ...metadata(row),
+          mtc_gocardless_export_verified: true,
+          mtc_gocardless_api_verified: true,
+          mtc_gocardless_api_verified_at: now,
+          mtc_gocardless_mandate_status: mandate.status,
+          mtc_gocardless_next_possible_charge_date: mandate.next_possible_charge_date ?? null,
+          mtc_gocardless_export_match: matchType,
+          mtc_gocardless_export_customer_id: evidence.customerId,
+          mtc_gocardless_export_mandate_id: evidence.mandateId,
+          mtc_gocardless_export_charge_date: evidence.chargeDate,
+          mtc_gocardless_export_amount_pence: evidence.amountPence,
+          mtc_gocardless_export_status: evidence.status,
+          mtc_gocardless_export_description: evidence.description,
+          mtc_gocardless_amount_differs_from_current_membership: amountDiffers,
+          mtc_gocardless_recovery_method: `export_${matchType}_live_api`,
+          mtc_defaulted_billing_day_to_28th: !existingNext,
+        },
+        migration_notes: appendMigrationNote(
+          row,
+          `GoCardless mandate ${evidence.mandateId} verified LIVE via API for customer ${evidence.customerId}. ${existingNext ? "Existing billing date preserved." : `Missing billing date defaulted to ${nextPaymentAt.slice(0, 10)} (28th rule).`} No debit/subscription created. TeamUp remains active; TOTS collection remains OFF.`,
+        ),
+      });
+
+      return {
+        result: "gocardless_mandate_verified" as const,
+        row: updated,
+        evidence,
+        match: matchType,
+        mandateStatus: mandate.status,
+      };
+    } catch (error) {
+      // Continue to exact-email live discovery rather than failing immediately.
+    }
+  }
+
+  // 3) Exhaustive live recovery: exact email -> exactly one GC customer ->
+  // exactly one ACTIVE mandate. Anything ambiguous remains unresolved.
   try {
-    const mandate = await verifyLiveGoCardlessMandate(
-      evidence.mandateId,
-      evidence.customerId,
-    );
+    const discovered = await discoverLiveGoCardlessMandate(row);
 
-    const now = new Date().toISOString();
-    const existingNext = row.next_payment_at;
-    const nextPaymentAt = existingNext ?? next28thIso(mandate.next_possible_charge_date);
-    const amountDiffers = evidence.amountPence !== Number(row.unit_amount_pence ?? 0);
+    if (discovered.status === "matched" && discovered.customer && discovered.mandate) {
+      const existingNext = row.next_payment_at;
+      const nextPaymentAt = existingNext ?? next28thIso(discovered.mandate.next_possible_charge_date);
+
+      const updated = await patchSubscription(row.id, {
+        payment_provider: "gocardless",
+        billing_provider: "gocardless",
+        external_customer_id: discovered.customer.id,
+        external_mandate_id: discovered.mandate.id,
+        processor_verification_status: "verified",
+        processor_verified_at: now,
+        next_payment_at: nextPaymentAt,
+        collection_enabled: false,
+        teamup_billing_active: true,
+        metadata: {
+          ...metadata(row),
+          mtc_gocardless_api_verified: true,
+          mtc_gocardless_api_verified_at: now,
+          mtc_gocardless_mandate_status: discovered.mandate.status,
+          mtc_gocardless_next_possible_charge_date: discovered.mandate.next_possible_charge_date ?? null,
+          mtc_gocardless_recovery_method: "exact_email_unique_customer_unique_active_mandate",
+          mtc_gocardless_customer_matches: discovered.customerMatches,
+          mtc_gocardless_active_mandates: discovered.activeMandates,
+          mtc_defaulted_billing_day_to_28th: !existingNext,
+        },
+        migration_notes: appendMigrationNote(
+          row,
+          `Recovered existing GoCardless authority LIVE by exact email. Customer ${discovered.customer.id}; active mandate ${discovered.mandate.id}. No debit/subscription created. TeamUp remains active; TOTS collection remains OFF.`,
+        ),
+      });
+
+      return {
+        result: "gocardless_mandate_verified" as const,
+        row: updated,
+        evidence: null,
+        match: "live_exact_email" as const,
+        mandateStatus: discovered.mandate.status,
+      };
+    }
 
     const updated = await patchSubscription(row.id, {
       payment_provider: "gocardless",
       billing_provider: "gocardless",
-      external_customer_id: evidence.customerId,
-      external_mandate_id: evidence.mandateId,
-      processor_verification_status: "verified",
-      processor_verified_at: now,
-      next_payment_at: nextPaymentAt,
-      last_payment_at: evidence.chargeDate,
-      last_payment_amount_pence: evidence.amountPence,
       collection_enabled: false,
       teamup_billing_active: true,
       metadata: {
         ...metadata(row),
-        mtc_gocardless_export_verified: true,
-        mtc_gocardless_api_verified: true,
-        mtc_gocardless_api_verified_at: now,
-        mtc_gocardless_mandate_status: mandate.status,
-        mtc_gocardless_next_possible_charge_date: mandate.next_possible_charge_date ?? null,
-        mtc_gocardless_export_match: matchType,
-        mtc_gocardless_export_customer_id: evidence.customerId,
-        mtc_gocardless_export_mandate_id: evidence.mandateId,
-        mtc_gocardless_export_charge_date: evidence.chargeDate,
-        mtc_gocardless_export_amount_pence: evidence.amountPence,
-        mtc_gocardless_export_status: evidence.status,
-        mtc_gocardless_export_description: evidence.description,
-        mtc_gocardless_amount_differs_from_current_membership: amountDiffers,
-        mtc_defaulted_billing_day_to_28th: !existingNext,
+        mtc_gocardless_api_verified: false,
+        mtc_gocardless_api_verification_failed_at: now,
+        mtc_gocardless_recovery_method: "live_exact_email",
+        mtc_gocardless_recovery_result: discovered.status,
+        mtc_gocardless_customer_matches: discovered.customerMatches,
+        mtc_gocardless_active_mandates: discovered.activeMandates,
       },
       migration_notes: appendMigrationNote(
         row,
-        `GoCardless mandate ${evidence.mandateId} verified LIVE via API for customer ${evidence.customerId}. Status active. ${
-          existingNext ? "Existing billing date preserved." : `Missing billing date defaulted to ${nextPaymentAt.slice(0, 10)} (28th rule).`
-        } No debit/subscription created. TeamUp remains active; TOTS collection remains OFF.`,
+        `GoCardless live recovery unresolved (${discovered.status}). No payment authority was invented; member remains active in TeamUp and TOTS collection remains OFF.`,
       ),
     });
 
     return {
-      result: "gocardless_mandate_verified" as const,
+      result: "gocardless_mandate_missing" as const,
       row: updated,
-      evidence,
-      match: matchType,
-      mandateStatus: mandate.status,
+      evidence: match?.evidence ?? null,
+      match: match?.match ?? null,
+      recoveryStatus: discovered.status,
     };
   } catch (error) {
-    const now = new Date().toISOString();
     const updated = await patchSubscription(row.id, {
       payment_provider: "gocardless",
       billing_provider: "gocardless",
-      external_customer_id: evidence.customerId,
-      external_mandate_id: evidence.mandateId,
       collection_enabled: false,
       teamup_billing_active: true,
       metadata: {
@@ -4792,8 +5026,9 @@ async function persistGoCardlessEvidence(row: StoreSubscription) {
     return {
       result: "gocardless_mandate_missing" as const,
       row: updated,
-      evidence,
-      match: matchType,
+      evidence: match?.evidence ?? null,
+      match: match?.match ?? null,
+      recoveryStatus: "api_error" as const,
     };
   }
 }

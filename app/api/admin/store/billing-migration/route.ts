@@ -30,6 +30,173 @@ const admin = createClient(supabaseUrl, supabaseServiceKey, {
 
 const stripe = new Stripe(stripeSecretKey);
 
+const goCardlessAccessToken = process.env.GOCARDLESS_ACCESS_TOKEN ?? "";
+const goCardlessEnvironment = (process.env.GOCARDLESS_ENVIRONMENT ?? "live").toLowerCase();
+const goCardlessBaseUrl =
+  goCardlessEnvironment === "sandbox"
+    ? "https://api-sandbox.gocardless.com"
+    : "https://api.gocardless.com";
+
+type GoCardlessMandate = {
+  id: string;
+  status: string;
+  scheme?: string | null;
+  next_possible_charge_date?: string | null;
+  links?: {
+    customer?: string | null;
+    customer_bank_account?: string | null;
+    creditor?: string | null;
+  };
+};
+
+type GoCardlessSubscription = {
+  id: string;
+  status: string;
+  amount: number;
+  currency: string;
+  interval: number;
+  interval_unit: string;
+  start_date: string;
+  upcoming_payments?: Array<{ charge_date: string; amount: number }>;
+  links?: { mandate?: string | null };
+};
+
+async function goCardlessRequest<T>(
+  path: string,
+  init: RequestInit = {},
+  idempotencyKey?: string,
+): Promise<T> {
+  if (!goCardlessAccessToken) {
+    throw new Error("Missing GOCARDLESS_ACCESS_TOKEN");
+  }
+
+  const headers = new Headers(init.headers ?? {});
+  headers.set("Authorization", `Bearer ${goCardlessAccessToken}`);
+  headers.set("GoCardless-Version", "2015-07-06");
+  headers.set("Content-Type", "application/json");
+  if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
+
+  const response = await fetch(`${goCardlessBaseUrl}${path}`, {
+    ...init,
+    headers,
+    cache: "no-store",
+  });
+
+  const text = await response.text();
+  let body: any = null;
+  if (text) {
+    try { body = JSON.parse(text); } catch { body = text; }
+  }
+
+  if (!response.ok) {
+    const message =
+      body?.error?.message ??
+      body?.error?.errors?.[0]?.message ??
+      (typeof body === "string" ? body : null) ??
+      `GoCardless API returned ${response.status}`;
+    throw new Error(`GoCardless: ${message}`);
+  }
+
+  return body as T;
+}
+
+function next28thIso(minimumDate?: string | null) {
+  const now = new Date();
+  const minimum = minimumDate ? new Date(`${minimumDate}T00:00:00Z`) : now;
+  const floor = Number.isNaN(minimum.getTime()) || minimum < now ? now : minimum;
+
+  let year = floor.getUTCFullYear();
+  let month = floor.getUTCMonth();
+  let candidate = new Date(Date.UTC(year, month, 28, 12, 0, 0));
+
+  if (candidate.getTime() <= floor.getTime() + 30 * 60 * 1000) {
+    month += 1;
+    if (month > 11) { year += 1; month = 0; }
+    candidate = new Date(Date.UTC(year, month, 28, 12, 0, 0));
+  }
+
+  return candidate.toISOString();
+}
+
+async function verifyLiveGoCardlessMandate(
+  mandateId: string,
+  expectedCustomerId?: string | null,
+) {
+  const body = await goCardlessRequest<{ mandates: GoCardlessMandate }>(
+    `/mandates/${encodeURIComponent(mandateId)}`,
+  );
+  const mandate = body.mandates;
+
+  if (!mandate?.id) throw new Error("GoCardless mandate was not returned.");
+  if (expectedCustomerId && mandate.links?.customer && mandate.links.customer !== expectedCustomerId) {
+    throw new Error(
+      `GoCardless mandate ${mandateId} belongs to ${mandate.links.customer}, not ${expectedCustomerId}.`,
+    );
+  }
+
+  if (mandate.status !== "active") {
+    throw new Error(`GoCardless mandate ${mandateId} is ${mandate.status}, not active.`);
+  }
+
+  return mandate;
+}
+
+async function createGoCardlessSubscription(row: StoreSubscription) {
+  const mandateId = row.external_mandate_id;
+  if (!mandateId) throw new Error("REFUSED: GoCardless mandate ID is missing.");
+
+  const mandate = await verifyLiveGoCardlessMandate(
+    mandateId,
+    row.external_customer_id,
+  );
+
+  const amount = Number(row.unit_amount_pence ?? 0);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("REFUSED: invalid GoCardless recurring amount.");
+  }
+
+  const requested = row.next_payment_at
+    ? new Date(row.next_payment_at)
+    : new Date(next28thIso(mandate.next_possible_charge_date));
+
+  const minimum = mandate.next_possible_charge_date
+    ? new Date(`${mandate.next_possible_charge_date}T00:00:00Z`)
+    : new Date();
+
+  const start =
+    !Number.isNaN(requested.getTime()) && requested >= minimum
+      ? requested
+      : new Date(next28thIso(mandate.next_possible_charge_date));
+
+  const startDate = start.toISOString().slice(0, 10);
+  const idempotencyKey = `tots-mtc-gc-${row.id}`;
+
+  const body = await goCardlessRequest<{ subscriptions: GoCardlessSubscription }>(
+    "/subscriptions",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        subscriptions: {
+          amount,
+          currency: (row.currency ?? "GBP").toUpperCase(),
+          name: `Moray Training Club - ${row.legacy_membership_name ?? "Membership"}`.slice(0, 255),
+          interval_unit: "monthly",
+          interval: 1,
+          start_date: startDate,
+          links: { mandate: mandateId },
+          metadata: {
+            tots_subscription_id: row.id,
+            organisation_id: row.organisation_id,
+          },
+        },
+      }),
+    },
+    idempotencyKey,
+  );
+
+  return { subscription: body.subscriptions, mandate };
+}
+
 // ============================================================
 // TYPES
 // ============================================================
@@ -4549,11 +4716,17 @@ async function persistGoCardlessEvidence(row: StoreSubscription) {
 
   const { evidence, match: matchType } = match;
 
-  if (matchType === "email_only_amount_review") {
-    // The payer + mandate identity can still be verified safely from the export.
-    // Keep the TOTS membership amount unchanged; record the historic exported
-    // payment amount as evidence rather than blocking mandate verification.
+  try {
+    const mandate = await verifyLiveGoCardlessMandate(
+      evidence.mandateId,
+      evidence.customerId,
+    );
+
     const now = new Date().toISOString();
+    const existingNext = row.next_payment_at;
+    const nextPaymentAt = existingNext ?? next28thIso(mandate.next_possible_charge_date);
+    const amountDiffers = evidence.amountPence !== Number(row.unit_amount_pence ?? 0);
+
     const updated = await patchSubscription(row.id, {
       payment_provider: "gocardless",
       billing_provider: "gocardless",
@@ -4561,6 +4734,7 @@ async function persistGoCardlessEvidence(row: StoreSubscription) {
       external_mandate_id: evidence.mandateId,
       processor_verification_status: "verified",
       processor_verified_at: now,
+      next_payment_at: nextPaymentAt,
       last_payment_at: evidence.chargeDate,
       last_payment_amount_pence: evidence.amountPence,
       collection_enabled: false,
@@ -4568,18 +4742,25 @@ async function persistGoCardlessEvidence(row: StoreSubscription) {
       metadata: {
         ...metadata(row),
         mtc_gocardless_export_verified: true,
-        mtc_gocardless_export_verified_at: now,
+        mtc_gocardless_api_verified: true,
+        mtc_gocardless_api_verified_at: now,
+        mtc_gocardless_mandate_status: mandate.status,
+        mtc_gocardless_next_possible_charge_date: mandate.next_possible_charge_date ?? null,
         mtc_gocardless_export_match: matchType,
         mtc_gocardless_export_customer_id: evidence.customerId,
         mtc_gocardless_export_mandate_id: evidence.mandateId,
         mtc_gocardless_export_charge_date: evidence.chargeDate,
         mtc_gocardless_export_amount_pence: evidence.amountPence,
         mtc_gocardless_export_status: evidence.status,
-        mtc_gocardless_amount_differs_from_current_membership: true,
+        mtc_gocardless_export_description: evidence.description,
+        mtc_gocardless_amount_differs_from_current_membership: amountDiffers,
+        mtc_defaulted_billing_day_to_28th: !existingNext,
       },
       migration_notes: appendMigrationNote(
         row,
-        `GoCardless payer and mandate verified by exact payer email (${evidence.customerId} / ${evidence.mandateId}). Historic exported payment was ${evidence.amountPence}p; current TOTS membership remains ${Number(row.unit_amount_pence ?? 0)}p. No debit created. TeamUp remains active; TOTS collection remains OFF.`,
+        `GoCardless mandate ${evidence.mandateId} verified LIVE via API for customer ${evidence.customerId}. Status active. ${
+          existingNext ? "Existing billing date preserved." : `Missing billing date defaulted to ${nextPaymentAt.slice(0, 10)} (28th rule).`
+        } No debit/subscription created. TeamUp remains active; TOTS collection remains OFF.`,
       ),
     });
 
@@ -4588,45 +4769,33 @@ async function persistGoCardlessEvidence(row: StoreSubscription) {
       row: updated,
       evidence,
       match: matchType,
+      mandateStatus: mandate.status,
+    };
+  } catch (error) {
+    const now = new Date().toISOString();
+    const updated = await patchSubscription(row.id, {
+      payment_provider: "gocardless",
+      billing_provider: "gocardless",
+      external_customer_id: evidence.customerId,
+      external_mandate_id: evidence.mandateId,
+      collection_enabled: false,
+      teamup_billing_active: true,
+      metadata: {
+        ...metadata(row),
+        mtc_gocardless_api_verified: false,
+        mtc_gocardless_api_verification_failed_at: now,
+        mtc_gocardless_api_verification_error:
+          error instanceof Error ? error.message : "Unknown GoCardless verification error",
+      },
+    });
+
+    return {
+      result: "gocardless_mandate_missing" as const,
+      row: updated,
+      evidence,
+      match: matchType,
     };
   }
-
-  const now = new Date().toISOString();
-  const updated = await patchSubscription(row.id, {
-    payment_provider: "gocardless",
-    billing_provider: "gocardless",
-    external_customer_id: evidence.customerId,
-    external_mandate_id: evidence.mandateId,
-    processor_verification_status: "verified",
-    processor_verified_at: now,
-    last_payment_at: evidence.chargeDate,
-    last_payment_amount_pence: evidence.amountPence,
-    collection_enabled: false,
-    teamup_billing_active: true,
-    metadata: {
-      ...metadata(row),
-      mtc_gocardless_export_verified: true,
-      mtc_gocardless_export_verified_at: now,
-      mtc_gocardless_export_match: matchType,
-      mtc_gocardless_export_customer_id: evidence.customerId,
-      mtc_gocardless_export_mandate_id: evidence.mandateId,
-      mtc_gocardless_export_charge_date: evidence.chargeDate,
-      mtc_gocardless_export_amount_pence: evidence.amountPence,
-      mtc_gocardless_export_status: evidence.status,
-      mtc_gocardless_export_description: evidence.description,
-    },
-    migration_notes: appendMigrationNote(
-      row,
-      `GoCardless payer and mandate verified from supplied export (${evidence.customerId} / ${evidence.mandateId}; ${evidence.amountPence}p; charge date ${evidence.chargeDate}; status ${evidence.status}). No new debit created. TeamUp remains active; TOTS collection remains OFF.`,
-    ),
-  });
-
-  return {
-    result: "gocardless_mandate_verified" as const,
-    row: updated,
-    evidence,
-    match: matchType,
-  };
 }
 
 function approvedMigrationBillingDate(
@@ -5599,102 +5768,55 @@ async function markTeamupStopped(
   row: StoreSubscription,
   accountId: string,
 ) {
-  if (
-    isMarkedDuplicate(row)
-  ) {
-    throw new Error(
-      "REFUSED: duplicate record.",
+  if (isMarkedDuplicate(row)) throw new Error("REFUSED: duplicate record.");
+  if (row.processor_verification_status !== "verified") {
+    throw new Error("Payment method/mandate must be verified first.");
+  }
+  if (row.collection_enabled) throw new Error("TOTS is already collecting.");
+
+  const provider = await detectProvider(row);
+  let nextPaymentAt = row.next_payment_at;
+
+  if (provider === "gocardless") {
+    if (!row.external_mandate_id) throw new Error("REFUSED: GoCardless mandate is missing.");
+    const mandate = await verifyLiveGoCardlessMandate(
+      row.external_mandate_id,
+      row.external_customer_id,
     );
+    if (!nextPaymentAt) nextPaymentAt = next28thIso(mandate.next_possible_charge_date);
+  } else {
+    if (!nextPaymentAt) throw new Error("next_payment_at must be confirmed.");
+    const prepared = await retrievePreparedStripeSubscription(row, accountId);
+    if (!prepared) {
+      throw new Error("REFUSED: replacement Stripe subscription has not been prepared/verified yet.");
+    }
   }
 
-  if (
-    row.processor_verification_status !==
-    "verified"
-  ) {
-    throw new Error(
-      "Stripe payment method must be verified first.",
-    );
-  }
-
-  if (
-    row.collection_enabled
-  ) {
-    throw new Error(
-      "TOTS is already collecting.",
-    );
-  }
-
-  if (
-    !row.next_payment_at
-  ) {
-    throw new Error(
-      "next_payment_at must be confirmed.",
-    );
-  }
-
-  const prepared =
-    await retrievePreparedStripeSubscription(
+  const now = new Date().toISOString();
+  const updated = await patchSubscription(row.id, {
+    next_payment_at: nextPaymentAt,
+    teamup_billing_active: false,
+    teamup_billing_disabled_at: now,
+    cutover_status: "ready",
+    collection_enabled: false,
+    metadata: {
+      ...metadata(row),
+      mtc_teamup_stop_confirmed_at: now,
+      mtc_teamup_stop_confirmed_manually: true,
+      mtc_cutover_provider: provider,
+    },
+    migration_notes: appendMigrationNote(
       row,
-      accountId,
-    );
-
-  if (!prepared) {
-    throw new Error(
-      "REFUSED: replacement Stripe subscription has not been prepared/verified yet.",
-    );
-  }
-
-  const now =
-    new Date().toISOString();
-
-  const updated =
-    await patchSubscription(
-      row.id,
-      {
-        teamup_billing_active:
-          false,
-
-        teamup_billing_disabled_at:
-          now,
-
-        cutover_status:
-          "ready",
-
-        collection_enabled:
-          false,
-
-        metadata: {
-          ...metadata(row),
-
-          mtc_teamup_stop_confirmed_at:
-            now,
-
-          mtc_teamup_stop_confirmed_manually:
-            true,
-        },
-
-        migration_notes:
-          appendMigrationNote(
-            row,
-            "TeamUp billing confirmed stopped externally. Replacement Stripe subscription already exists. TOTS is ready to go live.",
-          ),
-      },
-    );
+      provider === "gocardless"
+        ? "TeamUp billing confirmed stopped externally. Live GoCardless mandate re-verified. TOTS is ready to create the replacement GoCardless subscription."
+        : "TeamUp billing confirmed stopped externally. Replacement Stripe subscription already exists. TOTS is ready to go live.",
+    ),
+  });
 
   return {
-    subscription:
-      updated,
-
-    stripeSubscription: {
-      id:
-        prepared.id,
-
-      status:
-        prepared.status,
-    },
-
-    warning:
-      "This records the external TeamUp stop. It does NOT contact TeamUp itself.",
+    subscription: updated,
+    provider,
+    warning: "This records the external TeamUp stop. It does NOT contact TeamUp itself.",
   };
 }
 
@@ -5706,161 +5828,103 @@ async function activate(
   row: StoreSubscription,
   accountId: string,
 ) {
-  if (
-    row.collection_enabled
-  ) {
-    return {
-      subscription: row,
-      alreadyLive: true,
-    };
+  if (row.collection_enabled) return { subscription: row, alreadyLive: true };
+  if (row.teamup_billing_active) throw new Error("REFUSED: TeamUp billing is still marked active.");
+  if (row.cutover_status !== "ready") {
+    throw new Error(`REFUSED: cutover_status is ${row.cutover_status}; expected ready.`);
   }
-
-  if (
-    row.teamup_billing_active
-  ) {
-    throw new Error(
-      "REFUSED: TeamUp billing is still marked active.",
-    );
+  if (row.processor_verification_status !== "verified") {
+    throw new Error("REFUSED: payment method/mandate is not verified.");
   }
+  if (isMarkedDuplicate(row)) throw new Error("REFUSED: duplicate migration record.");
 
-  if (
-    row.cutover_status !==
-    "ready"
-  ) {
-    throw new Error(
-      `REFUSED: cutover_status is ${row.cutover_status}; expected ready.`,
-    );
-  }
+  const provider = await detectProvider(row);
+  const activatedAt = new Date().toISOString();
 
-  if (
-    row.processor_verification_status !==
-    "verified"
-  ) {
-    throw new Error(
-      "REFUSED: Stripe payment method is not verified.",
-    );
-  }
+  if (provider === "gocardless") {
+    if (row.external_subscription_id?.startsWith("SB")) {
+      const existing = await goCardlessRequest<{ subscriptions: GoCardlessSubscription }>(
+        `/subscriptions/${encodeURIComponent(row.external_subscription_id)}`,
+      );
+      const updated = await patchSubscription(row.id, {
+        status: existing.subscriptions.status,
+        legacy_billing: false,
+        collection_enabled: true,
+        collection_enabled_at: row.collection_enabled_at ?? activatedAt,
+        teamup_billing_active: false,
+        cutover_status: "live",
+      });
+      return { subscription: updated, goCardless: existing.subscriptions, alreadyLive: true };
+    }
 
-  if (
-    isMarkedDuplicate(row)
-  ) {
-    throw new Error(
-      "REFUSED: duplicate migration record.",
-    );
-  }
+    const created = await createGoCardlessSubscription(row);
+    const gcSub = created.subscription;
+    const firstPayment = gcSub.upcoming_payments?.[0]?.charge_date ?? gcSub.start_date;
 
-  const subscription =
-    await retrievePreparedStripeSubscription(
-      row,
-      accountId,
-    );
-
-  if (!subscription) {
-    throw new Error(
-      "REFUSED: prepared Stripe subscription is missing or unusable.",
-    );
-  }
-
-  if (
-    !row.next_payment_at
-  ) {
-    throw new Error(
-      "REFUSED: next_payment_at is missing.",
-    );
-  }
-
-  const nextPayment =
-    new Date(
-      row.next_payment_at,
-    );
-
-  if (
-    Number.isNaN(
-      nextPayment.getTime(),
-    )
-  ) {
-    throw new Error(
-      "REFUSED: next_payment_at is invalid.",
-    );
-  }
-
-  const activatedAt =
-    new Date().toISOString();
-
-  const updated =
-    await patchSubscription(
-      row.id,
-      {
-        stripe_subscription_id:
-          subscription.id,
-
-        external_subscription_id:
-          subscription.id,
-
-        status:
-          subscription.status,
-
-        legacy_billing:
-          false,
-
-        collection_enabled:
-          true,
-
-        collection_enabled_at:
-          activatedAt,
-
-        teamup_billing_active:
-          false,
-
-        cutover_status:
-          "live",
-
-        processor_verification_status:
-          "verified",
-
-        metadata: {
-          ...metadata(row),
-
-          mtc_live_subscription_id:
-            subscription.id,
-
-          mtc_activation_at:
-            activatedAt,
-
-          mtc_first_tots_payment_at:
-            nextPayment.toISOString(),
-
-          mtc_cutover_complete:
-            true,
-        },
-
-        migration_notes:
-          appendMigrationNote(
-            row,
-            `TOTS Stripe billing is now live using prepared Stripe subscription ${subscription.id}. First intended billing date: ${nextPayment.toISOString()}.`,
-          ),
+    const updated = await patchSubscription(row.id, {
+      external_subscription_id: gcSub.id,
+      status: gcSub.status,
+      legacy_billing: false,
+      collection_enabled: true,
+      collection_enabled_at: activatedAt,
+      teamup_billing_active: false,
+      cutover_status: "live",
+      processor_verification_status: "verified",
+      next_payment_at: `${firstPayment}T12:00:00.000Z`,
+      metadata: {
+        ...metadata(row),
+        mtc_live_subscription_id: gcSub.id,
+        mtc_gocardless_subscription_id: gcSub.id,
+        mtc_activation_at: activatedAt,
+        mtc_first_tots_payment_at: firstPayment,
+        mtc_cutover_complete: true,
       },
-    );
+      migration_notes: appendMigrationNote(
+        row,
+        `TOTS GoCardless billing is now live using existing mandate ${row.external_mandate_id} and subscription ${gcSub.id}. First scheduled charge date: ${firstPayment}.`,
+      ),
+    });
+
+    return { subscription: updated, goCardless: gcSub };
+  }
+
+  const subscription = await retrievePreparedStripeSubscription(row, accountId);
+  if (!subscription) throw new Error("REFUSED: prepared Stripe subscription is missing or unusable.");
+  if (!row.next_payment_at) throw new Error("REFUSED: next_payment_at is missing.");
+
+  const nextPayment = new Date(row.next_payment_at);
+  if (Number.isNaN(nextPayment.getTime())) throw new Error("REFUSED: next_payment_at is invalid.");
+
+  const updated = await patchSubscription(row.id, {
+    stripe_subscription_id: subscription.id,
+    external_subscription_id: subscription.id,
+    status: subscription.status,
+    legacy_billing: false,
+    collection_enabled: true,
+    collection_enabled_at: activatedAt,
+    teamup_billing_active: false,
+    cutover_status: "live",
+    processor_verification_status: "verified",
+    metadata: {
+      ...metadata(row),
+      mtc_live_subscription_id: subscription.id,
+      mtc_activation_at: activatedAt,
+      mtc_first_tots_payment_at: nextPayment.toISOString(),
+      mtc_cutover_complete: true,
+    },
+    migration_notes: appendMigrationNote(
+      row,
+      `TOTS Stripe billing is now live using prepared Stripe subscription ${subscription.id}. First intended billing date: ${nextPayment.toISOString()}.`,
+    ),
+  });
 
   return {
-    subscription:
-      updated,
-
+    subscription: updated,
     stripe: {
-      subscriptionId:
-        subscription.id,
-
-      status:
-        subscription.status,
-
-      customerId:
-        typeof subscription.customer ===
-        "string"
-          ? subscription.customer
-          : subscription.customer.id,
-
-      firstPaymentAt:
-        nextPayment.toISOString(),
+      subscriptionId: subscription.id,
+      status: subscription.status,
+      customerId: typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id,
+      firstPaymentAt: nextPayment.toISOString(),
     },
   };
 }

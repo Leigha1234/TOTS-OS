@@ -4822,7 +4822,7 @@ async function finishPaymentPreparation(accountId: string) {
       const source = await getMigrationSource(fresh);
       const proposed = inferNextPaymentAt(fresh, source);
 
-      let result = scan.result;
+      let result: string = scan.result;
       let reason = scan.message ?? scan.result;
 
       if (

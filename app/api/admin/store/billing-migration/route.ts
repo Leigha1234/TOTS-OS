@@ -4141,129 +4141,489 @@ async function prepareAll(
 // ============================================================
 // FINISH PAYMENT PREPARATION
 //
-// Purpose:
+// SAFETY:
 // - paid recurring memberships only
-// - preserve every already-prepared Stripe subscription
-// - retry Stripe customer/payment-method reconciliation
-// - auto-confirm an inferred renewal date ONLY when recent payment
-//   history matches the recurring amount exactly
-// - prepare the Stripe replacement subscription where safe
-// - classify GoCardless separately
-// - never charge now, never disable TeamUp, never enable collection
+// - preserves already-prepared Stripe subscriptions
+// - never turns payment history into a contractual Stripe renewal date
+// - verifies GoCardless customer/mandate details only from the supplied
+//   GoCardless export evidence below
+// - does not create GoCardless debits (this route has no GC API client)
+// - never charges now, disables TeamUp, or enables TOTS collection
 // ============================================================
 
-function maxHistoryAgeMs(interval: string | null) {
-  switch (normaliseText(interval)) {
-    case "week":
-      return 21 * 24 * 60 * 60 * 1000;
-    case "month":
-      return 62 * 24 * 60 * 60 * 1000;
-    case "year":
-      return 400 * 24 * 60 * 60 * 1000;
-    default:
-      return 0;
+type GoCardlessExportEvidence = {
+  customerId: string;
+  mandateId: string;
+  email: string;
+  givenName: string;
+  familyName: string;
+  chargeDate: string;
+  amountPence: number;
+  status: string;
+  description: string;
+};
+
+const GOCARDLESS_CURRENT_PAYMENT_EVIDENCE: GoCardlessExportEvidence[] =
+[
+  {
+    "customerId": "CU0052RKJ0Q0X2",
+    "mandateId": "MD003R3HNPQW4V",
+    "email": "jen_brown20.05@icloud.com",
+    "givenName": "Jennifer",
+    "familyName": "Brown",
+    "chargeDate": "2026-09-30",
+    "amountPence": 6900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU01KCHV8MKZVS",
+    "mandateId": "MD01K9C3MYNMKG",
+    "email": "jennifer.m.clarke4@gmail.com",
+    "givenName": "Jennifer",
+    "familyName": "Clarke",
+    "chargeDate": "2026-09-10",
+    "amountPence": 4900,
+    "status": "paid_out",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU01MCXX1V7WEK3BD0VG0ZHQ41TS",
+    "mandateId": "MD01M2FBZ9CDSS7P61CQDDWSS6RZ",
+    "email": "l_mackay@hotmail.co.uk",
+    "givenName": "Laura",
+    "familyName": "Downie",
+    "chargeDate": "2026-09-30",
+    "amountPence": 7000,
+    "status": "submitted",
+    "description": "Membership Payment: 4 Per Week"
+  },
+  {
+    "customerId": "CU0057AP0KX0TM",
+    "mandateId": "MD003TSPCA157S",
+    "email": "abbey_emmett@yahoo.com",
+    "givenName": "Abbey",
+    "familyName": "Emmett",
+    "chargeDate": "2026-09-30",
+    "amountPence": 8900,
+    "status": "submitted",
+    "description": "Membership Payment: Unlimited membership"
+  },
+  {
+    "customerId": "CU005FMNC31NP5",
+    "mandateId": "MD0040058SWJW6",
+    "email": "beccaxx_@hotmail.co.uk",
+    "givenName": "Rebecca",
+    "familyName": "Farquhar",
+    "chargeDate": "2026-09-30",
+    "amountPence": 8900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU01M7SF44ZJJ3NMQABXT9X598ZB",
+    "mandateId": "MD01KXAXXGY8XXM1ADMKJHNGEDWG",
+    "email": "rpboyd@hotmail.co.uk",
+    "givenName": "Rhiannon",
+    "familyName": "Farquhar",
+    "chargeDate": "2026-09-30",
+    "amountPence": 6900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU01MDJVZNWWEEESYYQRDM7NVPSM",
+    "mandateId": "MD01M34AS3EBXXJ024Q9N6P7G9AA",
+    "email": "siobhanforde@hotmail.com",
+    "givenName": "Siobhan",
+    "familyName": "Forde",
+    "chargeDate": "2026-09-30",
+    "amountPence": 4500,
+    "status": "submitted",
+    "description": "Membership Payment: CrossFit Preteens"
+  },
+  {
+    "customerId": "CU01M6X1J8F3DXY6CJT1VXSW86AW",
+    "mandateId": "MD01KWEGDVHTV43KZBZ4TH3W602K",
+    "email": "audrey.hilsden@hotmail.com",
+    "givenName": "Audrey",
+    "familyName": "Hilsden",
+    "chargeDate": "2026-09-01",
+    "amountPence": 4500,
+    "status": "paid_out",
+    "description": "Membership Payment: CrossFit Preteens"
+  },
+  {
+    "customerId": "CU01KV589DBQ6H",
+    "mandateId": "MD01KJ9CAGA89T",
+    "email": "karina.kaluzna1994@gmail.com",
+    "givenName": "Karina",
+    "familyName": "Kaluzna",
+    "chargeDate": "2026-09-30",
+    "amountPence": 5900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU01M4D99XFPXM2GTSMSCMA16H49",
+    "mandateId": "MD01KSYRB8A3G7BPD6M5YV83SYSC",
+    "email": "heatherjeankeddie@gmail.com",
+    "givenName": "Heather",
+    "familyName": "Keddie",
+    "chargeDate": "2026-09-30",
+    "amountPence": 6000,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU01MDGG5C4TB7B215TNPH5WJE81",
+    "mandateId": "MD01M31Z04NAZBQDA92HY1EDQMSS",
+    "email": "nyreelewis70@gmail.com",
+    "givenName": "NYREE",
+    "familyName": "LEWIS",
+    "chargeDate": "2026-10-02",
+    "amountPence": 5900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU01MCS2VA0B83P9PKRV420P3E79",
+    "mandateId": "MD01M2AHVV96T4WG82D98BP527NN",
+    "email": "deborah.luce83@gmail.com",
+    "givenName": "Deborah",
+    "familyName": "Luce",
+    "chargeDate": "2026-09-30",
+    "amountPence": 6900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU01KGW1YQHAH3",
+    "mandateId": "MD01KC2JV7E9F5",
+    "email": "smears4@icloud.com",
+    "givenName": "Stephen",
+    "familyName": "Mears",
+    "chargeDate": "2026-09-30",
+    "amountPence": 6900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU005A017P3RM4",
+    "mandateId": "MD003WDXMXPFKE",
+    "email": "phil@philmitchell.net",
+    "givenName": "Philip",
+    "familyName": "Mitchell",
+    "chargeDate": "2026-09-30",
+    "amountPence": 6900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU01MDE1BRJ67MW4RHCMB7RWTWD9",
+    "mandateId": "MD01M2ZG608D52A43K0Z819DPNRD",
+    "email": "natalie_munro@sky.com",
+    "givenName": "Natalie",
+    "familyName": "Munro",
+    "chargeDate": "2026-09-30",
+    "amountPence": 5900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU003D5H03A5JS",
+    "mandateId": "MD002R0A87VJHA",
+    "email": "planetjo@hotmail.com",
+    "givenName": "Joanne",
+    "familyName": "Napier",
+    "chargeDate": "2026-09-30",
+    "amountPence": 5500,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU005DCE7TPZ1D",
+    "mandateId": "MD003YJT9T0CGD",
+    "email": "hsu80f@hotmail.co.uk",
+    "givenName": "Charlotte",
+    "familyName": "Owens",
+    "chargeDate": "2026-09-30",
+    "amountPence": 6900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU01MCPP8RMHGNR8WC7BPDMZHZAV",
+    "mandateId": "MD01M2852YXYXCWRV04QZPD22NG1",
+    "email": "trishka@hotmail.co.uk",
+    "givenName": "Trisha",
+    "familyName": "Riddell",
+    "chargeDate": "2026-09-30",
+    "amountPence": 9900,
+    "status": "submitted",
+    "description": "Membership Payment: Couples 3x"
+  },
+  {
+    "customerId": "CU01MBSTKR9ETP3RP455VP7FXV0W",
+    "mandateId": "MD01M1B9E4YKP0TPMC30JBGSS9YB",
+    "email": "stefanie.stewart1412@gmail.com",
+    "givenName": "Stefanie",
+    "familyName": "Stewart",
+    "chargeDate": "2026-09-30",
+    "amountPence": 7900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU01MBV5RVFCP7P4YSYT6YX484KY",
+    "mandateId": "MD01M1CMJJFW13F1XC3ZWWW4E0GK",
+    "email": "craigstrathdee99@outlook.com",
+    "givenName": "Craig",
+    "familyName": "Strathdee",
+    "chargeDate": "2026-09-30",
+    "amountPence": 4900,
+    "status": "submitted",
+    "description": "Membership Payment: Offshore special"
+  },
+  {
+    "customerId": "CU005HR9CCAPB0",
+    "mandateId": "MD0041CGRNYYKR",
+    "email": "rachel.swinglehurst@hotmail.com",
+    "givenName": "Rachel",
+    "familyName": "Swinglehurst-Hewkin",
+    "chargeDate": "2026-09-30",
+    "amountPence": 5900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU003J4VAW0RT4",
+    "mandateId": "MD002TRWVDC7GV",
+    "email": "yasmintodd93@hotmail.com",
+    "givenName": "Yasmin",
+    "familyName": "Todd",
+    "chargeDate": "2026-09-30",
+    "amountPence": 4900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU01K7JX1MDJYX",
+    "mandateId": "MD01K6551GSHKQ",
+    "email": "hweir84@gmail.com",
+    "givenName": "Holly",
+    "familyName": "Weir",
+    "chargeDate": "2026-09-30",
+    "amountPence": 6900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
+  },
+  {
+    "customerId": "CU01M6697NGKN58V457SMGFJM6SR",
+    "mandateId": "MD01KVQR2K13F3PEXM9ZKW461ZTY",
+    "email": "jamie.wilding1@hotmail.co.uk",
+    "givenName": "Jamie",
+    "familyName": "Wilding",
+    "chargeDate": "2026-09-30",
+    "amountPence": 2500,
+    "status": "submitted",
+    "description": "Membership Payment: CF Kids & Pre Teens \u2014 1 Per Week"
+  },
+  {
+    "customerId": "CU0057VZWHW2B7",
+    "mandateId": "MD003V49GM6QN1",
+    "email": "sarahmac0787@googlemail.com",
+    "givenName": "Sarah",
+    "familyName": "Wu",
+    "chargeDate": "2026-09-30",
+    "amountPence": 5900,
+    "status": "submitted",
+    "description": "Membership Payment: 3 Per Week"
   }
+] as GoCardlessExportEvidence[];
+
+function isKnownAccessOnlyDependent(row: StoreSubscription) {
+  const name = normaliseText(row.customer_name);
+  const email = normaliseEmail(row.customer_email);
+  const meta = metadata(row);
+
+  if (
+    name === "farrah-rose brodie" ||
+    metadataBoolean(meta, [
+      "access_only",
+      "mtc_access_only",
+      "dependent_access_only",
+      "child_access_only",
+    ])
+  ) {
+    return true;
+  }
+
+  // A missing email alone is NOT enough to classify a person as a child.
+  // Keep this deliberately narrow so legitimate adult payers are not excluded.
+  return false;
 }
 
-async function confirmNextPaymentFromExactHistory(
-  row: StoreSubscription,
-) {
-  if (row.next_payment_at) {
+function normalisedPersonName(value: string | null | undefined) {
+  return normaliseText(value)
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findGoCardlessEvidence(row: StoreSubscription) {
+  const rowEmail = normaliseEmail(row.customer_email);
+  const rowName = normalisedPersonName(row.customer_name);
+  const rowAmount = Number(row.unit_amount_pence ?? 0);
+
+  // Strongest match: an already-known GoCardless customer or mandate ID.
+  const knownIds = [
+    row.external_customer_id,
+    row.external_mandate_id,
+  ].filter(Boolean);
+
+  const byId = GOCARDLESS_CURRENT_PAYMENT_EVIDENCE.find(
+    (e) =>
+      knownIds.includes(e.customerId) ||
+      knownIds.includes(e.mandateId),
+  );
+  if (byId) return { evidence: byId, match: "existing_gc_id" as const };
+
+  // Exact payer email + amount is safe enough to persist the exported IDs.
+  const byEmailAndAmount = GOCARDLESS_CURRENT_PAYMENT_EVIDENCE.find(
+    (e) =>
+      Boolean(rowEmail) &&
+      normaliseEmail(e.email) === rowEmail &&
+      e.amountPence === rowAmount,
+  );
+  if (byEmailAndAmount) {
+    return { evidence: byEmailAndAmount, match: "email_and_amount" as const };
+  }
+
+  // Exact email is still useful when TOTS contains a legacy price that differs.
+  // We do not silently overwrite the TOTS recurring amount.
+  const byEmail = GOCARDLESS_CURRENT_PAYMENT_EVIDENCE.find(
+    (e) => Boolean(rowEmail) && normaliseEmail(e.email) === rowEmail,
+  );
+  if (byEmail) {
+    return { evidence: byEmail, match: "email_only_amount_review" as const };
+  }
+
+  // Known payer/dependent relationships from the migration data.
+  // These are explicit guards, not fuzzy name guessing.
+  const relationshipMap: Record<string, string> = {
+    "macaulay watson": "CU01MDJVZNWWEEESYYQRDM7NVPSM",
+  };
+
+  const mappedCustomerId = relationshipMap[rowName];
+  if (mappedCustomerId) {
+    const mapped = GOCARDLESS_CURRENT_PAYMENT_EVIDENCE.find(
+      (e) => e.customerId === mappedCustomerId,
+    );
+    if (mapped) {
+      return { evidence: mapped, match: "known_payer_relationship" as const };
+    }
+  }
+
+  return null;
+}
+
+async function persistGoCardlessEvidence(row: StoreSubscription) {
+  const match = findGoCardlessEvidence(row);
+
+  if (!match) {
     return {
-      confirmed: true,
-      date: row.next_payment_at,
-      reason: "existing_confirmed_date",
+      result: "gocardless_mandate_missing" as const,
+      row,
+      evidence: null,
+      match: null,
     };
   }
 
-  const source = await getMigrationSource(row);
-  const lastPaymentAt = source?.last_payment_at ?? row.last_payment_at;
-  const lastAmount = source?.last_payment_amount_pence ?? row.last_payment_amount_pence;
-  const recurringAmount = row.unit_amount_pence;
+  const { evidence, match: matchType } = match;
 
-  if (
-    !lastPaymentAt ||
-    !recurringAmount ||
-    recurringAmount <= 0 ||
-    !lastAmount ||
-    lastAmount !== recurringAmount ||
-    !row.billing_interval
-  ) {
-    return {
-      confirmed: false,
-      date: null,
-      reason: "insufficient_exact_history",
-    };
-  }
+  if (matchType === "email_only_amount_review") {
+    await patchSubscription(row.id, {
+      metadata: {
+        ...metadata(row),
+        mtc_gocardless_export_customer_id: evidence.customerId,
+        mtc_gocardless_export_mandate_id: evidence.mandateId,
+        mtc_gocardless_export_charge_date: evidence.chargeDate,
+        mtc_gocardless_export_amount_pence: evidence.amountPence,
+        mtc_gocardless_export_status: evidence.status,
+        mtc_gocardless_amount_requires_review: true,
+      },
+      migration_notes: appendMigrationNote(
+        row,
+        `GoCardless export matched by payer email, but exported payment amount ${evidence.amountPence}p does not match the TOTS recurring amount ${Number(row.unit_amount_pence ?? 0)}p. IDs recorded for review only; no debit created.`,
+      ),
+    });
 
-  const last = new Date(lastPaymentAt);
-  if (Number.isNaN(last.getTime())) {
     return {
-      confirmed: false,
-      date: null,
-      reason: "invalid_last_payment_date",
-    };
-  }
-
-  const maxAge = maxHistoryAgeMs(row.billing_interval);
-  if (!maxAge || Date.now() - last.getTime() > maxAge) {
-    return {
-      confirmed: false,
-      date: null,
-      reason: "payment_history_too_old",
-    };
-  }
-
-  const inferred = inferNextPaymentAt(row, source);
-  if (!inferred.date || inferred.confidence !== "inferred_from_history") {
-    return {
-      confirmed: false,
-      date: null,
-      reason: "could_not_infer_next_date",
-    };
-  }
-
-  const next = new Date(inferred.date);
-  if (
-    Number.isNaN(next.getTime()) ||
-    next.getTime() <= Date.now() + 30 * 60 * 1000
-  ) {
-    return {
-      confirmed: false,
-      date: null,
-      reason: "inferred_date_not_safely_future",
+      result: "gocardless_amount_review" as const,
+      row: await loadSubscription(row.id),
+      evidence,
+      match: matchType,
     };
   }
 
   const now = new Date().toISOString();
-  await patchSubscription(row.id, {
-    next_payment_at: next.toISOString(),
+  const updated = await patchSubscription(row.id, {
+    payment_provider: "gocardless",
+    billing_provider: "gocardless",
+    external_customer_id: evidence.customerId,
+    external_mandate_id: evidence.mandateId,
+    processor_verification_status: "verified",
+    processor_verified_at: now,
+    last_payment_at: evidence.chargeDate,
+    last_payment_amount_pence: evidence.amountPence,
+    cutover_status: "gocardless_verified_pending_external_cutover",
+    collection_enabled: false,
+    teamup_billing_active: true,
     metadata: {
       ...metadata(row),
-      mtc_next_payment_auto_confirmed: true,
-      mtc_next_payment_auto_confirmed_at: now,
-      mtc_next_payment_auto_confirmed_from: "exact_recent_payment_history",
-      mtc_next_payment_history_amount_pence: lastAmount,
-      mtc_next_payment_history_at: lastPaymentAt,
+      mtc_gocardless_export_verified: true,
+      mtc_gocardless_export_verified_at: now,
+      mtc_gocardless_export_match: matchType,
+      mtc_gocardless_export_customer_id: evidence.customerId,
+      mtc_gocardless_export_mandate_id: evidence.mandateId,
+      mtc_gocardless_export_charge_date: evidence.chargeDate,
+      mtc_gocardless_export_amount_pence: evidence.amountPence,
+      mtc_gocardless_export_status: evidence.status,
+      mtc_gocardless_export_description: evidence.description,
     },
     migration_notes: appendMigrationNote(
       row,
-      `Next billing date ${next.toISOString()} auto-confirmed from recent exact-amount payment history (${lastAmount}p). TeamUp remains active; TOTS collection remains OFF.`,
+      `GoCardless payer and mandate verified from supplied export (${evidence.customerId} / ${evidence.mandateId}; ${evidence.amountPence}p; charge date ${evidence.chargeDate}; status ${evidence.status}). No new debit created. TeamUp remains active; TOTS collection remains OFF.`,
     ),
   });
 
   return {
-    confirmed: true,
-    date: next.toISOString(),
-    reason: "exact_recent_payment_history",
+    result: "gocardless_mandate_verified" as const,
+    row: updated,
+    evidence,
+    match: matchType,
   };
 }
 
 async function finishPaymentPreparation(accountId: string) {
   const allRows = await loadMigrationRows();
+
+  const duplicateOrHistorical = allRows.filter((row) => isMarkedDuplicate(row));
+  const accessOnly = allRows.filter(
+    (row) => !isMarkedDuplicate(row) && isKnownAccessOnlyDependent(row),
+  );
+  const nonRecurring = allRows.filter(
+    (row) =>
+      !isMarkedDuplicate(row) &&
+      !isKnownAccessOnlyDependent(row) &&
+      (!isRecurring(row) || Number(row.unit_amount_pence ?? 0) <= 0),
+  );
+
   const rows = allRows.filter(
     (row) =>
       !isMarkedDuplicate(row) &&
+      !isKnownAccessOnlyDependent(row) &&
       isRecurring(row) &&
       Number(row.unit_amount_pence ?? 0) > 0,
   );
@@ -4276,6 +4636,7 @@ async function finishPaymentPreparation(accountId: string) {
       const provider = await detectProvider(row);
 
       if (provider === "gocardless") {
+        const gc = await persistGoCardlessEvidence(row);
         results.push({
           subscriptionId: row.id,
           customerName: row.customer_name,
@@ -4283,9 +4644,13 @@ async function finishPaymentPreparation(accountId: string) {
           membership: row.legacy_membership_name,
           amountPence: row.unit_amount_pence,
           provider,
-          result: "gocardless_ready_for_separate_cutover",
-          mandateId: row.external_mandate_id ?? null,
-          externalCustomerId: row.external_customer_id ?? null,
+          result: gc.result,
+          match: gc.match,
+          externalCustomerId: gc.evidence?.customerId ?? row.external_customer_id ?? null,
+          mandateId: gc.evidence?.mandateId ?? row.external_mandate_id ?? null,
+          exportedChargeDate: gc.evidence?.chargeDate ?? null,
+          exportedAmountPence: gc.evidence?.amountPence ?? null,
+          exportedStatus: gc.evidence?.status ?? null,
         });
         continue;
       }
@@ -4340,16 +4705,15 @@ async function finishPaymentPreparation(accountId: string) {
             mtc_next_payment_confidence: proposed.confidence,
             mtc_next_payment_requires_confirmation: Boolean(proposed.date),
           },
-          migration_notes:
-            proposed.date
-              ? appendMigrationNote(
-                  row,
-                  `Proposed next billing date ${proposed.date} derived from legacy payment history. It has NOT been activated as a contractual billing date. TeamUp remains active; TOTS collection remains OFF.`,
-                )
-              : appendMigrationNote(
-                  row,
-                  "Stripe payment method verified but no reliable next billing date could be established. TeamUp remains active; TOTS collection remains OFF.",
-                ),
+          migration_notes: proposed.date
+            ? appendMigrationNote(
+                row,
+                `Proposed next billing date ${proposed.date} derived from legacy history. It is NOT a confirmed contractual billing date and has NOT been activated. TeamUp remains active; TOTS collection remains OFF.`,
+              )
+            : appendMigrationNote(
+                row,
+                "Stripe payment method verified but no confirmed next billing date is available. TeamUp remains active; TOTS collection remains OFF.",
+              ),
         });
 
         row = await loadSubscription(row.id);
@@ -4386,15 +4750,17 @@ async function finishPaymentPreparation(accountId: string) {
       const source = await getMigrationSource(fresh);
       const proposed = inferNextPaymentAt(fresh, source);
 
+      let result: string = scan.result;
       let reason = scan.message ?? scan.result;
+
       if (
         fresh.processor_verification_status === "verified" &&
         !fresh.next_payment_at
       ) {
-        reason =
-          proposed.date
-            ? `Payment method verified. Proposed next billing date is ${proposed.date}, but it still requires confirmation before a Stripe subscription is prepared.`
-            : "Payment method verified, but no reliable next billing date could be established.";
+        result = "stripe_date_confirmation_required";
+        reason = proposed.date
+          ? `Payment method verified. Proposed next billing date is ${proposed.date}, but it requires confirmation before a Stripe subscription is prepared.`
+          : "Payment method verified, but no confirmed next billing date is available.";
       }
 
       results.push({
@@ -4404,8 +4770,9 @@ async function finishPaymentPreparation(accountId: string) {
         membership: fresh.legacy_membership_name,
         amountPence: fresh.unit_amount_pence,
         provider,
-        result: scan.result,
+        result,
         reason,
+        proposedNextPaymentAt: proposed.date ?? null,
         candidates: scan.candidates ?? null,
         cardReadyCandidates: scan.cardReadyCandidates ?? null,
       });
@@ -4425,14 +4792,14 @@ async function finishPaymentPreparation(accountId: string) {
   const count = (result: string) =>
     results.filter((item) => item.result === result).length;
 
-  const readyStripe = results.filter((item) =>
+  const stripeReady = results.filter((item) =>
     ["stripe_prepared_now", "stripe_already_prepared"].includes(
       String(item.result),
     ),
   );
 
-  const goCardless = results.filter(
-    (item) => item.result === "gocardless_ready_for_separate_cutover",
+  const gcVerified = results.filter(
+    (item) => item.result === "gocardless_mandate_verified",
   );
 
   const exceptions = results.filter(
@@ -4440,37 +4807,42 @@ async function finishPaymentPreparation(accountId: string) {
       ![
         "stripe_prepared_now",
         "stripe_already_prepared",
-        "gocardless_ready_for_separate_cutover",
+        "gocardless_mandate_verified",
       ].includes(String(item.result)),
   );
 
   return {
     recurringPaidMemberships: rows.length,
-    stripeReadyForTomorrow: readyStripe.length,
+    excludedNonRecurring: nonRecurring.length,
+    duplicatesHistoricalExcluded: duplicateOrHistorical.length,
+    accessOnlyDependentsExcluded: accessOnly.length,
+
+    stripeReadyForTomorrow: stripeReady.length,
     stripeAlreadyPrepared: count("stripe_already_prepared"),
     stripePreparedNow: count("stripe_prepared_now"),
-    goCardlessRecurring: goCardless.length,
+    stripeDateConfirmationRequired: count("stripe_date_confirmation_required"),
+    stripeNoSafeCustomer: count("customer_not_found"),
+    stripeNoPaymentMethod: count("no_payment_method"),
+    stripeMultipleCustomers: count("multiple_card_customers"),
+    stripeNoEmail: count("no_email"),
+
+    goCardlessVerifiedMandates: gcVerified.length,
+    goCardlessMandateMissing: count("gocardless_mandate_missing"),
+    goCardlessAmountReview: count("gocardless_amount_review"),
+
+    unknownProvider: count("provider_review"),
+    errors: count("error"),
     unresolved: exceptions.length,
-    unresolvedBreakdown: {
-      customerNotFound: count("customer_not_found"),
-      noPaymentMethod: count("no_payment_method"),
-      multipleCardCustomers: count("multiple_card_customers"),
-      noEmail: count("no_email"),
-      unknownProvider: count("provider_review"),
-      errors: count("error"),
-      verifiedButDateStillUnconfirmed: exceptions.filter(
-        (item) =>
-          String(item.reason ?? "").includes(
-            "next billing date is not safely confirmable",
-          ),
-      ).length,
-    },
+
+    goCardlessVerified: gcVerified,
     exceptions,
-    goCardless,
+
     safety: {
       paymentsCollected: 0,
+      goCardlessDebitsCreated: 0,
       teamupBillingDisabled: 0,
       totsCollectionEnabled: 0,
+      inferredStripeDatesActivated: 0,
       existingPreparedSubscriptionsPreserved: true,
     },
   };

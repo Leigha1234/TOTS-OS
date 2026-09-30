@@ -54,14 +54,38 @@ if (!stripeSecretKey) {
   );
 }
 
+// Narrow the validated environment values for TypeScript.
+const validatedSupabaseUrl:
+  string =
+    supabaseUrl;
+
+const validatedSupabaseServiceRoleKey:
+  string =
+    supabaseServiceRoleKey;
+
+const validatedStripeSecretKey:
+  string =
+    stripeSecretKey;
+
+// ============================================================
+// STRIPE API VERSION
+//
+// Accounts v2 requires an explicit Stripe-Version header.
+// This is the same stable version already proven by the
+// read-only production diagnostic.
+// ============================================================
+
+const STRIPE_V2_VERSION =
+  "2026-08-26.dahlia";
+
 // ============================================================
 // CLIENTS
 // ============================================================
 
 const supabaseAdmin =
   createClient(
-    supabaseUrl,
-    supabaseServiceRoleKey,
+    validatedSupabaseUrl,
+    validatedSupabaseServiceRoleKey,
     {
       auth: {
         autoRefreshToken:
@@ -75,7 +99,7 @@ const supabaseAdmin =
 
 const stripe =
   new Stripe(
-    stripeSecretKey
+    validatedStripeSecretKey
   );
 
 // ============================================================
@@ -122,6 +146,103 @@ type OrganisationResult = {
     string;
 };
 
+type StripeV2ErrorResponse = {
+  error?: {
+    code?:
+      string;
+
+    message?:
+      string;
+
+    type?:
+      string;
+
+    param?:
+      string | null;
+  };
+};
+
+type StripeV2AccountResponse = {
+  id?:
+    string;
+
+  object?:
+    string;
+
+  livemode?:
+    boolean;
+
+  display_name?:
+    string;
+
+  contact_email?:
+    string;
+
+  applied_configurations?:
+    string[];
+};
+
+// ============================================================
+// CUSTOM V2 ERROR
+// ============================================================
+
+class StripeV2RequestError
+  extends Error {
+  statusCode:
+    number;
+
+  code:
+    string | null;
+
+  requestId:
+    string | null;
+
+  stripeType:
+    string | null;
+
+  constructor({
+    message,
+    statusCode,
+    code,
+    requestId,
+    stripeType,
+  }: {
+    message:
+      string;
+
+    statusCode:
+      number;
+
+    code:
+      string | null;
+
+    requestId:
+      string | null;
+
+    stripeType:
+      string | null;
+  }) {
+    super(
+      message
+    );
+
+    this.name =
+      "StripeV2RequestError";
+
+    this.statusCode =
+      statusCode;
+
+    this.code =
+      code;
+
+    this.requestId =
+      requestId;
+
+    this.stripeType =
+      stripeType;
+  }
+}
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -138,6 +259,31 @@ function cleanString(
   }
 
   return value.trim();
+}
+
+async function readJsonSafely(
+  response:
+    Response
+) {
+  const text =
+    await response.text();
+
+  if (
+    !text
+  ) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(
+      text
+    ) as unknown;
+  } catch {
+    return {
+      raw:
+        text,
+    };
+  }
 }
 
 // ============================================================
@@ -291,10 +437,6 @@ async function getOrganisation(
   userId:
     string
 ): Promise<OrganisationResult> {
-  // ==========================================================
-  // PRIMARY: PROFILE
-  // ==========================================================
-
   const {
     data:
       profile,
@@ -326,10 +468,6 @@ async function getOrganisation(
       profile
         ?.organisation_id
     );
-
-  // ==========================================================
-  // FALLBACK: USER ORGANISATIONS
-  // ==========================================================
 
   if (
     !organisationId
@@ -371,10 +509,6 @@ async function getOrganisation(
         );
     }
   }
-
-  // ==========================================================
-  // FALLBACK: ORGANISATION MEMBERS
-  // ==========================================================
 
   if (
     !organisationId
@@ -425,10 +559,6 @@ async function getOrganisation(
     );
   }
 
-  // ==========================================================
-  // LOAD ORGANISATION
-  // ==========================================================
-
   const {
     data:
       organisation,
@@ -475,11 +605,6 @@ async function getOrganisation(
 
 // ============================================================
 // STRIPE MANAGEMENT PERMISSION
-//
-// Only owners/admins should be able to connect or replace the
-// Stripe account receiving store funds.
-//
-// This is enforced server-side.
 // ============================================================
 
 async function assertStripeManagementPermission({
@@ -501,10 +626,6 @@ async function assertStripeManagementPermission({
 
   let recognisedMembership =
     false;
-
-  // ==========================================================
-  // TEAM MEMBERS
-  // ==========================================================
 
   try {
     const {
@@ -568,10 +689,6 @@ async function assertStripeManagementPermission({
     );
   }
 
-  // ==========================================================
-  // ORGANISATION MEMBERS
-  // ==========================================================
-
   try {
     const {
       data:
@@ -633,10 +750,6 @@ async function assertStripeManagementPermission({
       error
     );
   }
-
-  // ==========================================================
-  // USER ORGANISATIONS
-  // ==========================================================
 
   try {
     const {
@@ -700,10 +813,6 @@ async function assertStripeManagementPermission({
     );
   }
 
-  // ==========================================================
-  // PROFILE ROLE
-  // ==========================================================
-
   try {
     const {
       data:
@@ -765,13 +874,6 @@ async function assertStripeManagementPermission({
       error
     );
   }
-
-  // ==========================================================
-  // ORGANISATION OWNER FALLBACK
-  //
-  // Some older organisations may store their owner directly
-  // on organisations rather than in a membership table.
-  // ==========================================================
 
   try {
     const {
@@ -840,10 +942,6 @@ async function assertStripeManagementPermission({
     );
   }
 
-  // ==========================================================
-  // DENY
-  // ==========================================================
-
   if (
     recognisedMembership
   ) {
@@ -851,13 +949,6 @@ async function assertStripeManagementPermission({
       "STRIPE_MANAGEMENT_FORBIDDEN"
     );
   }
-
-  /*
-   * Fail closed.
-   *
-   * If we cannot prove this user is an owner/admin, do not let
-   * them choose the account that receives business money.
-   */
 
   throw new Error(
     "STRIPE_MANAGEMENT_FORBIDDEN"
@@ -915,6 +1006,10 @@ async function getExistingStripeConnection(
 
 // ============================================================
 // SAVE STRIPE CONNECTION
+//
+// Accounts created through Accounts v2 still use acct_ IDs.
+// We retrieve that account through the Stripe SDK before this
+// function is called, preserving the existing TOTS DB schema.
 // ============================================================
 
 async function saveStripeConnection({
@@ -1025,10 +1120,22 @@ async function saveStripeConnection({
 }
 
 // ============================================================
-// CREATE CONNECTED ACCOUNT
+// CREATE CONNECTED ACCOUNT — ACCOUNTS V2
+//
+// IMPORTANT:
+//
+// - Uses POST /v2/core/accounts.
+// - Merchant configuration requests card payments.
+// - Stripe collects Stripe processing fees.
+// - Stripe is responsible for connected-account losses.
+// - Connected business receives the full Stripe Dashboard.
+// - This DOES NOT create a customer subscription.
+// - This DOES NOT charge any MTC member.
+// - This DOES NOT turn TOTS collection on.
+// - This DOES NOT disable TeamUp billing.
 // ============================================================
 
-async function createConnectedAccount({
+async function createConnectedAccountV2({
   organisationId,
   organisationName,
   email,
@@ -1046,51 +1153,244 @@ async function createConnectedAccount({
   userId:
     string;
 }) {
-  const account =
-    await stripe
-      .accounts
-      .create({
-        type:
-          "express",
+  const payload = {
+    contact_email:
+      email ||
+      undefined,
 
-        country:
-          "GB",
+    display_name:
+      organisationName,
 
-        email:
-          email ||
-          undefined,
+    identity: {
+      country:
+        "gb",
+    },
 
-        business_profile: {
-          name:
-            organisationName,
-        },
-
+    configuration: {
+      merchant: {
         capabilities: {
           card_payments: {
             requested:
               true,
           },
+        },
+      },
+    },
 
-          transfers: {
-            requested:
-              true,
-          },
+    defaults: {
+      responsibilities: {
+        fees_collector:
+          "stripe",
+
+        losses_collector:
+          "stripe",
+      },
+    },
+
+    dashboard:
+      "full",
+
+    metadata: {
+      organisation_id:
+        organisationId,
+
+      tots_user_id:
+        userId,
+
+      platform:
+        "tots-os",
+
+      module:
+        "store",
+    },
+
+    include: [
+      "configuration.merchant",
+      "identity",
+      "defaults",
+      "requirements",
+    ],
+  };
+
+  const response =
+    await fetch(
+      "https://api.stripe.com/v2/core/accounts",
+      {
+        method:
+          "POST",
+
+        headers: {
+          Authorization:
+            `Bearer ${validatedStripeSecretKey}`,
+
+          "Stripe-Version":
+            STRIPE_V2_VERSION,
+
+          "Content-Type":
+            "application/json",
+
+          Accept:
+            "application/json",
         },
 
-        metadata: {
-          organisation_id:
-            organisationId,
+        body:
+          JSON.stringify(
+            payload
+          ),
 
-          tots_user_id:
-            userId,
+        cache:
+          "no-store",
+      }
+    );
 
-          platform:
-            "tots-os",
+  const responseBody =
+    await readJsonSafely(
+      response
+    );
 
-          module:
-            "store",
-        },
-      });
+  const requestId =
+    response.headers.get(
+      "request-id"
+    ) ||
+    response.headers.get(
+      "stripe-request-id"
+    ) ||
+    null;
+
+  if (
+    !response.ok
+  ) {
+    const errorBody =
+      (
+        responseBody ||
+        {}
+      ) as StripeV2ErrorResponse;
+
+    const message =
+      cleanString(
+        errorBody
+          .error
+          ?.message
+      ) ||
+      "Stripe could not create the connected account.";
+
+    const code =
+      cleanString(
+        errorBody
+          .error
+          ?.code
+      ) ||
+      null;
+
+    const stripeType =
+      cleanString(
+        errorBody
+          .error
+          ?.type
+      ) ||
+      null;
+
+    console.error(
+      "[TOTS STRIPE] Accounts v2 account creation failed:",
+      {
+        status:
+          response.status,
+
+        code,
+
+        requestId,
+
+        stripeType,
+
+        message,
+      }
+    );
+
+    throw new StripeV2RequestError({
+      message,
+
+      statusCode:
+        response.status,
+
+      code,
+
+      requestId,
+
+      stripeType,
+    });
+  }
+
+  const v2Account =
+    responseBody as
+      StripeV2AccountResponse;
+
+  const accountId =
+    cleanString(
+      v2Account
+        ?.id
+    );
+
+  if (
+    !accountId ||
+    !accountId.startsWith(
+      "acct_"
+    )
+  ) {
+    console.error(
+      "[TOTS STRIPE] Accounts v2 returned an invalid account response:",
+      responseBody
+    );
+
+    throw new Error(
+      "Stripe created an unexpected connected-account response."
+    );
+  }
+
+  console.log(
+    "[TOTS STRIPE] Accounts v2 connected account created:",
+    {
+      organisationId,
+
+      accountId,
+
+      livemode:
+        v2Account
+          .livemode ===
+        true,
+
+      appliedConfigurations:
+        v2Account
+          .applied_configurations ||
+        [],
+    }
+  );
+
+  /*
+   * The rest of TOTS currently stores/reads the standard acct_
+   * ID and expects Stripe.Account status fields. Retrieve the
+   * newly-created account using the existing Stripe SDK so we
+   * can keep the current DB and Store UI unchanged.
+   */
+  const accountResult =
+    await stripe
+      .accounts
+      .retrieve(
+        accountId
+      );
+
+  if (
+    "deleted" in
+      accountResult &&
+    accountResult.deleted
+  ) {
+    throw new Error(
+      "Stripe created the connected account but it could not be retrieved."
+    );
+  }
+
+  const account =
+    accountResult as
+      Stripe.Account;
 
   await saveStripeConnection({
     organisationId,
@@ -1187,9 +1487,6 @@ export async function POST(
 
     // ========================================================
     // AUTHORISATION
-    //
-    // Connecting Stripe determines where customer payments go,
-    // therefore only an owner/admin may perform this action.
     // ========================================================
 
     await assertStripeManagementPermission({
@@ -1279,10 +1576,6 @@ export async function POST(
             .stripe_account_id
         );
 
-      // ======================================================
-      // ACCOUNT EXISTS IN STRIPE
-      // ======================================================
-
       if (
         account
       ) {
@@ -1293,15 +1586,11 @@ export async function POST(
         });
       }
 
-      // ======================================================
-      // DATABASE REFERENCES AN ACCOUNT THAT NO LONGER EXISTS
-      // ======================================================
-
       if (
         !account
       ) {
         console.warn(
-          `[TOTS STRIPE] Connected account ${existingConnection.stripe_account_id} no longer exists in Stripe. Creating a replacement.`
+          `[TOTS STRIPE] Connected account ${existingConnection.stripe_account_id} no longer exists in Stripe. Removing stale local connection before creating a replacement.`
         );
 
         const {
@@ -1327,14 +1616,14 @@ export async function POST(
     }
 
     // ========================================================
-    // CREATE ACCOUNT IF REQUIRED
+    // CREATE ACCOUNT IF REQUIRED — V2
     // ========================================================
 
     if (
       !account
     ) {
       account =
-        await createConnectedAccount({
+        await createConnectedAccountV2({
           organisationId,
 
           organisationName,
@@ -1375,8 +1664,9 @@ export async function POST(
     // ========================================================
     // ACCOUNT LINK
     //
-    // Account Links are single-use, so a fresh one is created
-    // each time the user presses Connect / Continue setup.
+    // Account Links are single-use. A fresh onboarding link is
+    // created whenever the owner/admin presses Connect or
+    // Continue setup.
     // ========================================================
 
     const accountLink =
@@ -1422,6 +1712,9 @@ export async function POST(
         accountId:
           account.id,
 
+        accountCreationApi:
+          "v2",
+
         chargesEnabled:
           account
             .charges_enabled,
@@ -1453,13 +1746,12 @@ export async function POST(
         accountId:
           account.id,
 
+        accountCreationApi:
+          "v2",
+
         onboardingUrl:
           accountLink.url,
 
-        /*
-         * Keep url as well because your current Store page can
-         * continue reading result.url.
-         */
         url:
           accountLink.url,
 
@@ -1588,7 +1880,52 @@ export async function POST(
     }
 
     // ========================================================
-    // STRIPE ERROR
+    // STRIPE ACCOUNTS V2 ERROR
+    // ========================================================
+
+    if (
+      error instanceof
+        StripeV2RequestError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message,
+
+          stripeError:
+            true,
+
+          stripeApi:
+            "v2",
+
+          type:
+            error.stripeType,
+
+          code:
+            error.code,
+
+          requestId:
+            error.requestId,
+        },
+        {
+          status:
+            error.statusCode >=
+              400 &&
+            error.statusCode <
+              600
+              ? error.statusCode
+              : 500,
+
+          headers: {
+            "Cache-Control":
+              "no-store",
+          },
+        }
+      );
+    }
+
+    // ========================================================
+    // STRIPE SDK / V1 ERROR
     // ========================================================
 
     if (
@@ -1603,6 +1940,9 @@ export async function POST(
 
           stripeError:
             true,
+
+          stripeApi:
+            "v1",
 
           type:
             error.type,

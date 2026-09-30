@@ -164,13 +164,34 @@ export async function POST(req: Request) {
       }
 
       const customerId = await ensureCustomer(row, accountId);
-      const origin = new URL(req.url).origin;
+
+      // Do not rely on req.url here. In some deployments/proxies it may not be
+      // a valid absolute URL, which causes: "The string did not match the expected pattern."
+      const configuredOrigin = text(process.env.NEXT_PUBLIC_APP_URL) || text(process.env.APP_URL);
+      const forwardedProto = text(req.headers.get("x-forwarded-proto")) || "https";
+      const forwardedHost = text(req.headers.get("x-forwarded-host")) || text(req.headers.get("host"));
+      const origin = configuredOrigin
+        ? configuredOrigin.replace(/\/$/, "")
+        : forwardedHost
+          ? `${forwardedProto}://${forwardedHost}`
+          : "https://tots-os.co.uk";
+
+      const successUrl = new URL("/store", origin);
+      successUrl.searchParams.set("billing_setup", "success");
+      successUrl.searchParams.set("subscription", row.id);
+      // Stripe replaces this literal placeholder after Checkout completes.
+      successUrl.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
+
+      const cancelUrl = new URL("/store", origin);
+      cancelUrl.searchParams.set("billing_setup", "cancelled");
+      cancelUrl.searchParams.set("subscription", row.id);
+
       const session = await stripe.checkout.sessions.create(
         {
           mode: "setup",
           customer: customerId,
-          success_url: `${origin}/store?billing_setup=success&subscription=${encodeURIComponent(row.id)}&session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${origin}/store?billing_setup=cancelled&subscription=${encodeURIComponent(row.id)}`,
+          success_url: successUrl.toString(),
+          cancel_url: cancelUrl.toString(),
           metadata: { tots_store_subscription_id: row.id, organisation_id: row.organisation_id, migration_source: "teamup" },
           payment_method_types: ["card"],
         },
@@ -231,7 +252,7 @@ export async function POST(req: Request) {
 
     // ACTIVATE: intentionally requires TeamUp to have been manually stopped first.
     if (row.collection_enabled) return NextResponse.json({ success: true, alreadyActive: true });
-    if (row.cutover_status !== "payment_method_ready") {
+    if (!["payment_method_ready", "teamup_stopped"].includes(row.cutover_status)) {
       return NextResponse.json({ error: "Verify the member’s TOTS payment setup before activation." }, { status: 400 });
     }
     if (row.teamup_billing_active !== false) {

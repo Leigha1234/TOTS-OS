@@ -4635,37 +4635,23 @@ function approvedMigrationBillingDate(
   row: StoreSubscription,
   proposedDate: string | null,
 ) {
-  // Explicitly approved by the operator on 30 Sep 2026:
-  // use each member's proposed date where one exists; otherwise monthly
-  // recurring memberships use the next 28th. This is migration-only logic.
-  if (proposedDate) return proposedDate;
+  // Migration approval: finalise an existing proposed billing date only.
+  // Never invent a fallback date and never default a member to the 28th.
+  // If no valid future proposal exists, leave the membership unresolved.
+  void row;
 
-  if (normaliseText(row.billing_interval) !== "month") return null;
+  if (!proposedDate) return null;
 
-  const now = new Date();
-  let candidate = new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    28,
-    9,
-    0,
-    0,
-    0,
-  ));
+  const parsed = new Date(proposedDate);
 
-  if (candidate.getTime() <= now.getTime()) {
-    candidate = new Date(Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth() + 1,
-      28,
-      9,
-      0,
-      0,
-      0,
-    ));
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.getTime() <= Date.now() + 30 * 60 * 1000
+  ) {
+    return null;
   }
 
-  return candidate.toISOString();
+  return parsed.toISOString();
 }
 
 async function finishPaymentPreparation(accountId: string) {
@@ -4772,18 +4758,16 @@ async function finishPaymentPreparation(accountId: string) {
             metadata: {
               ...metadata(row),
               mtc_proposed_next_payment_at: proposed.date,
-              mtc_next_payment_confidence: proposed.date
-                ? proposed.confidence
-                : "operator_approved_28th_fallback",
+              mtc_next_payment_confidence: proposed.confidence,
               mtc_next_payment_requires_confirmation: false,
-              mtc_next_payment_operator_approved: true,
-              mtc_next_payment_operator_approved_at: new Date().toISOString(),
+              mtc_next_payment_finalised_from_proposal: true,
+              mtc_next_payment_finalised_at: new Date().toISOString(),
+              mtc_next_payment_finalised_source:
+                "operator_approved_existing_proposal",
             },
             migration_notes: appendMigrationNote(
               row,
-              proposed.date
-                ? `Billing date ${approvedDate} confirmed for migration from the existing proposed date. TeamUp remains active; TOTS collection remains OFF until cutover.`
-                : `No legacy next billing date was available. Operator-approved migration fallback set to ${approvedDate} (next 28th). TeamUp remains active; TOTS collection remains OFF until cutover.`,
+              `Proposed billing date ${approvedDate} finalised for migration. This is the existing TOTS proposal; no fallback billing date was invented. TeamUp remains active and TOTS collection remains OFF until cutover.`,
             ),
           });
 
@@ -4914,7 +4898,10 @@ async function finishPaymentPreparation(accountId: string) {
       goCardlessDebitsCreated: 0,
       teamupBillingDisabled: 0,
       totsCollectionEnabled: 0,
-      inferredStripeDatesActivated: 0,
+      proposedStripeDatesFinalised: results.filter(
+        (item) => item.result === "stripe_prepared_now",
+      ).length,
+      fallbackStripeDatesInvented: 0,
       existingPreparedSubscriptionsPreserved: true,
     },
   };

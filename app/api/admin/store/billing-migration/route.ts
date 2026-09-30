@@ -35,6 +35,7 @@ const stripe = new Stripe(stripeSecretKey);
 // ============================================================
 
 type Action =
+  | "prepare_all_for_mtc_import"
   | "scan"
   | "scan_one"
   | "prepare_all"
@@ -46,14 +47,19 @@ type Action =
   | "activate"
   | "activate_all";
 
+type Provider = "stripe" | "gocardless" | "unknown";
+
 type StoreSubscription = {
   id: string;
   organisation_id: string;
 
+  order_id?: string | null;
   product_id: string | null;
 
+  customer_id?: string | null;
   customer_name: string | null;
   customer_email: string | null;
+  customer_phone?: string | null;
 
   stripe_account_id: string | null;
   stripe_customer_id: string | null;
@@ -62,13 +68,21 @@ type StoreSubscription = {
 
   external_customer_id: string | null;
   external_subscription_id: string | null;
+  external_membership_id?: string | null;
   external_mandate_id?: string | null;
 
   status: string | null;
 
+  quantity?: number | null;
   currency: string | null;
   unit_amount_pence: number | null;
   billing_interval: string | null;
+
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+
+  cancel_at_period_end?: boolean | null;
+  cancelled_at?: string | null;
 
   legacy_membership_name: string | null;
 
@@ -76,6 +90,10 @@ type StoreSubscription = {
   billing_provider: string | null;
 
   legacy_billing: boolean;
+  legacy_price?: boolean | null;
+
+  migrated_from?: string | null;
+  migrated_at?: string | null;
 
   next_payment_at: string | null;
   last_payment_at: string | null;
@@ -100,6 +118,47 @@ type StoreSubscription = {
   updated_at?: string | null;
 };
 
+type StoreProduct = {
+  id: string;
+  organisation_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  sku: string | null;
+  category: string | null;
+  price: number | string;
+  status: string;
+  is_active: boolean;
+  selling_model: string | null;
+  purchase_type: string;
+  billing_interval: string | null;
+  stripe_product_id: string | null;
+  stripe_price_id: string | null;
+  external_system: string | null;
+  external_plan_code: string | null;
+  beneficiary_mode: string;
+  product_type: string | null;
+};
+
+type ImportRow = {
+  mtc_migration_id: string | null;
+  member_name: string | null;
+  email: string | null;
+  teamup_membership: string | null;
+  membership_type: string | null;
+  payment_provider: string | null;
+  legacy_amount_pence: string | null;
+  amount_evidence: string | null;
+  external_customer_id: string | null;
+  gocardless_mandate_id: string | null;
+  access_mapping: string | null;
+  tots_product_id: string | null;
+  migration_decision: string | null;
+  migration_status: string | null;
+  remaining_issue: string | null;
+  matched_user_id: string | null;
+};
+
 type MigrationSource = {
   id?: string;
   member_name?: string | null;
@@ -120,7 +179,16 @@ type MigrationSource = {
   [key: string]: unknown;
 };
 
-type Provider = "stripe" | "gocardless" | "unknown";
+type Candidate = {
+  customer: Stripe.Customer;
+  paymentMethod: Stripe.PaymentMethod | null;
+
+  sources: Set<
+    "stripe_customer_id" | "external_customer_id" | "email"
+  >;
+
+  exactExternalId: boolean;
+};
 
 type ScanResult = {
   subscriptionId: string;
@@ -150,17 +218,6 @@ type ScanResult = {
   message?: string;
 };
 
-type Candidate = {
-  customer: Stripe.Customer;
-  paymentMethod: Stripe.PaymentMethod | null;
-
-  sources: Set<
-    "stripe_customer_id" | "external_customer_id" | "email"
-  >;
-
-  exactExternalId: boolean;
-};
-
 type PrepareCutoverResult = {
   subscriptionId: string;
   customerName: string | null;
@@ -176,6 +233,29 @@ type PrepareCutoverResult = {
   stripeStatus?: string | null;
   firstPaymentAt?: string | null;
   message?: string;
+};
+
+type ImportPreparationResult = {
+  migrationId: string | null;
+  memberName: string | null;
+  email: string | null;
+  membership: string | null;
+
+  result:
+    | "ready"
+    | "ready_billing_review"
+    | "duplicate"
+    | "exception";
+
+  subscriptionId?: string | null;
+  productId?: string | null;
+
+  billingProvider?: Provider;
+  billingStatus?: string;
+
+  reason?: string | null;
+
+  stripeSubscriptionId?: string | null;
 };
 
 // ============================================================
@@ -199,7 +279,6 @@ async function requireUser(req: NextRequest) {
         persistSession: false,
         autoRefreshToken: false,
       },
-
       global: {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -227,15 +306,13 @@ async function requireUser(req: NextRequest) {
 async function getConnectedAccount() {
   const { data, error } = await admin
     .from("store_stripe_accounts")
-    .select(
-      `
-        stripe_account_id,
-        charges_enabled,
-        payouts_enabled,
-        details_submitted,
-        onboarding_complete
-      `,
-    )
+    .select(`
+      stripe_account_id,
+      charges_enabled,
+      payouts_enabled,
+      details_submitted,
+      onboarding_complete
+    `)
     .eq("organisation_id", ORGANISATION_ID)
     .maybeSingle();
 
@@ -259,6 +336,76 @@ async function getConnectedAccount() {
     accountId,
     account,
   };
+}
+
+// ============================================================
+// GENERIC HELPERS
+// ============================================================
+
+function cleanText(value: unknown) {
+  return String(value ?? "").trim();
+}
+
+function normaliseText(value: unknown) {
+  return cleanText(value)
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function normaliseEmail(
+  email: string | null | undefined,
+) {
+  const value = cleanText(email).toLowerCase();
+
+  if (!value || value === "null") {
+    return "";
+  }
+
+  return value;
+}
+
+function parsePence(value: unknown) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  if (
+    !Number.isFinite(parsed) ||
+    parsed <= 0
+  ) {
+    return null;
+  }
+
+  return Math.round(parsed);
+}
+
+function metadata(row: StoreSubscription) {
+  return {
+    ...(row.metadata ?? {}),
+  } as Record<string, unknown>;
+}
+
+function appendMigrationNote(
+  row: StoreSubscription,
+  note: string,
+) {
+  const existing = String(row.migration_notes ?? "").trim();
+
+  if (!existing) {
+    return note;
+  }
+
+  if (existing.includes(note)) {
+    return existing;
+  }
+
+  return `${existing}\n${note}`;
 }
 
 // ============================================================
@@ -304,35 +451,24 @@ async function patchSubscription(
   return data as StoreSubscription;
 }
 
-function normaliseEmail(
-  email: string | null | undefined,
+async function patchImportRow(
+  migrationId: string | null,
+  values: Record<string, unknown>,
 ) {
-  return String(email ?? "")
-    .trim()
-    .toLowerCase();
-}
+  if (!migrationId) return;
 
-function metadata(row: StoreSubscription) {
-  return {
-    ...(row.metadata ?? {}),
-  } as Record<string, unknown>;
-}
+  const { error } = await admin
+    .from("mtc_member_migration_import")
+    .update(values)
+    .eq("mtc_migration_id", migrationId);
 
-function appendMigrationNote(
-  row: StoreSubscription,
-  note: string,
-) {
-  const existing = String(row.migration_notes ?? "").trim();
-
-  if (!existing) {
-    return note;
+  if (error) {
+    console.warn(
+      "[MTC IMPORT STATUS UPDATE]",
+      migrationId,
+      error,
+    );
   }
-
-  if (existing.includes(note)) {
-    return existing;
-  }
-
-  return `${existing}\n${note}`;
 }
 
 // ============================================================
@@ -377,18 +513,638 @@ function isMarkedDuplicate(
     return true;
   }
 
-  const notes = String(
-    row.migration_notes ?? "",
-  ).toLowerCase();
+  const notes = normaliseText(
+    row.migration_notes,
+  );
 
   return (
-    notes.includes(
-      "duplicate legacy record",
-    ) ||
-    notes.includes(
-      "do not collect",
-    )
+    notes.includes("duplicate legacy record") ||
+    notes.includes("do not collect")
   );
+}
+
+function importLooksHistoricalOrIgnored(
+  row: ImportRow,
+) {
+  const combined = normaliseText(
+    [
+      row.migration_decision,
+      row.migration_status,
+      row.remaining_issue,
+    ].join(" "),
+  );
+
+  return (
+    combined.includes("ignore historical") ||
+    combined.includes("historical") &&
+      combined.includes("ignore")
+  );
+}
+
+// ============================================================
+// LOAD TOTS IMPORT DATA
+// ============================================================
+
+async function loadImportRows() {
+  const { data, error } = await admin
+    .from("mtc_member_migration_import")
+    .select("*");
+
+  if (error) throw error;
+
+  return (data ?? []) as ImportRow[];
+}
+
+async function loadStoreProducts() {
+  const { data, error } = await admin
+    .from("store_products")
+    .select("*")
+    .eq("organisation_id", ORGANISATION_ID)
+    .eq("external_system", "mtc");
+
+  if (error) throw error;
+
+  return (data ?? []) as StoreProduct[];
+}
+
+async function loadAllStoreSubscriptions() {
+  const { data, error } = await admin
+    .from("store_subscriptions")
+    .select("*")
+    .eq("organisation_id", ORGANISATION_ID)
+    .order("created_at", {
+      ascending: true,
+    });
+
+  if (error) throw error;
+
+  return (data ?? []) as StoreSubscription[];
+}
+
+// ============================================================
+// PRODUCT RESOLUTION
+// ============================================================
+
+function productPricePence(product: StoreProduct) {
+  const value = Number(product.price);
+
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.round(value * 100);
+}
+
+function findProductById(
+  products: StoreProduct[],
+  id: string | null,
+) {
+  if (!id) return null;
+
+  return (
+    products.find(
+      (product) => product.id === id,
+    ) ?? null
+  );
+}
+
+function resolveProduct(
+  importRow: ImportRow,
+  products: StoreProduct[],
+  existingSubscription?: StoreSubscription | null,
+) {
+  // 1. Explicit imported TOTS product ID.
+  const explicit = findProductById(
+    products,
+    cleanText(importRow.tots_product_id) || null,
+  );
+
+  if (explicit) {
+    return explicit;
+  }
+
+  // 2. Existing subscription already has a product.
+  if (existingSubscription?.product_id) {
+    const existingProduct = findProductById(
+      products,
+      existingSubscription.product_id,
+    );
+
+    if (existingProduct) {
+      return existingProduct;
+    }
+  }
+
+  const membership =
+    normaliseText(importRow.teamup_membership);
+
+  const access =
+    normaliseText(importRow.access_mapping);
+
+  const type =
+    normaliseText(importRow.membership_type);
+
+  const combined =
+    `${membership} ${access} ${type}`.trim();
+
+  // 3. External plan-code matches.
+  for (const product of products) {
+    const code = normaliseText(
+      product.external_plan_code,
+    );
+
+    if (
+      code &&
+      (
+        membership === code ||
+        access === code ||
+        combined.includes(code)
+      )
+    ) {
+      return product;
+    }
+  }
+
+  // 4. Exact product-name match.
+  const exactName = products.find(
+    (product) =>
+      normaliseText(product.name) === membership ||
+      normaliseText(product.name) === access,
+  );
+
+  if (exactName) {
+    return exactName;
+  }
+
+  // 5. Known MTC legacy mappings.
+  const mappings: Array<{
+    tests: string[];
+    codes: string[];
+  }> = [
+    {
+      tests: [
+        "couples unlimited",
+        "couple unlimited",
+      ],
+      codes: [
+        "COUPLE_UNLIMITED",
+      ],
+    },
+    {
+      tests: [
+        "couples 3",
+        "couple 3",
+        "couples 3x",
+      ],
+      codes: [
+        "COUPLE_3PW",
+      ],
+    },
+    {
+      tests: [
+        "unlimited",
+      ],
+      codes: [
+        "ADULT_UNLIMITED",
+      ],
+    },
+    {
+      tests: [
+        "4 per week",
+        "4pw",
+      ],
+      codes: [
+        "LEGACY_ADULT_4PW",
+      ],
+    },
+    {
+      tests: [
+        "3 per week",
+        "3pw",
+      ],
+      codes: [
+        "ADULT_3PW",
+      ],
+    },
+    {
+      tests: [
+        "crossfit preteens",
+        "preteens",
+      ],
+      codes: [
+        "LEGACY_PRETEENS",
+      ],
+    },
+    {
+      tests: [
+        "kids 3",
+        "3pw kids",
+      ],
+      codes: [
+        "KID_3PW",
+      ],
+    },
+    {
+      tests: [
+        "kids 2",
+        "2pw kids",
+      ],
+      codes: [
+        "KID_2PW",
+      ],
+    },
+    {
+      tests: [
+        "kids 1",
+        "1pw kids",
+        "crossfit kids",
+      ],
+      codes: [
+        "KID_1PW",
+      ],
+    },
+  ];
+
+  for (const mapping of mappings) {
+    if (
+      !mapping.tests.some(
+        (test) => combined.includes(test),
+      )
+    ) {
+      continue;
+    }
+
+    for (const code of mapping.codes) {
+      const product = products.find(
+        (candidate) =>
+          normaliseText(
+            candidate.external_plan_code,
+          ) === normaliseText(code),
+      );
+
+      if (product) {
+        return product;
+      }
+    }
+  }
+
+  return null;
+}
+
+// ============================================================
+// CANONICAL SUBSCRIPTION MATCHING
+// ============================================================
+
+function sameMembership(
+  subscription: StoreSubscription,
+  importRow: ImportRow,
+) {
+  const importedMembership =
+    normaliseText(importRow.teamup_membership);
+
+  const storedMembership =
+    normaliseText(
+      subscription.legacy_membership_name,
+    );
+
+  if (
+    importedMembership &&
+    storedMembership &&
+    importedMembership === storedMembership
+  ) {
+    return true;
+  }
+
+  const importId =
+    cleanText(importRow.mtc_migration_id);
+
+  const meta =
+    metadata(subscription);
+
+  if (
+    importId &&
+    cleanText(
+      meta.mtc_migration_import_id,
+    ) === importId
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function findCanonicalExistingSubscription(
+  importRow: ImportRow,
+  subscriptions: StoreSubscription[],
+) {
+  const email =
+    normaliseEmail(importRow.email);
+
+  const name =
+    normaliseText(importRow.member_name);
+
+  const migrationId =
+    cleanText(importRow.mtc_migration_id);
+
+  const candidates =
+    subscriptions.filter(
+      (subscription) =>
+        !isMarkedDuplicate(subscription),
+    );
+
+  // Exact migration ID wins.
+  if (migrationId) {
+    const exactImport =
+      candidates.find(
+        (subscription) =>
+          cleanText(
+            metadata(subscription)
+              .mtc_migration_import_id,
+          ) === migrationId ||
+          cleanText(
+            subscription.external_membership_id,
+          ) === migrationId,
+      );
+
+    if (exactImport) {
+      return exactImport;
+    }
+  }
+
+  // Email + same membership.
+  if (email) {
+    const emailMembership =
+      candidates.filter(
+        (subscription) =>
+          normaliseEmail(
+            subscription.customer_email,
+          ) === email &&
+          sameMembership(
+            subscription,
+            importRow,
+          ),
+      );
+
+    if (emailMembership.length) {
+      return chooseBestCanonical(
+        emailMembership,
+      );
+    }
+  }
+
+  // Name + membership fallback.
+  if (name) {
+    const nameMembership =
+      candidates.filter(
+        (subscription) =>
+          normaliseText(
+            subscription.customer_name,
+          ) === name &&
+          sameMembership(
+            subscription,
+            importRow,
+          ),
+      );
+
+    if (nameMembership.length) {
+      return chooseBestCanonical(
+        nameMembership,
+      );
+    }
+  }
+
+  return null;
+}
+
+function chooseBestCanonical(
+  rows: StoreSubscription[],
+) {
+  return [...rows].sort(
+    (a, b) => {
+      function score(
+        row: StoreSubscription,
+      ) {
+        let value = 0;
+
+        if (row.stripe_subscription_id) {
+          value += 100;
+        }
+
+        if (
+          row.processor_verification_status ===
+          "verified"
+        ) {
+          value += 50;
+        }
+
+        if (row.stripe_customer_id) {
+          value += 25;
+        }
+
+        if (row.external_customer_id) {
+          value += 20;
+        }
+
+        if (row.external_mandate_id) {
+          value += 20;
+        }
+
+        if (row.product_id) {
+          value += 10;
+        }
+
+        if (row.next_payment_at) {
+          value += 10;
+        }
+
+        return value;
+      }
+
+      return score(b) - score(a);
+    },
+  )[0];
+}
+
+// ============================================================
+// CREATE CANONICAL STORE MEMBERSHIP
+// ============================================================
+
+async function createCanonicalSubscription(
+  importRow: ImportRow,
+  product: StoreProduct,
+) {
+  const amountFromImport =
+    parsePence(
+      importRow.legacy_amount_pence,
+    );
+
+  const amountFromProduct =
+    productPricePence(product);
+
+  const unitAmountPence =
+    amountFromImport ??
+    amountFromProduct;
+
+  const provider =
+    providerFromText(
+      importRow.payment_provider,
+    ) ??
+    (
+      looksLikeStripeCustomerId(
+        importRow.external_customer_id,
+      )
+        ? "stripe"
+        : looksLikeGoCardlessCustomerId(
+              importRow.external_customer_id,
+            ) ||
+            looksLikeGoCardlessMandate(
+              importRow.gocardless_mandate_id,
+            )
+          ? "gocardless"
+          : null
+    );
+
+  const now =
+    new Date().toISOString();
+
+  const billingInterval =
+    product.billing_interval ??
+    (
+      product.purchase_type ===
+      "subscription"
+        ? "month"
+        : null
+    );
+
+  const { data, error } = await admin
+    .from("store_subscriptions")
+    .insert({
+      organisation_id:
+        ORGANISATION_ID,
+
+      product_id:
+        product.id,
+
+      customer_name:
+        cleanText(
+          importRow.member_name,
+        ) || null,
+
+      customer_email:
+        normaliseEmail(
+          importRow.email,
+        ) || null,
+
+      status:
+        "active",
+
+      quantity:
+        1,
+
+      currency:
+        "gbp",
+
+      unit_amount_pence:
+        unitAmountPence,
+
+      billing_interval:
+        billingInterval,
+
+      billing_provider:
+        provider ??
+        "stripe",
+
+      payment_provider:
+        provider,
+
+      external_customer_id:
+        cleanText(
+          importRow.external_customer_id,
+        ) || null,
+
+      external_membership_id:
+        cleanText(
+          importRow.mtc_migration_id,
+        ) || null,
+
+      external_mandate_id:
+        cleanText(
+          importRow.gocardless_mandate_id,
+        ) || null,
+
+      legacy_billing:
+        true,
+
+      legacy_price:
+        true,
+
+      legacy_membership_name:
+        cleanText(
+          importRow.teamup_membership,
+        ) || product.name,
+
+      migrated_from:
+        "teamup",
+
+      migrated_at:
+        now,
+
+      processor_verification_status:
+        "unverified",
+
+      cutover_status:
+        "not_started",
+
+      collection_enabled:
+        false,
+
+      teamup_billing_active:
+        true,
+
+      metadata: {
+        mtc_migration_import_id:
+          importRow.mtc_migration_id,
+
+        mtc_access_mapping:
+          importRow.access_mapping,
+
+        mtc_membership_type:
+          importRow.membership_type,
+
+        mtc_migration_decision:
+          importRow.migration_decision,
+
+        mtc_import_original_status:
+          importRow.migration_status,
+
+        mtc_amount_evidence:
+          importRow.amount_evidence,
+
+        mtc_canonical_membership:
+          true,
+
+        mtc_app_import_ready:
+          true,
+
+        mtc_billing_review_required:
+          true,
+
+        mtc_created_by_bulk_app_prepare:
+          true,
+
+        mtc_created_by_bulk_app_prepare_at:
+          now,
+      },
+
+      migration_notes:
+        "Canonical TOTS membership created from MTC migration import. Ready for later MTC app import. Billing remains subject to migration review.",
+    })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+
+  return data as StoreSubscription;
 }
 
 // ============================================================
@@ -404,7 +1160,7 @@ async function getMigrationSources(
     row.customer_email,
   );
 
-  if (!email || email === "null") {
+  if (!email) {
     return [];
   }
 
@@ -485,9 +1241,7 @@ function looksLikeGoCardlessMandate(
 function providerFromText(
   value: unknown,
 ): Provider | null {
-  const text = String(value ?? "")
-    .trim()
-    .toLowerCase();
+  const text = normaliseText(value);
 
   if (!text) return null;
 
@@ -510,10 +1264,10 @@ async function detectProvider(
 ): Promise<Provider> {
   if (
     looksLikeStripeCustomerId(
-      row.external_customer_id,
+      row.stripe_customer_id,
     ) ||
     looksLikeStripeCustomerId(
-      row.stripe_customer_id,
+      row.external_customer_id,
     )
   ) {
     return "stripe";
@@ -593,9 +1347,9 @@ function isRecurring(
       "number" &&
     row.unit_amount_pence > 0 &&
     ["week", "month", "year"].includes(
-      String(
-        row.billing_interval ?? "",
-      ).toLowerCase(),
+      normaliseText(
+        row.billing_interval,
+      ),
     )
   );
 }
@@ -666,10 +1420,7 @@ async function listCustomersByEmail(
   const target =
     normaliseEmail(email);
 
-  if (
-    !target ||
-    target === "null"
-  ) {
+  if (!target) {
     return [];
   }
 
@@ -729,7 +1480,7 @@ async function listCustomersByEmail(
 }
 
 // ============================================================
-// PAYMENT METHOD HELPERS
+// PAYMENT METHODS
 // ============================================================
 
 function cardIsExpired(
@@ -803,7 +1554,7 @@ async function findReusablePaymentMethod(
         return paymentMethod;
       }
     } catch {
-      // Continue to attached cards.
+      // Continue.
     }
   }
 
@@ -876,9 +1627,7 @@ async function buildCandidates(
       map.get(customer.id);
 
     if (existing) {
-      existing.sources.add(
-        source,
-      );
+      existing.sources.add(source);
 
       if (
         source ===
@@ -934,10 +1683,7 @@ async function buildCandidates(
       row.customer_email,
     );
 
-  if (
-    email &&
-    email !== "null"
-  ) {
+  if (email) {
     const customers =
       await listCustomersByEmail(
         accountId,
@@ -982,10 +1728,6 @@ async function buildCandidates(
 
   return candidates;
 }
-
-// ============================================================
-// SAFE MATCHING
-// ============================================================
 
 async function selectSafeCustomer(
   row: StoreSubscription,
@@ -1302,7 +2044,7 @@ async function scanOne(
           "gocardless",
 
         message:
-          "GoCardless membership left untouched for separate migration.",
+          "GoCardless membership retained for separate billing migration.",
       };
     }
 
@@ -1329,10 +2071,7 @@ async function scanOne(
         row.customer_email,
       );
 
-    if (
-      !email ||
-      email === "null"
-    ) {
+    if (!email) {
       return {
         subscriptionId: row.id,
         customerName:
@@ -1442,9 +2181,6 @@ async function scanOne(
     const now =
       new Date().toISOString();
 
-    const meta =
-      metadata(row);
-
     await stripe.customers.update(
       selected.customer.id,
       {
@@ -1505,6 +2241,7 @@ async function scanOne(
           row.last_payment_amount_pence ??
           null,
 
+        // Only persist a confirmed date.
         next_payment_at:
           proposedNext.confidence ===
             "explicit" ||
@@ -1514,7 +2251,7 @@ async function scanOne(
             : row.next_payment_at,
 
         metadata: {
-          ...meta,
+          ...metadata(row),
 
           mtc_stripe_copy_reconciled:
             true,
@@ -1529,8 +2266,7 @@ async function scanOne(
             selected.customer.id,
 
           mtc_verified_payment_method_id:
-            selected
-              .paymentMethod.id,
+            selected.paymentMethod.id,
 
           mtc_customer_match_sources:
             Array.from(
@@ -1586,8 +2322,7 @@ async function scanOne(
         selected.customer.id,
 
       paymentMethodId:
-        selected
-          .paymentMethod.id,
+        selected.paymentMethod.id,
 
       candidates:
         selection.candidates.length,
@@ -1621,7 +2356,1601 @@ async function scanOne(
 }
 
 // ============================================================
-// LOAD MIGRATION RECORDS
+// PRICE
+// ============================================================
+
+async function ensureRecurringPrice(
+  row: StoreSubscription,
+  accountId: string,
+) {
+  if (
+    !row.unit_amount_pence ||
+    row.unit_amount_pence <= 0 ||
+    !row.billing_interval
+  ) {
+    throw new Error(
+      "Recurring billing details are incomplete.",
+    );
+  }
+
+  const expectedCurrency =
+    (
+      row.currency ??
+      "gbp"
+    ).toLowerCase();
+
+  const expectedInterval =
+    stripeInterval(
+      row.billing_interval,
+    );
+
+  if (
+    row.stripe_price_id
+  ) {
+    try {
+      const price =
+        await stripe.prices.retrieve(
+          row.stripe_price_id,
+          {},
+          {
+            stripeAccount:
+              accountId,
+          },
+        );
+
+      if (
+        price.active &&
+        price.unit_amount ===
+          row.unit_amount_pence &&
+        price.currency ===
+          expectedCurrency &&
+        price.recurring?.interval ===
+          expectedInterval
+      ) {
+        return price;
+      }
+    } catch {
+      // Create below.
+    }
+  }
+
+  const product =
+    await stripe.products.create(
+      {
+        name:
+          row.legacy_membership_name ??
+          "Moray Training Club Membership",
+
+        metadata: {
+          tots_store_subscription_id:
+            row.id,
+
+          mtc_migration:
+            "true",
+        },
+      },
+      {
+        stripeAccount:
+          accountId,
+
+        idempotencyKey:
+          `mtc-product-${row.id}`,
+      },
+    );
+
+  const price =
+    await stripe.prices.create(
+      {
+        product:
+          product.id,
+
+        currency:
+          expectedCurrency,
+
+        unit_amount:
+          row.unit_amount_pence,
+
+        recurring: {
+          interval:
+            expectedInterval,
+        },
+
+        metadata: {
+          tots_store_subscription_id:
+            row.id,
+
+          mtc_migration:
+            "true",
+        },
+      },
+      {
+        stripeAccount:
+          accountId,
+
+        idempotencyKey:
+          `mtc-price-${row.id}`,
+      },
+    );
+
+  await patchSubscription(
+    row.id,
+    {
+      stripe_price_id:
+        price.id,
+
+      metadata: {
+        ...metadata(row),
+
+        mtc_migration_product_id:
+          product.id,
+
+        mtc_migration_price_id:
+          price.id,
+      },
+    },
+  );
+
+  return price;
+}
+
+// ============================================================
+// PREPARED STRIPE SUBSCRIPTION
+// ============================================================
+
+function isUsablePreparedSubscription(
+  subscription:
+    Stripe.Subscription,
+) {
+  return ![
+    "canceled",
+    "incomplete_expired",
+  ].includes(
+    subscription.status,
+  );
+}
+
+async function retrievePreparedStripeSubscription(
+  row: StoreSubscription,
+  accountId: string,
+) {
+  if (
+    !row.stripe_subscription_id
+  ) {
+    return null;
+  }
+
+  try {
+    const subscription =
+      await stripe.subscriptions.retrieve(
+        row.stripe_subscription_id,
+        {},
+        {
+          stripeAccount:
+            accountId,
+        },
+      );
+
+    if (
+      !isUsablePreparedSubscription(
+        subscription,
+      )
+    ) {
+      return null;
+    }
+
+    return subscription;
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================
+// PREPARE CUTOVER
+// ============================================================
+
+async function prepareCutover(
+  row: StoreSubscription,
+  accountId: string,
+): Promise<PrepareCutoverResult> {
+  try {
+    if (
+      isMarkedDuplicate(row)
+    ) {
+      return {
+        subscriptionId:
+          row.id,
+
+        customerName:
+          row.customer_name,
+
+        email:
+          row.customer_email,
+
+        result:
+          "skipped",
+
+        message:
+          "Redundant duplicate record.",
+      };
+    }
+
+    if (
+      row.collection_enabled
+    ) {
+      return {
+        subscriptionId:
+          row.id,
+
+        customerName:
+          row.customer_name,
+
+        email:
+          row.customer_email,
+
+        result:
+          "skipped",
+
+        message:
+          "TOTS collection is already enabled.",
+      };
+    }
+
+    const existing =
+      await retrievePreparedStripeSubscription(
+        row,
+        accountId,
+      );
+
+    if (existing) {
+      await patchSubscription(
+        row.id,
+        {
+          metadata: {
+            ...metadata(row),
+
+            mtc_cutover_prepared:
+              true,
+
+            mtc_prepared_stripe_subscription_id:
+              existing.id,
+          },
+        },
+      );
+
+      return {
+        subscriptionId:
+          row.id,
+
+        customerName:
+          row.customer_name,
+
+        email:
+          row.customer_email,
+
+        result:
+          "already_prepared",
+
+        stripeSubscriptionId:
+          existing.id,
+
+        stripeStatus:
+          existing.status,
+
+        firstPaymentAt:
+          row.next_payment_at,
+      };
+    }
+
+    if (
+      row.processor_verification_status !==
+      "verified"
+    ) {
+      throw new Error(
+        "Stripe payment method is not verified.",
+      );
+    }
+
+    if (
+      !row.teamup_billing_active
+    ) {
+      throw new Error(
+        "TeamUp is already marked stopped.",
+      );
+    }
+
+    if (
+      !isRecurring(row)
+    ) {
+      throw new Error(
+        "Not a paid recurring membership.",
+      );
+    }
+
+    const provider =
+      await detectProvider(row);
+
+    if (
+      provider !== "stripe"
+    ) {
+      throw new Error(
+        "This preparation path is Stripe-only.",
+      );
+    }
+
+    if (
+      !row.stripe_customer_id
+    ) {
+      throw new Error(
+        "Stripe customer ID is missing.",
+      );
+    }
+
+    if (
+      !row.next_payment_at
+    ) {
+      throw new Error(
+        "Confirmed next_payment_at is missing.",
+      );
+    }
+
+    const nextPayment =
+      new Date(
+        row.next_payment_at,
+      );
+
+    if (
+      Number.isNaN(
+        nextPayment.getTime(),
+      )
+    ) {
+      throw new Error(
+        "next_payment_at is invalid.",
+      );
+    }
+
+    if (
+      nextPayment.getTime() <=
+      Date.now() +
+        30 * 60 * 1000
+    ) {
+      throw new Error(
+        "next_payment_at must be safely in the future.",
+      );
+    }
+
+    const customer =
+      await retrieveCustomer(
+        accountId,
+        row.stripe_customer_id,
+      );
+
+    if (!customer) {
+      throw new Error(
+        "Verified Stripe customer no longer exists.",
+      );
+    }
+
+    const paymentMethod =
+      await findReusablePaymentMethod(
+        accountId,
+        customer,
+      );
+
+    if (!paymentMethod) {
+      throw new Error(
+        "Verified Stripe customer no longer has a reusable card.",
+      );
+    }
+
+    await stripe.customers.update(
+      customer.id,
+      {
+        invoice_settings: {
+          default_payment_method:
+            paymentMethod.id,
+        },
+      },
+      {
+        stripeAccount:
+          accountId,
+      },
+    );
+
+    const price =
+      await ensureRecurringPrice(
+        row,
+        accountId,
+      );
+
+    const subscription =
+      await stripe.subscriptions.create(
+        {
+          customer:
+            customer.id,
+
+          items: [
+            {
+              price:
+                price.id,
+              quantity: 1,
+            },
+          ],
+
+          default_payment_method:
+            paymentMethod.id,
+
+          trial_end:
+            Math.floor(
+              nextPayment.getTime() /
+                1000,
+            ),
+
+          proration_behavior:
+            "none",
+
+          metadata: {
+            tots_store_subscription_id:
+              row.id,
+
+            mtc_migration:
+              "true",
+
+            migrated_from:
+              "teamup",
+
+            migration_stage:
+              "prepared_cutover",
+
+            legacy_membership:
+              row.legacy_membership_name ??
+              "",
+          },
+        },
+        {
+          stripeAccount:
+            accountId,
+
+          idempotencyKey:
+            `mtc-prepare-cutover-${row.id}`,
+        },
+      );
+
+    const verified =
+      await stripe.subscriptions.retrieve(
+        subscription.id,
+        {},
+        {
+          stripeAccount:
+            accountId,
+        },
+      );
+
+    if (
+      !isUsablePreparedSubscription(
+        verified,
+      )
+    ) {
+      throw new Error(
+        `Stripe created ${verified.id} but returned unusable status ${verified.status}.`,
+      );
+    }
+
+    const preparedAt =
+      new Date().toISOString();
+
+    await patchSubscription(
+      row.id,
+      {
+        stripe_account_id:
+          accountId,
+
+        stripe_customer_id:
+          customer.id,
+
+        stripe_subscription_id:
+          verified.id,
+
+        stripe_price_id:
+          price.id,
+
+        external_subscription_id:
+          verified.id,
+
+        payment_provider:
+          "stripe",
+
+        billing_provider:
+          "stripe",
+
+        status:
+          verified.status,
+
+        legacy_billing:
+          true,
+
+        collection_enabled:
+          false,
+
+        collection_enabled_at:
+          null,
+
+        teamup_billing_active:
+          true,
+
+        teamup_billing_disabled_at:
+          null,
+
+        cutover_status:
+          "verified",
+
+        processor_verification_status:
+          "verified",
+
+        metadata: {
+          ...metadata(row),
+
+          mtc_cutover_prepared:
+            true,
+
+          mtc_cutover_prepared_at:
+            preparedAt,
+
+          mtc_prepared_stripe_subscription_id:
+            verified.id,
+
+          mtc_prepared_payment_method_id:
+            paymentMethod.id,
+
+          mtc_prepared_price_id:
+            price.id,
+
+          mtc_first_tots_payment_at:
+            nextPayment.toISOString(),
+
+          mtc_teamup_still_active_at_prepare:
+            true,
+        },
+
+        migration_notes:
+          appendMigrationNote(
+            row,
+            `Replacement Stripe subscription ${verified.id} prepared with first intended billing date ${nextPayment.toISOString()}. TeamUp remains active. TOTS collection remains OFF until TeamUp is stopped.`,
+          ),
+      },
+    );
+
+    return {
+      subscriptionId:
+        row.id,
+
+      customerName:
+        row.customer_name,
+
+      email:
+        row.customer_email,
+
+      result:
+        "prepared",
+
+      stripeSubscriptionId:
+        verified.id,
+
+      stripeStatus:
+        verified.status,
+
+      firstPaymentAt:
+        nextPayment.toISOString(),
+
+      message:
+        "Replacement Stripe subscription prepared. No immediate membership charge requested.",
+    };
+  } catch (error) {
+    return {
+      subscriptionId:
+        row.id,
+
+      customerName:
+        row.customer_name,
+
+      email:
+        row.customer_email,
+
+      result:
+        "error",
+
+      message:
+        error instanceof Error
+          ? error.message
+          : "Unknown cutover preparation error.",
+    };
+  }
+}
+
+// ============================================================
+// MARK CANONICAL / APP READY
+// ============================================================
+
+async function markAppImportReady(
+  row: StoreSubscription,
+  importRow: ImportRow,
+  product: StoreProduct,
+  billingReviewRequired: boolean,
+  billingReason: string | null,
+) {
+  const now =
+    new Date().toISOString();
+
+  const updated =
+    await patchSubscription(
+      row.id,
+      {
+        product_id:
+          product.id,
+
+        customer_name:
+          row.customer_name ||
+          cleanText(
+            importRow.member_name,
+          ) ||
+          null,
+
+        customer_email:
+          row.customer_email ||
+          normaliseEmail(
+            importRow.email,
+          ) ||
+          null,
+
+        legacy_membership_name:
+          row.legacy_membership_name ||
+          cleanText(
+            importRow.teamup_membership,
+          ) ||
+          product.name,
+
+        external_membership_id:
+          row.external_membership_id ||
+          cleanText(
+            importRow.mtc_migration_id,
+          ) ||
+          null,
+
+        migrated_from:
+          row.migrated_from ||
+          "teamup",
+
+        migrated_at:
+          row.migrated_at ||
+          now,
+
+        metadata: {
+          ...metadata(row),
+
+          mtc_canonical_membership:
+            true,
+
+          mtc_app_import_ready:
+            true,
+
+          mtc_app_import_ready_at:
+            now,
+
+          mtc_migration_import_id:
+            importRow.mtc_migration_id,
+
+          mtc_access_mapping:
+            importRow.access_mapping,
+
+          mtc_membership_type:
+            importRow.membership_type,
+
+          mtc_migration_decision:
+            importRow.migration_decision,
+
+          mtc_import_original_status:
+            importRow.migration_status,
+
+          mtc_amount_evidence:
+            importRow.amount_evidence,
+
+          mtc_billing_review_required:
+            billingReviewRequired,
+
+          mtc_billing_review_reason:
+            billingReason,
+        },
+
+        migration_notes:
+          appendMigrationNote(
+            row,
+            billingReviewRequired
+              ? `Canonical TOTS membership is ready for MTC app import. Billing review required: ${billingReason ?? "manual billing review required"}.`
+              : "Canonical TOTS membership is ready for MTC app import.",
+          ),
+      },
+    );
+
+  return updated;
+}
+
+// ============================================================
+// PREPARE ONE IMPORT ROW
+// ============================================================
+
+async function prepareOneForMtcImport(
+  importRow: ImportRow,
+  products: StoreProduct[],
+  allSubscriptions: StoreSubscription[],
+  accountId: string,
+): Promise<ImportPreparationResult> {
+  const base = {
+    migrationId:
+      importRow.mtc_migration_id,
+
+    memberName:
+      importRow.member_name,
+
+    email:
+      importRow.email,
+
+    membership:
+      importRow.teamup_membership,
+  };
+
+  try {
+    if (
+      importLooksHistoricalOrIgnored(
+        importRow,
+      )
+    ) {
+      await patchImportRow(
+        importRow.mtc_migration_id,
+        {
+          migration_status:
+            "DUPLICATE / HISTORICAL",
+
+          remaining_issue:
+            "Historical/ignored migration record. Not included in canonical MTC import.",
+        },
+      );
+
+      return {
+        ...base,
+
+        result:
+          "duplicate",
+
+        reason:
+          "Historical/ignored migration record.",
+      };
+    }
+
+    let canonical =
+      findCanonicalExistingSubscription(
+        importRow,
+        allSubscriptions,
+      );
+
+    const product =
+      resolveProduct(
+        importRow,
+        products,
+        canonical,
+      );
+
+    if (!product) {
+      const reason =
+        `Could not resolve a TOTS Store product for "${importRow.teamup_membership ?? "unknown membership"}".`;
+
+      await patchImportRow(
+        importRow.mtc_migration_id,
+        {
+          migration_status:
+            "EXCEPTION",
+
+          remaining_issue:
+            reason,
+        },
+      );
+
+      return {
+        ...base,
+
+        result:
+          "exception",
+
+        reason,
+      };
+    }
+
+    if (!canonical) {
+      canonical =
+        await createCanonicalSubscription(
+          importRow,
+          product,
+        );
+
+      allSubscriptions.push(
+        canonical,
+      );
+    }
+
+    if (
+      isMarkedDuplicate(
+        canonical,
+      )
+    ) {
+      const reason =
+        "Matched Store subscription is marked as a redundant duplicate.";
+
+      await patchImportRow(
+        importRow.mtc_migration_id,
+        {
+          migration_status:
+            "DUPLICATE",
+
+          remaining_issue:
+            reason,
+        },
+      );
+
+      return {
+        ...base,
+
+        result:
+          "duplicate",
+
+        subscriptionId:
+          canonical.id,
+
+        productId:
+          product.id,
+
+        reason,
+      };
+    }
+
+    const provider =
+      await detectProvider(
+        canonical,
+      );
+
+    // --------------------------------------------------------
+    // NON-RECURRING
+    // --------------------------------------------------------
+
+    if (!isRecurring(canonical)) {
+      const ready =
+        await markAppImportReady(
+          canonical,
+          importRow,
+          product,
+          false,
+          null,
+        );
+
+      await patchImportRow(
+        importRow.mtc_migration_id,
+        {
+          migration_status:
+            "READY FOR MTC IMPORT",
+
+          remaining_issue:
+            null,
+        },
+      );
+
+      return {
+        ...base,
+
+        result:
+          "ready",
+
+        subscriptionId:
+          ready.id,
+
+        productId:
+          product.id,
+
+        billingProvider:
+          provider,
+
+        billingStatus:
+          "non_recurring",
+      };
+    }
+
+    // --------------------------------------------------------
+    // GOCARDLESS
+    // --------------------------------------------------------
+
+    if (
+      provider ===
+      "gocardless"
+    ) {
+      const mandate =
+        cleanText(
+          canonical.external_mandate_id,
+        ) ||
+        cleanText(
+          importRow.gocardless_mandate_id,
+        );
+
+      const reason =
+        mandate
+          ? "GoCardless membership is ready for app import but requires separate GoCardless cutover."
+          : "GoCardless membership is ready for app import but mandate/payment migration requires review.";
+
+      const ready =
+        await markAppImportReady(
+          canonical,
+          importRow,
+          product,
+          true,
+          reason,
+        );
+
+      await patchImportRow(
+        importRow.mtc_migration_id,
+        {
+          migration_status:
+            "READY FOR MTC IMPORT — BILLING REVIEW",
+
+          remaining_issue:
+            reason,
+        },
+      );
+
+      return {
+        ...base,
+
+        result:
+          "ready_billing_review",
+
+        subscriptionId:
+          ready.id,
+
+        productId:
+          product.id,
+
+        billingProvider:
+          "gocardless",
+
+        billingStatus:
+          mandate
+            ? "gocardless_cutover_required"
+            : "gocardless_mandate_review",
+
+        reason,
+      };
+    }
+
+    // --------------------------------------------------------
+    // UNKNOWN PROVIDER
+    // --------------------------------------------------------
+
+    if (
+      provider ===
+      "unknown"
+    ) {
+      const reason =
+        "Membership is ready for app import, but billing provider could not be safely identified.";
+
+      const ready =
+        await markAppImportReady(
+          canonical,
+          importRow,
+          product,
+          true,
+          reason,
+        );
+
+      await patchImportRow(
+        importRow.mtc_migration_id,
+        {
+          migration_status:
+            "READY FOR MTC IMPORT — BILLING REVIEW",
+
+          remaining_issue:
+            reason,
+        },
+      );
+
+      return {
+        ...base,
+
+        result:
+          "ready_billing_review",
+
+        subscriptionId:
+          ready.id,
+
+        productId:
+          product.id,
+
+        billingProvider:
+          "unknown",
+
+        billingStatus:
+          "provider_review",
+
+        reason,
+      };
+    }
+
+    // --------------------------------------------------------
+    // STRIPE — PRESERVE EXISTING PREPARED SUBSCRIPTION
+    // --------------------------------------------------------
+
+    const existingPrepared =
+      await retrievePreparedStripeSubscription(
+        canonical,
+        accountId,
+      );
+
+    if (existingPrepared) {
+      const ready =
+        await markAppImportReady(
+          canonical,
+          importRow,
+          product,
+          false,
+          null,
+        );
+
+      await patchImportRow(
+        importRow.mtc_migration_id,
+        {
+          migration_status:
+            "READY FOR MTC IMPORT",
+
+          remaining_issue:
+            null,
+        },
+      );
+
+      return {
+        ...base,
+
+        result:
+          "ready",
+
+        subscriptionId:
+          ready.id,
+
+        productId:
+          product.id,
+
+        billingProvider:
+          "stripe",
+
+        billingStatus:
+          "stripe_already_prepared",
+
+        stripeSubscriptionId:
+          existingPrepared.id,
+      };
+    }
+
+    // --------------------------------------------------------
+    // STRIPE — RECONCILE
+    // --------------------------------------------------------
+
+    const scan =
+      await scanOne(
+        canonical,
+        accountId,
+      );
+
+    const fresh =
+      await loadSubscription(
+        canonical.id,
+      );
+
+    // --------------------------------------------------------
+    // STRIPE VERIFIED + CONFIRMED DATE
+    // --------------------------------------------------------
+
+    if (
+      scan.result ===
+        "verified" &&
+      fresh.processor_verification_status ===
+        "verified" &&
+      fresh.next_payment_at
+    ) {
+      const prepared =
+        await prepareCutover(
+          fresh,
+          accountId,
+        );
+
+      if (
+        prepared.result ===
+          "prepared" ||
+        prepared.result ===
+          "already_prepared"
+      ) {
+        const newest =
+          await loadSubscription(
+            canonical.id,
+          );
+
+        const ready =
+          await markAppImportReady(
+            newest,
+            importRow,
+            product,
+            false,
+            null,
+          );
+
+        await patchImportRow(
+          importRow.mtc_migration_id,
+          {
+            migration_status:
+              "READY FOR MTC IMPORT",
+
+            remaining_issue:
+              null,
+          },
+        );
+
+        return {
+          ...base,
+
+          result:
+            "ready",
+
+          subscriptionId:
+            ready.id,
+
+          productId:
+            product.id,
+
+          billingProvider:
+            "stripe",
+
+          billingStatus:
+            prepared.result ===
+            "prepared"
+              ? "stripe_prepared"
+              : "stripe_already_prepared",
+
+          stripeSubscriptionId:
+            prepared.stripeSubscriptionId ??
+            null,
+        };
+      }
+    }
+
+    // --------------------------------------------------------
+    // STRIPE VERIFIED BUT NO CONFIRMED DATE
+    // --------------------------------------------------------
+
+    if (
+      fresh.processor_verification_status ===
+        "verified" &&
+      !fresh.next_payment_at
+    ) {
+      const reason =
+        "Stripe customer/payment method is verified, but the next billing date still needs confirmation.";
+
+      const ready =
+        await markAppImportReady(
+          fresh,
+          importRow,
+          product,
+          true,
+          reason,
+        );
+
+      await patchImportRow(
+        importRow.mtc_migration_id,
+        {
+          migration_status:
+            "READY FOR MTC IMPORT — BILLING REVIEW",
+
+          remaining_issue:
+            reason,
+        },
+      );
+
+      return {
+        ...base,
+
+        result:
+          "ready_billing_review",
+
+        subscriptionId:
+          ready.id,
+
+        productId:
+          product.id,
+
+        billingProvider:
+          "stripe",
+
+        billingStatus:
+          "billing_date_required",
+
+        reason,
+      };
+    }
+
+    // --------------------------------------------------------
+    // STRIPE CUSTOMER/PAYMENT EXCEPTIONS
+    // --------------------------------------------------------
+
+    let reason =
+      "Stripe billing requires manual review.";
+
+    let billingStatus =
+      "stripe_review";
+
+    if (
+      scan.result ===
+      "customer_not_found"
+    ) {
+      reason =
+        "No copied Stripe customer could be safely matched.";
+
+      billingStatus =
+        "stripe_customer_not_found";
+    }
+
+    if (
+      scan.result ===
+      "no_payment_method"
+    ) {
+      reason =
+        "Stripe customer exists but has no reusable payment card.";
+
+      billingStatus =
+        "stripe_payment_method_required";
+    }
+
+    if (
+      scan.result ===
+      "multiple_card_customers"
+    ) {
+      reason =
+        "Multiple card-ready Stripe customers matched this member; manual customer selection is required.";
+
+      billingStatus =
+        "stripe_multiple_customers";
+    }
+
+    if (
+      scan.result ===
+      "no_email"
+    ) {
+      reason =
+        "No usable member email is available for Stripe reconciliation.";
+
+      billingStatus =
+        "stripe_no_email";
+    }
+
+    if (
+      scan.result ===
+      "error"
+    ) {
+      reason =
+        scan.message ||
+        "Stripe reconciliation failed.";
+
+      billingStatus =
+        "stripe_error";
+    }
+
+    const ready =
+      await markAppImportReady(
+        fresh,
+        importRow,
+        product,
+        true,
+        reason,
+      );
+
+    await patchImportRow(
+      importRow.mtc_migration_id,
+      {
+        migration_status:
+          "READY FOR MTC IMPORT — BILLING REVIEW",
+
+        remaining_issue:
+          reason,
+      },
+    );
+
+    return {
+      ...base,
+
+      result:
+        "ready_billing_review",
+
+      subscriptionId:
+        ready.id,
+
+      productId:
+        product.id,
+
+      billingProvider:
+        "stripe",
+
+      billingStatus,
+
+      reason,
+    };
+  } catch (error) {
+    const reason =
+      error instanceof Error
+        ? error.message
+        : "Unknown migration preparation error.";
+
+    await patchImportRow(
+      importRow.mtc_migration_id,
+      {
+        migration_status:
+          "EXCEPTION",
+
+        remaining_issue:
+          reason,
+      },
+    );
+
+    return {
+      ...base,
+
+      result:
+        "exception",
+
+      reason,
+    };
+  }
+}
+
+// ============================================================
+// MAIN ONE-BUTTON PREPARATION
+// ============================================================
+
+async function prepareAllForMtcImport(
+  accountId: string,
+) {
+  const [
+    importRows,
+    products,
+    subscriptions,
+  ] =
+    await Promise.all([
+      loadImportRows(),
+      loadStoreProducts(),
+      loadAllStoreSubscriptions(),
+    ]);
+
+  const results:
+    ImportPreparationResult[] =
+    [];
+
+  /*
+   * Deliberately sequential.
+   *
+   * Some rows may perform Stripe reads/writes
+   * and may prepare real future-dated Stripe
+   * subscriptions.
+   */
+  for (const importRow of importRows) {
+    const result =
+      await prepareOneForMtcImport(
+        importRow,
+        products,
+        subscriptions,
+        accountId,
+      );
+
+    results.push(result);
+  }
+
+  const ready =
+    results.filter(
+      (x) =>
+        x.result ===
+        "ready",
+    );
+
+  const billingReview =
+    results.filter(
+      (x) =>
+        x.result ===
+        "ready_billing_review",
+    );
+
+  const duplicates =
+    results.filter(
+      (x) =>
+        x.result ===
+        "duplicate",
+    );
+
+  const exceptions =
+    results.filter(
+      (x) =>
+        x.result ===
+        "exception",
+    );
+
+  const stripeAlreadyPrepared =
+    results.filter(
+      (x) =>
+        x.billingStatus ===
+        "stripe_already_prepared",
+    ).length;
+
+  const stripePrepared =
+    results.filter(
+      (x) =>
+        x.billingStatus ===
+        "stripe_prepared",
+    ).length;
+
+  const stripePaymentSetupRequired =
+    results.filter(
+      (x) =>
+        x.billingStatus ===
+          "stripe_payment_method_required" ||
+        x.billingStatus ===
+          "stripe_customer_not_found",
+    ).length;
+
+  const stripeDateReview =
+    results.filter(
+      (x) =>
+        x.billingStatus ===
+        "billing_date_required",
+    ).length;
+
+  const goCardlessReview =
+    results.filter(
+      (x) =>
+        x.billingProvider ===
+        "gocardless" &&
+        x.result ===
+        "ready_billing_review",
+    ).length;
+
+  const canonicalIds =
+    new Set(
+      results
+        .filter(
+          (x) =>
+            x.result ===
+              "ready" ||
+            x.result ===
+              "ready_billing_review",
+        )
+        .map(
+          (x) =>
+            x.subscriptionId,
+        )
+        .filter(
+          (
+            value,
+          ): value is string =>
+            Boolean(value),
+        ),
+    );
+
+  return {
+    processed:
+      results.length,
+
+    canonicalMemberships:
+      canonicalIds.size,
+
+    readyForMtcImport:
+      ready.length +
+      billingReview.length,
+
+    fullyReady:
+      ready.length,
+
+    readyBillingReview:
+      billingReview.length,
+
+    duplicateOrHistorical:
+      duplicates.length,
+
+    exceptions:
+      exceptions.length,
+
+    billing: {
+      stripeAlreadyPrepared,
+      stripeNewlyPrepared:
+        stripePrepared,
+
+      stripePaymentSetupRequired,
+
+      stripeBillingDateReview:
+        stripeDateReview,
+
+      goCardlessReview,
+    },
+
+    exceptionList:
+      exceptions.map(
+        (item) => ({
+          name:
+            item.memberName,
+
+          email:
+            item.email,
+
+          membership:
+            item.membership,
+
+          reason:
+            item.reason,
+        }),
+      ),
+
+    billingReviewList:
+      billingReview.map(
+        (item) => ({
+          name:
+            item.memberName,
+
+          email:
+            item.email,
+
+          membership:
+            item.membership,
+
+          provider:
+            item.billingProvider,
+
+          status:
+            item.billingStatus,
+
+          reason:
+            item.reason,
+        }),
+      ),
+
+    duplicateList:
+      duplicates.map(
+        (item) => ({
+          name:
+            item.memberName,
+
+          email:
+            item.email,
+
+          membership:
+            item.membership,
+
+          reason:
+            item.reason,
+        }),
+      ),
+
+    safety: {
+      immediateMigrationChargesRequested:
+        0,
+
+      teamupBillingDisabled:
+        0,
+
+      totsCollectionEnabled:
+        0,
+
+      existingPreparedStripeSubscriptionsPreserved:
+        true,
+    },
+  };
+}
+
+// ============================================================
+// LEGACY BULK LOADERS
 // ============================================================
 
 async function loadMigrationRows() {
@@ -1697,7 +4026,7 @@ async function loadPreparedCutoverRows() {
 }
 
 // ============================================================
-// BULK SCAN / PREPARE DATA
+// EXISTING BULK SCAN
 // ============================================================
 
 async function prepareAll(
@@ -1710,13 +4039,12 @@ async function prepareAll(
     [];
 
   for (const row of rows) {
-    const result =
+    results.push(
       await scanOne(
         row,
         accountId,
-      );
-
-    results.push(result);
+      ),
+    );
   }
 
   const counts =
@@ -1743,8 +4071,7 @@ async function prepareAll(
 
       stripeVerified:
         (counts.verified ?? 0) +
-        (counts.already_verified ??
-          0),
+        (counts.already_verified ?? 0),
 
       duplicateRecords:
         counts.duplicate ?? 0,
@@ -1753,28 +4080,22 @@ async function prepareAll(
         counts.gocardless ?? 0,
 
       nonRecurring:
-        counts.non_recurring ??
-        0,
+        counts.non_recurring ?? 0,
 
       unknownProvider:
-        counts.unknown_provider ??
-        0,
+        counts.unknown_provider ?? 0,
 
       noEmail:
         counts.no_email ?? 0,
 
       customerNotFound:
-        counts.customer_not_found ??
-        0,
+        counts.customer_not_found ?? 0,
 
       noPaymentMethod:
-        counts.no_payment_method ??
-        0,
+        counts.no_payment_method ?? 0,
 
       multipleCardCustomers:
-        counts
-          .multiple_card_customers ??
-        0,
+        counts.multiple_card_customers ?? 0,
 
       alreadyLive:
         counts.already_live ?? 0,
@@ -1804,11 +4125,101 @@ async function prepareAll(
       stripeSubscriptionsCreated:
         0,
 
-      paymentsCollected: 0,
+      paymentsCollected:
+        0,
 
-      teamupBillingDisabled: 0,
+      teamupBillingDisabled:
+        0,
 
-      totsCollectionEnabled: 0,
+      totsCollectionEnabled:
+        0,
+    },
+  };
+}
+
+// ============================================================
+// EXISTING BULK PREPARE CUTOVER
+// ============================================================
+
+async function prepareCutoverAll(
+  accountId: string,
+) {
+  const rows =
+    await loadPreparedCutoverRows();
+
+  const results:
+    PrepareCutoverResult[] =
+    [];
+
+  for (const row of rows) {
+    results.push(
+      await prepareCutover(
+        row,
+        accountId,
+      ),
+    );
+  }
+
+  const prepared =
+    results.filter(
+      (x) =>
+        x.result ===
+        "prepared",
+    ).length;
+
+  const alreadyPrepared =
+    results.filter(
+      (x) =>
+        x.result ===
+        "already_prepared",
+    ).length;
+
+  const skipped =
+    results.filter(
+      (x) =>
+        x.result ===
+        "skipped",
+    ).length;
+
+  const errors =
+    results.filter(
+      (x) =>
+        x.result ===
+        "error",
+    );
+
+  return {
+    attempted:
+      results.length,
+
+    prepared,
+
+    alreadyPrepared,
+
+    totalPrepared:
+      prepared +
+      alreadyPrepared,
+
+    skipped,
+
+    errors:
+      errors.length,
+
+    failures:
+      errors,
+
+    safety: {
+      stripeSubscriptionsPrepared:
+        prepared,
+
+      teamupBillingDisabled:
+        0,
+
+      totsCollectionEnabled:
+        0,
+
+      immediateMigrationChargesRequested:
+        0,
     },
   };
 }
@@ -1874,7 +4285,7 @@ async function createFallbackSetup(
     "multiple_card_customers"
   ) {
     throw new Error(
-      "Multiple Stripe customers with reusable cards match this member. Manual customer selection is required.",
+      "Multiple Stripe customers with reusable cards match this member.",
     );
   }
 
@@ -2226,802 +4637,6 @@ async function verifyFallbackSetup(
 }
 
 // ============================================================
-// PRICE
-// ============================================================
-
-async function ensureRecurringPrice(
-  row: StoreSubscription,
-  accountId: string,
-) {
-  if (
-    !row.unit_amount_pence ||
-    row.unit_amount_pence <= 0 ||
-    !row.billing_interval
-  ) {
-    throw new Error(
-      "Recurring billing details are incomplete.",
-    );
-  }
-
-  const expectedCurrency =
-    (
-      row.currency ??
-      "gbp"
-    ).toLowerCase();
-
-  const expectedInterval =
-    stripeInterval(
-      row.billing_interval,
-    );
-
-  if (
-    row.stripe_price_id
-  ) {
-    try {
-      const price =
-        await stripe.prices.retrieve(
-          row.stripe_price_id,
-          {},
-          {
-            stripeAccount:
-              accountId,
-          },
-        );
-
-      if (
-        price.active &&
-        price.unit_amount ===
-          row.unit_amount_pence &&
-        price.currency ===
-          expectedCurrency &&
-        price.recurring?.interval ===
-          expectedInterval
-      ) {
-        return price;
-      }
-    } catch {
-      // Create below.
-    }
-  }
-
-  const product =
-    await stripe.products.create(
-      {
-        name:
-          row.legacy_membership_name ??
-          "Moray Training Club Membership",
-
-        metadata: {
-          tots_store_subscription_id:
-            row.id,
-
-          mtc_migration:
-            "true",
-        },
-      },
-      {
-        stripeAccount:
-          accountId,
-
-        idempotencyKey:
-          `mtc-product-${row.id}`,
-      },
-    );
-
-  const price =
-    await stripe.prices.create(
-      {
-        product:
-          product.id,
-
-        currency:
-          expectedCurrency,
-
-        unit_amount:
-          row.unit_amount_pence,
-
-        recurring: {
-          interval:
-            expectedInterval,
-        },
-
-        metadata: {
-          tots_store_subscription_id:
-            row.id,
-
-          mtc_migration:
-            "true",
-        },
-      },
-      {
-        stripeAccount:
-          accountId,
-
-        idempotencyKey:
-          `mtc-price-${row.id}`,
-      },
-    );
-
-  await patchSubscription(
-    row.id,
-    {
-      stripe_price_id:
-        price.id,
-
-      metadata: {
-        ...metadata(row),
-
-        mtc_migration_product_id:
-          product.id,
-
-        mtc_migration_price_id:
-          price.id,
-      },
-    },
-  );
-
-  return price;
-}
-
-// ============================================================
-// STRIPE SUBSCRIPTION VALIDATION
-// ============================================================
-
-function isUsablePreparedSubscription(
-  subscription:
-    Stripe.Subscription,
-) {
-  return ![
-    "canceled",
-    "incomplete_expired",
-  ].includes(
-    subscription.status,
-  );
-}
-
-async function retrievePreparedStripeSubscription(
-  row: StoreSubscription,
-  accountId: string,
-) {
-  if (
-    !row.stripe_subscription_id
-  ) {
-    return null;
-  }
-
-  try {
-    const subscription =
-      await stripe.subscriptions.retrieve(
-        row.stripe_subscription_id,
-        {},
-        {
-          stripeAccount:
-            accountId,
-        },
-      );
-
-    if (
-      !isUsablePreparedSubscription(
-        subscription,
-      )
-    ) {
-      return null;
-    }
-
-    return subscription;
-  } catch {
-    return null;
-  }
-}
-
-// ============================================================
-// PREPARE CUTOVER
-//
-// IMPORTANT:
-//
-// This DOES create the replacement Stripe subscription.
-//
-// It DOES NOT:
-// - charge the normal recurring amount immediately
-// - mark TOTS collection live
-// - mark TeamUp stopped
-//
-// Stripe trial_end is the confirmed future renewal date.
-// ============================================================
-
-async function prepareCutover(
-  row: StoreSubscription,
-  accountId: string,
-): Promise<PrepareCutoverResult> {
-  try {
-    if (
-      isMarkedDuplicate(row)
-    ) {
-      return {
-        subscriptionId:
-          row.id,
-
-        customerName:
-          row.customer_name,
-
-        email:
-          row.customer_email,
-
-        result:
-          "skipped",
-
-        message:
-          "Redundant duplicate record.",
-      };
-    }
-
-    if (
-      row.collection_enabled
-    ) {
-      return {
-        subscriptionId:
-          row.id,
-
-        customerName:
-          row.customer_name,
-
-        email:
-          row.customer_email,
-
-        result:
-          "skipped",
-
-        message:
-          "TOTS collection is already enabled.",
-      };
-    }
-
-    if (
-      row.processor_verification_status !==
-      "verified"
-    ) {
-      throw new Error(
-        "Stripe payment method is not verified.",
-      );
-    }
-
-    if (
-      !row.teamup_billing_active
-    ) {
-      throw new Error(
-        "TeamUp is already marked stopped. Use activation/recovery flow instead.",
-      );
-    }
-
-    if (
-      !isRecurring(row)
-    ) {
-      throw new Error(
-        "Not a paid recurring membership.",
-      );
-    }
-
-    const provider =
-      await detectProvider(row);
-
-    if (
-      provider !== "stripe"
-    ) {
-      throw new Error(
-        "This preparation path is Stripe-only.",
-      );
-    }
-
-    if (
-      !row.stripe_customer_id
-    ) {
-      throw new Error(
-        "Stripe customer ID is missing.",
-      );
-    }
-
-    if (
-      !row.next_payment_at
-    ) {
-      throw new Error(
-        "Confirmed next_payment_at is missing.",
-      );
-    }
-
-    const nextPayment =
-      new Date(
-        row.next_payment_at,
-      );
-
-    if (
-      Number.isNaN(
-        nextPayment.getTime(),
-      )
-    ) {
-      throw new Error(
-        "next_payment_at is invalid.",
-      );
-    }
-
-    if (
-      nextPayment.getTime() <=
-      Date.now() +
-        30 * 60 * 1000
-    ) {
-      throw new Error(
-        "next_payment_at must be safely in the future.",
-      );
-    }
-
-    /**
-     * If already prepared, verify it rather
-     * than creating another subscription.
-     */
-
-    const existing =
-      await retrievePreparedStripeSubscription(
-        row,
-        accountId,
-      );
-
-    if (existing) {
-      const now =
-        new Date().toISOString();
-
-      await patchSubscription(
-        row.id,
-        {
-          status:
-            existing.status,
-
-          cutover_status:
-            "verified",
-
-          collection_enabled:
-            false,
-
-          teamup_billing_active:
-            true,
-
-          metadata: {
-            ...metadata(row),
-
-            mtc_cutover_prepared:
-              true,
-
-            mtc_cutover_prepared_at:
-              (
-                metadata(row)
-                  .mtc_cutover_prepared_at ??
-                now
-              ),
-
-            mtc_prepared_stripe_subscription_id:
-              existing.id,
-
-            mtc_first_tots_payment_at:
-              nextPayment.toISOString(),
-          },
-
-          migration_notes:
-            appendMigrationNote(
-              row,
-              `Replacement Stripe subscription ${existing.id} is prepared. TeamUp remains active. TOTS collection remains OFF until TeamUp is stopped.`,
-            ),
-        },
-      );
-
-      return {
-        subscriptionId:
-          row.id,
-
-        customerName:
-          row.customer_name,
-
-        email:
-          row.customer_email,
-
-        result:
-          "already_prepared",
-
-        stripeSubscriptionId:
-          existing.id,
-
-        stripeStatus:
-          existing.status,
-
-        firstPaymentAt:
-          nextPayment.toISOString(),
-      };
-    }
-
-    const customer =
-      await retrieveCustomer(
-        accountId,
-        row.stripe_customer_id,
-      );
-
-    if (!customer) {
-      throw new Error(
-        "Verified Stripe customer no longer exists.",
-      );
-    }
-
-    const paymentMethod =
-      await findReusablePaymentMethod(
-        accountId,
-        customer,
-      );
-
-    if (!paymentMethod) {
-      throw new Error(
-        "Verified Stripe customer no longer has a reusable card.",
-      );
-    }
-
-    await stripe.customers.update(
-      customer.id,
-      {
-        invoice_settings: {
-          default_payment_method:
-            paymentMethod.id,
-        },
-      },
-      {
-        stripeAccount:
-          accountId,
-      },
-    );
-
-    const price =
-      await ensureRecurringPrice(
-        row,
-        accountId,
-      );
-
-    /**
-     * IMPORTANT:
-     *
-     * This creates a subscription in Stripe
-     * with a trial ending on the confirmed
-     * next billing date.
-     *
-     * Therefore Stripe should not collect the
-     * normal recurring membership price now.
-     */
-
-    const subscription =
-      await stripe.subscriptions.create(
-        {
-          customer:
-            customer.id,
-
-          items: [
-            {
-              price:
-                price.id,
-              quantity: 1,
-            },
-          ],
-
-          default_payment_method:
-            paymentMethod.id,
-
-          trial_end:
-            Math.floor(
-              nextPayment.getTime() /
-                1000,
-            ),
-
-          proration_behavior:
-            "none",
-
-          metadata: {
-            tots_store_subscription_id:
-              row.id,
-
-            mtc_migration:
-              "true",
-
-            migrated_from:
-              "teamup",
-
-            migration_stage:
-              "prepared_cutover",
-
-            legacy_membership:
-              row.legacy_membership_name ??
-              "",
-          },
-        },
-        {
-          stripeAccount:
-            accountId,
-
-          idempotencyKey:
-            `mtc-prepare-cutover-${row.id}`,
-        },
-      );
-
-    /**
-     * Verify Stripe really returned a usable
-     * subscription before recording it.
-     */
-
-    const verified =
-      await stripe.subscriptions.retrieve(
-        subscription.id,
-        {},
-        {
-          stripeAccount:
-            accountId,
-        },
-      );
-
-    if (
-      !isUsablePreparedSubscription(
-        verified,
-      )
-    ) {
-      throw new Error(
-        `Stripe created ${verified.id} but returned unusable status ${verified.status}.`,
-      );
-    }
-
-    const preparedAt =
-      new Date().toISOString();
-
-    await patchSubscription(
-      row.id,
-      {
-        stripe_account_id:
-          accountId,
-
-        stripe_customer_id:
-          customer.id,
-
-        stripe_subscription_id:
-          verified.id,
-
-        stripe_price_id:
-          price.id,
-
-        external_subscription_id:
-          verified.id,
-
-        payment_provider:
-          "stripe",
-
-        billing_provider:
-          "stripe",
-
-        status:
-          verified.status,
-
-        /**
-         * Still legacy until TeamUp is
-         * genuinely stopped.
-         */
-        legacy_billing:
-          true,
-
-        /**
-         * CRITICAL:
-         *
-         * Do not mark TOTS live yet.
-         */
-        collection_enabled:
-          false,
-
-        collection_enabled_at:
-          null,
-
-        /**
-         * CRITICAL:
-         *
-         * TeamUp is STILL active.
-         */
-        teamup_billing_active:
-          true,
-
-        teamup_billing_disabled_at:
-          null,
-
-        /**
-         * Keep within existing allowed
-         * cutover statuses.
-         *
-         * "verified" means the destination
-         * Stripe subscription has been
-         * prepared and verified.
-         */
-        cutover_status:
-          "verified",
-
-        processor_verification_status:
-          "verified",
-
-        metadata: {
-          ...metadata(row),
-
-          mtc_cutover_prepared:
-            true,
-
-          mtc_cutover_prepared_at:
-            preparedAt,
-
-          mtc_prepared_stripe_subscription_id:
-            verified.id,
-
-          mtc_prepared_payment_method_id:
-            paymentMethod.id,
-
-          mtc_prepared_price_id:
-            price.id,
-
-          mtc_first_tots_payment_at:
-            nextPayment.toISOString(),
-
-          mtc_teamup_still_active_at_prepare:
-            true,
-        },
-
-        migration_notes:
-          appendMigrationNote(
-            row,
-            `Replacement Stripe subscription ${verified.id} prepared with first intended billing date ${nextPayment.toISOString()}. TeamUp remains active. TOTS collection remains OFF until TeamUp is stopped.`,
-          ),
-      },
-    );
-
-    return {
-      subscriptionId:
-        row.id,
-
-      customerName:
-        row.customer_name,
-
-      email:
-        row.customer_email,
-
-      result:
-        "prepared",
-
-      stripeSubscriptionId:
-        verified.id,
-
-      stripeStatus:
-        verified.status,
-
-      firstPaymentAt:
-        nextPayment.toISOString(),
-
-      message:
-        "Replacement Stripe subscription prepared. No TOTS cutover flag enabled; TeamUp remains active.",
-    };
-  } catch (error) {
-    return {
-      subscriptionId:
-        row.id,
-
-      customerName:
-        row.customer_name,
-
-      email:
-        row.customer_email,
-
-      result:
-        "error",
-
-      message:
-        error instanceof Error
-          ? error.message
-          : "Unknown cutover preparation error.",
-    };
-  }
-}
-
-// ============================================================
-// PREPARE ALL CUTOVERS
-// ============================================================
-
-async function prepareCutoverAll(
-  accountId: string,
-) {
-  const rows =
-    await loadPreparedCutoverRows();
-
-  const results:
-    PrepareCutoverResult[] =
-    [];
-
-  /**
-   * Sequential deliberately.
-   *
-   * We are creating real Stripe subscription
-   * objects, so do not blast the API.
-   */
-
-  for (const row of rows) {
-    const result =
-      await prepareCutover(
-        row,
-        accountId,
-      );
-
-    results.push(result);
-  }
-
-  const prepared =
-    results.filter(
-      (x) =>
-        x.result ===
-        "prepared",
-    ).length;
-
-  const alreadyPrepared =
-    results.filter(
-      (x) =>
-        x.result ===
-        "already_prepared",
-    ).length;
-
-  const skipped =
-    results.filter(
-      (x) =>
-        x.result ===
-        "skipped",
-    ).length;
-
-  const errors =
-    results.filter(
-      (x) =>
-        x.result ===
-        "error",
-    );
-
-  return {
-    attempted:
-      results.length,
-
-    prepared,
-
-    alreadyPrepared,
-
-    totalPrepared:
-      prepared +
-      alreadyPrepared,
-
-    skipped,
-
-    errors:
-      errors.length,
-
-    failures:
-      errors,
-
-    safety: {
-      /**
-       * These are real Stripe subscription
-       * objects, but they are future-dated
-       * using trial_end.
-       */
-      stripeSubscriptionsPrepared:
-        prepared,
-
-      teamupBillingDisabled:
-        0,
-
-      totsCollectionEnabled:
-        0,
-
-      immediateMigrationChargesRequested:
-        0,
-    },
-  };
-}
-
-// ============================================================
 // TEAMUP STOP CONFIRMATION
 // ============================================================
 
@@ -3061,14 +4676,6 @@ async function markTeamupStopped(
       "next_payment_at must be confirmed.",
     );
   }
-
-  /**
-   * NEW SAFETY RULE:
-   *
-   * TeamUp cannot be marked stopped until the
-   * replacement Stripe subscription actually
-   * exists and is usable.
-   */
 
   const prepared =
     await retrievePreparedStripeSubscription(
@@ -3137,7 +4744,7 @@ async function markTeamupStopped(
 }
 
 // ============================================================
-// ACTIVATE PREPARED SUBSCRIPTION
+// ACTIVATE
 // ============================================================
 
 async function activate(
@@ -3149,7 +4756,6 @@ async function activate(
   ) {
     return {
       subscription: row,
-
       alreadyLive: true,
     };
   }
@@ -3187,13 +4793,6 @@ async function activate(
       "REFUSED: duplicate migration record.",
     );
   }
-
-  /**
-   * Do NOT create another subscription here.
-   *
-   * The replacement must already have been
-   * prepared while TeamUp was active.
-   */
 
   const subscription =
     await retrievePreparedStripeSubscription(
@@ -3312,7 +4911,7 @@ async function activate(
 }
 
 // ============================================================
-// ACTIVATE ALL READY RECORDS
+// ACTIVATE ALL
 // ============================================================
 
 async function activateAll(
@@ -3468,7 +5067,38 @@ export async function POST(
       await getConnectedAccount();
 
     // ========================================================
-    // BULK SCAN / VERIFY
+    // ONE BUTTON:
+    // GET ALL POSSIBLE MTC MEMBERS READY IN TOTS
+    // ========================================================
+
+    if (
+      action ===
+      "prepare_all_for_mtc_import"
+    ) {
+      const result =
+        await prepareAllForMtcImport(
+          accountId,
+        );
+
+      return NextResponse.json({
+        ok: true,
+
+        action:
+          "prepare_all_for_mtc_import",
+
+        stripeAccountId:
+          accountId,
+
+        ...result,
+
+        performedBy:
+          user.email ??
+          user.id,
+      });
+    }
+
+    // ========================================================
+    // EXISTING BULK SCAN
     // ========================================================
 
     if (
@@ -3498,7 +5128,7 @@ export async function POST(
     }
 
     // ========================================================
-    // BULK PREPARE REAL STRIPE SUBSCRIPTIONS
+    // EXISTING BULK STRIPE PREP
     // ========================================================
 
     if (
@@ -3528,7 +5158,7 @@ export async function POST(
     }
 
     // ========================================================
-    // BULK ACTIVATE READY RECORDS
+    // ACTIVATE ALL
     // ========================================================
 
     if (
@@ -3558,7 +5188,7 @@ export async function POST(
     }
 
     // ========================================================
-    // SINGLE RECORD REQUIRED
+    // SINGLE RECORD REQUIRED BELOW
     // ========================================================
 
     if (!subscriptionId) {
@@ -3579,10 +5209,6 @@ export async function POST(
       await loadSubscription(
         subscriptionId,
       );
-
-    // ========================================================
-    // SCAN ONE
-    // ========================================================
 
     if (
       action === "scan_one"
@@ -3617,10 +5243,6 @@ export async function POST(
       });
     }
 
-    // ========================================================
-    // PREPARE ONE REAL STRIPE SUBSCRIPTION
-    // ========================================================
-
     if (
       action ===
       "prepare_cutover"
@@ -3648,10 +5270,6 @@ export async function POST(
       });
     }
 
-    // ========================================================
-    // SETUP
-    // ========================================================
-
     if (
       action === "setup"
     ) {
@@ -3671,10 +5289,6 @@ export async function POST(
       });
     }
 
-    // ========================================================
-    // VERIFY
-    // ========================================================
-
     if (
       action === "verify"
     ) {
@@ -3693,10 +5307,6 @@ export async function POST(
         result,
       });
     }
-
-    // ========================================================
-    // TEAMUP STOPPED
-    // ========================================================
 
     if (
       action ===
@@ -3722,10 +5332,6 @@ export async function POST(
         ...result,
       });
     }
-
-    // ========================================================
-    // ACTIVATE
-    // ========================================================
 
     if (
       action ===

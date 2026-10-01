@@ -177,14 +177,23 @@ async function createGoCardlessSubscription(row: StoreSubscription) {
     ? new Date(row.next_payment_at)
     : new Date(next28thIso(mandate.next_possible_charge_date));
 
-  const minimum = mandate.next_possible_charge_date
+  const processorMinimum = mandate.next_possible_charge_date
     ? new Date(`${mandate.next_possible_charge_date}T00:00:00Z`)
     : new Date();
+
+  // A migration run must never create a same-day collection by accident.
+  // Respect the member's stored renewal date, but require the new GoCardless
+  // subscription to start no earlier than tomorrow and no earlier than the
+  // processor's own next possible charge date.
+  const tomorrow = new Date();
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  tomorrow.setUTCHours(0, 0, 0, 0);
+  const minimum = processorMinimum > tomorrow ? processorMinimum : tomorrow;
 
   const start =
     !Number.isNaN(requested.getTime()) && requested >= minimum
       ? requested
-      : new Date(next28thIso(mandate.next_possible_charge_date));
+      : new Date(next28thIso(minimum.toISOString().slice(0, 10)));
 
   const startDate = start.toISOString().slice(0, 10);
   const idempotencyKey = `tots-mtc-gc-${row.id}`;

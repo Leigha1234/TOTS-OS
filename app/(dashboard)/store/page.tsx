@@ -212,7 +212,7 @@ type StoreSettings = {
 };
 
 
-type PaymentPreparationItem = {
+type MigrationResultItem = {
   subscriptionId?: string | null;
   customerName?: string | null;
   email?: string | null;
@@ -221,36 +221,34 @@ type PaymentPreparationItem = {
   provider?: string | null;
   result?: string | null;
   reason?: string | null;
-  mandateId?: string | null;
+  setupUrl?: string | null;
   stripeSubscriptionId?: string | null;
-  firstPaymentAt?: string | null;
+  goCardlessSubscriptionId?: string | null;
+  teamupExternalShutdownRequired?: boolean;
 };
 
-type PaymentPreparationResult = {
-  recurringPaidMemberships?: number;
-  stripeReadyForTomorrow?: number;
-  stripeAlreadyPrepared?: number;
-  stripePreparedNow?: number;
-  goCardlessRecurring?: number;
-  unresolved?: number;
-  excludedNonRecurring?: number;
-  excludedDuplicateOrHistorical?: number;
-  unresolvedBreakdown?: {
-    customerNotFound?: number;
-    noPaymentMethod?: number;
-    multipleCardCustomers?: number;
-    noEmail?: number;
-    unknownProvider?: number;
-    errors?: number;
-    verifiedButDateStillUnconfirmed?: number;
+type CompleteMigrationResult = {
+  completedAt?: string;
+  summary?: {
+    canonicalMembershipsChecked?: number;
+    billingLiveOnTots?: number;
+    stripeLive?: number;
+    goCardlessLive?: number;
+    accessMembershipsInTots?: number;
+    memberAuthorisationRequired?: number;
+    manualReviewRequired?: number;
+    duplicatesExcluded?: number;
+    externalTeamupShutdownRequired?: number;
   };
-  exceptions?: PaymentPreparationItem[];
-  goCardless?: PaymentPreparationItem[];
-  safety?: {
-    paymentsCollected?: number;
-    teamupBillingDisabled?: number;
-    totsCollectionEnabled?: number;
-    existingPreparedSubscriptionsPreserved?: boolean;
+  memberAuthorisationRequired?: MigrationResultItem[];
+  setupLinks?: MigrationResultItem[];
+  manualReview?: MigrationResultItem[];
+  teamupShutdownRequired?: MigrationResultItem[];
+  important?: {
+    totsIsMembershipSourceOfTruth?: boolean;
+    mtcAppShouldReadMembershipsFromTots?: boolean;
+    teamupApiCancellationPerformed?: boolean;
+    note?: string;
   };
 };
 
@@ -461,7 +459,7 @@ export default function StoreDashboardPage() {
   const [reconcilingStripe, setReconcilingStripe] = useState(false);
   const [preparingCutover, setPreparingCutover] = useState(false);
   const [preparingMtcImport, setPreparingMtcImport] = useState(false);
-  const [mtcPreparationResult, setMtcPreparationResult] = useState<PaymentPreparationResult | null>(null);
+  const [mtcPreparationResult, setMtcPreparationResult] = useState<CompleteMigrationResult | null>(null);
   const [bulkCutoverMessage, setBulkCutoverMessage] = useState<string | null>(null);
   const [reconcileProgress, setReconcileProgress] = useState<{ current: number; total: number } | null>(null);
   const [reconcileSummary, setReconcileSummary] = useState<Record<string, number> | null>(null);
@@ -869,7 +867,7 @@ export default function StoreDashboardPage() {
     if (preparingMtcImport) return;
 
     const confirmed = window.confirm(
-      "Reconcile all genuine paid recurring MTC memberships? This checks every canonical recurring membership, preserves subscriptions already prepared in Stripe, verifies recoverable processor authority, and identifies members who still need secure card setup. It will NOT collect a payment now or cancel anything in TeamUp.",
+      "COMPLETE THE MTC MIGRATION NOW? This will make TOTS-OS/MTC the membership source of truth, preserve existing Stripe and GoCardless subscriptions, create missing processor subscriptions only where verified payment authority exists, disable duplicate legacy collection rows, and create secure authorisation links where authority is missing. It does NOT take an immediate payment. IMPORTANT: this route cannot cancel TeamUp externally; any live memberships still billed in TeamUp must be stopped there to prevent duplicate renewal charges.",
     );
     if (!confirmed) return;
 
@@ -880,16 +878,16 @@ export default function StoreDashboardPage() {
 
       const token = await getBillingToken();
       const result = await postBillingMigration(token, {
-        action: "finish_payment_preparation",
+        action: "complete_migration",
       });
 
-      setMtcPreparationResult(result as PaymentPreparationResult);
+      setMtcPreparationResult(result as CompleteMigrationResult);
       await loadStore(true);
     } catch (prepareError) {
       setError(
         prepareError instanceof Error
           ? prepareError.message
-          : "Payment preparation failed.",
+          : "MTC migration failed.",
       );
     } finally {
       setPreparingMtcImport(false);
@@ -1952,7 +1950,7 @@ export default function StoreDashboardPage() {
                   className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {preparingMtcImport ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  {preparingMtcImport ? "Finishing payment preparation…" : "Finish Payment Preparation"}
+                  {preparingMtcImport ? "Completing MTC migration…" : "Complete MTC Migration"}
                 </button>
                 <SearchBox
                   value={search}
@@ -1966,27 +1964,27 @@ export default function StoreDashboardPage() {
               <div className="border-b border-stone-100 bg-emerald-50/70 px-6 py-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-bold text-emerald-950">Payment preparation finished</p>
+                    <p className="text-sm font-bold text-emerald-950">MTC migration run finished</p>
                     <p className="mt-1 text-xs text-emerald-900/80">
-                      Paid recurring memberships were reconciled against the actual processor state. Existing prepared Stripe subscriptions were preserved. Members who still need card authority remain in payment setup; no payment is taken by this preparation step.
+                      TOTS-OS is now the membership source of truth for every membership this run could safely migrate. Existing processor subscriptions were preserved; missing processor subscriptions were only created where verified authority existed. No immediate migration payment was taken.
                     </p>
                   </div>
                   <div className="rounded-xl bg-white px-4 py-2 text-right shadow-sm ring-1 ring-emerald-100">
-                    <p className="text-2xl font-bold text-emerald-800">{mtcPreparationResult.stripeReadyForTomorrow ?? 0}</p>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">Stripe ready for tomorrow</p>
+                    <p className="text-2xl font-bold text-emerald-800">{mtcPreparationResult.summary?.billingLiveOnTots ?? 0}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">Billing live on TOTS</p>
                   </div>
                 </div>
 
                 <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   {[
-                    ["Paid recurring memberships", mtcPreparationResult.recurringPaidMemberships ?? 0],
-                    ["Stripe ready", mtcPreparationResult.stripeReadyForTomorrow ?? 0],
-                    ["Stripe already prepared", mtcPreparationResult.stripeAlreadyPrepared ?? 0],
-                    ["Stripe prepared now", mtcPreparationResult.stripePreparedNow ?? 0],
-                    ["GoCardless recurring", mtcPreparationResult.goCardlessRecurring ?? 0],
-                    ["Still unresolved", mtcPreparationResult.unresolved ?? 0],
-                    ["Payments taken now", mtcPreparationResult.safety?.paymentsCollected ?? 0],
-                    ["TOTS collection enabled", mtcPreparationResult.safety?.totsCollectionEnabled ?? 0],
+                    ["Canonical memberships checked", mtcPreparationResult.summary?.canonicalMembershipsChecked ?? 0],
+                    ["Stripe live", mtcPreparationResult.summary?.stripeLive ?? 0],
+                    ["GoCardless live", mtcPreparationResult.summary?.goCardlessLive ?? 0],
+                    ["Access memberships in TOTS", mtcPreparationResult.summary?.accessMembershipsInTots ?? 0],
+                    ["Member authorisation required", mtcPreparationResult.summary?.memberAuthorisationRequired ?? 0],
+                    ["Manual review required", mtcPreparationResult.summary?.manualReviewRequired ?? 0],
+                    ["Duplicate rows excluded", mtcPreparationResult.summary?.duplicatesExcluded ?? 0],
+                    ["TeamUp shutdown required", mtcPreparationResult.summary?.externalTeamupShutdownRequired ?? 0],
                   ].map(([label, value]) => (
                     <div key={String(label)} className="rounded-xl bg-white px-3 py-3 ring-1 ring-stone-100">
                       <p className="text-lg font-bold text-stone-900">{String(value)}</p>
@@ -1995,56 +1993,38 @@ export default function StoreDashboardPage() {
                   ))}
                 </div>
 
-                {(mtcPreparationResult.unresolved ?? 0) > 0 && (
-                  <div className="mt-4 rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200">
-                    <p className="text-xs font-bold text-amber-900">Still needs payment setup ({mtcPreparationResult.unresolved ?? 0})</p>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {[
-                        ["No safe Stripe customer", mtcPreparationResult.unresolvedBreakdown?.customerNotFound ?? 0],
-                        ["No reusable card", mtcPreparationResult.unresolvedBreakdown?.noPaymentMethod ?? 0],
-                        ["Multiple Stripe matches", mtcPreparationResult.unresolvedBreakdown?.multipleCardCustomers ?? 0],
-                        ["Billing date confirmation", mtcPreparationResult.unresolvedBreakdown?.verifiedButDateStillUnconfirmed ?? 0],
-                        ["No email", mtcPreparationResult.unresolvedBreakdown?.noEmail ?? 0],
-                        ["Errors / provider review", (mtcPreparationResult.unresolvedBreakdown?.errors ?? 0) + (mtcPreparationResult.unresolvedBreakdown?.unknownProvider ?? 0)],
-                      ].map(([label, value]) => (
-                        <div key={String(label)} className="rounded-lg bg-white px-3 py-2">
-                          <p className="font-bold text-stone-900">{String(value)}</p>
-                          <p className="text-[11px] text-stone-500">{String(label)}</p>
-                        </div>
-                      ))}
-                    </div>
+                {(mtcPreparationResult.summary?.externalTeamupShutdownRequired ?? 0) > 0 && (
+                  <div className="mt-4 rounded-xl bg-red-50 p-4 ring-1 ring-red-200">
+                    <p className="text-xs font-bold text-red-900">External TeamUp shutdown still required</p>
+                    <p className="mt-1 text-xs text-red-800">
+                      TOTS cannot cancel TeamUp through this route. Stop billing in TeamUp for the memberships listed below before their next renewal to avoid duplicate charges.
+                    </p>
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-xs font-semibold text-red-900">Show memberships ({mtcPreparationResult.teamupShutdownRequired?.length ?? 0})</summary>
+                      <div className="mt-2 max-h-72 space-y-2 overflow-auto">
+                        {mtcPreparationResult.teamupShutdownRequired?.map((item, index) => (
+                          <div key={`${item.subscriptionId ?? item.email ?? "teamup"}-${index}`} className="rounded-lg bg-white px-3 py-2 text-xs">
+                            <p className="font-semibold text-stone-900">{item.customerName || "Unnamed member"} · {item.membership || "Membership"}</p>
+                            <p className="text-stone-500">{item.email || "No email"} · {item.provider || "processor"}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
                   </div>
                 )}
 
-                {(mtcPreparationResult.exceptions?.length ?? 0) > 0 && (
+                {((mtcPreparationResult.memberAuthorisationRequired?.length ?? 0) > 0 || (mtcPreparationResult.manualReview?.length ?? 0) > 0) && (
                   <details className="mt-4 rounded-xl bg-white p-4 ring-1 ring-amber-200">
                     <summary className="cursor-pointer text-xs font-bold text-amber-900">
-                      Members still requiring action ({mtcPreparationResult.exceptions?.length ?? 0})
+                      Members still requiring action ({(mtcPreparationResult.memberAuthorisationRequired?.length ?? 0) + (mtcPreparationResult.manualReview?.length ?? 0)})
                     </summary>
                     <div className="mt-3 max-h-80 space-y-2 overflow-auto">
-                      {mtcPreparationResult.exceptions?.map((item, index) => (
-                        <div key={`${item.subscriptionId ?? item.email ?? item.customerName ?? "review"}-${index}`} className="rounded-lg bg-amber-50 px-3 py-2 text-xs">
+                      {[...(mtcPreparationResult.memberAuthorisationRequired ?? []), ...(mtcPreparationResult.manualReview ?? [])].map((item, index) => (
+                        <div key={`${item.subscriptionId ?? item.email ?? "review"}-${index}`} className="rounded-lg bg-amber-50 px-3 py-2 text-xs">
                           <p className="font-semibold text-stone-900">{item.customerName || "Unnamed member"} · {item.membership || "Membership not specified"}</p>
-                          <p className="text-stone-500">{item.email || "No email"} · {item.provider || "stripe"}</p>
-                          <p className="mt-1 text-amber-900">{item.reason || item.result || "Manual payment review required."}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                )}
-
-                {(mtcPreparationResult.goCardless?.length ?? 0) > 0 && (
-                  <details className="mt-3 rounded-xl bg-white p-4 ring-1 ring-sky-200">
-                    <summary className="cursor-pointer text-xs font-bold text-sky-900">
-                      GoCardless recurring memberships ({mtcPreparationResult.goCardless?.length ?? 0})
-                    </summary>
-                    <p className="mt-2 text-xs text-stone-500">These remain separate from Stripe and have not been switched to TOTS collection by this action.</p>
-                    <div className="mt-3 max-h-80 space-y-2 overflow-auto">
-                      {mtcPreparationResult.goCardless?.map((item, index) => (
-                        <div key={`${item.subscriptionId ?? item.email ?? item.customerName ?? "gocardless"}-${index}`} className="rounded-lg bg-sky-50 px-3 py-2 text-xs">
-                          <p className="font-semibold text-stone-900">{item.customerName || "Unnamed member"} · {item.membership || "Membership not specified"}</p>
-                          <p className="text-stone-500">{item.email || "No email"}</p>
-                          <p className="mt-1 text-sky-900">{item.mandateId ? "Mandate reference present" : "Mandate reference needs review"}</p>
+                          <p className="text-stone-500">{item.email || "No email"} · {item.provider || "provider review"}</p>
+                          <p className="mt-1 text-amber-900">{item.reason || item.result || "Manual review required."}</p>
+                          {item.setupUrl && <a className="mt-1 inline-block font-semibold underline" href={item.setupUrl} target="_blank" rel="noreferrer">Open secure payment-authorisation link</a>}
                         </div>
                       ))}
                     </div>

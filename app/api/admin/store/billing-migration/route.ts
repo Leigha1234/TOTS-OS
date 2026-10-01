@@ -4139,6 +4139,18 @@ async function loadMigrationRows() {
   );
 }
 
+async function loadAllOrganisationSubscriptionRows() {
+  const { data, error } = await admin
+    .from("store_subscriptions")
+    .select("*")
+    .eq("organisation_id", ORGANISATION_ID)
+    .order("customer_name", { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? []) as StoreSubscription[];
+}
+
 async function loadPreparedCutoverRows() {
   const { data, error } = await admin
     .from("store_subscriptions")
@@ -4430,8 +4442,8 @@ const GOCARDLESS_CURRENT_PAYMENT_EVIDENCE: GoCardlessExportEvidence[] =
     "description": "Membership Payment: 3 Per Week"
   },
   {
-    "customerId": "CU01K7WGGKB0PV",
-    "mandateId": "MD01K6BK2SAY3C",
+    "customerId": "CU01KGW1YQHAH3",
+    "mandateId": "MD01KC2JV7E9F5",
     "email": "smears4@icloud.com",
     "givenName": "Stephen",
     "familyName": "Mears",
@@ -5153,7 +5165,10 @@ async function finaliseApprovedProposedBillingDate(row: StoreSubscription) {
 }
 
 async function finishPaymentPreparation(accountId: string) {
-  const allRows = await loadMigrationRows();
+  // IMPORTANT: migration flags were already flipped on earlier runs, so they
+  // cannot define the remaining population. Reconcile from the complete MTC
+  // subscription register, then canonicalise/exclude non-recurring rows below.
+  const allRows = await loadAllOrganisationSubscriptionRows();
 
   const alreadyMarkedDuplicate = allRows.filter((row) => isMarkedDuplicate(row));
   const initiallyEligible = allRows.filter((row) => !isMarkedDuplicate(row));
@@ -6628,39 +6643,15 @@ export async function POST(
       action ===
       "finish_payment_preparation"
     ) {
-      // Payment PREPARATION must use the canonical migration selector.
-      // completeMigration() only sees rows already admitted to the old final
-      // cutover path, which is why the unresolved legacy Stripe members were
-      // previously invisible here. finishPaymentPreparation() canonicalises
-      // duplicate obligations first, scans every genuine paid recurring row,
-      // preserves existing prepared subscriptions, verifies live GoCardless
-      // mandates, and reports Stripe members who still need a SetupIntent.
-      // It does NOT collect a payment or disable TeamUp externally.
+      // Reconcile the complete subscription register. Do not filter by
+      // teamup_billing_active / collection_enabled here: earlier migration
+      // runs already changed those flags, which caused the zero-member result.
       const result = await finishPaymentPreparation(accountId);
-
-      // finishPaymentPreparation already returns the exact compatibility
-      // counters and exception arrays consumed by the Store page.
-      const recurringPaidMemberships = result.recurringPaidMemberships;
-      const stripeAlreadyPrepared = result.stripeAlreadyPrepared;
-      const stripePreparedNow = result.stripePreparedNow;
-      const goCardlessRecurring = result.goCardlessRecurring;
-      const unresolved = result.unresolved;
 
       return NextResponse.json({
         ok: true,
         action: "finish_payment_preparation",
         ...result,
-        recurringPaidMemberships,
-        paidRecurringMemberships: recurringPaidMemberships,
-        stripeReadyForTomorrow: result.stripeReadyForTomorrow,
-        stripeReady: result.stripeReadyForTomorrow,
-        stripeAlreadyPrepared,
-        stripePreparedNow,
-        goCardlessRecurring,
-        unresolved,
-        exceptions: result.exceptions,
-        goCardless: result.goCardless,
-        safety: result.safety,
         performedBy: user.email ?? user.id,
       });
     }

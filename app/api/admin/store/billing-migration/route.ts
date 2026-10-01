@@ -1122,7 +1122,12 @@ function chooseBestCanonical(
       ) {
         let value = 0;
 
-        if (row.stripe_subscription_id) {
+        if (row.stripe_subscription_id?.startsWith("sub_")) {
+          value += 100;
+        }
+
+        // A real GoCardless subscription is equally strong canonical evidence.
+        if (row.external_subscription_id?.startsWith("SB")) {
           value += 100;
         }
 
@@ -6275,9 +6280,30 @@ async function activateAll(
 
 async function completeMigration(accountId: string) {
   const loaded = await loadAllStoreSubscriptions();
-  const alreadyDuplicate = loaded.filter((row) => isMarkedDuplicate(row));
-  const eligible = loaded.filter((row) => !isMarkedDuplicate(row));
-  const { canonicalRows, duplicateRows } = await canonicaliseFinishDuplicates(eligible);
+
+  // Rows repaired by the final MTC SQL are genuine canonical paid memberships
+  // awaiting processor migration. Their migration note intentionally contains
+  // "DO NOT COLLECT" while TeamUp remains responsible for billing, which the
+  // older duplicate detector would otherwise mistake for a redundant row.
+  const isPendingProcessorMigration = (row: StoreSubscription) => {
+    const meta = metadata(row);
+    return (
+      row.cutover_status === "awaiting_processor" ||
+      meta.mtc_billing_migration_pending === true ||
+      meta.mtc_billing_migration_pending === "true"
+    );
+  };
+
+  const alreadyDuplicate = loaded.filter(
+    (row) => isMarkedDuplicate(row) && !isPendingProcessorMigration(row),
+  );
+
+  const eligible = loaded.filter(
+    (row) => !isMarkedDuplicate(row) || isPendingProcessorMigration(row),
+  );
+
+  const { canonicalRows, duplicateRows } =
+    await canonicaliseFinishDuplicates(eligible);
 
   const results: Array<Record<string, unknown>> = [];
   const setupLinks: Array<Record<string, unknown>> = [];
@@ -6307,6 +6333,9 @@ async function completeMigration(accountId: string) {
       teamup_billing_disabled_at: stopped ? (row.teamup_billing_disabled_at ?? now) : null,
       metadata: {
         ...metadata(row),
+        mtc_redundant_duplicate: false,
+        mtc_duplicate_record: false,
+        mtc_billing_migration_pending: false,
         mtc_cutover_complete: true,
         mtc_cutover_complete_at: now,
         mtc_tots_is_membership_source_of_truth: true,

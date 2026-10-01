@@ -6265,41 +6265,49 @@ async function activateAll(
 // ============================================================
 
 async function completeMigration(accountId: string) {
-  const allRows = await loadAllStoreSubscriptions();
+  const loaded = await loadAllStoreSubscriptions();
+  const alreadyDuplicate = loaded.filter((row) => isMarkedDuplicate(row));
+  const eligible = loaded.filter((row) => !isMarkedDuplicate(row));
+  const { canonicalRows, duplicateRows } = await canonicaliseFinishDuplicates(eligible);
 
-  // First collapse only conservative, exact duplicate billing obligations.
-  // This prevents the legacy TeamUp row and its already-live TOTS row from
-  // both being processed. Shared family emails alone are never deduplicated.
-  const initiallyEligible = allRows.filter((row) => !isMarkedDuplicate(row));
-  const { canonicalRows, duplicateRows } =
-    await canonicaliseFinishDuplicates(initiallyEligible);
+  const results: Array<Record<string, unknown>> = [];
+  const setupLinks: Array<Record<string, unknown>> = [];
 
-  const alreadyMarkedDuplicates = allRows.filter(isMarkedDuplicate);
-  const rowsToProcess = canonicalRows;
-  const results: Array<Record<string, unknown>> = [
-    ...alreadyMarkedDuplicates.map((row) => ({
-      subscriptionId: row.id,
-      customerName: row.customer_name,
-      email: row.customer_email,
-      membership: row.legacy_membership_name,
-      amountPence: row.unit_amount_pence,
-      nextPaymentAt: row.next_payment_at,
-      result: "duplicate_excluded",
-      provider: "duplicate",
-    })),
-    ...duplicateRows.map((row) => ({
-      subscriptionId: row.id,
-      customerName: row.customer_name,
-      email: row.customer_email,
-      membership: row.legacy_membership_name,
-      amountPence: row.unit_amount_pence,
-      nextPaymentAt: row.next_payment_at,
-      result: "duplicate_excluded",
-      provider: "duplicate",
-    })),
-  ];
+  const teamupStopConfirmed = (row: StoreSubscription) => {
+    const meta = metadata(row);
+    return row.teamup_billing_active === false && Boolean(
+      meta.mtc_teamup_stop_confirmed_manually === true ||
+      meta.mtc_teamup_stop_confirmed_at ||
+      meta.mtc_teamup_external_cancelled_at
+    );
+  };
 
-  for (const original of rowsToProcess) {
+  async function markLive(row: StoreSubscription, values: Record<string, unknown>) {
+    const now = new Date().toISOString();
+    const stopped = teamupStopConfirmed(row);
+    return await patchSubscription(row.id, {
+      ...values,
+      legacy_billing: false,
+      collection_enabled: true,
+      collection_enabled_at: row.collection_enabled_at ?? now,
+      cutover_status: "live",
+      migrated_from: row.migrated_from ?? "teamup",
+      migrated_at: row.migrated_at ?? now,
+      // This route does NOT call TeamUp. Never falsely record external cancellation.
+      teamup_billing_active: stopped ? false : true,
+      teamup_billing_disabled_at: stopped ? (row.teamup_billing_disabled_at ?? now) : null,
+      metadata: {
+        ...metadata(row),
+        mtc_cutover_complete: true,
+        mtc_cutover_complete_at: now,
+        mtc_tots_is_membership_source_of_truth: true,
+        mtc_app_import_ready: true,
+        mtc_teamup_external_shutdown_required: !stopped,
+      },
+    });
+  }
+
+  for (const original of canonicalRows) {
     let row = original;
     const base = {
       subscriptionId: row.id,
@@ -6311,248 +6319,166 @@ async function completeMigration(accountId: string) {
     };
 
     try {
-      if (isMarkedDuplicate(row)) {
+      if (isKnownAccessOnlyDependent(row) || !isRecurring(row) || Number(row.unit_amount_pence ?? 0) <= 0) {
         if (row.collection_enabled) {
-          row = await patchSubscription(row.id, { collection_enabled: false });
+          row = await patchSubscription(row.id, { collection_enabled: false, collection_enabled_at: null });
         }
-        results.push({ ...base, result: "duplicate_excluded", provider: await detectProvider(row) });
+        await patchSubscription(row.id, {
+          metadata: { ...metadata(row), mtc_tots_is_membership_source_of_truth: true, mtc_app_import_ready: true },
+          migration_notes: appendMigrationNote(row, "Final migration: membership/access retained in TOTS; recurring collection is not required."),
+        });
+        results.push({ ...base, provider: "none", result: "access_live_in_tots" });
         continue;
       }
 
-      if (!isRecurring(row) || Number(row.unit_amount_pence ?? 0) <= 0) {
-        if (row.collection_enabled) {
-          row = await patchSubscription(row.id, {
-            collection_enabled: false,
-            collection_enabled_at: null,
-            migration_notes: appendMigrationNote(
-              row,
-              "Final migration: non-recurring/access membership retained with recurring collection disabled.",
-            ),
-          });
-        }
-        results.push({ ...base, result: "non_recurring_access_migrated", provider: "none" });
+      // Existing real Stripe subscription always wins. Never create a second one.
+      const existingStripe = await retrievePreparedStripeSubscription(row, accountId);
+      if (existingStripe) {
+        const live = await markLive(row, {
+          stripe_account_id: accountId,
+          stripe_customer_id: typeof existingStripe.customer === "string" ? existingStripe.customer : existingStripe.customer.id,
+          stripe_subscription_id: existingStripe.id,
+          external_subscription_id: existingStripe.id,
+          status: existingStripe.status,
+          payment_provider: "stripe",
+          billing_provider: "stripe",
+          processor_verification_status: "verified",
+          processor_verified_at: row.processor_verified_at ?? new Date().toISOString(),
+          migration_notes: appendMigrationNote(row, `TOTS Stripe billing is live on ${existingStripe.id}. Existing processor subscription preserved.`),
+        });
+        results.push({ ...base, provider: "stripe", result: "stripe_live", stripeSubscriptionId: live.stripe_subscription_id, teamupExternalShutdownRequired: !teamupStopConfirmed(live) });
         continue;
       }
 
-      const provider = await detectProvider(row);
-
-      // Reconcile processor authority instead of requiring the DB row to already
-      // be marked verified. This is the key bulk-migration path for legacy rows.
-      if (row.processor_verification_status !== "verified") {
-        if (provider === "stripe") {
-          const scan = await scanOne(row, accountId);
-
-          if (scan.result === "already_live") {
-            row = await loadSubscription(row.id);
-          } else if (scan.result === "verified") {
-            row = await loadSubscription(row.id);
-          } else {
-            results.push({
-              ...base,
-              provider,
-              result: "broken_requires_manual_repair",
-              reason:
-                scan.result === "customer_not_found"
-                  ? "No Stripe customer was found for this member."
-                  : scan.result === "no_payment_method"
-                    ? "Stripe customer found, but no reusable card is attached."
-                    : scan.result === "multiple_card_customers"
-                      ? "Multiple card-ready Stripe customers matched; refused to guess."
-                      : scan.message ?? `Stripe reconciliation stopped: ${scan.result}`,
-            });
-            continue;
-          }
-        } else if (provider === "gocardless") {
-          if (!row.external_mandate_id) {
-            results.push({
-              ...base,
-              provider,
-              result: "broken_requires_manual_repair",
-              reason: "GoCardless mandate ID is missing.",
-            });
-            continue;
-          }
-
-          try {
-            await verifyLiveGoCardlessMandate(
-              row.external_mandate_id,
-              row.external_customer_id,
-            );
-            row = await patchSubscription(row.id, {
-              processor_verification_status: "verified",
-              processor_verified_at: new Date().toISOString(),
-              migration_notes: appendMigrationNote(
-                row,
-                "Final migration: GoCardless mandate verified directly with processor.",
-              ),
-            });
-          } catch (error) {
-            results.push({
-              ...base,
-              provider,
-              result: "broken_requires_manual_repair",
-              reason: error instanceof Error ? error.message : "GoCardless mandate verification failed.",
-            });
-            continue;
-          }
-        } else {
-          results.push({
-            ...base,
-            provider,
-            result: "broken_requires_manual_repair",
-            reason: "Billing provider could not be safely identified.",
-          });
-          continue;
-        }
-      }
-
-      // User-approved migration fallback: missing future renewal dates become the next 28th.
-      if (!row.next_payment_at || new Date(row.next_payment_at).getTime() <= Date.now() + 30 * 60 * 1000) {
-        row = await patchSubscription(row.id, {
-          next_payment_at: next28thIso(),
-          migration_notes: appendMigrationNote(
-            row,
-            `Final migration: missing/expired renewal date defaulted to ${next28thIso()}.`,
-          ),
-        });
-      }
-
-      if (provider === "stripe") {
-        if (!row.stripe_customer_id) {
-          results.push({ ...base, provider, result: "broken_requires_manual_repair", reason: "Stripe customer ID is missing." });
-          continue;
-        }
-
-        const prepared = await prepareCutover(row, accountId);
-        if (prepared.result === "error" || prepared.result === "skipped") {
-          results.push({ ...base, provider, result: "broken_requires_manual_repair", reason: prepared.message ?? prepared.result });
-          continue;
-        }
-
-        const fresh = await loadSubscription(row.id);
-        const live = await patchSubscription(fresh.id, {
-          collection_enabled: true,
-          collection_enabled_at: fresh.collection_enabled_at ?? new Date().toISOString(),
-          teamup_billing_active: false,
-          teamup_billing_disabled_at: fresh.teamup_billing_disabled_at ?? new Date().toISOString(),
-          cutover_status: "live",
-          legacy_billing: false,
-          migrated_from: fresh.migrated_from ?? "teamup",
-          migrated_at: fresh.migrated_at ?? new Date().toISOString(),
-          metadata: {
-            ...metadata(fresh),
-            mtc_cutover_complete: true,
-            mtc_cutover_complete_at: new Date().toISOString(),
-          },
-        });
-
-        results.push({
-          ...base,
-          provider,
-          result: prepared.result === "already_prepared" ? "stripe_already_live" : "stripe_migrated",
-          stripeCustomerId: live.stripe_customer_id,
-          stripeSubscriptionId: live.stripe_subscription_id,
-          stripePriceId: live.stripe_price_id,
-          nextPaymentAt: live.next_payment_at,
-        });
-        continue;
-      }
+      const gcEvidence = findGoCardlessEvidence(row);
+      const provider: Provider = gcEvidence ? "gocardless" : await detectProvider(row);
 
       if (provider === "gocardless") {
-        if (!row.external_mandate_id) {
-          results.push({ ...base, provider, result: "broken_requires_manual_repair", reason: "GoCardless mandate ID is missing." });
+        const persisted = await persistGoCardlessEvidence(row);
+        row = await loadSubscription(row.id);
+        if (persisted.result !== "gocardless_mandate_verified" || !row.external_mandate_id) {
+          results.push({ ...base, provider, result: "member_authorisation_required", reason: "No active GoCardless mandate is available to TOTS." });
           continue;
         }
 
         await verifyLiveGoCardlessMandate(row.external_mandate_id, row.external_customer_id);
-
         let gcSubscription: GoCardlessSubscription;
         if (row.external_subscription_id?.startsWith("SB")) {
-          const existing = await goCardlessRequest<{ subscriptions: GoCardlessSubscription }>(
-            `/subscriptions/${encodeURIComponent(row.external_subscription_id)}`,
-          );
+          const existing = await goCardlessRequest<{ subscriptions: GoCardlessSubscription }>(`/subscriptions/${encodeURIComponent(row.external_subscription_id)}`);
           gcSubscription = existing.subscriptions;
         } else {
-          const created = await createGoCardlessSubscription(row);
-          gcSubscription = created.subscription;
+          gcSubscription = (await createGoCardlessSubscription(row)).subscription;
         }
-
         const firstPayment = gcSubscription.upcoming_payments?.[0]?.charge_date ?? gcSubscription.start_date;
-        const live = await patchSubscription(row.id, {
+        const live = await markLive(row, {
           external_subscription_id: gcSubscription.id,
           status: gcSubscription.status,
-          legacy_billing: false,
-          collection_enabled: true,
-          collection_enabled_at: row.collection_enabled_at ?? new Date().toISOString(),
-          teamup_billing_active: false,
-          teamup_billing_disabled_at: row.teamup_billing_disabled_at ?? new Date().toISOString(),
-          cutover_status: "live",
+          payment_provider: "gocardless",
+          billing_provider: "gocardless",
           processor_verification_status: "verified",
+          processor_verified_at: row.processor_verified_at ?? new Date().toISOString(),
           next_payment_at: `${firstPayment}T12:00:00.000Z`,
-          migrated_from: row.migrated_from ?? "teamup",
-          migrated_at: row.migrated_at ?? new Date().toISOString(),
-          metadata: {
-            ...metadata(row),
-            mtc_live_subscription_id: gcSubscription.id,
-            mtc_gocardless_subscription_id: gcSubscription.id,
-            mtc_cutover_complete: true,
-            mtc_cutover_complete_at: new Date().toISOString(),
-          },
-          migration_notes: appendMigrationNote(
-            row,
-            `Final migration: GoCardless subscription ${gcSubscription.id} is live. First scheduled charge date: ${firstPayment}.`,
-          ),
+          migration_notes: appendMigrationNote(row, `TOTS GoCardless billing is live on ${gcSubscription.id}. First scheduled charge date: ${firstPayment}.`),
         });
-
-        results.push({
-          ...base,
-          provider,
-          result: "gocardless_migrated",
-          goCardlessSubscriptionId: live.external_subscription_id,
-          mandateId: live.external_mandate_id,
-          nextPaymentAt: live.next_payment_at,
-        });
+        results.push({ ...base, provider, result: "gocardless_live", goCardlessSubscriptionId: live.external_subscription_id, teamupExternalShutdownRequired: !teamupStopConfirmed(live) });
         continue;
       }
 
-      results.push({ ...base, provider, result: "broken_requires_manual_repair", reason: "Payment provider could not be confirmed." });
+      if (provider !== "stripe") {
+        results.push({ ...base, provider, result: "manual_review_required", reason: "Payment provider could not be safely confirmed." });
+        continue;
+      }
+
+      const scan = await scanOne(row, accountId);
+      row = await loadSubscription(row.id);
+
+      if (row.processor_verification_status === "verified" && !row.next_payment_at) {
+        row = (await finaliseApprovedProposedBillingDate(row)).row;
+      }
+
+      if (row.processor_verification_status === "verified" && row.next_payment_at) {
+        const prepared = await prepareCutover(row, accountId);
+        if (prepared.result === "prepared" || prepared.result === "already_prepared") {
+          row = await loadSubscription(row.id);
+          const processorSub = await retrievePreparedStripeSubscription(row, accountId);
+          if (!processorSub) throw new Error("Stripe subscription was created but could not be reloaded.");
+          const live = await markLive(row, {
+            stripe_account_id: accountId,
+            stripe_subscription_id: processorSub.id,
+            external_subscription_id: processorSub.id,
+            status: processorSub.status,
+            payment_provider: "stripe",
+            billing_provider: "stripe",
+            processor_verification_status: "verified",
+            migration_notes: appendMigrationNote(row, `TOTS Stripe billing is live on ${processorSub.id}.`),
+          });
+          results.push({ ...base, provider: "stripe", result: "stripe_live", stripeSubscriptionId: live.stripe_subscription_id, teamupExternalShutdownRequired: !teamupStopConfirmed(live) });
+          continue;
+        }
+      }
+
+      // No reusable card: create a secure SetupIntent link now. No charge is taken.
+      if (scan.result === "customer_not_found" || scan.result === "no_payment_method") {
+        try {
+          const setup = await createFallbackSetup(row, accountId);
+          if (!setup.automatic && setup.url) {
+            const item = { ...base, provider: "stripe", result: "member_authorisation_required", setupUrl: setup.url, reason: "Send this secure Stripe card-authorisation link to the member." };
+            setupLinks.push(item);
+            results.push(item);
+          } else {
+            results.push({ ...base, provider: "stripe", result: "retry_ready", reason: "Stripe authority became reusable during reconciliation. Run Complete MTC Migration again." });
+          }
+          continue;
+        } catch (error) {
+          results.push({ ...base, provider: "stripe", result: "manual_review_required", reason: error instanceof Error ? error.message : "Unable to create setup link." });
+          continue;
+        }
+      }
+
+      results.push({ ...base, provider: "stripe", result: "manual_review_required", reason: scan.result === "multiple_card_customers" ? "Multiple reusable Stripe customers matched; automatic selection refused." : (scan.message ?? scan.result) });
     } catch (error) {
-      results.push({
-        ...base,
-        result: "broken_requires_manual_repair",
-        reason: error instanceof Error ? error.message : "Unknown migration error",
-      });
+      results.push({ ...base, result: "manual_review_required", reason: error instanceof Error ? error.message : "Unknown migration error" });
     }
   }
 
-  const migrated = results.filter((r) => ["stripe_migrated", "stripe_already_live", "gocardless_migrated", "non_recurring_access_migrated"].includes(String(r.result)));
-  const broken = results.filter((r) => r.result === "broken_requires_manual_repair");
-  const duplicates = results.filter((r) => r.result === "duplicate_excluded");
+  for (const row of [...alreadyDuplicate, ...duplicateRows]) {
+    results.push({ subscriptionId: row.id, customerName: row.customer_name, email: row.customer_email, membership: row.legacy_membership_name, amountPence: row.unit_amount_pence, result: "duplicate_excluded" });
+  }
 
-  const unique = (items: Array<Record<string, unknown>>) =>
-    new Set(items.map((r) => normaliseEmail(String(r.email ?? ""))).filter(Boolean)).size;
+  const live = results.filter((r) => ["stripe_live", "gocardless_live"].includes(String(r.result)));
+  const access = results.filter((r) => r.result === "access_live_in_tots");
+  const auth = results.filter((r) => r.result === "member_authorisation_required");
+  const review = results.filter((r) => ["manual_review_required", "retry_ready"].includes(String(r.result)));
+  const duplicates = results.filter((r) => r.result === "duplicate_excluded");
+  const teamupShutdownRequired = live.filter((r) => r.teamupExternalShutdownRequired === true);
 
   return {
     completedAt: new Date().toISOString(),
     stripeAccountId: accountId,
     summary: {
-      totalCanonicalRowsChecked: allRows.length,
-      rowsSuccessfullyHandled: migrated.length,
-      uniqueMembersSuccessfullyHandled: unique(migrated),
-      stripeMigrated: results.filter((r) => ["stripe_migrated", "stripe_already_live"].includes(String(r.result))).length,
-      goCardlessMigrated: results.filter((r) => r.result === "gocardless_migrated").length,
-      nonRecurringAccessOnly: results.filter((r) => r.result === "non_recurring_access_migrated").length,
+      canonicalMembershipsChecked: canonicalRows.length,
+      billingLiveOnTots: live.length,
+      stripeLive: live.filter((r) => r.result === "stripe_live").length,
+      goCardlessLive: live.filter((r) => r.result === "gocardless_live").length,
+      accessMembershipsInTots: access.length,
+      memberAuthorisationRequired: auth.length,
+      manualReviewRequired: review.length,
       duplicatesExcluded: duplicates.length,
-      brokenRemaining: broken.length,
-      brokenUniqueMembers: unique(broken),
+      externalTeamupShutdownRequired: teamupShutdownRequired.length,
     },
-    moved: migrated,
-    broken,
+    live,
+    access,
+    memberAuthorisationRequired: auth,
+    setupLinks,
+    manualReview: review,
     duplicates,
+    teamupShutdownRequired,
     allResults: results,
     important: {
+      totsIsMembershipSourceOfTruth: true,
+      mtcAppShouldReadMembershipsFromTots: true,
       teamupApiCancellationPerformed: false,
-      note: "TOTS marks TeamUp billing inactive, but this route does not call TeamUp. Confirm/cancel legacy TeamUp billing externally to prevent duplicate collection.",
+      note: "TOTS processor subscriptions are made live where authority exists. This route does not call TeamUp, so external TeamUp cancellation is never falsely recorded; affected rows are explicitly flagged until that external stop is confirmed.",
     },
   };
 }
@@ -6652,15 +6578,33 @@ export async function POST(
       action ===
       "finish_payment_preparation"
     ) {
-      // Reconcile the complete subscription register. Do not filter by
-      // teamup_billing_active / collection_enabled here: earlier migration
-      // runs already changed those flags, which caused the zero-member result.
-      const result = await finishPaymentPreparation(accountId);
-
+      const result = await completeMigration(accountId);
       return NextResponse.json({
         ok: true,
         action: "finish_payment_preparation",
+        recurringPaidMemberships:
+          result.summary.billingLiveOnTots +
+          result.summary.memberAuthorisationRequired +
+          result.summary.manualReviewRequired,
+        stripeReadyForTomorrow: result.summary.stripeLive,
+        stripeAlreadyPrepared: result.summary.stripeLive,
+        stripePreparedNow: 0,
+        goCardlessRecurring: result.summary.goCardlessLive,
+        unresolved:
+          result.summary.memberAuthorisationRequired +
+          result.summary.manualReviewRequired,
+        excludedNonRecurring: result.summary.accessMembershipsInTots,
+        excludedDuplicateOrHistorical: result.summary.duplicatesExcluded,
+        exceptions: [...result.memberAuthorisationRequired, ...result.manualReview],
+        goCardless: result.allResults.filter((r: any) => r.result === "gocardless_live"),
+        safety: {
+          paymentsCollectedImmediately: 0,
+          totsBillingLive: result.summary.billingLiveOnTots,
+          teamupExternalShutdownRequired: result.summary.externalTeamupShutdownRequired,
+          existingProcessorSubscriptionsPreserved: true,
+        },
         ...result,
+        stripeAccountId: accountId,
         performedBy: user.email ?? user.id,
       });
     }

@@ -4113,18 +4113,12 @@ async function loadMigrationRows() {
       "organisation_id",
       ORGANISATION_ID,
     )
-    // The cutover population is every subscription still owned by TeamUp,
-    // not only rows carrying legacy_billing=true. Prepared Stripe rows can
-    // legitimately have legacy_billing=false, and filtering on that flag was
-    // why Finish Payment Preparation reported only 91 memberships.
-    .eq(
-      "teamup_billing_active",
-      true,
-    )
-    .eq(
-      "collection_enabled",
-      false,
-    )
+    // IMPORTANT: load the COMPLETE MTC subscription register here.
+    // Earlier migration/preparation runs have already changed
+    // teamup_billing_active and collection_enabled on many rows, so using
+    // either flag as an input filter can incorrectly reduce the candidate
+    // population to zero. Eligibility is decided later by the canonical,
+    // recurring, amount, duplicate, access-only and processor checks.
     .order(
       "customer_name",
       {

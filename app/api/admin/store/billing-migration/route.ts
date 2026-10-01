@@ -2685,6 +2685,40 @@ async function retrievePreparedStripeSubscription(
   }
 }
 
+
+async function findExistingStripeSubscriptionForCustomer(
+  row: StoreSubscription,
+  accountId: string,
+) {
+  if (!row.stripe_customer_id) return null;
+
+  const listed = await stripe.subscriptions.list(
+    {
+      customer: row.stripe_customer_id,
+      status: "all",
+      limit: 100,
+    },
+    { stripeAccount: accountId },
+  );
+
+  const usable = listed.data.filter(isUsablePreparedSubscription);
+  if (!usable.length) return null;
+
+  // Strongest match: a subscription created by this migration row.
+  const exactRow = usable.find(
+    (sub) => sub.metadata?.tots_store_subscription_id === row.id,
+  );
+  if (exactRow) return exactRow;
+
+  // If this Stripe customer has exactly one usable subscription, reuse it.
+  // This prevents a duplicate when the legacy DB row lost its sub_ ID.
+  if (usable.length === 1) return usable[0];
+
+  // Multiple live/scheduled subscriptions on one payer can be legitimate
+  // (family/kids/couples). Never guess which one belongs to this row.
+  return null;
+}
+
 // ============================================================
 // PREPARE CUTOVER
 // ============================================================
@@ -2716,15 +2750,21 @@ async function prepareCutover(
     }
 
     const existing =
-      await retrievePreparedStripeSubscription(
+      (await retrievePreparedStripeSubscription(
         row,
         accountId,
-      );
+      )) ??
+      (await findExistingStripeSubscriptionForCustomer(
+        row,
+        accountId,
+      ));
 
     if (existing) {
       await patchSubscription(
         row.id,
         {
+          stripe_subscription_id: existing.id,
+          status: existing.status,
           metadata: {
             ...metadata(row),
 
@@ -6202,9 +6242,40 @@ async function activateAll(
 
 async function completeMigration(accountId: string) {
   const allRows = await loadAllStoreSubscriptions();
-  const results: Array<Record<string, unknown>> = [];
 
-  for (const original of allRows) {
+  // First collapse only conservative, exact duplicate billing obligations.
+  // This prevents the legacy TeamUp row and its already-live TOTS row from
+  // both being processed. Shared family emails alone are never deduplicated.
+  const initiallyEligible = allRows.filter((row) => !isMarkedDuplicate(row));
+  const { canonicalRows, duplicateRows } =
+    await canonicaliseFinishDuplicates(initiallyEligible);
+
+  const alreadyMarkedDuplicates = allRows.filter(isMarkedDuplicate);
+  const rowsToProcess = canonicalRows;
+  const results: Array<Record<string, unknown>> = [
+    ...alreadyMarkedDuplicates.map((row) => ({
+      subscriptionId: row.id,
+      customerName: row.customer_name,
+      email: row.customer_email,
+      membership: row.legacy_membership_name,
+      amountPence: row.unit_amount_pence,
+      nextPaymentAt: row.next_payment_at,
+      result: "duplicate_excluded",
+      provider: "duplicate",
+    })),
+    ...duplicateRows.map((row) => ({
+      subscriptionId: row.id,
+      customerName: row.customer_name,
+      email: row.customer_email,
+      membership: row.legacy_membership_name,
+      amountPence: row.unit_amount_pence,
+      nextPaymentAt: row.next_payment_at,
+      result: "duplicate_excluded",
+      provider: "duplicate",
+    })),
+  ];
+
+  for (const original of rowsToProcess) {
     let row = original;
     const base = {
       subscriptionId: row.id,
@@ -6530,6 +6601,7 @@ export async function POST(
       return NextResponse.json({
         ok: true,
         action: "finish_payment_preparation",
+
         // Compatibility fields used by the existing Store page.
         recurringPaidMemberships,
         stripeReadyForTomorrow: stripeAlreadyPrepared + stripePreparedNow,

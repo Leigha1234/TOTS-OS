@@ -869,7 +869,7 @@ export default function StoreDashboardPage() {
     if (preparingMtcImport) return;
 
     const confirmed = window.confirm(
-      "Finish payment preparation for all genuine paid recurring MTC memberships? This will preserve subscriptions already prepared in Stripe, retry safe copied-customer/payment-method matching, and prepare additional future-dated Stripe subscriptions only where the next billing date is already confirmed. It will NOT charge anyone now, switch off TeamUp, enable TOTS collection, or guess missing billing dates.",
+      "Reconcile all genuine paid recurring MTC memberships? This checks every canonical recurring membership, preserves subscriptions already prepared in Stripe, verifies recoverable processor authority, and identifies members who still need secure card setup. It will NOT collect a payment now or cancel anything in TeamUp.",
     );
     if (!confirmed) return;
 
@@ -1968,7 +1968,7 @@ export default function StoreDashboardPage() {
                   <div>
                     <p className="text-sm font-bold text-emerald-950">Payment preparation finished</p>
                     <p className="mt-1 text-xs text-emerald-900/80">
-                      Paid recurring memberships were checked for tomorrow's cutover. Existing prepared Stripe subscriptions were preserved. TeamUp is still active, TOTS collection is still off, and no payment was intentionally taken now.
+                      Paid recurring memberships were reconciled against the actual processor state. Existing prepared Stripe subscriptions were preserved. Members who still need card authority remain in payment setup; no payment is taken by this preparation step.
                     </p>
                   </div>
                   <div className="rounded-xl bg-white px-4 py-2 text-right shadow-sm ring-1 ring-emerald-100">

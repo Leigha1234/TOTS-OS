@@ -4430,8 +4430,8 @@ const GOCARDLESS_CURRENT_PAYMENT_EVIDENCE: GoCardlessExportEvidence[] =
     "description": "Membership Payment: 3 Per Week"
   },
   {
-    "customerId": "CU01KGW1YQHAH3",
-    "mandateId": "MD01KC2JV7E9F5",
+    "customerId": "CU01K7WGGKB0PV",
+    "mandateId": "MD01K6BK2SAY3C",
     "email": "smears4@icloud.com",
     "givenName": "Stephen",
     "familyName": "Mears",
@@ -6628,59 +6628,39 @@ export async function POST(
       action ===
       "finish_payment_preparation"
     ) {
-      // IMPORTANT: this button is now the real final migration action.
-      // Do not use the old pre-cutover selector here: the database has already
-      // been switched to collection_enabled=true / teamup_billing_active=false.
-      // completeMigration() decides from the actual processor state instead:
-      //   - existing Stripe sub => preserve it
-      //   - verified Stripe customer + missing sub => create it
-      //   - verified GoCardless mandate => create/reuse its subscription
-      //   - non-recurring => keep access, no recurring charge
-      //   - genuinely broken => report for manual repair
-      const result = await completeMigration(accountId);
+      // Payment PREPARATION must use the canonical migration selector.
+      // completeMigration() only sees rows already admitted to the old final
+      // cutover path, which is why the unresolved legacy Stripe members were
+      // previously invisible here. finishPaymentPreparation() canonicalises
+      // duplicate obligations first, scans every genuine paid recurring row,
+      // preserves existing prepared subscriptions, verifies live GoCardless
+      // mandates, and reports Stripe members who still need a SetupIntent.
+      // It does NOT collect a payment or disable TeamUp externally.
+      const result = await finishPaymentPreparation(accountId);
 
-      const all = result.allResults ?? [];
-      const recurringPaidMemberships = all.filter((r: any) =>
-        Number(r.amountPence ?? 0) > 0 &&
-        r.result !== "duplicate_excluded"
-      ).length;
-      const stripeAlreadyPrepared = all.filter((r: any) =>
-        r.result === "stripe_already_live"
-      ).length;
-      const stripePreparedNow = all.filter((r: any) =>
-        r.result === "stripe_migrated"
-      ).length;
-      const goCardlessRecurring = all.filter((r: any) =>
-        r.result === "gocardless_migrated"
-      ).length;
-      const unresolved = result.broken?.length ?? 0;
-      const totsCollectionEnabled = all.filter((r: any) =>
-        ["stripe_migrated", "stripe_already_live", "gocardless_migrated"].includes(String(r.result))
-      ).length;
+      // finishPaymentPreparation already returns the exact compatibility
+      // counters and exception arrays consumed by the Store page.
+      const recurringPaidMemberships = result.recurringPaidMemberships;
+      const stripeAlreadyPrepared = result.stripeAlreadyPrepared;
+      const stripePreparedNow = result.stripePreparedNow;
+      const goCardlessRecurring = result.goCardlessRecurring;
+      const unresolved = result.unresolved;
 
       return NextResponse.json({
         ok: true,
         action: "finish_payment_preparation",
-        // Compatibility fields used by the existing Store page.
+        ...result,
         recurringPaidMemberships,
-        stripeReadyForTomorrow: stripeAlreadyPrepared + stripePreparedNow,
+        paidRecurringMemberships: recurringPaidMemberships,
+        stripeReadyForTomorrow: result.stripeReadyForTomorrow,
+        stripeReady: result.stripeReadyForTomorrow,
         stripeAlreadyPrepared,
         stripePreparedNow,
         goCardlessRecurring,
         unresolved,
-        excludedNonRecurring: result.summary?.nonRecurringAccessOnly ?? 0,
-        excludedDuplicateOrHistorical: result.summary?.duplicatesExcluded ?? 0,
-        exceptions: result.broken ?? [],
-        goCardless: all.filter((r: any) => r.result === "gocardless_migrated"),
-        safety: {
-          paymentsCollected: 0,
-          teamupBillingDisabled: totsCollectionEnabled,
-          totsCollectionEnabled,
-          existingPreparedSubscriptionsPreserved: true,
-        },
-
-        // Full final migration report.
-        ...result,
+        exceptions: result.exceptions,
+        goCardless: result.goCardless,
+        safety: result.safety,
         performedBy: user.email ?? user.id,
       });
     }

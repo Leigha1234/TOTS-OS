@@ -6450,8 +6450,48 @@ async function completeMigration(accountId: string) {
     }
   }
 
-  for (const row of [...alreadyDuplicate, ...duplicateRows]) {
-    results.push({ subscriptionId: row.id, customerName: row.customer_name, email: row.customer_email, membership: row.legacy_membership_name, amountPence: row.unit_amount_pence, result: "duplicate_excluded" });
+  // Persist every redundant historical/legacy row as a duplicate so the store
+  // and MTC app can use one canonical membership record after the final run.
+  // IMPORTANT: this never cancels a processor subscription. Rows with a real
+  // Stripe/GoCardless subscription are selected as canonical by
+  // chooseBestCanonical(), so only the redundant record is disabled here.
+  const duplicateMap = new Map<string, StoreSubscription>();
+  for (const row of [...alreadyDuplicate, ...duplicateRows]) duplicateMap.set(row.id, row);
+
+  for (const row of duplicateMap.values()) {
+    const now = new Date().toISOString();
+    const alreadyMarked = isMarkedDuplicate(row);
+
+    if (!alreadyMarked || row.collection_enabled === true) {
+      await patchSubscription(row.id, {
+        collection_enabled: false,
+        collection_enabled_at: null,
+        legacy_billing: false,
+        // Do not claim TeamUp was externally cancelled. This flag only stops
+        // the redundant TOTS row from being treated as a billable membership.
+        metadata: {
+          ...metadata(row),
+          mtc_redundant_duplicate: true,
+          mtc_duplicate_record: true,
+          mtc_duplicate_excluded_at: now,
+          mtc_tots_is_membership_source_of_truth: false,
+          mtc_app_import_ready: false,
+        },
+        migration_notes: appendMigrationNote(
+          row,
+          "Final migration: redundant duplicate/history row excluded. DO NOT COLLECT. Canonical membership is retained separately in TOTS.",
+        ),
+      });
+    }
+
+    results.push({
+      subscriptionId: row.id,
+      customerName: row.customer_name,
+      email: row.customer_email,
+      membership: row.legacy_membership_name,
+      amountPence: row.unit_amount_pence,
+      result: "duplicate_excluded",
+    });
   }
 
   const live = results.filter((r) => ["stripe_live", "gocardless_live"].includes(String(r.result)));
@@ -6482,6 +6522,13 @@ async function completeMigration(accountId: string) {
     manualReview: review,
     duplicates,
     teamupShutdownRequired,
+    canonicalSubscriptionIds: results
+      .filter((r) => r.result !== "duplicate_excluded")
+      .map((r) => String(r.subscriptionId ?? ""))
+      .filter(Boolean),
+    duplicateSubscriptionIds: duplicates
+      .map((r) => String(r.subscriptionId ?? ""))
+      .filter(Boolean),
     allResults: results,
     important: {
       totsIsMembershipSourceOfTruth: true,

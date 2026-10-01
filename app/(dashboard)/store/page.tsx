@@ -132,6 +132,8 @@ type Subscription = {
   collection_enabled?: boolean | null;
   teamup_billing_active?: boolean | null;
   external_subscription_id?: string | null;
+  migration_notes?: string | null;
+  metadata?: Record<string, unknown> | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -244,6 +246,8 @@ type CompleteMigrationResult = {
   setupLinks?: MigrationResultItem[];
   manualReview?: MigrationResultItem[];
   teamupShutdownRequired?: MigrationResultItem[];
+  canonicalSubscriptionIds?: string[];
+  duplicateSubscriptionIds?: string[];
   important?: {
     totsIsMembershipSourceOfTruth?: boolean;
     mtcAppShouldReadMembershipsFromTots?: boolean;
@@ -1087,16 +1091,36 @@ export default function StoreDashboardPage() {
   }, [getBillingToken, loadStore, postBillingMigration, stripeStatus, stripeStatusLoading]);
 
   const filteredSubscriptions = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return subscriptions;
+    const canonicalIds = new Set(mtcPreparationResult?.canonicalSubscriptionIds ?? []);
+    const duplicateIds = new Set(mtcPreparationResult?.duplicateSubscriptionIds ?? []);
 
-    return subscriptions.filter(
+    // After a completed migration, show only the canonical membership register.
+    // On later page loads, persisted duplicate metadata/notes keep historical
+    // TeamUp rows hidden as well, so the register does not look double-counted.
+    const canonicalRegister = subscriptions.filter((subscription) => {
+      if (canonicalIds.size > 0) return canonicalIds.has(subscription.id);
+      if (duplicateIds.has(subscription.id)) return false;
+
+      const meta = subscription.metadata ?? {};
+      const markedDuplicate =
+        meta.mtc_redundant_duplicate === true ||
+        meta.mtc_duplicate_record === true ||
+        String(subscription.migration_notes ?? "").toLowerCase().includes("do not collect");
+
+      return !markedDuplicate;
+    });
+
+    const query = search.trim().toLowerCase();
+    if (!query) return canonicalRegister;
+
+    return canonicalRegister.filter(
       (subscription) =>
         subscription.customer_name?.toLowerCase().includes(query) ||
         subscription.customer_email?.toLowerCase().includes(query) ||
-        subscription.status?.toLowerCase().includes(query),
+        subscription.status?.toLowerCase().includes(query) ||
+        subscription.legacy_membership_name?.toLowerCase().includes(query),
     );
-  }, [subscriptions, search]);
+  }, [subscriptions, search, mtcPreparationResult]);
 
   function openNewProduct() {
     setEditingProduct(null);
@@ -1940,7 +1964,7 @@ export default function StoreDashboardPage() {
           <section className="mt-6 overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
             <SectionHeader
               title="Subscriptions"
-              description="Membership register, including legacy TeamUp records and subscriptions collected through TOTS-OS."
+              description="Canonical MTC membership register. Redundant TeamUp/history rows are hidden after migration."
             >
               <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -1966,7 +1990,7 @@ export default function StoreDashboardPage() {
                   <div>
                     <p className="text-sm font-bold text-emerald-950">MTC migration run finished</p>
                     <p className="mt-1 text-xs text-emerald-900/80">
-                      TOTS-OS is now the membership source of truth for every membership this run could safely migrate. Existing processor subscriptions were preserved; missing processor subscriptions were only created where verified authority existed. No immediate migration payment was taken.
+                      TOTS-OS is now the membership source of truth for every membership this run could safely migrate. Redundant legacy rows are excluded from the live register. Existing processor subscriptions were preserved; missing processor subscriptions were only created where verified authority existed. No immediate migration payment was taken.
                     </p>
                   </div>
                   <div className="rounded-xl bg-white px-4 py-2 text-right shadow-sm ring-1 ring-emerald-100">

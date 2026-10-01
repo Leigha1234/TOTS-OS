@@ -4303,6 +4303,19 @@ type GoCardlessExportEvidence = {
 
 const GOCARDLESS_CURRENT_PAYMENT_EVIDENCE: GoCardlessExportEvidence[] =
 [
+  // Active authority recovered for Stephen Mears. This intentionally appears
+  // before his historical cancelled mandate so matching prefers the active one.
+  {
+    "customerId": "CU01K7WGGKB0PV",
+    "mandateId": "MD01K6BK2SAY3C",
+    "email": "smears4@icloud.com",
+    "givenName": "Stephen",
+    "familyName": "Mears",
+    "chargeDate": "2026-09-30",
+    "amountPence": 6900,
+    "status": "active_mandate",
+    "description": "Recovered active GoCardless mandate"
+  },
   {
     "customerId": "CU0052RKJ0Q0X2",
     "mandateId": "MD003R3HNPQW4V",
@@ -5069,26 +5082,9 @@ async function canonicaliseFinishDuplicates(rows: StoreSubscription[]) {
     for (const duplicate of group) {
       if (duplicate.id === canonical.id) continue;
 
-      // Never destroy/cancel anything in Stripe or GoCardless here. This only
-      // marks the redundant TOTS legacy row so it can never collect separately.
-      const now = new Date().toISOString();
-      const updated = await patchSubscription(duplicate.id, {
-        collection_enabled: false,
-        metadata: {
-          ...metadata(duplicate),
-          mtc_redundant_duplicate: true,
-          mtc_duplicate_record: true,
-          mtc_duplicate_of_subscription_id: canonical.id,
-          mtc_duplicate_marked_at: now,
-          mtc_duplicate_marked_by: "finish_payment_preparation",
-        },
-        migration_notes: appendMigrationNote(
-          duplicate,
-          `DO NOT COLLECT: duplicate legacy billing record. Canonical subscription: ${canonical.id}.`,
-        ),
-      });
-
-      duplicateRows.push(updated);
+      // READ-ONLY preparation: classify the redundant row in memory only.
+      // Never alter collection/TeamUp state from a preparation scan.
+      duplicateRows.push(duplicate);
     }
   }
 
@@ -5259,8 +5255,27 @@ async function finishPaymentPreparation(accountId: string) {
         continue;
       }
 
+      // Finish Payment Preparation may reconcile processor metadata, but it must
+      // not switch collection on/off or claim TeamUp has stopped. Preserve those
+      // billing-state fields around the scan.
+      const billingStateBeforeScan = {
+        collection_enabled: row.collection_enabled,
+        collection_enabled_at: row.collection_enabled_at,
+        teamup_billing_active: row.teamup_billing_active,
+        teamup_billing_disabled_at: row.teamup_billing_disabled_at,
+      };
+
       const scan = await scanOne(row, accountId);
       row = await loadSubscription(row.id);
+
+      if (
+        row.collection_enabled !== billingStateBeforeScan.collection_enabled ||
+        row.collection_enabled_at !== billingStateBeforeScan.collection_enabled_at ||
+        row.teamup_billing_active !== billingStateBeforeScan.teamup_billing_active ||
+        row.teamup_billing_disabled_at !== billingStateBeforeScan.teamup_billing_disabled_at
+      ) {
+        row = await patchSubscription(row.id, billingStateBeforeScan);
+      }
 
       // The operator has approved finalising legitimate dates that TOTS already
       // proposed. Reuse that exact proposal; never invent a 28th/fallback date.

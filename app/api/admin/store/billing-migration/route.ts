@@ -6312,14 +6312,74 @@ async function completeMigration(accountId: string) {
 
       const provider = await detectProvider(row);
 
+      // Reconcile processor authority instead of requiring the DB row to already
+      // be marked verified. This is the key bulk-migration path for legacy rows.
       if (row.processor_verification_status !== "verified") {
-        results.push({
-          ...base,
-          provider,
-          result: "broken_requires_manual_repair",
-          reason: "Processor/payment authority is not verified.",
-        });
-        continue;
+        if (provider === "stripe") {
+          const scan = await scanOne(row, accountId);
+
+          if (scan.result === "already_live") {
+            row = await loadSubscription(row.id);
+          } else if (scan.result === "verified") {
+            row = await loadSubscription(row.id);
+          } else {
+            results.push({
+              ...base,
+              provider,
+              result: "broken_requires_manual_repair",
+              reason:
+                scan.result === "customer_not_found"
+                  ? "No Stripe customer was found for this member."
+                  : scan.result === "no_payment_method"
+                    ? "Stripe customer found, but no reusable card is attached."
+                    : scan.result === "multiple_card_customers"
+                      ? "Multiple card-ready Stripe customers matched; refused to guess."
+                      : scan.message ?? `Stripe reconciliation stopped: ${scan.result}`,
+            });
+            continue;
+          }
+        } else if (provider === "gocardless") {
+          if (!row.external_mandate_id) {
+            results.push({
+              ...base,
+              provider,
+              result: "broken_requires_manual_repair",
+              reason: "GoCardless mandate ID is missing.",
+            });
+            continue;
+          }
+
+          try {
+            await verifyLiveGoCardlessMandate(
+              row.external_mandate_id,
+              row.external_customer_id,
+            );
+            row = await patchSubscription(row.id, {
+              processor_verification_status: "verified",
+              processor_verified_at: new Date().toISOString(),
+              migration_notes: appendMigrationNote(
+                row,
+                "Final migration: GoCardless mandate verified directly with processor.",
+              ),
+            });
+          } catch (error) {
+            results.push({
+              ...base,
+              provider,
+              result: "broken_requires_manual_repair",
+              reason: error instanceof Error ? error.message : "GoCardless mandate verification failed.",
+            });
+            continue;
+          }
+        } else {
+          results.push({
+            ...base,
+            provider,
+            result: "broken_requires_manual_repair",
+            reason: "Billing provider could not be safely identified.",
+          });
+          continue;
+        }
       }
 
       // User-approved migration fallback: missing future renewal dates become the next 28th.
@@ -6601,7 +6661,6 @@ export async function POST(
       return NextResponse.json({
         ok: true,
         action: "finish_payment_preparation",
-
         // Compatibility fields used by the existing Store page.
         recurringPaidMemberships,
         stripeReadyForTomorrow: stripeAlreadyPrepared + stripePreparedNow,

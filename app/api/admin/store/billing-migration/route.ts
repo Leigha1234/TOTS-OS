@@ -6497,21 +6497,60 @@ export async function POST(
       action ===
       "finish_payment_preparation"
     ) {
-      const result =
-        await finishPaymentPreparation(
-          accountId,
-        );
+      // IMPORTANT: this button is now the real final migration action.
+      // Do not use the old pre-cutover selector here: the database has already
+      // been switched to collection_enabled=true / teamup_billing_active=false.
+      // completeMigration() decides from the actual processor state instead:
+      //   - existing Stripe sub => preserve it
+      //   - verified Stripe customer + missing sub => create it
+      //   - verified GoCardless mandate => create/reuse its subscription
+      //   - non-recurring => keep access, no recurring charge
+      //   - genuinely broken => report for manual repair
+      const result = await completeMigration(accountId);
+
+      const all = result.allResults ?? [];
+      const recurringPaidMemberships = all.filter((r: any) =>
+        Number(r.amountPence ?? 0) > 0 &&
+        r.result !== "duplicate_excluded"
+      ).length;
+      const stripeAlreadyPrepared = all.filter((r: any) =>
+        r.result === "stripe_already_live"
+      ).length;
+      const stripePreparedNow = all.filter((r: any) =>
+        r.result === "stripe_migrated"
+      ).length;
+      const goCardlessRecurring = all.filter((r: any) =>
+        r.result === "gocardless_migrated"
+      ).length;
+      const unresolved = result.broken?.length ?? 0;
+      const totsCollectionEnabled = all.filter((r: any) =>
+        ["stripe_migrated", "stripe_already_live", "gocardless_migrated"].includes(String(r.result))
+      ).length;
 
       return NextResponse.json({
         ok: true,
-        action:
-          "finish_payment_preparation",
-        stripeAccountId:
-          accountId,
+        action: "finish_payment_preparation",
+        // Compatibility fields used by the existing Store page.
+        recurringPaidMemberships,
+        stripeReadyForTomorrow: stripeAlreadyPrepared + stripePreparedNow,
+        stripeAlreadyPrepared,
+        stripePreparedNow,
+        goCardlessRecurring,
+        unresolved,
+        excludedNonRecurring: result.summary?.nonRecurringAccessOnly ?? 0,
+        excludedDuplicateOrHistorical: result.summary?.duplicatesExcluded ?? 0,
+        exceptions: result.broken ?? [],
+        goCardless: all.filter((r: any) => r.result === "gocardless_migrated"),
+        safety: {
+          paymentsCollected: 0,
+          teamupBillingDisabled: totsCollectionEnabled,
+          totsCollectionEnabled,
+          existingPreparedSubscriptionsPreserved: true,
+        },
+
+        // Full final migration report.
         ...result,
-        performedBy:
-          user.email ??
-          user.id,
+        performedBy: user.email ?? user.id,
       });
     }
 

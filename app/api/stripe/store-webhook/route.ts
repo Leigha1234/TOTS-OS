@@ -2608,11 +2608,32 @@ async function completeStoreOrder({
     return;
   }
 
-  if (
-    session.payment_status !== "paid"
-  ) {
+  // A completed subscription checkout can legitimately have a £0 first
+  // invoice when a 100% introductory discount is applied. In that case
+  // Stripe may report no_payment_required rather than a normal paid
+  // PaymentIntent flow. Treat the completed £0 subscription checkout as
+  // payment-satisfied so the order, subscription and MTC membership can
+  // still be finalised and synced.
+  const isCompletedZeroValueSubscription =
+    session.mode === "subscription" &&
+    session.status === "complete" &&
+    (
+      session.amount_total === 0 ||
+      safeNumber(order.total, 0) === 0
+    );
+
+  const paymentSatisfied =
+    session.payment_status === "paid" ||
+    session.payment_status === "no_payment_required" ||
+    isCompletedZeroValueSubscription;
+
+  if (!paymentSatisfied) {
     console.log(
-      `[TOTS STORE] ${session.id} completed with payment_status=${session.payment_status}.`
+      `[TOTS STORE] ${session.id} completed but payment is not satisfied. ` +
+        `mode=${session.mode}, ` +
+        `status=${session.status}, ` +
+        `payment_status=${session.payment_status}, ` +
+        `amount_total=${session.amount_total}.`
     );
 
     return;
@@ -3730,7 +3751,8 @@ export async function POST(
       // SUBSCRIPTION UPDATED
       // ======================================================
 
-      case "customer.subscription.updated": {
+      case "customer.subscription.updated":
+      case "customer.subscription.paused": {
         const subscription =
           event.data.object as
             Stripe.Subscription;

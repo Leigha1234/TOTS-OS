@@ -80,6 +80,9 @@ type StoreOrderRow = {
   organisation_id:
     string;
 
+  stripe_account_id:
+    string | null;
+
   customer_id?:
     string | null;
 
@@ -274,10 +277,19 @@ export async function GET(
 
     // ========================================================
     // LOAD STRIPE SESSION
+    //
+    // Checkout Sessions can live either on the TOTS-OS
+    // platform account or on an organisation's connected
+    // Stripe account. Try the platform first. If it is not
+    // there, locate the TOTS order by its stored Checkout
+    // Session ID and retry in that order's connected account.
     // ========================================================
 
     let session:
       Stripe.Checkout.Session;
+
+    let sessionStripeAccountId:
+      string | null = null;
 
     try {
       session =
@@ -293,28 +305,189 @@ export async function GET(
             }
           );
     } catch (
-      stripeError
+      platformStripeError
     ) {
-      console.error(
-        "[TOTS STORE CONFIRM] Stripe session lookup failed:",
-        stripeError
+      console.log(
+        "[TOTS STORE CONFIRM] Session not found on platform; checking connected account:",
+        sessionId
       );
 
-      return NextResponse.json(
-        {
-          error:
-            "The checkout session could not be found.",
-        },
-        {
-          status:
-            404,
+      const {
+        data:
+          checkoutOrder,
 
-          headers: {
-            "Cache-Control":
-              "no-store",
+        error:
+          checkoutOrderError,
+      } =
+        await supabaseAdmin
+          .from(
+            "store_orders"
+          )
+          .select(
+            `
+              id,
+              organisation_id,
+              stripe_account_id
+            `
+          )
+          .eq(
+            "stripe_checkout_session_id",
+            sessionId
+          )
+          .maybeSingle();
+
+      if (
+        checkoutOrderError
+      ) {
+        console.error(
+          "[TOTS STORE CONFIRM] Failed to locate order from Checkout Session:",
+          checkoutOrderError
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "The checkout session could not be verified.",
           },
-        }
-      );
+          {
+            status:
+              500,
+
+            headers: {
+              "Cache-Control":
+                "no-store",
+            },
+          }
+        );
+      }
+
+      if (
+        !checkoutOrder
+      ) {
+        console.error(
+          "[TOTS STORE CONFIRM] Checkout Session was not found on platform and no matching TOTS order exists:",
+          {
+            sessionId,
+            platformStripeError,
+          }
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "The checkout session could not be found.",
+          },
+          {
+            status:
+              404,
+
+            headers: {
+              "Cache-Control":
+                "no-store",
+            },
+          }
+        );
+      }
+
+      const connectedAccountId =
+        cleanString(
+          checkoutOrder
+            .stripe_account_id
+        );
+
+      if (
+        !connectedAccountId
+      ) {
+        console.error(
+          "[TOTS STORE CONFIRM] Matching order has no Stripe connected account:",
+          {
+            sessionId,
+            orderId:
+              checkoutOrder.id,
+            organisationId:
+              checkoutOrder.organisation_id,
+          }
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "The checkout session could not be verified.",
+          },
+          {
+            status:
+              500,
+
+            headers: {
+              "Cache-Control":
+                "no-store",
+            },
+          }
+        );
+      }
+
+      try {
+        session =
+          await stripe
+            .checkout
+            .sessions
+            .retrieve(
+              sessionId,
+              {
+                expand: [
+                  "payment_intent",
+                ],
+              },
+              {
+                stripeAccount:
+                  connectedAccountId,
+              }
+            );
+
+        sessionStripeAccountId =
+          connectedAccountId;
+
+        console.log(
+          "[TOTS STORE CONFIRM] Connected-account Checkout Session found:",
+          {
+            sessionId:
+              session.id,
+            stripeAccountId:
+              connectedAccountId,
+            orderId:
+              checkoutOrder.id,
+          }
+        );
+      } catch (
+        connectedStripeError
+      ) {
+        console.error(
+          "[TOTS STORE CONFIRM] Connected-account Stripe session lookup failed:",
+          {
+            sessionId,
+            stripeAccountId:
+              connectedAccountId,
+            error:
+              connectedStripeError,
+          }
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "The checkout session could not be found.",
+          },
+          {
+            status:
+              404,
+
+            headers: {
+              "Cache-Control":
+                "no-store",
+            },
+          }
+        );
+      }
     }
 
     // ========================================================
@@ -393,6 +566,7 @@ export async function GET(
           `
             id,
             organisation_id,
+            stripe_account_id,
             customer_id,
             order_number,
             customer_name,
@@ -490,6 +664,47 @@ export async function GET(
         {
           error:
             "This checkout session does not match the order.",
+        },
+        {
+          status:
+            400,
+
+          headers: {
+            "Cache-Control":
+              "no-store",
+          },
+        }
+      );
+    }
+
+    // ========================================================
+    // CONNECTED ACCOUNT SECURITY CHECK
+    // ========================================================
+
+    if (
+      sessionStripeAccountId &&
+      cleanString(
+        order.stripe_account_id
+      ) &&
+      sessionStripeAccountId !==
+        cleanString(
+          order.stripe_account_id
+        )
+    ) {
+      console.error(
+        "[TOTS STORE CONFIRM] Stripe account mismatch:",
+        {
+          sessionStripeAccountId,
+          orderStripeAccountId:
+            order.stripe_account_id,
+          orderId,
+        }
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "This checkout session does not match the order's Stripe account.",
         },
         {
           status:

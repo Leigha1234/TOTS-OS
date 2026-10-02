@@ -1736,6 +1736,29 @@ export default function ShopFrontPage() {
                   product.status ===
                     "active"
               )
+              // Never expose migrated / legacy MTC membership products on the
+              // public storefront. Existing subscriptions are untouched; this
+              // only removes the legacy products from the shop UI.
+              .filter((product) => {
+                // Legacy/migrated products are retained in the database for
+                // existing subscriptions, but must never be purchasable from
+                // the public storefront. Keep this unconditional so a route
+                // alias or slug mismatch cannot accidentally expose them.
+                const name = String(product.name || "").trim().toLowerCase();
+                const slugValue = String(product.slug || "").trim().toLowerCase();
+                const categoryValue = String(product.category || "").trim().toLowerCase();
+                const sku = String(product.sku || "").trim().toLowerCase();
+                const externalPlanCode = String(product.external_plan_code || "").trim().toLowerCase();
+
+                return !(
+                  categoryValue === "legacy membership" ||
+                  categoryValue.includes("legacy") ||
+                  name.includes("legacy") ||
+                  slugValue.includes("legacy") ||
+                  sku.includes("legacy") ||
+                  externalPlanCode.includes("legacy")
+                );
+              })
               .sort(
                 (
                   first,
@@ -4800,10 +4823,18 @@ export default function ShopFrontPage() {
 
                 <Search
                   size={14}
+                  aria-hidden="true"
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
                 />
 
+                <label htmlFor="store-product-search" className="sr-only">
+                  Search store products
+                </label>
+
                 <input
+                  id="store-product-search"
+                  type="search"
+                  aria-label="Search store products"
                   value={
                     search
                   }
@@ -4843,7 +4874,13 @@ export default function ShopFrontPage() {
                 1 && (
                 <div className="relative">
 
+                  <label htmlFor="store-category-filter" className="sr-only">
+                    Filter products by category
+                  </label>
+
                   <select
+                    id="store-category-filter"
+                    aria-label="Filter products by category"
                     value={
                       category
                     }
@@ -4878,6 +4915,7 @@ export default function ShopFrontPage() {
 
                   <ChevronDown
                     size={12}
+                    aria-hidden="true"
                     className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-stone-400"
                   />
 
@@ -4978,11 +5016,20 @@ export default function ShopFrontPage() {
                   />
                 ) : (
                   <MembershipShopSections
-                    products={visibleProducts.filter(
-                      (product) =>
-                        String(product.category || "").toLowerCase() !==
-                        "rooted cic"
-                    )}
+                    products={visibleProducts.filter((product) => {
+                      const productCategory = String(product.category || "").trim().toLowerCase();
+                      const productName = String(product.name || "").trim().toLowerCase();
+                      const productSlug = String(product.slug || "").trim().toLowerCase();
+                      const productSku = String(product.sku || "").trim().toLowerCase();
+
+                      return (
+                        productCategory !== "rooted cic" &&
+                        !productCategory.includes("legacy") &&
+                        !productName.includes("legacy") &&
+                        !productSlug.includes("legacy") &&
+                        !productSku.includes("legacy")
+                      );
+                    })}
                     primary={primary}
                     onChoose={addToCart}
                   />
@@ -6206,8 +6253,13 @@ export default function ShopFrontPage() {
                   ) : (
                     <div className="mt-3 flex gap-2">
 
+                      <label htmlFor="store-discount-code" className="sr-only">
+                        Discount code
+                      </label>
                       <input
+                        id="store-discount-code"
                         type="text"
+                        aria-label="Discount code"
                         value={
                           discountCode
                         }
@@ -6804,16 +6856,29 @@ function RootedFundraiserSection({
     return null;
   }
 
+  const isDrinkProduct = (product: Product) => {
+    const sku = String(product.sku || "").trim().toUpperCase();
+    const slug = String(product.slug || "").trim().toLowerCase();
+
+    return (
+      sku.startsWith("MTC-DRINK-") ||
+      ["celsius", "nocco", "huel-ready-to-drink", "still-water"].includes(slug)
+    );
+  };
+
   const directDonation = products.find(
     (product) =>
       String(product.slug || "").toLowerCase() ===
       "rooted-direct-donation"
   );
 
+  const drinkProducts = products.filter(isDrinkProduct);
+
   const fixedProducts = products.filter(
     (product) =>
       String(product.slug || "").toLowerCase() !==
-      "rooted-direct-donation"
+        "rooted-direct-donation" &&
+      !isDrinkProduct(product)
   );
 
   const parsedDonation = Number(donationAmount);
@@ -6948,6 +7013,60 @@ function RootedFundraiserSection({
               );
             })}
           </div>
+        )}
+
+        {drinkProducts.length > 0 && (
+          <section
+            id="rooted-drinks"
+            className="mt-8 overflow-hidden rounded-[28px] border border-black/[.07] bg-white p-6 sm:p-8 lg:p-10"
+          >
+            <div className="flex flex-col gap-3 border-b border-black/[.08] pb-6 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="rooted-kicker text-xs font-black uppercase tracking-[.12em] text-[#315B45]">
+                  Drinks fridge
+                </p>
+                <h4 className="mt-2 text-3xl font-black uppercase tracking-[-.04em] text-stone-950 sm:text-4xl">
+                  Grab a drink
+                </h4>
+              </div>
+
+              <p className="rooted-body max-w-md text-sm leading-6 text-stone-500">
+                Pick your drink, pay securely online and collect it from the fridge at MTC.
+              </p>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {drinkProducts.map((product) => (
+                <article
+                  key={product.id}
+                  className="flex min-h-[210px] flex-col rounded-[20px] border border-black/[.08] bg-[#F8F8F5] p-5"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <h5 className="text-xl font-black leading-tight tracking-[-.03em] text-stone-950">
+                      {product.name}
+                    </h5>
+                    <span className="shrink-0 rounded-full bg-[#DDF247] px-3 py-1.5 text-sm font-black text-[#1D3327]">
+                      {formatCurrency(Number(product.price || 0))}
+                    </span>
+                  </div>
+
+                  <p className="mt-3 flex-1 text-sm leading-6 text-stone-500">
+                    {product.description || "Available from the MTC drinks fridge."}
+                  </p>
+
+                  <button
+                    type="button"
+                    aria-label={`Add ${product.name} to basket`}
+                    onClick={() => onAdd(product)}
+                    className="mt-5 flex w-full items-center justify-between rounded-full bg-[#315B45] px-4 py-3 text-xs font-black uppercase tracking-[.08em] text-white transition hover:bg-[#244535]"
+                  >
+                    <span>Add to basket</span>
+                    <Plus size={14} />
+                  </button>
+                </article>
+              ))}
+            </div>
+          </section>
         )}
 
         {directDonation && (
@@ -7343,6 +7462,7 @@ function MembershipCard({
         <button
           type="button"
           onClick={onChoose}
+          aria-label={`${oneOff ? "Book" : "Choose"} ${name} for ${formatCurrency(price)}${oneOff ? "" : " per month"}`}
           data-store-primary="true"
           className="store-primary-action mt-6 flex w-full items-center justify-between px-5 py-4 text-[10px] font-black uppercase tracking-[.16em] transition hover:-translate-y-0.5"
           style={{
@@ -7352,7 +7472,7 @@ function MembershipCard({
           }}
         >
           {oneOff ? "Book one-off session" : "Choose membership"}
-          <ArrowRight size={16} />
+          <ArrowRight size={16} aria-hidden="true" />
         </button>
       </div>
     </article>

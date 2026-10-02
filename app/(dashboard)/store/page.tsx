@@ -122,9 +122,20 @@ type Subscription = {
   next_payment_at?: string | null;
   cancel_at_period_end?: boolean | null;
   cancelled_at?: string | null;
+  stripe_account_id?: string | null;
+  stripe_customer_id?: string | null;
   stripe_subscription_id?: string | null;
+  stripe_price_id?: string | null;
+  billing_provider?: string | null;
   legacy_billing?: boolean | null;
   payment_provider?: string | null;
+  external_customer_id?: string | null;
+  external_mandate_id?: string | null;
+  processor_verified_at?: string | null;
+  collection_enabled_at?: string | null;
+  teamup_billing_disabled_at?: string | null;
+  last_payment_at?: string | null;
+  last_payment_amount_pence?: number | null;
   legacy_membership_name?: string | null;
   migrated_from?: string | null;
   processor_verification_status?: string | null;
@@ -468,6 +479,7 @@ export default function StoreDashboardPage() {
   const [reconcileProgress, setReconcileProgress] = useState<{ current: number; total: number } | null>(null);
   const [reconcileSummary, setReconcileSummary] = useState<Record<string, number> | null>(null);
   const [migrationMessages, setMigrationMessages] = useState<Record<string, string>>({});
+  const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [stripeStatus, setStripeStatus] = useState<StripeStoreStatus | null>(null);
   const [stripeStatusLoading, setStripeStatusLoading] = useState(true);
   const [stripeConnectLoading, setStripeConnectLoading] = useState(false);
@@ -2090,22 +2102,38 @@ export default function StoreDashboardPage() {
                     {filteredSubscriptions.map((subscription) => (
                       <tr
                         key={subscription.id}
-                        className="hover:bg-stone-50/60"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`View subscription details for ${subscription.customer_name || subscription.customer_email || "customer"}`}
+                        onClick={(event) => {
+                          const target = event.target as HTMLElement;
+                          if (target.closest("button, a, input, select, textarea")) return;
+                          setSelectedSubscription(subscription);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedSubscription(subscription);
+                          }
+                        }}
+                        className="cursor-pointer transition hover:bg-stone-50/80 focus:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a9b897]"
                       >
                         <td className="px-6 py-4">
-                          <p className="font-semibold text-stone-900">
-                            {subscription.customer_name || "Customer"}
-                          </p>
-                          <p className="mt-0.5 text-xs text-stone-400">
-                            {subscription.customer_email || "—"}
-                          </p>
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold text-stone-900">
+                                {subscription.customer_name || "Customer"}
+                              </p>
+                              <p className="mt-0.5 truncate text-xs text-stone-400">
+                                {subscription.customer_email || "—"}
+                              </p>
+                            </div>
+                            <ChevronRight className="h-4 w-4 shrink-0 text-stone-300" />
+                          </div>
                         </td>
 
                         <td className="px-4 py-4 font-semibold text-stone-900">
-                          {formatPence(
-                            subscription.unit_amount_pence,
-                            subscription.currency || "GBP",
-                          )}
+                          {formatPence(subscription.unit_amount_pence, subscription.currency || "GBP")}
                         </td>
 
                         <td className="px-4 py-4 text-sm capitalize text-stone-600">
@@ -2117,11 +2145,11 @@ export default function StoreDashboardPage() {
                             <span className="text-xs font-semibold text-emerald-700">Live on TOTS</span>
                           ) : !(subscription.billing_interval && subscription.unit_amount_pence && subscription.unit_amount_pence > 0) ? (
                             <span className="text-xs text-stone-400">No recurring billing</span>
-                          ) : String(subscription.payment_provider ?? "").toLowerCase() === "gocardless" ? (
-                            <span className="text-xs font-semibold text-sky-700">GoCardless migration</span>
-                          ) : String(subscription.payment_provider ?? "").toLowerCase() !== "stripe" ? (
-                            <span className="text-xs font-semibold text-amber-700">Manual review</span>
-                          ) : subscription.processor_verification_status === "verified" && subscription.cutover_status === "verified" ? (
+                          ) : String(subscription.billing_provider ?? subscription.payment_provider ?? "").toLowerCase() === "gocardless" ? (
+                            <span className="text-xs font-semibold text-sky-700">GoCardless</span>
+                          ) : String(subscription.billing_provider ?? subscription.payment_provider ?? "").toLowerCase() !== "stripe" ? (
+                            <span className="text-xs font-semibold text-amber-700">Review billing</span>
+                          ) : subscription.processor_verification_status === "verified" && ["verified", "ready", "live", "cutover"].includes(String(subscription.cutover_status ?? "").toLowerCase()) ? (
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">Payment verified</span>
                               {subscription.teamup_billing_active === true ? (
@@ -2167,10 +2195,22 @@ export default function StoreDashboardPage() {
                               {migrationMessages[subscription.id] ? (
                                 <span className="text-[11px] leading-4 text-stone-500">{migrationMessages[subscription.id]}</span>
                               ) : (
-                                <span className="text-[11px] text-stone-400">Awaiting copied Stripe payment verification</span>
+                                <span className="text-[11px] text-stone-400">Awaiting payment verification</span>
                               )}
                             </div>
                           )}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <StatusBadge status={subscription.status || "unknown"} />
+                        </td>
+
+                        <td className="px-4 py-4 text-xs text-stone-500">
+                          {formatDate(subscription.current_period_start || subscription.created_at)}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <StatusBadge status={subscription.cutover_status || subscription.processor_verification_status || "not_started"} />
                         </td>
 
                         <td className="px-6 py-4">
@@ -2178,9 +2218,7 @@ export default function StoreDashboardPage() {
                             {subscription.legacy_membership_name || "Membership"}
                           </p>
                           <p className="mt-0.5 max-w-[260px] truncate font-mono text-[11px] text-stone-400">
-                            {subscription.stripe_subscription_id ||
-                              subscription.external_subscription_id ||
-                              (subscription.legacy_billing ? "Legacy TeamUp record" : "—")}
+                            {subscription.stripe_subscription_id || subscription.external_subscription_id || (subscription.legacy_billing ? "Legacy TeamUp record" : "—")}
                           </p>
                         </td>
                       </tr>
@@ -2648,6 +2686,106 @@ export default function StoreDashboardPage() {
 
       </div>
 
+      {selectedSubscription && (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-end bg-black/35 p-3 backdrop-blur-sm sm:p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectedSubscription(null);
+          }}
+        >
+          <div className="max-h-[94vh] w-full max-w-2xl overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-stone-100 px-6 py-5">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="truncate text-xl font-semibold text-stone-950">
+                    {selectedSubscription.customer_name || "Subscription details"}
+                  </h2>
+                  <StatusBadge status={selectedSubscription.status || "unknown"} />
+                </div>
+                <p className="mt-1 truncate text-sm text-stone-500">
+                  {selectedSubscription.customer_email || "No email recorded"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedSubscription(null)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-stone-200 text-stone-500 hover:bg-stone-50"
+                aria-label="Close subscription details"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[calc(94vh-82px)] overflow-y-auto p-6">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <SubscriptionSummaryCard label="Membership" value={selectedSubscription.legacy_membership_name || "Membership"} />
+                <SubscriptionSummaryCard label="Amount" value={formatPence(selectedSubscription.unit_amount_pence, selectedSubscription.currency || "GBP")} />
+                <SubscriptionSummaryCard label="Billing" value={selectedSubscription.collection_enabled ? "Live on TOTS" : "Not collecting"} />
+              </div>
+
+              <SubscriptionDetailSection title="Membership">
+                <SubscriptionDetailRow label="Subscription record ID" value={selectedSubscription.id} mono />
+                <SubscriptionDetailRow label="Product ID" value={selectedSubscription.product_id} mono />
+                <SubscriptionDetailRow label="Order ID" value={selectedSubscription.order_id} mono />
+                <SubscriptionDetailRow label="Interval" value={selectedSubscription.billing_interval} />
+                <SubscriptionDetailRow label="Quantity" value={selectedSubscription.quantity != null ? String(selectedSubscription.quantity) : null} />
+                <SubscriptionDetailRow label="Current period start" value={formatDateTime(selectedSubscription.current_period_start)} />
+                <SubscriptionDetailRow label="Current period end" value={formatDateTime(selectedSubscription.current_period_end)} />
+                <SubscriptionDetailRow label="Cancel at period end" value={selectedSubscription.cancel_at_period_end == null ? null : selectedSubscription.cancel_at_period_end ? "Yes" : "No"} />
+                <SubscriptionDetailRow label="Cancelled at" value={formatDateTime(selectedSubscription.cancelled_at)} />
+              </SubscriptionDetailSection>
+
+              <SubscriptionDetailSection title="Billing & collection">
+                <SubscriptionDetailRow label="Billing provider" value={selectedSubscription.billing_provider || selectedSubscription.payment_provider} />
+                <SubscriptionDetailRow label="Payment provider" value={selectedSubscription.payment_provider} />
+                <SubscriptionDetailRow label="Processor verification" value={selectedSubscription.processor_verification_status} />
+                <SubscriptionDetailRow label="Processor verified at" value={formatDateTime(selectedSubscription.processor_verified_at)} />
+                <SubscriptionDetailRow label="Cutover status" value={selectedSubscription.cutover_status} />
+                <SubscriptionDetailRow label="TOTS collection" value={selectedSubscription.collection_enabled == null ? null : selectedSubscription.collection_enabled ? "Enabled" : "Disabled"} />
+                <SubscriptionDetailRow label="Collection enabled at" value={formatDateTime(selectedSubscription.collection_enabled_at)} />
+                <SubscriptionDetailRow label="TeamUp billing" value={selectedSubscription.teamup_billing_active == null ? null : selectedSubscription.teamup_billing_active ? "Active" : "Inactive"} />
+                <SubscriptionDetailRow label="TeamUp disabled at" value={formatDateTime(selectedSubscription.teamup_billing_disabled_at)} />
+                <SubscriptionDetailRow label="Legacy billing" value={selectedSubscription.legacy_billing == null ? null : selectedSubscription.legacy_billing ? "Yes" : "No"} />
+              </SubscriptionDetailSection>
+
+              <SubscriptionDetailSection title="Processor details">
+                <SubscriptionDetailRow label="Stripe account" value={selectedSubscription.stripe_account_id} mono copyable />
+                <SubscriptionDetailRow label="Stripe customer" value={selectedSubscription.stripe_customer_id} mono copyable />
+                <SubscriptionDetailRow label="Stripe subscription" value={selectedSubscription.stripe_subscription_id} mono copyable />
+                <SubscriptionDetailRow label="Stripe price" value={selectedSubscription.stripe_price_id} mono copyable />
+                <SubscriptionDetailRow label="External customer" value={selectedSubscription.external_customer_id} mono copyable />
+                <SubscriptionDetailRow label="External subscription" value={selectedSubscription.external_subscription_id} mono copyable />
+                <SubscriptionDetailRow label="External mandate" value={selectedSubscription.external_mandate_id} mono copyable />
+              </SubscriptionDetailSection>
+
+              <SubscriptionDetailSection title="Payments">
+                <SubscriptionDetailRow label="Last payment" value={formatDateTime(selectedSubscription.last_payment_at)} />
+                <SubscriptionDetailRow label="Last payment amount" value={selectedSubscription.last_payment_amount_pence == null ? null : formatPence(selectedSubscription.last_payment_amount_pence, selectedSubscription.currency || "GBP")} />
+                <SubscriptionDetailRow label="Next payment" value={formatDateTime(selectedSubscription.next_payment_at)} />
+              </SubscriptionDetailSection>
+
+              <SubscriptionDetailSection title="Customer">
+                <SubscriptionDetailRow label="Name" value={selectedSubscription.customer_name} />
+                <SubscriptionDetailRow label="Email" value={selectedSubscription.customer_email} copyable />
+                <SubscriptionDetailRow label="Phone" value={selectedSubscription.customer_phone} copyable />
+              </SubscriptionDetailSection>
+
+              <SubscriptionDetailSection title="Migration">
+                <SubscriptionDetailRow label="Migrated from" value={selectedSubscription.migrated_from} />
+                <SubscriptionDetailRow label="Created" value={formatDateTime(selectedSubscription.created_at)} />
+                <SubscriptionDetailRow label="Updated" value={formatDateTime(selectedSubscription.updated_at)} />
+                <div className="border-t border-stone-100 py-3 first:border-t-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-stone-400">Migration notes</p>
+                  <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-stone-700">
+                    {selectedSubscription.migration_notes || "No migration notes recorded."}
+                  </p>
+                </div>
+              </SubscriptionDetailSection>
+            </div>
+          </div>
+        </div>
+      )}
+
       {productModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-2xl">
@@ -2936,6 +3074,61 @@ export default function StoreDashboardPage() {
 // ============================================================
 // UI COMPONENTS
 // ============================================================
+
+function SubscriptionSummaryCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-stone-400">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-stone-900">{value}</p>
+    </div>
+  );
+}
+
+function SubscriptionDetailSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="mt-6 overflow-hidden rounded-2xl border border-stone-200">
+      <div className="border-b border-stone-100 bg-stone-50/70 px-4 py-3">
+        <h3 className="text-sm font-semibold text-stone-900">{title}</h3>
+      </div>
+      <div className="px-4">{children}</div>
+    </section>
+  );
+}
+
+function SubscriptionDetailRow({
+  label,
+  value,
+  mono = false,
+  copyable = false,
+}: {
+  label: string;
+  value?: string | null;
+  mono?: boolean;
+  copyable?: boolean;
+}) {
+  const shown = value && value !== "Invalid Date" ? value : "—";
+
+  return (
+    <div className="flex flex-col gap-1 border-t border-stone-100 py-3 first:border-t-0 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
+      <span className="text-xs font-medium text-stone-500">{label}</span>
+      <div className="flex min-w-0 items-start gap-2 sm:max-w-[65%]">
+        <span className={`break-all text-sm text-stone-800 ${mono ? "font-mono text-xs" : "font-medium"}`}>
+          {shown}
+        </span>
+        {copyable && value ? (
+          <button
+            type="button"
+            onClick={() => void navigator.clipboard.writeText(value).catch(() => undefined)}
+            className="shrink-0 rounded-md border border-stone-200 px-2 py-1 text-[10px] font-semibold text-stone-500 hover:bg-stone-50"
+            title={`Copy ${label}`}
+          >
+            Copy
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 function MetricCard({
   icon: Icon,

@@ -3997,6 +3997,53 @@ export default function ShopFrontPage() {
           color: #173023 !important;
         }
 
+        /* Rooted storefront contrast + interaction accessibility */
+        .mtc-app-store #rooted-fundraising button,
+        .mtc-app-store #rooted-fundraising a {
+          min-height: 44px;
+        }
+
+        .mtc-app-store #rooted-fundraising button:not(:disabled):hover {
+          filter: brightness(.94);
+        }
+
+        .mtc-app-store #rooted-fundraising button:disabled {
+          opacity: .55 !important;
+          color: #ffffff !important;
+        }
+
+        .mtc-app-store #rooted-fundraising .store-primary-action {
+          background: #315B45 !important;
+          color: #FFFFFF !important;
+          border: 1px solid #244535 !important;
+        }
+
+        .mtc-app-store #rooted-fundraising .store-primary-action svg {
+          color: #FFFFFF !important;
+        }
+
+        .mtc-app-store #rooted-drinks article p {
+          color: #4B5560 !important;
+        }
+
+        .mtc-app-store #rooted-drinks article h5 {
+          color: #171717 !important;
+        }
+
+        .mtc-app-store #rooted-drinks img {
+          max-width: 100%;
+        }
+
+        @media (forced-colors: active) {
+          .mtc-app-store :is(a, button, input, select, textarea):focus-visible {
+            outline: 3px solid Highlight !important;
+          }
+
+          .mtc-app-store #rooted-fundraising .store-primary-action {
+            border: 2px solid ButtonText !important;
+          }
+        }
+
         @media (prefers-reduced-motion: reduce) {
           .mtc-app-store *,
           .mtc-app-store *::before,
@@ -6980,6 +7027,8 @@ function RootedFundraiserSection({
               const cta =
                 slug === "rooted-donate-a-coffee"
                   ? "Donate a coffee"
+                  : slug === "rooted-raffle-strip"
+                  ? "Add raffle strip"
                   : isRaffle
                   ? "Add raffle ticket"
                   : "Add to basket";
@@ -7020,7 +7069,7 @@ function RootedFundraiserSection({
                     type="button"
                     aria-label={`${cta}: ${product.name}`}
                     onClick={() => onAdd(product)}
-                    className="relative mt-8 flex w-full items-center justify-between rounded-full bg-[#315B45] px-5 py-4 text-sm font-black uppercase tracking-[.08em] text-white transition hover:bg-[#244535]"
+                    className="store-primary-action relative mt-8 flex min-h-12 w-full items-center justify-between rounded-full bg-[#315B45] px-5 py-4 text-sm font-black uppercase tracking-[.08em] text-white transition hover:bg-[#244535]"
                   >
                     <span>{cta}</span>
                     <ArrowRight size={15} />
@@ -7046,41 +7095,68 @@ function RootedFundraiserSection({
                 </h4>
               </div>
 
-              <p className="rooted-body max-w-md text-sm leading-6 text-stone-500">
+              <p className="rooted-body max-w-md text-sm leading-6 text-[#3F4A43]">
                 Pick your drink, pay securely online and collect it from the fridge at MTC.
               </p>
             </div>
 
             <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {drinkProducts.map((product) => (
-                <article
-                  key={product.id}
-                  className="flex min-h-[210px] flex-col rounded-[20px] border border-black/[.08] bg-[#F8F8F5] p-5"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <h5 className="text-xl font-black leading-tight tracking-[-.03em] text-stone-950">
-                      {product.name}
-                    </h5>
-                    <span className="shrink-0 rounded-full bg-[#DDF247] px-3 py-1.5 text-sm font-black text-[#1D3327]">
-                      {formatCurrency(Number(product.price || 0))}
-                    </span>
-                  </div>
+              {drinkProducts.map((product) => {
+                const image = getProductImage(product);
 
-                  <p className="mt-3 flex-1 text-sm leading-6 text-stone-500">
-                    {product.description || "Available from the MTC drinks fridge."}
-                  </p>
-
-                  <button
-                    type="button"
-                    aria-label={`Add ${product.name} to basket`}
-                    onClick={() => onAdd(product)}
-                    className="mt-5 flex w-full items-center justify-between rounded-full bg-[#315B45] px-4 py-3 text-xs font-black uppercase tracking-[.08em] text-white transition hover:bg-[#244535]"
+                return (
+                  <article
+                    key={product.id}
+                    className="group flex min-h-[300px] flex-col overflow-hidden rounded-[22px] border border-[#D7DDD8] bg-white shadow-[0_8px_24px_rgba(49,91,69,.07)] transition duration-300 hover:-translate-y-1 hover:border-[#AFC0B5] hover:shadow-[0_16px_36px_rgba(49,91,69,.12)]"
                   >
-                    <span>Add to basket</span>
-                    <Plus size={14} />
-                  </button>
-                </article>
-              ))}
+                    {image ? (
+                      <div className="relative flex h-36 items-center justify-center overflow-hidden bg-[#F4F7F4] p-4">
+                        <img
+                          src={image}
+                          alt={`${product.name} product`}
+                          loading="lazy"
+                          className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]"
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        aria-hidden="true"
+                        className="flex h-24 items-center justify-center bg-[#F4F7F4]"
+                      >
+                        <ShoppingBag size={28} className="text-[#315B45]" />
+                      </div>
+                    )}
+
+                    <div className="flex flex-1 flex-col p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <h5 className="text-lg font-black leading-tight tracking-[-.025em] text-[#171717]">
+                          {product.name}
+                        </h5>
+                        <span
+                          className="shrink-0 rounded-full bg-[#DDF247] px-3 py-1.5 text-sm font-black text-[#173023]"
+                          aria-label={`Price ${formatCurrency(Number(product.price || 0))}`}
+                        >
+                          {formatCurrency(Number(product.price || 0))}
+                        </span>
+                      </div>
+
+                      <p className="mt-3 flex-1 text-sm leading-6 text-[#4B5560]">
+                        {product.description || "Available from the MTC drinks fridge."}
+                      </p>
+
+                      <button
+                        type="button"
+                        aria-label={`Add ${product.name} to basket`}
+                        onClick={() => onAdd(product)}
+                        className="store-primary-action mt-5 flex min-h-12 w-full items-center justify-between rounded-full bg-[#315B45] px-4 py-3 text-xs font-black uppercase tracking-[.08em] text-white transition hover:bg-[#244535]"
+                      >
+                        <span>Add to basket</span>
+                        <Plus size={16} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </section>
         )}

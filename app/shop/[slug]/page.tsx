@@ -3943,6 +3943,53 @@ export default function ShopFrontPage() {
         .mtc-app-store .membership-cart-footer .border-t { border-color: var(--mtc-line) !important; }
         .mtc-app-store .membership-cart-footer .store-primary-action { background: #111 !important; color: #fff !important; border-radius: 12px !important; }
 
+        /* MTC membership hub: explicit accessible contrast.
+           These rules intentionally override broad storefront typography
+           rules so text can never become dark on the dark hub cards. */
+        .mtc-app-store .mtc-hub-card {
+          isolation: isolate;
+          box-shadow: 0 18px 45px rgba(15, 23, 42, .12);
+        }
+        .mtc-app-store .mtc-hub-card--memberships {
+          background: #102535 !important;
+          color: #FFFFFF !important;
+        }
+        .mtc-app-store .mtc-hub-card--rooted {
+          background: #315B45 !important;
+          color: #FFFFFF !important;
+        }
+        .mtc-app-store .mtc-hub-card .mtc-hub-title {
+          color: #FFFFFF !important;
+        }
+        .mtc-app-store .mtc-hub-card .mtc-hub-copy {
+          color: #F2F5F3 !important;
+          opacity: 1 !important;
+        }
+        .mtc-app-store .mtc-hub-card--memberships > div > span:first-child {
+          color: #FFF45C !important;
+          background: rgba(243, 230, 0, .12) !important;
+          border-color: rgba(255, 244, 92, .55) !important;
+        }
+        .mtc-app-store .mtc-hub-card--rooted > div > span:first-child {
+          color: #F1FF9A !important;
+          background: rgba(255,255,255,.12) !important;
+          border-color: rgba(255,255,255,.34) !important;
+        }
+        .mtc-app-store .mtc-hub-card--memberships .mtc-hub-cta {
+          background: #F3E600 !important;
+          color: #07131F !important;
+        }
+        .mtc-app-store .mtc-hub-card--rooted .mtc-hub-cta {
+          background: #DDF247 !important;
+          color: #173023 !important;
+        }
+        .mtc-app-store .mtc-hub-card .mtc-hub-cta svg {
+          color: currentColor !important;
+        }
+        .mtc-app-store .mtc-hub-card:hover {
+          box-shadow: 0 24px 58px rgba(15, 23, 42, .18);
+        }
+
         /* =====================================================
            ACCESSIBILITY
            ===================================================== */
@@ -6823,7 +6870,7 @@ function MtcMembershipHub({
       <div className="grid gap-5 lg:grid-cols-2">
         <a
           href={membershipsUrl}
-          className="group relative min-h-[390px] overflow-hidden rounded-[28px] border border-white/10 bg-[#102535] p-8 text-white no-underline transition hover:-translate-y-1 hover:border-[#F3E600]/30 sm:p-10 lg:p-12"
+          className="mtc-hub-card mtc-hub-card--memberships group relative min-h-[390px] overflow-hidden rounded-[28px] border border-white/10 bg-[#102535] p-8 text-white no-underline transition hover:-translate-y-1 hover:border-[#F3E600]/30 sm:p-10 lg:p-12"
         >
           <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full border-[48px] border-white/[.035]" />
           <div className="relative flex h-full flex-col">
@@ -6831,18 +6878,18 @@ function MtcMembershipHub({
               MTC Memberships
             </span>
 
-            <h3 className="mt-8 max-w-md text-[clamp(2.6rem,5vw,4.6rem)] font-black leading-[.88] tracking-[-.055em]">
+            <h3 className="mtc-hub-title mt-8 max-w-md text-[clamp(2.6rem,5vw,4.6rem)] font-black leading-[.88] tracking-[-.055em]">
               Find your
               <br />
               membership.
             </h3>
 
-            <p className="mt-6 max-w-md text-sm leading-7 text-white/60">
+            <p className="mtc-hub-copy mt-6 max-w-md text-sm leading-7 text-white/60">
               Compare Adult, Couples and Kids memberships, choose the right
               weekly allowance and start your membership securely.
             </p>
 
-            <span className="mt-auto flex items-center justify-between rounded-full bg-[#F3E600] px-6 py-4 text-[10px] font-black uppercase tracking-[.13em] text-[#07131F]">
+            <span className="mtc-hub-cta mt-auto flex items-center justify-between rounded-full bg-[#F3E600] px-6 py-4 text-[10px] font-black uppercase tracking-[.13em] text-[#07131F]">
               View memberships
               <ArrowRight size={16} />
             </span>
@@ -6851,7 +6898,7 @@ function MtcMembershipHub({
 
         <a
           href={rootedUrl}
-          className="group relative min-h-[390px] overflow-hidden rounded-[28px] bg-[#315B45] p-8 text-white no-underline transition hover:-translate-y-1 sm:p-10 lg:p-12"
+          className="mtc-hub-card mtc-hub-card--rooted group relative min-h-[390px] overflow-hidden rounded-[28px] bg-[#315B45] p-8 text-white no-underline transition hover:-translate-y-1 sm:p-10 lg:p-12"
         >
           <div className="absolute -bottom-24 -right-16 h-72 w-72 rounded-full border-[52px] border-[#DDF247]/10" />
           <div className="relative flex h-full flex-col">
@@ -6859,18 +6906,18 @@ function MtcMembershipHub({
               Rooted CIC
             </span>
 
-            <h3 className="mt-8 max-w-md text-[clamp(2.6rem,5vw,4.6rem)] font-black leading-[.88] tracking-[-.055em]">
+            <h3 className="mtc-hub-title mt-8 max-w-md text-[clamp(2.6rem,5vw,4.6rem)] font-black leading-[.88] tracking-[-.055em]">
               Support
               <br />
               your community.
             </h3>
 
-            <p className="mt-6 max-w-md text-sm leading-7 text-white/65">
+            <p className="mtc-hub-copy mt-6 max-w-md text-sm leading-7 text-white/65">
               Buy a Fun Day Pass, raffle strips, donate a coffee or choose
               your own amount to support Rooted community projects.
             </p>
 
-            <span className="mt-auto flex items-center justify-between rounded-full bg-[#DDF247] px-6 py-4 text-sm font-black uppercase tracking-[.08em] text-[#173023]">
+            <span className="mtc-hub-cta mt-auto flex items-center justify-between rounded-full bg-[#DDF247] px-6 py-4 text-sm font-black uppercase tracking-[.08em] text-[#173023]">
               Donate to Rooted
               <ArrowRight size={16} />
             </span>

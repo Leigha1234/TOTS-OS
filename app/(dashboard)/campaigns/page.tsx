@@ -147,6 +147,7 @@ type CampaignForm = {
   previewText: string;
   message: string;
   listId: string;
+  listIds: string[];
   scheduledFor: string;
   senderName: string;
   replyTo: string;
@@ -364,6 +365,7 @@ function emptyForm(
     previewText: "",
     message: "",
     listId: "",
+    listIds: [],
     scheduledFor: "",
     senderName:
       company?.name || "",
@@ -3966,6 +3968,11 @@ export default function CampaignsPage() {
             campaign.list_id ||
             "",
 
+          listIds:
+            campaign.list_id
+              ? [campaign.list_id]
+              : [],
+
           scheduledFor:
             isoToLocalInput(
               campaign.scheduled_for
@@ -4200,23 +4207,31 @@ export default function CampaignsPage() {
       step ===
       "audience"
     ) {
-      if (
-        !campaignForm.listId
-      ) {
+      const selectedAudienceIds =
+        campaignForm.listIds.length > 0
+          ? campaignForm.listIds
+          : campaignForm.listId
+            ? [campaignForm.listId]
+            : [];
+
+      if (selectedAudienceIds.length === 0) {
         alert(
-          "Choose an audience."
+          "Choose at least one audience."
         );
 
         return false;
       }
 
-      if (
-        (subscriberCounts[
-          campaignForm.listId
-        ] || 0) === 0
-      ) {
+      const totalSelectedSubscribers =
+        selectedAudienceIds.reduce(
+          (total, listId) =>
+            total + (subscriberCounts[listId] || 0),
+          0
+        );
+
+      if (totalSelectedSubscribers === 0) {
         alert(
-          "This audience has no subscribers."
+          "The selected audiences have no subscribers."
         );
 
         return false;
@@ -4525,6 +4540,17 @@ export default function CampaignsPage() {
       }
     };
 
+  const getSelectedAudienceIds = () => {
+    const ids =
+      campaignForm.listIds.length > 0
+        ? campaignForm.listIds
+        : campaignForm.listId
+          ? [campaignForm.listId]
+          : [];
+
+    return Array.from(new Set(ids));
+  };
+
   const saveAndSendNow =
     async () => {
       if (
@@ -4534,136 +4560,76 @@ export default function CampaignsPage() {
         return;
       }
 
-      setSavingCampaign(
-        true
-      );
+      setSavingCampaign(true);
 
       try {
-        const payload =
-          {
-            ...buildPayload(
-              null
-            ),
+        const audienceIds = getSelectedAudienceIds();
+        const { data: { user } } = await supabase.auth.getUser();
 
-            scheduled_for:
-              null,
+        // The current campaigns table/send API stores one list_id per campaign.
+        // For multiple selected audiences we create one queued campaign per list.
+        // This keeps the existing API/backend fully compatible.
+        for (let index = 0; index < audienceIds.length; index += 1) {
+          const listId = audienceIds[index];
+          const listName = lists.find((list) => list.id === listId)?.name;
 
-            status:
-              "queued",
-
-            sent_at:
-              null,
-
-            sent_count:
-              0,
-
-            open_count:
-              0,
-
-            click_count:
-              0,
+          const payload = {
+            ...buildPayload(null),
+            list_id: listId,
+            title:
+              audienceIds.length > 1 && listName
+                ? `${campaignForm.title.trim()} — ${listName}`
+                : campaignForm.title.trim(),
+            scheduled_for: null,
+            status: "queued",
+            sent_at: null,
+            sent_count: 0,
+            open_count: 0,
+            click_count: 0,
           };
 
-        let campaignId:
-          | string
-          | null =
-          null;
+          let campaignId: string | null = null;
 
-        if (
-          editingCampaignId
-        ) {
-          const {
-            data,
-            error,
-          } =
-            await supabase
-              .from(
-                "campaigns"
-              )
-              .update(
-                payload
-              )
-              .eq(
-                "id",
-                editingCampaignId
-              )
-              .select(
-                "id"
-              )
+          if (editingCampaignId && audienceIds.length === 1) {
+            const { data, error } = await supabase
+              .from("campaigns")
+              .update(payload)
+              .eq("id", editingCampaignId)
+              .select("id")
               .single();
 
-          if (error) {
-            throw error;
-          }
-
-          campaignId =
-            data.id;
-        } else {
-          const {
-            data: {
-              user,
-            },
-          } =
-            await supabase.auth.getUser();
-
-          const {
-            data,
-            error,
-          } =
-            await supabase
-              .from(
-                "campaigns"
-              )
-              .insert({
-                ...payload,
-                user_id:
-                  user?.id,
-              })
-              .select(
-                "id"
-              )
+            if (error) throw error;
+            campaignId = data.id;
+          } else {
+            const { data, error } = await supabase
+              .from("campaigns")
+              .insert({ ...payload, user_id: user?.id })
+              .select("id")
               .single();
 
-          if (error) {
-            throw error;
+            if (error) throw error;
+            campaignId = data.id;
           }
 
-          campaignId =
-            data.id;
+          if (!campaignId) {
+            throw new Error("Campaign ID was not returned.");
+          }
+
+          await callSendApi(campaignId);
         }
 
-        if (!campaignId) {
-  throw new Error("Campaign ID was not returned.");
-}
-
-await callSendApi(campaignId);
-
         await loadCampaigns();
-
-        setEditingCampaignId(
-          null
-        );
-
-        setScreen(
-          "campaigns"
-        );
-      } catch (
-        error
-      ) {
-        console.error(
-          error
-        );
-
+        setEditingCampaignId(null);
+        setScreen("campaigns");
+      } catch (error) {
+        console.error(error);
         alert(
-          error instanceof
-            Error
+          error instanceof Error
             ? error.message
             : "Could not send campaign."
         );
       } finally {
-        setSavingCampaign(
-          false
-        );
+        setSavingCampaign(false);
       }
     };
 
@@ -4676,135 +4642,75 @@ await callSendApi(campaignId);
         return;
       }
 
-      if (
-        !campaignForm.scheduledFor
-      ) {
-        alert(
-          "Choose a date and time."
-        );
-
+      if (!campaignForm.scheduledFor) {
+        alert("Choose a date and time.");
         return;
       }
 
-      const isoDate =
-        localInputToIso(
-          campaignForm.scheduledFor
-        );
+      const isoDate = localInputToIso(campaignForm.scheduledFor);
 
       if (!isoDate) {
-        alert(
-          "Invalid date."
-        );
-
+        alert("Invalid date.");
         return;
       }
 
-      if (
-        new Date(
-          isoDate
-        ).getTime() <=
-        Date.now()
-      ) {
-        alert(
-          "Scheduled time must be in the future."
-        );
-
+      if (new Date(isoDate).getTime() <= Date.now()) {
+        alert("Scheduled time must be in the future.");
         return;
       }
 
-      setSavingCampaign(
-        true
-      );
+      setSavingCampaign(true);
 
       try {
-        const payload =
-          {
-            ...buildPayload(
-              isoDate
-            ),
+        const audienceIds = getSelectedAudienceIds();
+        const { data: { user } } = await supabase.auth.getUser();
 
-            status:
-              "queued",
+        for (let index = 0; index < audienceIds.length; index += 1) {
+          const listId = audienceIds[index];
+          const listName = lists.find((list) => list.id === listId)?.name;
 
-            sent_at:
-              null,
-
-            sent_count:
-              0,
-
-            open_count:
-              0,
-
-            click_count:
-              0,
+          const payload = {
+            ...buildPayload(isoDate),
+            list_id: listId,
+            title:
+              audienceIds.length > 1 && listName
+                ? `${campaignForm.title.trim()} — ${listName}`
+                : campaignForm.title.trim(),
+            status: "queued",
+            sent_at: null,
+            sent_count: 0,
+            open_count: 0,
+            click_count: 0,
           };
 
-        if (
-          editingCampaignId
-        ) {
-          const {
-            error,
-          } =
-            await supabase
-              .from(
-                "campaigns"
-              )
-              .update(
-                payload
-              )
-              .eq(
-                "id",
-                editingCampaignId
-              );
+          if (editingCampaignId && audienceIds.length === 1) {
+            const { error } = await supabase
+              .from("campaigns")
+              .update(payload)
+              .eq("id", editingCampaignId);
 
-          if (error) {
-            throw error;
-          }
-        } else {
-          const {
-            data: {
-              user,
-            },
-          } =
-            await supabase.auth.getUser();
+            if (error) throw error;
+          } else {
+            const { error } = await supabase
+              .from("campaigns")
+              .insert({ ...payload, user_id: user?.id });
 
-          const {
-            error,
-          } =
-            await supabase
-              .from(
-                "campaigns"
-              )
-              .insert({
-                ...payload,
-                user_id:
-                  user?.id,
-              });
-
-          if (error) {
-            throw error;
+            if (error) throw error;
           }
         }
 
         await loadCampaigns();
-
-        setScreen(
-          "campaigns"
-        );
-      } catch (
-        error
-      ) {
-        console.error(
-          error
-        );
-
+        setEditingCampaignId(null);
+        setScreen("campaigns");
+      } catch (error) {
+        console.error(error);
         alert(
-          "Could not schedule campaign."
+          error instanceof Error
+            ? error.message
+            : "Could not schedule campaign."
         );
       } finally {
-        setSavingCampaign(
-          false
-        );
+        setSavingCampaign(false);
       }
     };
 
@@ -5648,8 +5554,8 @@ await callSendApi(campaignId);
                   </h2>
 
                   <p className="mt-3 text-sm leading-7 text-stone-500">
-                    Select the
-                    subscriber list
+                    Select one or more
+                    subscriber lists
                     that should
                     receive this
                     campaign.
@@ -5681,8 +5587,11 @@ await callSendApi(campaignId);
                     list
                   ) => {
                     const selected =
-                      campaignForm.listId ===
-                      list.id;
+                      campaignForm.listIds.includes(
+                        list.id
+                      ) ||
+                      (campaignForm.listIds.length === 0 &&
+                        campaignForm.listId === list.id);
 
                     return (
                       <button
@@ -5696,8 +5605,28 @@ await callSendApi(campaignId);
                               previous
                             ) => ({
                               ...previous,
+                              listIds: (() => {
+                                const current =
+                                  previous.listIds.length > 0
+                                    ? previous.listIds
+                                    : previous.listId
+                                      ? [previous.listId]
+                                      : [];
+
+                                return current.includes(list.id)
+                                  ? current.filter(
+                                      (id) => id !== list.id
+                                    )
+                                  : [...current, list.id];
+                              })(),
                               listId:
-                                list.id,
+                                previous.listIds.includes(list.id)
+                                  ? previous.listId === list.id
+                                    ? previous.listIds.find(
+                                        (id) => id !== list.id
+                                      ) || ""
+                                    : previous.listId
+                                  : previous.listId || list.id,
                             })
                           )
                         }
@@ -6655,24 +6584,35 @@ await callSendApi(campaignId);
                         </p>
 
                         <p className="mt-1 text-sm font-semibold">
-                          {lists.find(
-                            (
-                              list
-                            ) =>
-                              list.id ===
-                              campaignForm.listId
+                          {(campaignForm.listIds.length > 0
+                            ? campaignForm.listIds
+                            : campaignForm.listId
+                              ? [campaignForm.listId]
+                              : []
                           )
-                            ?.name ||
+                            .map(
+                              (id) =>
+                                lists.find(
+                                  (list) => list.id === id
+                                )?.name
+                            )
+                            .filter(Boolean)
+                            .join(", ") ||
                             "Not selected"}
                         </p>
 
                         <p className="mt-1 text-xs text-stone-400">
-                          {subscriberCounts[
-                            campaignForm
-                              .listId
-                          ] ||
-                            0}{" "}
-                          recipients
+                          {(campaignForm.listIds.length > 0
+                            ? campaignForm.listIds
+                            : campaignForm.listId
+                              ? [campaignForm.listId]
+                              : []
+                          ).reduce(
+                            (total, id) =>
+                              total + (subscriberCounts[id] || 0),
+                            0
+                          )}{" "}
+                          recipients across selected lists
                         </p>
                       </div>
 

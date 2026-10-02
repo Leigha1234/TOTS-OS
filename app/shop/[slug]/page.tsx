@@ -4994,7 +4994,7 @@ export default function ShopFrontPage() {
                   />
                 ) : isMTC && mtcView === "rooted" ? (
                   <RootedFundraiserSection
-                    products={visibleProducts.filter(
+                    products={products.filter(
                       (product) => {
                         const category = String(
                           product.category || ""
@@ -5004,10 +5004,26 @@ export default function ShopFrontPage() {
                           product.slug || ""
                         ).toLowerCase();
 
+                        const sku = String(
+                          product.sku || ""
+                        )
+                          .trim()
+                          .toUpperCase();
+
+                        const isRootedDrink =
+                          sku.startsWith("MTC-DRINK-") ||
+                          [
+                            "celsius",
+                            "nocco",
+                            "huel-ready-to-drink",
+                            "still-water",
+                          ].includes(slug);
+
                         return (
                           category === "rooted cic" ||
                           category === "raffle" ||
-                          slug === "rooted-raffle-ticket"
+                          slug === "rooted-raffle-ticket" ||
+                          isRootedDrink
                         );
                       }
                     )}

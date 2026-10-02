@@ -10,6 +10,9 @@ function requireEnv(name: string) {
   return value;
 }
 
+const MTC_STORE_SLUG = "moray-training-club";
+const MTC_OFFSHORE_PRODUCT_ID_PREFIX = "9e0f2082";
+
 const supabaseAdmin = createClient(
   requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
   requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
@@ -156,8 +159,7 @@ export async function GET(
           external_plan_code,
           beneficiary_mode
         `)
-        .eq("organisation_id", settings.organisation_id)
-        .eq("is_active", true),
+        .eq("organisation_id", settings.organisation_id),
     ]);
 
     const organisation = organisationResult.data;
@@ -174,7 +176,17 @@ export async function GET(
     }
 
     const products = (productResult.data || [])
-      .filter((product) => product.is_active !== false)
+      .filter((product) => {
+        // Normally the public storefront only exposes active products.
+        // MTC Offshore is an intentional exception: it may remain archived/inactive
+        // for migration/admin purposes but still needs to be purchasable publicly.
+        const isMtcOffshore =
+          safeSlug === MTC_STORE_SLUG &&
+          typeof product.id === "string" &&
+          product.id.toLowerCase().startsWith(MTC_OFFSHORE_PRODUCT_ID_PREFIX);
+
+        return product.is_active !== false || isMtcOffshore;
+      })
       .filter(
         (product) => typeof product.name === "string" && product.name.trim()
       )

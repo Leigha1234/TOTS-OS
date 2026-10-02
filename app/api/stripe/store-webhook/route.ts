@@ -3487,20 +3487,39 @@ async function syncCheckoutSubscriptionIfNeeded({
 export async function POST(
   req: Request
 ) {
-  const stripeWebhookSecret =
+  const platformWebhookSecret =
     process.env
       .STRIPE_STORE_WEBHOOK_SECRET
       ?.trim();
 
-  if (!stripeWebhookSecret) {
+  const connectedWebhookSecret =
+    process.env
+      .STRIPE_CONNECTED_STORE_WEBHOOK_SECRET
+      ?.trim();
+
+  const webhookSecrets = [
+    {
+      source: "platform",
+      secret: platformWebhookSecret,
+    },
+    {
+      source: "connected",
+      secret: connectedWebhookSecret,
+    },
+  ].filter(
+    (item): item is { source: string; secret: string } =>
+      Boolean(item.secret)
+  );
+
+  if (webhookSecrets.length === 0) {
     console.error(
-      "[TOTS STORE WEBHOOK] STRIPE_STORE_WEBHOOK_SECRET is not configured."
+      "[TOTS STORE WEBHOOK] No Stripe store webhook secrets are configured."
     );
 
     return NextResponse.json(
       {
         error:
-          "Stripe store webhook secret is not configured.",
+          "Stripe store webhook secrets are not configured.",
       },
       {
         status:
@@ -3571,29 +3590,35 @@ export async function POST(
     );
   }
 
-  let event:
-    Stripe.Event;
+  let event: Stripe.Event | null = null;
+  let verifiedSource: string | null = null;
+  let lastVerificationError: unknown = null;
 
-  try {
-    event =
-      stripe.webhooks.constructEvent(
+  for (const webhookSecret of webhookSecrets) {
+    try {
+      event = stripe.webhooks.constructEvent(
         body,
         signature,
-        stripeWebhookSecret
+        webhookSecret.secret
       );
-  } catch (
-    error: unknown
-  ) {
+      verifiedSource = webhookSecret.source;
+      break;
+    } catch (error: unknown) {
+      lastVerificationError = error;
+    }
+  }
+
+  if (!event) {
     console.error(
-      "[TOTS STORE WEBHOOK] Signature verification failed:",
-      error
+      "[TOTS STORE WEBHOOK] Signature verification failed for all configured webhook secrets:",
+      lastVerificationError
     );
 
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? `Webhook signature verification failed: ${error.message}`
+          lastVerificationError instanceof Error
+            ? `Webhook signature verification failed: ${lastVerificationError.message}`
             : "Invalid webhook signature.",
       },
       {
@@ -3614,10 +3639,9 @@ export async function POST(
     );
 
   console.log(
-    `[TOTS STORE WEBHOOK] ${event.type} (${event.id}) account=${
-      eventStripeAccountId ||
-      "platform"
-    }`
+    `[TOTS STORE WEBHOOK] ${event.type} (${event.id}) ` +
+      `verifiedSource=${verifiedSource || "unknown"} ` +
+      `account=${eventStripeAccountId || "platform"}`
   );
 
   try {
@@ -3949,6 +3973,9 @@ export async function POST(
 
         stripeAccountId:
           eventStripeAccountId,
+
+        webhookSource:
+          verifiedSource,
       },
       {
         status:
@@ -3983,6 +4010,9 @@ export async function POST(
 
         stripeAccountId:
           eventStripeAccountId,
+
+        webhookSource:
+          verifiedSource,
       },
       {
         status:

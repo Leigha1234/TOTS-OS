@@ -1725,21 +1725,32 @@ export default function ShopFrontPage() {
                     product.name.trim()
                   )
               )
+              // Keep normal storefront visibility rules, but explicitly restore
+              // the MTC Offshore membership to the public shop. It is intentionally
+              // allowed through here even if its product row is currently archived/inactive.
               .filter(
                 (product) =>
-                  product.is_active !==
-                  false
+                  String(product.id || "") === "9e0f2082-0000-0000-0000-000000000000" ||
+                  String(product.id || "").startsWith("9e0f2082") ||
+                  product.is_active !== false
               )
               .filter(
                 (product) =>
+                  String(product.id || "") === "9e0f2082-0000-0000-0000-000000000000" ||
+                  String(product.id || "").startsWith("9e0f2082") ||
                   !product.status ||
-                  product.status ===
-                    "active"
+                  product.status === "active"
               )
               // Never expose migrated / legacy MTC membership products on the
               // public storefront. Existing subscriptions are untouched; this
               // only removes the legacy products from the shop UI.
               .filter((product) => {
+                // Offshore is a current special membership and should be visible
+                // even if older metadata on the product contains legacy wording.
+                if (String(product.id || "").startsWith("9e0f2082")) {
+                  return true;
+                }
+
                 // Legacy/migrated products are retained in the database for
                 // existing subscriptions, but must never be purchasable from
                 // the public storefront. Keep this unconditional so a route
@@ -5132,12 +5143,15 @@ export default function ShopFrontPage() {
                       const productSlug = String(product.slug || "").trim().toLowerCase();
                       const productSku = String(product.sku || "").trim().toLowerCase();
 
+                      const isOffshoreMembership = String(product.id || "").startsWith("9e0f2082");
+
                       return (
-                        productCategory !== "rooted cic" &&
-                        !productCategory.includes("legacy") &&
-                        !productName.includes("legacy") &&
-                        !productSlug.includes("legacy") &&
-                        !productSku.includes("legacy")
+                        isOffshoreMembership ||
+                        (productCategory !== "rooted cic" &&
+                          !productCategory.includes("legacy") &&
+                          !productName.includes("legacy") &&
+                          !productSlug.includes("legacy") &&
+                          !productSku.includes("legacy"))
                       );
                     })}
                     primary={primary}

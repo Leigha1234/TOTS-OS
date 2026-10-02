@@ -508,6 +508,27 @@ function priceToPence(
 }
 
 // ============================================================
+// SUBSCRIPTION BILLING ANCHOR
+// ============================================================
+
+function getFirstOfNextMonthUnix() {
+  const now =
+    new Date();
+
+  return Math.floor(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth() + 1,
+      1,
+      0,
+      0,
+      0,
+      0
+    ) / 1000
+  );
+}
+
+// ============================================================
 // CUSTOMER-SELECTED PRICE PRODUCTS
 // ============================================================
 
@@ -3248,14 +3269,35 @@ export async function POST(
         )
       );
 
+    // ========================================================
+    // ZERO-TOTAL CHECKOUT
+    // ========================================================
+
     if (
-      total <=
-      0
+      total <= 0 &&
+      !isSubscriptionCheckout
     ) {
       return NextResponse.json(
         {
           error:
             "The order total must be greater than £0 to use Stripe checkout.",
+        },
+        {
+          status:
+            400,
+        }
+      );
+    }
+
+    if (
+      isSubscriptionCheckout &&
+      total <= 0 &&
+      !appliedDiscount
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "A £0 subscription checkout requires a valid discount.",
         },
         {
           status:
@@ -3847,6 +3889,30 @@ export async function POST(
           ","
         );
 
+    // ========================================================
+    // SUBSCRIPTION BILLING SCHEDULE
+    // ========================================================
+
+    const normalisedAppliedDiscountCode =
+      cleanString(
+        appliedDiscount?.code
+      ).toUpperCase();
+
+    const shouldAnchorToFirstOfNextMonth =
+      isSubscriptionCheckout &&
+      normalisedAppliedDiscountCode === "1MONTH" &&
+      subscriptionLines.every(
+        (line) =>
+          getBillingInterval(
+            line.product
+          ) === "month"
+      );
+
+    const subscriptionBillingAnchor =
+      shouldAnchorToFirstOfNextMonth
+        ? getFirstOfNextMonthUnix()
+        : null;
+
     /*
      * IMPORTANT:
      *
@@ -3919,6 +3985,24 @@ export async function POST(
             validatedBeneficiaries.length
           ),
 
+        billing_anchor:
+          subscriptionBillingAnchor
+            ? String(
+                subscriptionBillingAnchor
+              )
+            : "",
+
+        billing_anchor_rule:
+          subscriptionBillingAnchor
+            ? "first_of_next_month"
+            : "",
+
+        introductory_discount:
+          normalisedAppliedDiscountCode ===
+          "1MONTH"
+            ? "true"
+            : "false",
+
         tots_source:
           "store",
       };
@@ -3984,6 +4068,16 @@ export async function POST(
       sessionParams.subscription_data =
         {
           metadata,
+
+          ...(subscriptionBillingAnchor
+            ? {
+                billing_cycle_anchor:
+                  subscriptionBillingAnchor,
+
+                proration_behavior:
+                  "create_prorations" as const,
+              }
+            : {}),
         };
     } else {
       sessionParams.payment_intent_data =
@@ -4001,46 +4095,61 @@ export async function POST(
       discountAmount >
         0
     ) {
+      const discountValue =
+        safeNumber(
+          appliedDiscount.value,
+          0
+        );
+
+      const couponParams:
+        Stripe.CouponCreateParams =
+        {
+          duration:
+            "once",
+
+          name:
+            appliedDiscount.code,
+
+          metadata: {
+            tots_discount_id:
+              appliedDiscount.id,
+
+            tots_discount_code:
+              appliedDiscount.code,
+
+            organisation_id:
+              organisationId,
+
+            order_id:
+              orderData.id,
+
+            tots_source:
+              "store",
+          },
+        };
+
+      if (
+        isPercentageDiscount(
+          appliedDiscount.discount_type
+        )
+      ) {
+        couponParams.percent_off =
+          discountValue;
+      } else {
+        couponParams.amount_off =
+          priceToPence(
+            discountAmount
+          );
+
+        couponParams.currency =
+          checkoutCurrency;
+      }
+
       const coupon =
         await stripe
           .coupons
           .create(
-            {
-              amount_off:
-                priceToPence(
-                  discountAmount
-                ),
-
-              currency:
-                checkoutCurrency,
-
-              /*
-               * For a subscription checkout this makes the
-               * fixed discount apply to the first invoice only.
-               */
-              duration:
-                "once",
-
-              name:
-                appliedDiscount.code,
-
-              metadata: {
-                tots_discount_id:
-                  appliedDiscount.id,
-
-                tots_discount_code:
-                  appliedDiscount.code,
-
-                organisation_id:
-                  organisationId,
-
-                order_id:
-                  orderData.id,
-
-                tots_source:
-                  "store",
-              },
-            },
+            couponParams,
             {
               stripeAccount:
                 connectedStripeAccountId,

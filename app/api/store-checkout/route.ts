@@ -508,27 +508,6 @@ function priceToPence(
 }
 
 // ============================================================
-// SUBSCRIPTION BILLING ANCHOR
-// ============================================================
-
-function getFirstOfNextMonthUnix() {
-  const now =
-    new Date();
-
-  return Math.floor(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth() + 1,
-      1,
-      0,
-      0,
-      0,
-      0
-    ) / 1000
-  );
-}
-
-// ============================================================
 // CUSTOMER-SELECTED PRICE PRODUCTS
 // ============================================================
 
@@ -3898,20 +3877,13 @@ export async function POST(
         appliedDiscount?.code
       ).toUpperCase();
 
-    const shouldAnchorToFirstOfNextMonth =
-      isSubscriptionCheckout &&
-      normalisedAppliedDiscountCode === "1MONTH" &&
-      subscriptionLines.every(
-        (line) =>
-          getBillingInterval(
-            line.product
-          ) === "month"
-      );
-
+    /*
+     * 1MONTH is implemented as a once-only Stripe coupon. Do not move the
+     * billing cycle to the first of the next month: the next full-price
+     * invoice should fall one normal billing interval after signup.
+     */
     const subscriptionBillingAnchor =
-      shouldAnchorToFirstOfNextMonth
-        ? getFirstOfNextMonthUnix()
-        : null;
+      null;
 
     /*
      * IMPORTANT:
@@ -4037,6 +4009,19 @@ export async function POST(
           enabled:
             true,
         },
+
+        /*
+         * Subscription checkouts must collect a payment method even when
+         * an introductory discount (for example 1MONTH) reduces the first
+         * invoice to £0. This leaves Stripe with a payment method for the
+         * next recurring invoice.
+         */
+        ...(isSubscriptionCheckout
+          ? {
+              payment_method_collection:
+                "always" as const,
+            }
+          : {}),
       };
 
     if (

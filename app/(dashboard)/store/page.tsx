@@ -104,6 +104,18 @@ type StoreOrder = {
   paid_at?: string | null;
 };
 
+type StoreOrderItem = {
+  id: string;
+  order_id: string;
+  product_id?: string | null;
+  product_name?: string | null;
+  sku?: string | null;
+  quantity?: number | null;
+  unit_price?: number | string | null;
+  total?: number | string | null;
+  created_at?: string | null;
+};
+
 type Subscription = {
   id: string;
   organisation_id: string;
@@ -453,6 +465,7 @@ export default function StoreDashboardPage() {
   const [organisation, setOrganisation] = useState<Organisation | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<StoreOrder[]>([]);
+  const [orderItems, setOrderItems] = useState<StoreOrderItem[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
@@ -652,6 +665,7 @@ export default function StoreDashboardPage() {
           organisationResult,
           productsResult,
           ordersResult,
+          orderItemsResult,
           subscriptionsResult,
           discountsResult,
           settingsResult,
@@ -676,6 +690,11 @@ export default function StoreDashboardPage() {
             .order("created_at", { ascending: false }),
 
           supabase
+            .from("store_order_items")
+            .select("*")
+            .order("created_at", { ascending: false }),
+
+          supabase
             .from("store_subscriptions")
             .select("*")
             .eq("organisation_id", organisationId)
@@ -697,6 +716,7 @@ export default function StoreDashboardPage() {
         if (organisationResult.error) throw organisationResult.error;
         if (productsResult.error) throw productsResult.error;
         if (ordersResult.error) throw ordersResult.error;
+        if (orderItemsResult.error) throw orderItemsResult.error;
         if (subscriptionsResult.error) throw subscriptionsResult.error;
         if (discountsResult.error) throw discountsResult.error;
         if (settingsResult.error) throw settingsResult.error;
@@ -704,6 +724,7 @@ export default function StoreDashboardPage() {
         setOrganisation(organisationResult.data as Organisation);
         setProducts((productsResult.data ?? []) as Product[]);
         setOrders((ordersResult.data ?? []) as StoreOrder[]);
+        setOrderItems((orderItemsResult.data ?? []) as StoreOrderItem[]);
         setSubscriptions((subscriptionsResult.data ?? []) as Subscription[]);
         setDiscounts((discountsResult.data ?? []) as Discount[]);
         setStoreSettings(
@@ -841,17 +862,46 @@ export default function StoreDashboardPage() {
     );
   }, [products, search]);
 
+  const productNameById = useMemo(() => {
+    return new Map(products.map((product) => [product.id, product.name]));
+  }, [products]);
+
+  const orderItemsByOrderId = useMemo(() => {
+    const grouped = new Map<string, StoreOrderItem[]>();
+    for (const item of orderItems) {
+      const existing = grouped.get(item.order_id) ?? [];
+      existing.push(item);
+      grouped.set(item.order_id, existing);
+    }
+    return grouped;
+  }, [orderItems]);
+
+  const getOrderItemProductName = useCallback(
+    (item: StoreOrderItem) =>
+      item.product_name?.trim() ||
+      (item.product_id ? productNameById.get(item.product_id) : undefined) ||
+      "Unknown product",
+    [productNameById],
+  );
+
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return orders;
 
-    return orders.filter(
-      (order) =>
+    return orders.filter((order) => {
+      const items = orderItemsByOrderId.get(order.id) ?? [];
+      const matchesProduct = items.some((item) =>
+        getOrderItemProductName(item).toLowerCase().includes(query),
+      );
+
+      return (
         order.order_number?.toLowerCase().includes(query) ||
         order.customer_name?.toLowerCase().includes(query) ||
-        order.customer_email?.toLowerCase().includes(query),
-    );
-  }, [orders, search]);
+        order.customer_email?.toLowerCase().includes(query) ||
+        matchesProduct
+      );
+    });
+  }, [orders, search, orderItemsByOrderId, getOrderItemProductName]);
 
 
   const getBillingToken = useCallback(async () => {
@@ -1899,22 +1949,24 @@ export default function StoreDashboardPage() {
           <section className="mt-6 overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
             <SectionHeader
               title="Orders"
-              description="Orders placed through this organisation's store."
+              description="See who bought what, including the product name and quantity."
             >
               <SearchBox
                 value={search}
                 onChange={setSearch}
-                placeholder="Search orders..."
+                placeholder="Search orders, customers or products..."
               />
             </SectionHeader>
 
             {filteredOrders.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[950px]">
+                <table className="w-full min-w-[1100px]">
                   <thead className="border-b border-stone-100 bg-stone-50/80">
                     <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">
                       <th className="px-6 py-4">Order</th>
                       <th className="px-4 py-4">Customer</th>
+                      <th className="px-4 py-4">Product</th>
+                      <th className="px-4 py-4">Qty</th>
                       <th className="px-4 py-4">Total</th>
                       <th className="px-4 py-4">Payment</th>
                       <th className="px-4 py-4">Fulfilment</th>
@@ -1923,42 +1975,72 @@ export default function StoreDashboardPage() {
                   </thead>
 
                   <tbody className="divide-y divide-stone-100">
-                    {filteredOrders.map((order) => (
-                      <tr key={order.id} className="hover:bg-stone-50/60">
-                        <td className="px-6 py-4">
-                          <p className="font-semibold text-stone-900">
-                            {order.order_number || order.id.slice(0, 8)}
-                          </p>
-                        </td>
+                    {filteredOrders.map((order) => {
+                      const items = orderItemsByOrderId.get(order.id) ?? [];
 
-                        <td className="px-4 py-4">
-                          <p className="text-sm font-medium text-stone-800">
-                            {order.customer_name || "Customer"}
-                          </p>
-                          <p className="mt-0.5 text-xs text-stone-400">
-                            {order.customer_email || "—"}
-                          </p>
-                        </td>
+                      return (
+                        <tr key={order.id} className="align-top hover:bg-stone-50/60">
+                          <td className="px-6 py-4">
+                            <p className="font-semibold text-stone-900">
+                              {order.order_number || order.id.slice(0, 8)}
+                            </p>
+                          </td>
 
-                        <td className="px-4 py-4 font-semibold text-stone-900">
-                          {formatMoney(order.total, order.currency || "GBP")}
-                        </td>
+                          <td className="px-4 py-4">
+                            <p className="text-sm font-medium text-stone-800">
+                              {order.customer_name || "Customer"}
+                            </p>
+                            <p className="mt-0.5 text-xs text-stone-400">
+                              {order.customer_email || "—"}
+                            </p>
+                          </td>
 
-                        <td className="px-4 py-4">
-                          <StatusBadge status={order.payment_status || "pending"} />
-                        </td>
+                          <td className="px-4 py-4">
+                            {items.length > 0 ? (
+                              <div className="space-y-2">
+                                {items.map((item) => (
+                                  <p key={item.id} className="text-sm font-semibold text-stone-800">
+                                    {getOrderItemProductName(item)}
+                                  </p>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-stone-400">—</span>
+                            )}
+                          </td>
 
-                        <td className="px-4 py-4">
-                          <StatusBadge
-                            status={order.fulfilment_status || "unfulfilled"}
-                          />
-                        </td>
+                          <td className="px-4 py-4">
+                            {items.length > 0 ? (
+                              <div className="space-y-2">
+                                {items.map((item) => (
+                                  <p key={item.id} className="text-sm font-medium text-stone-600">
+                                    {item.quantity ?? 1}
+                                  </p>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-stone-400">—</span>
+                            )}
+                          </td>
 
-                        <td className="px-6 py-4 text-sm text-stone-500">
-                          {formatDateTime(order.created_at)}
-                        </td>
-                      </tr>
-                    ))}
+                          <td className="px-4 py-4 font-semibold text-stone-900">
+                            {formatMoney(order.total, order.currency || "GBP")}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <StatusBadge status={order.payment_status || "pending"} />
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <StatusBadge status={order.fulfilment_status || "unfulfilled"} />
+                          </td>
+
+                          <td className="px-6 py-4 text-sm text-stone-500">
+                            {formatDateTime(order.created_at)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

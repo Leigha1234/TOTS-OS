@@ -7122,7 +7122,7 @@ function RootedFundraiserSection({
 
                   <p className="rooted-body relative mt-6 flex-1 text-base leading-7">
                     {isRaffle
-                      ? "Every £2 gives you one unique raffle entry. Add as many tickets as you like — your ticket number(s) will be emailed to you automatically after payment."
+                      ? "Every £2 gives you one unique raffle entry. Add as many as you like — each raffle strip will be emailed to you separately after payment."
                       : product.description || "Support Rooted CIC through MTC."}
                   </p>
 

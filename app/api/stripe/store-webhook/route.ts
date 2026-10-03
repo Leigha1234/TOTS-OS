@@ -2971,124 +2971,112 @@ async function fulfilRaffleTickets({
       );
     }
 
-    const alreadyEmailed =
-      tickets.length > 0 &&
-      tickets.every((ticket) => Boolean(ticket.email_sent_at));
+    const unsentTickets = tickets.filter(
+      (ticket) => !ticket.email_sent_at
+    );
 
-    if (alreadyEmailed) {
+    if (unsentTickets.length === 0) {
       console.log(
-        `[TOTS RAFFLE] ${order.order_number} raffle email already sent for item ${item.id}.`
+        `[TOTS RAFFLE] ${order.order_number} raffle emails already sent for item ${item.id}.`
       );
       continue;
     }
 
-    const ticketNumbers = tickets.map((ticket) => ticket.ticket_number);
-    const ticketLabels = ticketNumbers.map((number) => `#${number}`);
     const ticketPrice = safeNumber(raffle.ticket_price, 2);
-    const raffleTotal = ticketPrice * quantity;
     const escapedName = escapeHtml(name);
     const escapedOrderNumber = escapeHtml(order.order_number);
     const escapedRaffleName = escapeHtml(raffle.name);
 
-    const ticketHtml = ticketLabels
-      .map(
-        (ticket) =>
-          `<span style="display:inline-block;margin:6px;padding:12px 16px;border-radius:10px;background:#f3eee8;color:#1f1f1f;font-size:20px;font-weight:700;">${escapeHtml(ticket)}</span>`
-      )
-      .join("");
+    for (const ticket of unsentTickets) {
+      const ticketLabel = `#${ticket.ticket_number}`;
+      const escapedTicketLabel = escapeHtml(ticketLabel);
 
-    const { error: emailError } = await resend.emails.send(
-      {
-        from: "Rooted CIC <hello@tots-os.co.uk>",
-        to: email,
-        subject:
-          quantity === 1
-            ? "🎟️ Your Rooted CIC Raffle Ticket"
-            : "🎟️ Your Rooted CIC Raffle Tickets",
-        html: `
-          <!doctype html>
-          <html lang="en">
-            <body style="margin:0;padding:0;background:#f7f5f2;font-family:Arial,Helvetica,sans-serif;color:#222;">
-              <div style="max-width:640px;margin:0 auto;padding:32px 18px;">
-                <div style="background:#111;border-radius:18px 18px 0 0;padding:28px;text-align:center;">
-                  <div style="font-size:30px;font-weight:800;letter-spacing:2px;color:#f5efe5;">ROOTED</div>
-                  <div style="margin-top:5px;font-size:13px;letter-spacing:3px;color:#a9b897;">CIC</div>
-                </div>
-                <div style="background:#fff;border-radius:0 0 18px 18px;padding:32px;">
-                  <h1 style="margin:0 0 16px;font-size:26px;">Your raffle tickets are here 🎟️</h1>
-                  <p style="font-size:16px;line-height:1.6;">Hi ${escapedName},</p>
-                  <p style="font-size:16px;line-height:1.6;">Thank you for supporting Rooted CIC. Your payment has been confirmed and your unique online raffle ticket${quantity === 1 ? "" : "s"} ${quantity === 1 ? "has" : "have"} been allocated.</p>
-                  <div style="margin:26px 0;padding:22px;background:#faf8f5;border-radius:14px;text-align:center;">
-                    <div style="margin-bottom:12px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#666;">Your ticket number${quantity === 1 ? "" : "s"}</div>
-                    <div>${ticketHtml}</div>
+      const { error: emailError } = await resend.emails.send(
+        {
+          from: "Rooted CIC <hello@tots-os.co.uk>",
+          to: email,
+          subject: `🎟️ Your Rooted CIC Raffle Ticket ${ticketLabel}`,
+          html: `
+            <!doctype html>
+            <html lang="en">
+              <body style="margin:0;padding:0;background:#f7f5f2;font-family:Arial,Helvetica,sans-serif;color:#222;">
+                <div style="max-width:640px;margin:0 auto;padding:32px 18px;">
+                  <div style="background:#111;border-radius:18px 18px 0 0;padding:28px;text-align:center;">
+                    <div style="font-size:30px;font-weight:800;letter-spacing:2px;color:#f5efe5;">ROOTED</div>
+                    <div style="margin-top:5px;font-size:13px;letter-spacing:3px;color:#a9b897;">CIC</div>
                   </div>
-                  <div style="border-top:1px solid #eee;border-bottom:1px solid #eee;padding:18px 0;margin:24px 0;line-height:1.8;">
-                    <strong>Raffle:</strong> ${escapedRaffleName}<br />
-                    <strong>Order:</strong> ${escapedOrderNumber}<br />
-                    <strong>Tickets:</strong> ${quantity}<br />
-                    <strong>Price per ticket:</strong> ${escapeHtml(formatMoney(ticketPrice, order.currency || "GBP"))}<br />
-                    <strong>Raffle ticket total:</strong> ${escapeHtml(formatMoney(raffleTotal, order.currency || "GBP"))}
+                  <div style="background:#fff;border-radius:0 0 18px 18px;padding:32px;">
+                    <h1 style="margin:0 0 16px;font-size:26px;">Your raffle ticket is here 🎟️</h1>
+                    <p style="font-size:16px;line-height:1.6;">Hi ${escapedName},</p>
+                    <p style="font-size:16px;line-height:1.6;">Thank you for supporting Rooted CIC. Your payment has been confirmed and this unique online raffle ticket has been allocated to you.</p>
+                    <div style="margin:26px 0;padding:22px;background:#faf8f5;border-radius:14px;text-align:center;">
+                      <div style="margin-bottom:12px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#666;">Your ticket number</div>
+                      <span style="display:inline-block;margin:6px;padding:12px 16px;border-radius:10px;background:#f3eee8;color:#1f1f1f;font-size:20px;font-weight:700;">${escapedTicketLabel}</span>
+                    </div>
+                    <div style="border-top:1px solid #eee;border-bottom:1px solid #eee;padding:18px 0;margin:24px 0;line-height:1.8;">
+                      <strong>Raffle:</strong> ${escapedRaffleName}<br />
+                      <strong>Order:</strong> ${escapedOrderNumber}<br />
+                      <strong>Ticket:</strong> ${escapedTicketLabel}<br />
+                      <strong>Price:</strong> ${escapeHtml(formatMoney(ticketPrice, order.currency || "GBP"))}
+                    </div>
+                    <p style="font-size:16px;line-height:1.6;">Please keep this email safe as confirmation of this ticket number.</p>
+                    <p style="font-size:16px;line-height:1.6;margin-bottom:0;">Good luck, and thank you for helping Rooted grow in our community. 💚</p>
                   </div>
-                  <p style="font-size:16px;line-height:1.6;">Please keep this email safe as confirmation of your ticket number${quantity === 1 ? "" : "s"}.</p>
-                  <p style="font-size:16px;line-height:1.6;margin-bottom:0;">Good luck, and thank you for helping Rooted grow in our community. 💚</p>
+                  <div style="padding:18px;text-align:center;font-size:12px;color:#777;">Sent by Rooted CIC via TOTS-OS</div>
                 </div>
-                <div style="padding:18px;text-align:center;font-size:12px;color:#777;">Sent by Rooted CIC via TOTS-OS</div>
-              </div>
-            </body>
-          </html>
-        `,
-        text: [
-          `Hi ${name},`,
-          "",
-          "Thank you for supporting Rooted CIC.",
-          "",
-          `Your raffle ticket number${quantity === 1 ? " is" : "s are"}: ${ticketLabels.join(", ")}`,
-          `Order: ${order.order_number}`,
-          `Tickets: ${quantity}`,
-          `Price per ticket: ${formatMoney(ticketPrice, order.currency || "GBP")}`,
-          `Raffle ticket total: ${formatMoney(raffleTotal, order.currency || "GBP")}`,
-          "",
-          "Please keep this email safe as confirmation of your ticket numbers.",
-          "",
-          "Good luck, and thank you for supporting Rooted CIC.",
-        ].join("\n"),
-      },
-      {
-        idempotencyKey: `rooted-raffle-${order.id}-${item.id}`,
+              </body>
+            </html>
+          `,
+          text: [
+            `Hi ${name},`,
+            "",
+            "Thank you for supporting Rooted CIC.",
+            "",
+            `Your raffle ticket number is: ${ticketLabel}`,
+            `Order: ${order.order_number}`,
+            `Price: ${formatMoney(ticketPrice, order.currency || "GBP")}`,
+            "",
+            "Please keep this email safe as confirmation of this ticket number.",
+            "",
+            "Good luck, and thank you for supporting Rooted CIC.",
+          ].join("\n"),
+        },
+        {
+          idempotencyKey: `rooted-raffle-${order.id}-${item.id}-${ticket.id}`,
+        }
+      );
+
+      if (emailError) {
+        console.error(
+          `[TOTS RAFFLE] Email failed for ${order.order_number}/${item.id}/ticket-${ticket.ticket_number}:`,
+          emailError
+        );
+        throw new Error(
+          `Raffle ticket ${ticket.ticket_number} was allocated for ${order.order_number}, but its confirmation email could not be sent.`
+        );
       }
-    );
 
-    if (emailError) {
-      console.error(
-        `[TOTS RAFFLE] Email failed for ${order.order_number}/${item.id}:`,
-        emailError
-      );
-      throw new Error(
-        `Raffle tickets were allocated for ${order.order_number}, but the confirmation email could not be sent.`
+      const sentAt = new Date().toISOString();
+
+      const { error: markSentError } = await supabaseAdmin
+        .from("store_raffle_tickets")
+        .update({ email_sent_at: sentAt })
+        .eq("id", ticket.id)
+        .is("email_sent_at", null);
+
+      if (markSentError) {
+        console.error(
+          `[TOTS RAFFLE] Email sent but email_sent_at update failed for ${order.order_number}/${item.id}/ticket-${ticket.ticket_number}:`,
+          markSentError
+        );
+        throw markSentError;
+      }
+
+      console.log(
+        `[TOTS RAFFLE] ${order.order_number} emailed raffle ticket ${ticketLabel}.`
       );
     }
 
-    const sentAt = new Date().toISOString();
-
-    const { error: markSentError } = await supabaseAdmin
-      .from("store_raffle_tickets")
-      .update({ email_sent_at: sentAt })
-      .eq("raffle_id", raffle.id)
-      .eq("order_id", order.id)
-      .eq("order_item_id", item.id)
-      .is("email_sent_at", null);
-
-    if (markSentError) {
-      console.error(
-        `[TOTS RAFFLE] Email sent but email_sent_at update failed for ${order.order_number}/${item.id}:`,
-        markSentError
-      );
-      throw markSentError;
-    }
-
-    console.log(
-      `[TOTS RAFFLE] ${order.order_number} allocated and emailed ${ticketLabels.join(", ")}.`
-    );
   }
 }
 

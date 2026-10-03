@@ -7082,7 +7082,9 @@ function RootedFundraiserSection({
                 slug === "rooted-childrens-fun-day-pass"
                   ? "Open Day"
                   : isRaffle
-                  ? "£2 = 1 entry"
+                  ? slug === "rooted-raffle-strip"
+                    ? "£2 = 5 numbers"
+                    : "£2 = 1 entry"
                   : "Pay it forward";
 
               const cta =
@@ -7122,7 +7124,9 @@ function RootedFundraiserSection({
 
                   <p className="rooted-body relative mt-6 flex-1 text-base leading-7">
                     {isRaffle
-                      ? "Every £2 gives you one unique raffle entry. Add as many as you like — each raffle strip will be emailed to you separately after payment."
+                      ? slug === "rooted-raffle-strip"
+                        ? "Each £2 raffle strip gives you 5 unique raffle numbers. Add as many strips as you like — all of your numbers will be emailed to you after payment."
+                        : "Every £2 gives you one unique raffle entry. Your raffle number will be emailed to you after payment."
                       : product.description || "Support Rooted CIC through MTC."}
                   </p>
 

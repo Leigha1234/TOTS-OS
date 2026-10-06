@@ -30,6 +30,12 @@ import {
   Settings2,
   Trash2,
   X,
+  QrCode,
+  Copy,
+  Download,
+  Link2,
+  Power,
+  PowerOff,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
@@ -104,18 +110,6 @@ type StoreOrder = {
   paid_at?: string | null;
 };
 
-type StoreOrderItem = {
-  id: string;
-  order_id: string;
-  product_id?: string | null;
-  product_name?: string | null;
-  sku?: string | null;
-  quantity?: number | null;
-  unit_price?: number | string | null;
-  total?: number | string | null;
-  created_at?: string | null;
-};
-
 type Subscription = {
   id: string;
   organisation_id: string;
@@ -131,32 +125,9 @@ type Subscription = {
   billing_interval?: string | null;
   current_period_start?: string | null;
   current_period_end?: string | null;
-  next_payment_at?: string | null;
   cancel_at_period_end?: boolean | null;
   cancelled_at?: string | null;
-  stripe_account_id?: string | null;
-  stripe_customer_id?: string | null;
   stripe_subscription_id?: string | null;
-  stripe_price_id?: string | null;
-  billing_provider?: string | null;
-  legacy_billing?: boolean | null;
-  payment_provider?: string | null;
-  external_customer_id?: string | null;
-  external_mandate_id?: string | null;
-  processor_verified_at?: string | null;
-  collection_enabled_at?: string | null;
-  teamup_billing_disabled_at?: string | null;
-  last_payment_at?: string | null;
-  last_payment_amount_pence?: number | null;
-  legacy_membership_name?: string | null;
-  migrated_from?: string | null;
-  processor_verification_status?: string | null;
-  cutover_status?: string | null;
-  collection_enabled?: boolean | null;
-  teamup_billing_active?: boolean | null;
-  external_subscription_id?: string | null;
-  migration_notes?: string | null;
-  metadata?: Record<string, unknown> | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -195,7 +166,50 @@ type ProductDraft = {
   is_active: boolean;
 };
 
-type Tab = "overview" | "products" | "orders" | "subscriptions" | "discounts" | "settings";
+type Tab =
+  | "overview"
+  | "products"
+  | "orders"
+  | "subscriptions"
+  | "discounts"
+  | "qr"
+  | "settings";
+
+type StoreQrCode = {
+  id: string;
+  organisation_id: string;
+  name: string;
+  slug: string;
+  destination_type:
+    | "storefront"
+    | "category"
+    | "product"
+    | "membership"
+    | "drinks"
+    | "rooted"
+    | "custom";
+  destination_url: string;
+  category?: string | null;
+  product_id?: string | null;
+  description?: string | null;
+  is_active: boolean;
+  track_scans: boolean;
+  scan_count: number;
+  foreground_color?: string | null;
+  background_color?: string | null;
+  label?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type QrDraft = {
+  name: string;
+  slug: string;
+  destination_type: StoreQrCode["destination_type"];
+  destination_url: string;
+  description: string;
+  track_scans: boolean;
+};
 
 type StoreSettings = {
   id?: string;
@@ -234,73 +248,6 @@ type StoreSettings = {
   instagram_url?: string | null;
   tiktok_url?: string | null;
   custom_css?: string | null;
-};
-
-
-type MigrationResultItem = {
-  subscriptionId?: string | null;
-  customerName?: string | null;
-  email?: string | null;
-  membership?: string | null;
-  amountPence?: number | null;
-  provider?: string | null;
-  result?: string | null;
-  reason?: string | null;
-  setupUrl?: string | null;
-  stripeSubscriptionId?: string | null;
-  goCardlessSubscriptionId?: string | null;
-  teamupExternalShutdownRequired?: boolean;
-};
-
-type CompleteMigrationResult = {
-  completedAt?: string;
-  summary?: {
-    canonicalMembershipsChecked?: number;
-    billingLiveOnTots?: number;
-    stripeLive?: number;
-    goCardlessLive?: number;
-    accessMembershipsInTots?: number;
-    memberAuthorisationRequired?: number;
-    manualReviewRequired?: number;
-    duplicatesExcluded?: number;
-    externalTeamupShutdownRequired?: number;
-  };
-  memberAuthorisationRequired?: MigrationResultItem[];
-  setupLinks?: MigrationResultItem[];
-  manualReview?: MigrationResultItem[];
-  teamupShutdownRequired?: MigrationResultItem[];
-  canonicalSubscriptionIds?: string[];
-  duplicateSubscriptionIds?: string[];
-  important?: {
-    totsIsMembershipSourceOfTruth?: boolean;
-    mtcAppShouldReadMembershipsFromTots?: boolean;
-    teamupApiCancellationPerformed?: boolean;
-    note?: string;
-  };
-};
-
-type StripeStoreStatus = {
-  connected: boolean;
-  accountId: string | null;
-  accountUnavailable: boolean;
-  accountType: string | null;
-  country: string | null;
-  defaultCurrency: string;
-  email: string | null;
-  chargesEnabled: boolean;
-  payoutsEnabled: boolean;
-  detailsSubmitted: boolean;
-  onboardingComplete: boolean;
-  requirements: {
-    currentlyDue: string[];
-    eventuallyDue: string[];
-    pastDue: string[];
-    disabledReason: string | null;
-  };
-  balance: {
-    available: Array<{ currency: string; amount: number; formatted: string }>;
-    pending: Array<{ currency: string; amount: number; formatted: string }>;
-  };
 };
 
 // ============================================================
@@ -465,9 +412,21 @@ export default function StoreDashboardPage() {
   const [organisation, setOrganisation] = useState<Organisation | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<StoreOrder[]>([]);
-  const [orderItems, setOrderItems] = useState<StoreOrderItem[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [discounts, setDiscounts] = useState<Discount[]>([]);
+  const [qrCodes, setQrCodes] = useState<StoreQrCode[]>([]);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [editingQr, setEditingQr] = useState<StoreQrCode | null>(null);
+  const [savingQr, setSavingQr] = useState(false);
+  const [qrPreviewSvg, setQrPreviewSvg] = useState<Record<string, string>>({});
+  const [qrDraft, setQrDraft] = useState<QrDraft>({
+    name: "",
+    slug: "",
+    destination_type: "custom",
+    destination_url: "",
+    description: "",
+    track_scans: true,
+  });
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const [uploadingAsset, setUploadingAsset] = useState<"logo" | "hero" | "favicon" | null>(null);
@@ -483,19 +442,6 @@ export default function StoreDashboardPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [draft, setDraft] = useState<ProductDraft>(blankProduct);
   const [savingProduct, setSavingProduct] = useState(false);
-  const [billingActionId, setBillingActionId] = useState<string | null>(null);
-  const [reconcilingStripe, setReconcilingStripe] = useState(false);
-  const [preparingCutover, setPreparingCutover] = useState(false);
-  const [preparingMtcImport, setPreparingMtcImport] = useState(false);
-  const [mtcPreparationResult, setMtcPreparationResult] = useState<CompleteMigrationResult | null>(null);
-  const [bulkCutoverMessage, setBulkCutoverMessage] = useState<string | null>(null);
-  const [reconcileProgress, setReconcileProgress] = useState<{ current: number; total: number } | null>(null);
-  const [reconcileSummary, setReconcileSummary] = useState<Record<string, number> | null>(null);
-  const [migrationMessages, setMigrationMessages] = useState<Record<string, string>>({});
-  const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
-  const [stripeStatus, setStripeStatus] = useState<StripeStoreStatus | null>(null);
-  const [stripeStatusLoading, setStripeStatusLoading] = useState(true);
-  const [stripeConnectLoading, setStripeConnectLoading] = useState(false);
 
   const resolveOrganisationId = useCallback(async () => {
     // 1. Prefer an already-selected organisation stored by TOTS-OS.
@@ -564,90 +510,6 @@ export default function StoreDashboardPage() {
     );
   }, []);
 
-  const getAccessToken = useCallback(async () => {
-    const { data, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) throw sessionError;
-
-    const token = data.session?.access_token;
-    if (!token) throw new Error("You are not signed in.");
-
-    return token;
-  }, []);
-
-  const loadStripeStatus = useCallback(async (silent = false) => {
-    if (!silent) setStripeStatusLoading(true);
-
-    try {
-      const token = await getAccessToken();
-      const response = await fetch("/api/store/stripe/status", {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || "Stripe status could not be loaded.");
-      }
-
-      setStripeStatus(result as StripeStoreStatus);
-    } catch (statusError) {
-      console.error("Store Stripe status load error:", statusError);
-      setStripeStatus(null);
-      if (!silent) {
-        setError(
-          statusError instanceof Error
-            ? statusError.message
-            : "Stripe status could not be loaded.",
-        );
-      }
-    } finally {
-      if (!silent) setStripeStatusLoading(false);
-    }
-  }, [getAccessToken]);
-
-  const connectStripe = useCallback(async () => {
-    try {
-      setStripeConnectLoading(true);
-      setError(null);
-
-      const token = await getAccessToken();
-      const response = await fetch("/api/store/stripe/connect", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || "Stripe onboarding could not be started.");
-      }
-
-      const onboardingUrl =
-        typeof result.onboardingUrl === "string"
-          ? result.onboardingUrl
-          : typeof result.url === "string"
-            ? result.url
-            : "";
-
-      if (!onboardingUrl || !onboardingUrl.startsWith("https://")) {
-        throw new Error("Stripe did not return a valid onboarding link.");
-      }
-
-      window.location.assign(onboardingUrl);
-    } catch (connectError) {
-      console.error("Stripe connect error:", connectError);
-      setError(
-        connectError instanceof Error
-          ? connectError.message
-          : "Stripe onboarding could not be started.",
-      );
-      setStripeConnectLoading(false);
-    }
-  }, [getAccessToken]);
-
   const loadStore = useCallback(
     async (silent = false) => {
       if (silent) {
@@ -665,9 +527,9 @@ export default function StoreDashboardPage() {
           organisationResult,
           productsResult,
           ordersResult,
-          orderItemsResult,
           subscriptionsResult,
           discountsResult,
+          qrCodesResult,
           settingsResult,
         ] = await Promise.all([
           supabase
@@ -690,11 +552,6 @@ export default function StoreDashboardPage() {
             .order("created_at", { ascending: false }),
 
           supabase
-            .from("store_order_items")
-            .select("*")
-            .order("created_at", { ascending: false }),
-
-          supabase
             .from("store_subscriptions")
             .select("*")
             .eq("organisation_id", organisationId)
@@ -702,6 +559,12 @@ export default function StoreDashboardPage() {
 
           supabase
             .from("store_discounts")
+            .select("*")
+            .eq("organisation_id", organisationId)
+            .order("created_at", { ascending: false }),
+
+          supabase
+            .from("store_qr_codes")
             .select("*")
             .eq("organisation_id", organisationId)
             .order("created_at", { ascending: false }),
@@ -716,17 +579,17 @@ export default function StoreDashboardPage() {
         if (organisationResult.error) throw organisationResult.error;
         if (productsResult.error) throw productsResult.error;
         if (ordersResult.error) throw ordersResult.error;
-        if (orderItemsResult.error) throw orderItemsResult.error;
         if (subscriptionsResult.error) throw subscriptionsResult.error;
         if (discountsResult.error) throw discountsResult.error;
+        if (qrCodesResult.error) throw qrCodesResult.error;
         if (settingsResult.error) throw settingsResult.error;
 
         setOrganisation(organisationResult.data as Organisation);
         setProducts((productsResult.data ?? []) as Product[]);
         setOrders((ordersResult.data ?? []) as StoreOrder[]);
-        setOrderItems((orderItemsResult.data ?? []) as StoreOrderItem[]);
         setSubscriptions((subscriptionsResult.data ?? []) as Subscription[]);
         setDiscounts((discountsResult.data ?? []) as Discount[]);
+        setQrCodes((qrCodesResult.data ?? []) as StoreQrCode[]);
         setStoreSettings(
           settingsResult.data
             ? (settingsResult.data as StoreSettings)
@@ -771,20 +634,7 @@ export default function StoreDashboardPage() {
 
   useEffect(() => {
     void loadStore();
-    void loadStripeStatus();
-  }, [loadStore, loadStripeStatus]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const stripeReturn = params.get("stripe");
-
-    if (stripeReturn === "connected" || stripeReturn === "refresh") {
-      void loadStripeStatus(true);
-
-      const cleanUrl = `${window.location.pathname}${window.location.hash || ""}`;
-      window.history.replaceState({}, "", cleanUrl);
-    }
-  }, [loadStripeStatus]);
+  }, [loadStore]);
 
   const metrics = useMemo(() => {
     const activeProducts = products.filter(
@@ -802,25 +652,11 @@ export default function StoreDashboardPage() {
       0,
     );
 
-    const membershipRecords = subscriptions.filter(
+    const activeSubscriptions = subscriptions.filter(
       (subscription) => subscription.status?.toLowerCase() === "active",
     );
 
-    // Only count subscriptions that TOTS-OS is actually authorised to collect.
-    // Legacy TeamUp records deliberately remain visible in this register, but
-    // they are NOT TOTS recurring revenue while collection_enabled = false.
-    const collectingSubscriptions = membershipRecords.filter(
-      (subscription) => subscription.collection_enabled === true,
-    );
-
-    const teamupBillingRecords = membershipRecords.filter(
-      (subscription) =>
-        subscription.legacy_billing === true &&
-        subscription.teamup_billing_active === true &&
-        subscription.collection_enabled !== true,
-    );
-
-    const monthlySubscriptionValue = collectingSubscriptions.reduce(
+    const monthlySubscriptionValue = activeSubscriptions.reduce(
       (sum, subscription) => {
         const amount = toNumber(subscription.unit_amount_pence) / 100;
         const quantity = subscription.quantity ?? 1;
@@ -828,10 +664,6 @@ export default function StoreDashboardPage() {
 
         if (["year", "yearly", "annual"].includes(interval ?? "")) {
           return sum + (amount * quantity) / 12;
-        }
-
-        if (["week", "weekly"].includes(interval ?? "")) {
-          return sum + amount * quantity * (52 / 12);
         }
 
         return sum + amount * quantity;
@@ -843,9 +675,7 @@ export default function StoreDashboardPage() {
       activeProducts,
       revenue,
       paidOrders: paidOrders.length,
-      membershipRecords: membershipRecords.length,
-      collectingSubscriptions: collectingSubscriptions.length,
-      teamupBillingRecords: teamupBillingRecords.length,
+      activeSubscriptions: activeSubscriptions.length,
       monthlySubscriptionValue,
     };
   }, [products, orders, subscriptions]);
@@ -862,327 +692,29 @@ export default function StoreDashboardPage() {
     );
   }, [products, search]);
 
-  const productNameById = useMemo(() => {
-    return new Map(products.map((product) => [product.id, product.name]));
-  }, [products]);
-
-  const orderItemsByOrderId = useMemo(() => {
-    const grouped = new Map<string, StoreOrderItem[]>();
-    for (const item of orderItems) {
-      const existing = grouped.get(item.order_id) ?? [];
-      existing.push(item);
-      grouped.set(item.order_id, existing);
-    }
-    return grouped;
-  }, [orderItems]);
-
-  const getOrderItemProductName = useCallback(
-    (item: StoreOrderItem) =>
-      item.product_name?.trim() ||
-      (item.product_id ? productNameById.get(item.product_id) : undefined) ||
-      "Unknown product",
-    [productNameById],
-  );
-
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return orders;
 
-    return orders.filter((order) => {
-      const items = orderItemsByOrderId.get(order.id) ?? [];
-      const matchesProduct = items.some((item) =>
-        getOrderItemProductName(item).toLowerCase().includes(query),
-      );
-
-      return (
+    return orders.filter(
+      (order) =>
         order.order_number?.toLowerCase().includes(query) ||
         order.customer_name?.toLowerCase().includes(query) ||
-        order.customer_email?.toLowerCase().includes(query) ||
-        matchesProduct
-      );
-    });
-  }, [orders, search, orderItemsByOrderId, getOrderItemProductName]);
-
-
-  const getBillingToken = useCallback(async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-    if (!token) throw new Error("You are not signed in.");
-    return token;
-  }, []);
-
-  const postBillingMigration = useCallback(async (
-    token: string,
-    body: Record<string, unknown>,
-  ) => {
-    const response = await fetch("/api/admin/store/billing-migration", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
-
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "Billing migration action failed.");
-    return result;
-  }, []);
-
-  const prepareAllMembersForMtcApp = useCallback(async () => {
-    if (preparingMtcImport) return;
-
-    const confirmed = window.confirm(
-      "COMPLETE THE MTC MIGRATION NOW? This will make TOTS-OS/MTC the membership source of truth, preserve existing Stripe and GoCardless subscriptions, create missing processor subscriptions only where verified payment authority exists, disable duplicate legacy collection rows, and create secure authorisation links where authority is missing. It does NOT take an immediate payment. IMPORTANT: this route cannot cancel TeamUp externally; any live memberships still billed in TeamUp must be stopped there to prevent duplicate renewal charges.",
+        order.customer_email?.toLowerCase().includes(query),
     );
-    if (!confirmed) return;
-
-    try {
-      setPreparingMtcImport(true);
-      setMtcPreparationResult(null);
-      setError(null);
-
-      const token = await getBillingToken();
-      const result = await postBillingMigration(token, {
-        action: "complete_migration",
-      });
-
-      setMtcPreparationResult(result as CompleteMigrationResult);
-      await loadStore(true);
-    } catch (prepareError) {
-      setError(
-        prepareError instanceof Error
-          ? prepareError.message
-          : "MTC migration failed.",
-      );
-    } finally {
-      setPreparingMtcImport(false);
-    }
-  }, [getBillingToken, loadStore, postBillingMigration, preparingMtcImport]);
-
-  const reconcileCopiedStripeCustomers = useCallback(async () => {
-    if (reconcilingStripe) return;
-
-    const targets = subscriptions.filter((subscription) => {
-      const provider = String(subscription.payment_provider ?? "").toLowerCase();
-      const recurring =
-        typeof subscription.unit_amount_pence === "number" &&
-        subscription.unit_amount_pence > 0 &&
-        ["week", "month", "year"].includes(String(subscription.billing_interval ?? "").toLowerCase());
-
-      return (
-        provider === "stripe" &&
-        recurring &&
-        subscription.collection_enabled !== true &&
-        subscription.teamup_billing_active === true &&
-        subscription.processor_verification_status !== "verified"
-      );
-    });
-
-    if (!targets.length) {
-      window.alert("There are no unverified recurring Stripe memberships left to reconcile.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Reconcile ${targets.length} recurring Stripe memberships against the 599 copied customers? This only verifies copied customer/payment methods. It will NOT collect money, create subscriptions, or stop TeamUp billing.`,
-    );
-    if (!confirmed) return;
-
-    try {
-      setReconcilingStripe(true);
-      setError(null);
-      setReconcileSummary(null);
-      setReconcileProgress({ current: 0, total: targets.length });
-
-      const token = await getBillingToken();
-      const counts: Record<string, number> = {};
-      const messages: Record<string, string> = {};
-
-      for (let index = 0; index < targets.length; index += 1) {
-        const subscription = targets[index];
-        try {
-          const response = await postBillingMigration(token, {
-            subscriptionId: subscription.id,
-            action: "scan_one",
-          });
-          const result = response.result;
-          const key = String(result?.result ?? "error");
-          counts[key] = (counts[key] ?? 0) + 1;
-          if (result?.message) messages[subscription.id] = result.message;
-        } catch (scanError) {
-          counts.error = (counts.error ?? 0) + 1;
-          messages[subscription.id] = scanError instanceof Error ? scanError.message : "Reconciliation failed.";
-        }
-        setReconcileProgress({ current: index + 1, total: targets.length });
-      }
-
-      setMigrationMessages((current) => ({ ...current, ...messages }));
-      setReconcileSummary(counts);
-      await loadStore(true);
-    } catch (scanError) {
-      setError(scanError instanceof Error ? scanError.message : "Stripe reconciliation failed.");
-    } finally {
-      setReconcilingStripe(false);
-      setReconcileProgress(null);
-    }
-  }, [getBillingToken, loadStore, postBillingMigration, reconcilingStripe, subscriptions]);
-
-  const prepareEligibleStripeCutover = useCallback(async () => {
-    if (preparingCutover) return;
-
-    const readyCount = subscriptions.filter((subscription) => {
-      const provider = String(subscription.payment_provider ?? "").toLowerCase();
-      const recurring =
-        typeof subscription.unit_amount_pence === "number" &&
-        subscription.unit_amount_pence > 0 &&
-        ["week", "month", "year"].includes(String(subscription.billing_interval ?? "").toLowerCase());
-
-      return (
-        provider === "stripe" &&
-        recurring &&
-        subscription.collection_enabled !== true &&
-        subscription.teamup_billing_active === true &&
-        subscription.processor_verification_status === "verified" &&
-        Boolean(subscription.next_payment_at)
-      );
-    }).length;
-
-    if (!readyCount) {
-      window.alert("There are no verified Stripe memberships with a confirmed next payment date ready to prepare.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Prepare all ${readyCount} eligible Stripe memberships for TOTS-OS cutover? This creates/schedules the destination Stripe subscriptions for their existing renewal dates. It does NOT charge anyone now and it does NOT cancel TeamUp.`,
-    );
-    if (!confirmed) return;
-
-    try {
-      setPreparingCutover(true);
-      setBulkCutoverMessage(null);
-      setError(null);
-
-      const token = await getBillingToken();
-      const result = await postBillingMigration(token, { action: "prepare_cutover_all" });
-
-      const prepared =
-        result?.summary?.prepared ??
-        result?.prepared ??
-        result?.created ??
-        result?.summary?.created ??
-        0;
-      const alreadyPrepared =
-        result?.summary?.alreadyPrepared ??
-        result?.alreadyPrepared ??
-        result?.summary?.already_prepared ??
-        0;
-      const failed =
-        result?.summary?.failed ??
-        result?.failed ??
-        result?.summary?.errors ??
-        0;
-
-      setBulkCutoverMessage(
-        `TOTS cutover preparation finished. Prepared: ${prepared} · Already prepared: ${alreadyPrepared} · Failed/review: ${failed}. No immediate payments were taken and TeamUp has not been marked stopped.`,
-      );
-
-      await loadStore(true);
-    } catch (prepareError) {
-      setError(prepareError instanceof Error ? prepareError.message : "Bulk cutover preparation failed.");
-    } finally {
-      setPreparingCutover(false);
-    }
-  }, [getBillingToken, loadStore, postBillingMigration, preparingCutover, subscriptions]);
-
-  const runBillingMigrationAction = useCallback(async (
-    subscription: Subscription,
-    action: "scan_one" | "setup" | "verify" | "teamup_stopped" | "activate",
-  ) => {
-    try {
-      setBillingActionId(subscription.id);
-      setError(null);
-
-      if (action === "setup") {
-        if (stripeStatusLoading) throw new Error("Stripe status is still loading. Try again in a moment.");
-        if (!stripeStatus?.connected) throw new Error("MTC Stripe is not connected.");
-        if (!stripeStatus.onboardingComplete) throw new Error("MTC Stripe onboarding is not complete.");
-      }
-
-      if (action === "teamup_stopped") {
-        const confirmedStopped = window.confirm(
-          "This does NOT cancel TeamUp for you. Only continue if you have already stopped this member’s billing inside TeamUp. Mark TeamUp billing as stopped?",
-        );
-        if (!confirmedStopped) return;
-      }
-
-      if (action === "activate") {
-        const confirmed = window.confirm(
-          "Only continue after TeamUp billing is stopped AND the member's next payment date has been verified. Continue with TOTS activation?",
-        );
-        if (!confirmed) return;
-      }
-
-      const token = await getBillingToken();
-      const result = await postBillingMigration(token, { subscriptionId: subscription.id, action });
-
-      const scanResult = result.result?.result ? result.result : result.result;
-      if (action === "scan_one" && scanResult) {
-        setMigrationMessages((current) => ({
-          ...current,
-          [subscription.id]: scanResult.message || String(scanResult.result || "Checked"),
-        }));
-      }
-
-      if (result.url) {
-        await navigator.clipboard.writeText(result.url).catch(() => undefined);
-        window.open(result.url, "_blank", "noopener,noreferrer");
-        window.alert("Payment setup link opened and copied to your clipboard. TeamUp remains active.");
-      } else if (action === "setup" && result.automatic) {
-        window.alert("Copied Stripe payment method verified automatically. No setup link is needed and no payment was collected.");
-      }
-
-      await loadStore(true);
-    } catch (actionError) {
-      const message = actionError instanceof Error ? actionError.message : "Billing migration action failed.";
-      setMigrationMessages((current) => ({ ...current, [subscription.id]: message }));
-      setError(message);
-    } finally {
-      setBillingActionId(null);
-    }
-  }, [getBillingToken, loadStore, postBillingMigration, stripeStatus, stripeStatusLoading]);
+  }, [orders, search]);
 
   const filteredSubscriptions = useMemo(() => {
-    const canonicalIds = new Set(mtcPreparationResult?.canonicalSubscriptionIds ?? []);
-    const duplicateIds = new Set(mtcPreparationResult?.duplicateSubscriptionIds ?? []);
-
-    // After a completed migration, show only the canonical membership register.
-    // On later page loads, persisted duplicate metadata/notes keep historical
-    // TeamUp rows hidden as well, so the register does not look double-counted.
-    const canonicalRegister = subscriptions.filter((subscription) => {
-      if (canonicalIds.size > 0) return canonicalIds.has(subscription.id);
-      if (duplicateIds.has(subscription.id)) return false;
-
-      const meta = subscription.metadata ?? {};
-      const markedDuplicate =
-        meta.mtc_redundant_duplicate === true ||
-        meta.mtc_duplicate_record === true ||
-        String(subscription.migration_notes ?? "").toLowerCase().includes("do not collect");
-
-      return !markedDuplicate;
-    });
-
     const query = search.trim().toLowerCase();
-    if (!query) return canonicalRegister;
+    if (!query) return subscriptions;
 
-    return canonicalRegister.filter(
+    return subscriptions.filter(
       (subscription) =>
         subscription.customer_name?.toLowerCase().includes(query) ||
         subscription.customer_email?.toLowerCase().includes(query) ||
-        subscription.status?.toLowerCase().includes(query) ||
-        subscription.legacy_membership_name?.toLowerCase().includes(query),
+        subscription.status?.toLowerCase().includes(query),
     );
-  }, [subscriptions, search, mtcPreparationResult]);
+  }, [subscriptions, search]);
 
   function openNewProduct() {
     setEditingProduct(null);
@@ -1487,6 +1019,194 @@ export default function StoreDashboardPage() {
     }
   }
 
+
+  const publicQrUrl = (slug: string) => {
+    if (typeof window !== "undefined") {
+      return `${window.location.origin}/q/${slug}`;
+    }
+    return `https://www.tots-os.co.uk/q/${slug}`;
+  };
+
+  const normaliseQrSlug = (value: string) =>
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80);
+
+  const openNewQr = () => {
+    setEditingQr(null);
+    setQrDraft({
+      name: "",
+      slug: "",
+      destination_type: "custom",
+      destination_url: "",
+      description: "",
+      track_scans: true,
+    });
+    setQrModalOpen(true);
+  };
+
+  const openEditQr = (qr: StoreQrCode) => {
+    setEditingQr(qr);
+    setQrDraft({
+      name: qr.name,
+      slug: qr.slug,
+      destination_type: qr.destination_type,
+      destination_url: qr.destination_url,
+      description: qr.description || "",
+      track_scans: qr.track_scans,
+    });
+    setQrModalOpen(true);
+  };
+
+  const saveQrCode = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!organisation) return;
+
+    const name = qrDraft.name.trim();
+    const slug = normaliseQrSlug(qrDraft.slug || qrDraft.name);
+    const destinationUrl = qrDraft.destination_url.trim();
+
+    if (!name || !slug || !destinationUrl) {
+      setError("QR name, slug and destination are required.");
+      return;
+    }
+
+    setSavingQr(true);
+    setError(null);
+
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const payload = {
+        organisation_id: organisation.id,
+        name,
+        slug,
+        destination_type: qrDraft.destination_type,
+        destination_url: destinationUrl,
+        description: qrDraft.description.trim() || null,
+        track_scans: qrDraft.track_scans,
+        created_by: authData.user?.id ?? null,
+      };
+
+      if (editingQr) {
+        const { data, error: updateError } = await supabase
+          .from("store_qr_codes")
+          .update({
+            name: payload.name,
+            slug: payload.slug,
+            destination_type: payload.destination_type,
+            destination_url: payload.destination_url,
+            description: payload.description,
+            track_scans: payload.track_scans,
+          })
+          .eq("id", editingQr.id)
+          .eq("organisation_id", organisation.id)
+          .select("*")
+          .single();
+
+        if (updateError) throw updateError;
+        setQrCodes((current) =>
+          current.map((item) => (item.id === editingQr.id ? (data as StoreQrCode) : item)),
+        );
+      } else {
+        const { data, error: insertError } = await supabase
+          .from("store_qr_codes")
+          .insert(payload)
+          .select("*")
+          .single();
+
+        if (insertError) throw insertError;
+        setQrCodes((current) => [data as StoreQrCode, ...current]);
+      }
+
+      setQrModalOpen(false);
+    } catch (saveError) {
+      console.error("Unable to save QR code:", saveError);
+      setError(saveError instanceof Error ? saveError.message : "Unable to save QR code.");
+    } finally {
+      setSavingQr(false);
+    }
+  };
+
+  const toggleQrActive = async (qr: StoreQrCode) => {
+    const { data, error: updateError } = await supabase
+      .from("store_qr_codes")
+      .update({ is_active: !qr.is_active })
+      .eq("id", qr.id)
+      .select("*")
+      .single();
+
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+    setQrCodes((current) =>
+      current.map((item) => (item.id === qr.id ? (data as StoreQrCode) : item)),
+    );
+  };
+
+  const deleteQrCode = async (qr: StoreQrCode) => {
+    if (!window.confirm(`Delete "${qr.name}"? Printed copies of this QR will stop working.`)) return;
+    const { error: deleteError } = await supabase
+      .from("store_qr_codes")
+      .delete()
+      .eq("id", qr.id);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+    setQrCodes((current) => current.filter((item) => item.id !== qr.id));
+  };
+
+  const ensureQrSvg = async (qr: StoreQrCode) => {
+    if (qrPreviewSvg[qr.id]) return qrPreviewSvg[qr.id];
+    const QRCode = await import("qrcode");
+    const svg = await QRCode.toString(publicQrUrl(qr.slug), {
+      type: "svg",
+      width: 360,
+      margin: 2,
+      color: {
+        dark: qr.foreground_color || "#000000",
+        light: qr.background_color || "#FFFFFF",
+      },
+    });
+    setQrPreviewSvg((current) => ({ ...current, [qr.id]: svg }));
+    return svg;
+  };
+
+  const downloadQr = async (qr: StoreQrCode) => {
+    try {
+      const QRCode = await import("qrcode");
+      const dataUrl = await QRCode.toDataURL(publicQrUrl(qr.slug), {
+        width: 1200,
+        margin: 3,
+        errorCorrectionLevel: "H",
+        color: {
+          dark: qr.foreground_color || "#000000",
+          light: qr.background_color || "#FFFFFF",
+        },
+      });
+      const anchor = document.createElement("a");
+      anchor.href = dataUrl;
+      anchor.download = `${qr.slug}-qr.png`;
+      anchor.click();
+    } catch (downloadError) {
+      console.error(downloadError);
+      setError("Unable to generate the QR image.");
+    }
+  };
+
+  useEffect(() => {
+    if (tab !== "qr") return;
+    qrCodes.forEach((qr) => {
+      void ensureQrSvg(qr);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, qrCodes]);
+
   if (loading) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center">
@@ -1555,10 +1275,7 @@ export default function StoreDashboardPage() {
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={() => {
-                void loadStore(true);
-                void loadStripeStatus(true);
-              }}
+              onClick={() => void loadStore(true)}
               disabled={refreshing}
               className="inline-flex h-11 items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-stone-700 shadow-sm transition hover:bg-stone-50 disabled:opacity-50"
             >
@@ -1592,50 +1309,6 @@ export default function StoreDashboardPage() {
           </div>
         )}
 
-        {!stripeStatusLoading && (!stripeStatus?.connected || !stripeStatus.onboardingComplete) && (
-          <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <CreditCard className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
-              <div>
-                <p className="text-sm font-semibold text-amber-950">
-                  {!stripeStatus?.connected
-                    ? "Connect MTC to Stripe before moving member billing to TOTS-OS"
-                    : "Finish MTC Stripe setup before moving member billing to TOTS-OS"}
-                </p>
-                <p className="mt-1 max-w-3xl text-sm text-amber-800">
-                  {!stripeStatus?.connected
-                    ? "The 356 legacy membership records stay billed by TeamUp. Connecting Stripe only creates the MTC payment account; it does not charge members or stop TeamUp."
-                    : "The Stripe account has been created, but onboarding is not fully operational yet. TeamUp billing remains unchanged until each member is deliberately cut over."}
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => void connectStripe()}
-              disabled={stripeConnectLoading}
-              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-stone-950 px-5 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:opacity-50"
-            >
-              {stripeConnectLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ExternalLink className="h-4 w-4" />
-              )}
-              {stripeStatus?.connected ? "Continue Stripe setup" : "Connect Stripe"}
-            </button>
-          </div>
-        )}
-
-        {!stripeStatusLoading && stripeStatus?.connected && stripeStatus.onboardingComplete && (
-          <div className="mt-5 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-800">
-            <Check className="h-5 w-5 shrink-0" />
-            <div>
-              <span className="font-semibold">MTC Stripe is ready.</span>{" "}
-              Member payment setup can now be moved to TOTS-OS one member at a time. TeamUp remains active until you explicitly mark it stopped for that member.
-            </div>
-          </div>
-        )}
-
         {organisation.store_enabled === false && (
           <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
             <p className="text-sm font-semibold text-amber-900">
@@ -1658,16 +1331,16 @@ export default function StoreDashboardPage() {
 
           <MetricCard
             icon={CreditCard}
-            label="Membership records"
-            value={String(metrics.membershipRecords)}
-            detail={`${metrics.teamupBillingRecords} still billed by TeamUp`}
+            label="Active subscriptions"
+            value={String(metrics.activeSubscriptions)}
+            detail={`${subscriptions.length} total`}
           />
 
           <MetricCard
             icon={BadgePoundSterling}
-            label="TOTS monthly recurring"
+            label="Monthly subscription value"
             value={formatMoney(metrics.monthlySubscriptionValue)}
-            detail={`${metrics.collectingSubscriptions} collecting through TOTS`}
+            detail="Approx. monthly recurring"
           />
         </div>
 
@@ -1697,6 +1370,13 @@ export default function StoreDashboardPage() {
               onClick={() => setTab("discounts")}
             >
               Discounts <CountBadge>{discounts.length}</CountBadge>
+            </TabButton>
+
+            <TabButton active={tab === "qr"} onClick={() => setTab("qr")}>
+              <span className="inline-flex items-center gap-2">
+                <QrCode className="h-4 w-4" />
+                QR Codes <CountBadge>{qrCodes.length}</CountBadge>
+              </span>
             </TabButton>
 
             <TabButton
@@ -1949,24 +1629,22 @@ export default function StoreDashboardPage() {
           <section className="mt-6 overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
             <SectionHeader
               title="Orders"
-              description="See who bought what, including the product name and quantity."
+              description="Orders placed through this organisation's store."
             >
               <SearchBox
                 value={search}
                 onChange={setSearch}
-                placeholder="Search orders, customers or products..."
+                placeholder="Search orders..."
               />
             </SectionHeader>
 
             {filteredOrders.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1100px]">
+                <table className="w-full min-w-[950px]">
                   <thead className="border-b border-stone-100 bg-stone-50/80">
                     <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">
                       <th className="px-6 py-4">Order</th>
                       <th className="px-4 py-4">Customer</th>
-                      <th className="px-4 py-4">Product</th>
-                      <th className="px-4 py-4">Qty</th>
                       <th className="px-4 py-4">Total</th>
                       <th className="px-4 py-4">Payment</th>
                       <th className="px-4 py-4">Fulfilment</th>
@@ -1975,72 +1653,42 @@ export default function StoreDashboardPage() {
                   </thead>
 
                   <tbody className="divide-y divide-stone-100">
-                    {filteredOrders.map((order) => {
-                      const items = orderItemsByOrderId.get(order.id) ?? [];
+                    {filteredOrders.map((order) => (
+                      <tr key={order.id} className="hover:bg-stone-50/60">
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-stone-900">
+                            {order.order_number || order.id.slice(0, 8)}
+                          </p>
+                        </td>
 
-                      return (
-                        <tr key={order.id} className="align-top hover:bg-stone-50/60">
-                          <td className="px-6 py-4">
-                            <p className="font-semibold text-stone-900">
-                              {order.order_number || order.id.slice(0, 8)}
-                            </p>
-                          </td>
+                        <td className="px-4 py-4">
+                          <p className="text-sm font-medium text-stone-800">
+                            {order.customer_name || "Customer"}
+                          </p>
+                          <p className="mt-0.5 text-xs text-stone-400">
+                            {order.customer_email || "—"}
+                          </p>
+                        </td>
 
-                          <td className="px-4 py-4">
-                            <p className="text-sm font-medium text-stone-800">
-                              {order.customer_name || "Customer"}
-                            </p>
-                            <p className="mt-0.5 text-xs text-stone-400">
-                              {order.customer_email || "—"}
-                            </p>
-                          </td>
+                        <td className="px-4 py-4 font-semibold text-stone-900">
+                          {formatMoney(order.total, order.currency || "GBP")}
+                        </td>
 
-                          <td className="px-4 py-4">
-                            {items.length > 0 ? (
-                              <div className="space-y-2">
-                                {items.map((item) => (
-                                  <p key={item.id} className="text-sm font-semibold text-stone-800">
-                                    {getOrderItemProductName(item)}
-                                  </p>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-sm text-stone-400">—</span>
-                            )}
-                          </td>
+                        <td className="px-4 py-4">
+                          <StatusBadge status={order.payment_status || "pending"} />
+                        </td>
 
-                          <td className="px-4 py-4">
-                            {items.length > 0 ? (
-                              <div className="space-y-2">
-                                {items.map((item) => (
-                                  <p key={item.id} className="text-sm font-medium text-stone-600">
-                                    {item.quantity ?? 1}
-                                  </p>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-sm text-stone-400">—</span>
-                            )}
-                          </td>
+                        <td className="px-4 py-4">
+                          <StatusBadge
+                            status={order.fulfilment_status || "unfulfilled"}
+                          />
+                        </td>
 
-                          <td className="px-4 py-4 font-semibold text-stone-900">
-                            {formatMoney(order.total, order.currency || "GBP")}
-                          </td>
-
-                          <td className="px-4 py-4">
-                            <StatusBadge status={order.payment_status || "pending"} />
-                          </td>
-
-                          <td className="px-4 py-4">
-                            <StatusBadge status={order.fulfilment_status || "unfulfilled"} />
-                          </td>
-
-                          <td className="px-6 py-4 text-sm text-stone-500">
-                            {formatDateTime(order.created_at)}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                        <td className="px-6 py-4 text-sm text-stone-500">
+                          {formatDateTime(order.created_at)}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -2058,111 +1706,14 @@ export default function StoreDashboardPage() {
           <section className="mt-6 overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
             <SectionHeader
               title="Subscriptions"
-              description="Canonical MTC membership register. Redundant TeamUp/history rows are hidden after migration."
+              description="Recurring memberships and subscriptions attached to this store."
             >
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={prepareAllMembersForMtcApp}
-                  disabled={preparingMtcImport || preparingCutover || reconcilingStripe}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {preparingMtcImport ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  {preparingMtcImport ? "Completing MTC migration…" : "Complete MTC Migration"}
-                </button>
-                <SearchBox
-                  value={search}
-                  onChange={setSearch}
-                  placeholder="Search subscriptions..."
-                />
-              </div>
+              <SearchBox
+                value={search}
+                onChange={setSearch}
+                placeholder="Search subscriptions..."
+              />
             </SectionHeader>
-
-            {mtcPreparationResult && (
-              <div className="border-b border-stone-100 bg-emerald-50/70 px-6 py-5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-bold text-emerald-950">MTC migration run finished</p>
-                    <p className="mt-1 text-xs text-emerald-900/80">
-                      TOTS-OS is now the membership source of truth for every membership this run could safely migrate. Redundant legacy rows are excluded from the live register. Existing processor subscriptions were preserved; missing processor subscriptions were only created where verified authority existed. No immediate migration payment was taken.
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-white px-4 py-2 text-right shadow-sm ring-1 ring-emerald-100">
-                    <p className="text-2xl font-bold text-emerald-800">{mtcPreparationResult.summary?.billingLiveOnTots ?? 0}</p>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">Billing live on TOTS</p>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                  {[
-                    ["Canonical memberships checked", mtcPreparationResult.summary?.canonicalMembershipsChecked ?? 0],
-                    ["Stripe live", mtcPreparationResult.summary?.stripeLive ?? 0],
-                    ["GoCardless live", mtcPreparationResult.summary?.goCardlessLive ?? 0],
-                    ["Access memberships in TOTS", mtcPreparationResult.summary?.accessMembershipsInTots ?? 0],
-                    ["Member authorisation required", mtcPreparationResult.summary?.memberAuthorisationRequired ?? 0],
-                    ["Manual review required", mtcPreparationResult.summary?.manualReviewRequired ?? 0],
-                    ["Duplicate rows excluded", mtcPreparationResult.summary?.duplicatesExcluded ?? 0],
-                    ["TeamUp shutdown required", mtcPreparationResult.summary?.externalTeamupShutdownRequired ?? 0],
-                  ].map(([label, value]) => (
-                    <div key={String(label)} className="rounded-xl bg-white px-3 py-3 ring-1 ring-stone-100">
-                      <p className="text-lg font-bold text-stone-900">{String(value)}</p>
-                      <p className="text-[11px] font-medium text-stone-500">{String(label)}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {(mtcPreparationResult.summary?.externalTeamupShutdownRequired ?? 0) > 0 && (
-                  <div className="mt-4 rounded-xl bg-red-50 p-4 ring-1 ring-red-200">
-                    <p className="text-xs font-bold text-red-900">External TeamUp shutdown still required</p>
-                    <p className="mt-1 text-xs text-red-800">
-                      TOTS cannot cancel TeamUp through this route. Stop billing in TeamUp for the memberships listed below before their next renewal to avoid duplicate charges.
-                    </p>
-                    <details className="mt-3">
-                      <summary className="cursor-pointer text-xs font-semibold text-red-900">Show memberships ({mtcPreparationResult.teamupShutdownRequired?.length ?? 0})</summary>
-                      <div className="mt-2 max-h-72 space-y-2 overflow-auto">
-                        {mtcPreparationResult.teamupShutdownRequired?.map((item, index) => (
-                          <div key={`${item.subscriptionId ?? item.email ?? "teamup"}-${index}`} className="rounded-lg bg-white px-3 py-2 text-xs">
-                            <p className="font-semibold text-stone-900">{item.customerName || "Unnamed member"} · {item.membership || "Membership"}</p>
-                            <p className="text-stone-500">{item.email || "No email"} · {item.provider || "processor"}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  </div>
-                )}
-
-                {((mtcPreparationResult.memberAuthorisationRequired?.length ?? 0) > 0 || (mtcPreparationResult.manualReview?.length ?? 0) > 0) && (
-                  <details className="mt-4 rounded-xl bg-white p-4 ring-1 ring-amber-200">
-                    <summary className="cursor-pointer text-xs font-bold text-amber-900">
-                      Members still requiring action ({(mtcPreparationResult.memberAuthorisationRequired?.length ?? 0) + (mtcPreparationResult.manualReview?.length ?? 0)})
-                    </summary>
-                    <div className="mt-3 max-h-80 space-y-2 overflow-auto">
-                      {[...(mtcPreparationResult.memberAuthorisationRequired ?? []), ...(mtcPreparationResult.manualReview ?? [])].map((item, index) => (
-                        <div key={`${item.subscriptionId ?? item.email ?? "review"}-${index}`} className="rounded-lg bg-amber-50 px-3 py-2 text-xs">
-                          <p className="font-semibold text-stone-900">{item.customerName || "Unnamed member"} · {item.membership || "Membership not specified"}</p>
-                          <p className="text-stone-500">{item.email || "No email"} · {item.provider || "provider review"}</p>
-                          <p className="mt-1 text-amber-900">{item.reason || item.result || "Manual review required."}</p>
-                          {item.setupUrl && <a className="mt-1 inline-block font-semibold underline" href={item.setupUrl} target="_blank" rel="noreferrer">Open secure payment-authorisation link</a>}
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                )}
-              </div>
-            )}
-
-            {bulkCutoverMessage && (
-              <div className="border-b border-stone-100 bg-emerald-50 px-6 py-4 text-xs font-medium text-emerald-900">
-                {bulkCutoverMessage}
-              </div>
-            )}
-
-            {reconcileSummary && (
-              <div className="border-b border-stone-100 bg-emerald-50/60 px-6 py-4 text-xs text-stone-700">
-                <span className="font-semibold text-emerald-800">Stripe reconciliation finished.</span>{" "}
-                Verified: {(reconcileSummary.verified ?? 0) + (reconcileSummary.already_verified ?? 0)} · No payment method: {reconcileSummary.no_payment_method ?? 0} · Multiple matches: {reconcileSummary.multiple_customers ?? 0} · Not found: {reconcileSummary.waiting_for_stripe_copy ?? 0} · Errors: {reconcileSummary.error ?? 0}. No payments collected; TeamUp remains active.
-              </div>
-            )}
 
             {filteredSubscriptions.length > 0 ? (
               <div className="overflow-x-auto">
@@ -2172,11 +1723,9 @@ export default function StoreDashboardPage() {
                       <th className="px-6 py-4">Customer</th>
                       <th className="px-4 py-4">Amount</th>
                       <th className="px-4 py-4">Interval</th>
-                      <th className="px-4 py-4">Billing</th>
                       <th className="px-4 py-4">Status</th>
                       <th className="px-4 py-4">Started</th>
-                      <th className="px-4 py-4">Migration</th>
-                      <th className="px-6 py-4">Membership</th>
+                      <th className="px-6 py-4">Subscription ID</th>
                     </tr>
                   </thead>
 
@@ -2184,38 +1733,22 @@ export default function StoreDashboardPage() {
                     {filteredSubscriptions.map((subscription) => (
                       <tr
                         key={subscription.id}
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`View subscription details for ${subscription.customer_name || subscription.customer_email || "customer"}`}
-                        onClick={(event) => {
-                          const target = event.target as HTMLElement;
-                          if (target.closest("button, a, input, select, textarea")) return;
-                          setSelectedSubscription(subscription);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            setSelectedSubscription(subscription);
-                          }
-                        }}
-                        className="cursor-pointer transition hover:bg-stone-50/80 focus:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a9b897]"
+                        className="hover:bg-stone-50/60"
                       >
                         <td className="px-6 py-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate font-semibold text-stone-900">
-                                {subscription.customer_name || "Customer"}
-                              </p>
-                              <p className="mt-0.5 truncate text-xs text-stone-400">
-                                {subscription.customer_email || "—"}
-                              </p>
-                            </div>
-                            <ChevronRight className="h-4 w-4 shrink-0 text-stone-300" />
-                          </div>
+                          <p className="font-semibold text-stone-900">
+                            {subscription.customer_name || "Customer"}
+                          </p>
+                          <p className="mt-0.5 text-xs text-stone-400">
+                            {subscription.customer_email || "—"}
+                          </p>
                         </td>
 
                         <td className="px-4 py-4 font-semibold text-stone-900">
-                          {formatPence(subscription.unit_amount_pence, subscription.currency || "GBP")}
+                          {formatPence(
+                            subscription.unit_amount_pence,
+                            subscription.currency || "GBP",
+                          )}
                         </td>
 
                         <td className="px-4 py-4 text-sm capitalize text-stone-600">
@@ -2223,84 +1756,21 @@ export default function StoreDashboardPage() {
                         </td>
 
                         <td className="px-4 py-4">
-                          {subscription.collection_enabled === true ? (
-                            <span className="text-xs font-semibold text-emerald-700">Live on TOTS</span>
-                          ) : !(subscription.billing_interval && subscription.unit_amount_pence && subscription.unit_amount_pence > 0) ? (
-                            <span className="text-xs text-stone-400">No recurring billing</span>
-                          ) : String(subscription.billing_provider ?? subscription.payment_provider ?? "").toLowerCase() === "gocardless" ? (
-                            <span className="text-xs font-semibold text-sky-700">GoCardless</span>
-                          ) : String(subscription.billing_provider ?? subscription.payment_provider ?? "").toLowerCase() !== "stripe" ? (
-                            <span className="text-xs font-semibold text-amber-700">Review billing</span>
-                          ) : subscription.processor_verification_status === "verified" && ["verified", "ready", "live", "cutover"].includes(String(subscription.cutover_status ?? "").toLowerCase()) ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">Payment verified</span>
-                              {subscription.teamup_billing_active === true ? (
-                                <button
-                                  type="button"
-                                  disabled={billingActionId === subscription.id}
-                                  onClick={() => runBillingMigrationAction(subscription, "teamup_stopped")}
-                                  className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 disabled:opacity-50"
-                                >
-                                  Mark TeamUp stopped
-                                </button>
-                              ) : null}
-                            </div>
-                          ) : subscription.cutover_status === "ready" && subscription.teamup_billing_active === false ? (
-                            <button
-                              type="button"
-                              disabled={billingActionId === subscription.id}
-                              onClick={() => runBillingMigrationAction(subscription, "activate")}
-                              className="rounded-lg bg-stone-950 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                            >
-                              {billingActionId === subscription.id ? "Working…" : "Activate TOTS"}
-                            </button>
-                          ) : (
-                            <div className="flex max-w-[260px] flex-col gap-1.5">
-                              <div className="flex flex-wrap gap-2">
-                                <button
-                                  type="button"
-                                  disabled={billingActionId === subscription.id || reconcilingStripe}
-                                  onClick={() => runBillingMigrationAction(subscription, "scan_one")}
-                                  className="rounded-lg border border-stone-200 px-3 py-2 text-xs font-semibold text-stone-700 disabled:opacity-50"
-                                >
-                                  {billingActionId === subscription.id ? "Checking…" : "Reconcile"}
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={billingActionId === subscription.id || reconcilingStripe}
-                                  onClick={() => runBillingMigrationAction(subscription, "setup")}
-                                  className="rounded-lg bg-stone-950 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                                >
-                                  Fallback setup
-                                </button>
-                              </div>
-                              {migrationMessages[subscription.id] ? (
-                                <span className="text-[11px] leading-4 text-stone-500">{migrationMessages[subscription.id]}</span>
-                              ) : (
-                                <span className="text-[11px] text-stone-400">Awaiting payment verification</span>
-                              )}
-                            </div>
+                          <StatusBadge
+                            status={subscription.status || "unknown"}
+                          />
+                        </td>
+
+                        <td className="px-4 py-4 text-sm text-stone-500">
+                          {formatDate(
+                            subscription.current_period_start ||
+                              subscription.created_at,
                           )}
                         </td>
 
-                        <td className="px-4 py-4">
-                          <StatusBadge status={subscription.status || "unknown"} />
-                        </td>
-
-                        <td className="px-4 py-4 text-xs text-stone-500">
-                          {formatDate(subscription.current_period_start || subscription.created_at)}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <StatusBadge status={subscription.cutover_status || subscription.processor_verification_status || "not_started"} />
-                        </td>
-
                         <td className="px-6 py-4">
-                          <p className="max-w-[260px] truncate text-xs font-medium text-stone-700">
-                            {subscription.legacy_membership_name || "Membership"}
-                          </p>
-                          <p className="mt-0.5 max-w-[260px] truncate font-mono text-[11px] text-stone-400">
-                            {subscription.stripe_subscription_id || subscription.external_subscription_id || (subscription.legacy_billing ? "Legacy TeamUp record" : "—")}
+                          <p className="max-w-[260px] truncate font-mono text-xs text-stone-500">
+                            {subscription.stripe_subscription_id || "—"}
                           </p>
                         </td>
                       </tr>
@@ -2311,8 +1781,8 @@ export default function StoreDashboardPage() {
             ) : (
               <EmptyState
                 icon={CreditCard}
-                title="No membership records"
-                description="Membership and subscription records will appear here."
+                title="No subscriptions"
+                description="Active store subscriptions and memberships will appear here."
               />
             )}
           </section>
@@ -2375,6 +1845,125 @@ export default function StoreDashboardPage() {
               />
             )}
           </section>
+        )}
+
+        {tab === "qr" && (
+          <div className="mt-6 space-y-6">
+            <section className="overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
+              <SectionHeader
+                title="QR Codes"
+                description="Create permanent, trackable QR links for your shop, products, memberships and in-person sales."
+              >
+                <button
+                  type="button"
+                  onClick={openNewQr}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-stone-950 px-4 text-sm font-semibold text-white hover:bg-stone-800"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create QR code
+                </button>
+              </SectionHeader>
+
+              {qrCodes.length ? (
+                <div className="grid gap-5 p-6 lg:grid-cols-2 2xl:grid-cols-3">
+                  {qrCodes.map((qr) => (
+                    <article key={qr.id} className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+                      <div className="grid grid-cols-[132px_1fr] gap-5 p-5">
+                        <div className="flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-stone-200 bg-white p-2">
+                          {qrPreviewSvg[qr.id] ? (
+                            <div
+                              className="h-full w-full [&>svg]:h-full [&>svg]:w-full"
+                              dangerouslySetInnerHTML={{ __html: qrPreviewSvg[qr.id] }}
+                            />
+                          ) : (
+                            <Loader2 className="h-5 w-5 animate-spin text-stone-300" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <h3 className="truncate font-semibold text-stone-950">{qr.name}</h3>
+                              <p className="mt-1 text-xs capitalize text-stone-400">
+                                {qr.destination_type.replaceAll("_", " ")}
+                              </p>
+                            </div>
+                            <StatusBadge status={qr.is_active ? "active" : "inactive"} />
+                          </div>
+
+                          <div className="mt-4 rounded-xl bg-stone-50 px-3 py-2">
+                            <p className="truncate font-mono text-[11px] text-stone-500">
+                              /q/{qr.slug}
+                            </p>
+                          </div>
+
+                          <div className="mt-4 flex items-center gap-4 text-xs text-stone-500">
+                            <span><strong className="text-stone-900">{qr.scan_count ?? 0}</strong> scans</span>
+                            <span>{qr.track_scans ? "Tracking on" : "Tracking off"}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 border-t border-stone-100 p-4">
+                        <button
+                          type="button"
+                          onClick={() => void navigator.clipboard.writeText(publicQrUrl(qr.slug))}
+                          className="inline-flex h-9 items-center gap-2 rounded-xl border border-stone-200 px-3 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+                        >
+                          <Copy className="h-3.5 w-3.5" /> Copy link
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void downloadQr(qr)}
+                          className="inline-flex h-9 items-center gap-2 rounded-xl border border-stone-200 px-3 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+                        >
+                          <Download className="h-3.5 w-3.5" /> Download PNG
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditQr(qr)}
+                          className="inline-flex h-9 items-center gap-2 rounded-xl border border-stone-200 px-3 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" /> Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void toggleQrActive(qr)}
+                          className="inline-flex h-9 items-center gap-2 rounded-xl border border-stone-200 px-3 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+                        >
+                          {qr.is_active ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
+                          {qr.is_active ? "Disable" : "Enable"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void deleteQrCode(qr)}
+                          className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-xl border border-red-100 text-red-500 hover:bg-red-50"
+                          aria-label={`Delete ${qr.name}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={QrCode}
+                  title="No QR codes yet"
+                  description="Create a permanent QR for memberships, a product range, drinks, events or any other store destination."
+                  action={
+                    <button
+                      type="button"
+                      onClick={openNewQr}
+                      className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-stone-950 px-4 text-sm font-semibold text-white"
+                    >
+                      <Plus className="h-4 w-4" /> Create your first QR
+                    </button>
+                  }
+                />
+              )}
+            </section>
+          </div>
         )}
 
         {tab === "settings" && storeSettings && (
@@ -2768,103 +2357,117 @@ export default function StoreDashboardPage() {
 
       </div>
 
-      {selectedSubscription && (
-        <div
-          className="fixed inset-0 z-[110] flex items-center justify-end bg-black/35 p-3 backdrop-blur-sm sm:p-4"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setSelectedSubscription(null);
-          }}
-        >
-          <div className="max-h-[94vh] w-full max-w-2xl overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-stone-100 px-6 py-5">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="truncate text-xl font-semibold text-stone-950">
-                    {selectedSubscription.customer_name || "Subscription details"}
-                  </h2>
-                  <StatusBadge status={selectedSubscription.status || "unknown"} />
-                </div>
-                <p className="mt-1 truncate text-sm text-stone-500">
-                  {selectedSubscription.customer_email || "No email recorded"}
+      {qrModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <form
+            onSubmit={(event) => void saveQrCode(event)}
+            className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-stone-200 bg-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-stone-100 px-6 py-5">
+              <div>
+                <h2 className="text-xl font-semibold text-stone-950">
+                  {editingQr ? "Edit QR code" : "Create QR code"}
+                </h2>
+                <p className="mt-1 text-sm text-stone-500">
+                  The printed QR stays the same even when you change its destination.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedSubscription(null)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-stone-200 text-stone-500 hover:bg-stone-50"
-                aria-label="Close subscription details"
-              >
-                <X className="h-4 w-4" />
+              <button type="button" onClick={() => setQrModalOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-xl hover:bg-stone-100">
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="max-h-[calc(94vh-82px)] overflow-y-auto p-6">
-              <div className="grid gap-3 sm:grid-cols-3">
-                <SubscriptionSummaryCard label="Membership" value={selectedSubscription.legacy_membership_name || "Membership"} />
-                <SubscriptionSummaryCard label="Amount" value={formatPence(selectedSubscription.unit_amount_pence, selectedSubscription.currency || "GBP")} />
-                <SubscriptionSummaryCard label="Billing" value={selectedSubscription.collection_enabled ? "Live on TOTS" : "Not collecting"} />
-              </div>
+            <div className="grid gap-5 p-6 md:grid-cols-2">
+              <Field label="QR name" required>
+                <input
+                  className={inputClass}
+                  value={qrDraft.name}
+                  onChange={(event) =>
+                    setQrDraft((current) => ({
+                      ...current,
+                      name: event.target.value,
+                      slug: editingQr ? current.slug : normaliseQrSlug(event.target.value),
+                    }))
+                  }
+                  placeholder="Buy a Drink"
+                  required
+                />
+              </Field>
 
-              <SubscriptionDetailSection title="Membership">
-                <SubscriptionDetailRow label="Subscription record ID" value={selectedSubscription.id} mono />
-                <SubscriptionDetailRow label="Product ID" value={selectedSubscription.product_id} mono />
-                <SubscriptionDetailRow label="Order ID" value={selectedSubscription.order_id} mono />
-                <SubscriptionDetailRow label="Interval" value={selectedSubscription.billing_interval} />
-                <SubscriptionDetailRow label="Quantity" value={selectedSubscription.quantity != null ? String(selectedSubscription.quantity) : null} />
-                <SubscriptionDetailRow label="Current period start" value={formatDateTime(selectedSubscription.current_period_start)} />
-                <SubscriptionDetailRow label="Current period end" value={formatDateTime(selectedSubscription.current_period_end)} />
-                <SubscriptionDetailRow label="Cancel at period end" value={selectedSubscription.cancel_at_period_end == null ? null : selectedSubscription.cancel_at_period_end ? "Yes" : "No"} />
-                <SubscriptionDetailRow label="Cancelled at" value={formatDateTime(selectedSubscription.cancelled_at)} />
-              </SubscriptionDetailSection>
+              <Field label="Permanent slug" required>
+                <input
+                  className={inputClass}
+                  value={qrDraft.slug}
+                  onChange={(event) => setQrDraft((current) => ({ ...current, slug: normaliseQrSlug(event.target.value) }))}
+                  placeholder="mtc-drinks"
+                  required
+                />
+                <span className="mt-2 block text-xs text-stone-400">/q/{qrDraft.slug || "your-code"}</span>
+              </Field>
 
-              <SubscriptionDetailSection title="Billing & collection">
-                <SubscriptionDetailRow label="Billing provider" value={selectedSubscription.billing_provider || selectedSubscription.payment_provider} />
-                <SubscriptionDetailRow label="Payment provider" value={selectedSubscription.payment_provider} />
-                <SubscriptionDetailRow label="Processor verification" value={selectedSubscription.processor_verification_status} />
-                <SubscriptionDetailRow label="Processor verified at" value={formatDateTime(selectedSubscription.processor_verified_at)} />
-                <SubscriptionDetailRow label="Cutover status" value={selectedSubscription.cutover_status} />
-                <SubscriptionDetailRow label="TOTS collection" value={selectedSubscription.collection_enabled == null ? null : selectedSubscription.collection_enabled ? "Enabled" : "Disabled"} />
-                <SubscriptionDetailRow label="Collection enabled at" value={formatDateTime(selectedSubscription.collection_enabled_at)} />
-                <SubscriptionDetailRow label="TeamUp billing" value={selectedSubscription.teamup_billing_active == null ? null : selectedSubscription.teamup_billing_active ? "Active" : "Inactive"} />
-                <SubscriptionDetailRow label="TeamUp disabled at" value={formatDateTime(selectedSubscription.teamup_billing_disabled_at)} />
-                <SubscriptionDetailRow label="Legacy billing" value={selectedSubscription.legacy_billing == null ? null : selectedSubscription.legacy_billing ? "Yes" : "No"} />
-              </SubscriptionDetailSection>
+              <Field label="Destination type">
+                <select
+                  className={inputClass}
+                  value={qrDraft.destination_type}
+                  onChange={(event) =>
+                    setQrDraft((current) => ({
+                      ...current,
+                      destination_type: event.target.value as StoreQrCode["destination_type"],
+                    }))
+                  }
+                >
+                  <option value="storefront">Storefront</option>
+                  <option value="category">Category</option>
+                  <option value="product">Product</option>
+                  <option value="membership">Memberships</option>
+                  <option value="drinks">Drinks / self-service</option>
+                  <option value="rooted">Rooted</option>
+                  <option value="custom">Custom URL</option>
+                </select>
+              </Field>
 
-              <SubscriptionDetailSection title="Processor details">
-                <SubscriptionDetailRow label="Stripe account" value={selectedSubscription.stripe_account_id} mono copyable />
-                <SubscriptionDetailRow label="Stripe customer" value={selectedSubscription.stripe_customer_id} mono copyable />
-                <SubscriptionDetailRow label="Stripe subscription" value={selectedSubscription.stripe_subscription_id} mono copyable />
-                <SubscriptionDetailRow label="Stripe price" value={selectedSubscription.stripe_price_id} mono copyable />
-                <SubscriptionDetailRow label="External customer" value={selectedSubscription.external_customer_id} mono copyable />
-                <SubscriptionDetailRow label="External subscription" value={selectedSubscription.external_subscription_id} mono copyable />
-                <SubscriptionDetailRow label="External mandate" value={selectedSubscription.external_mandate_id} mono copyable />
-              </SubscriptionDetailSection>
-
-              <SubscriptionDetailSection title="Payments">
-                <SubscriptionDetailRow label="Last payment" value={formatDateTime(selectedSubscription.last_payment_at)} />
-                <SubscriptionDetailRow label="Last payment amount" value={selectedSubscription.last_payment_amount_pence == null ? null : formatPence(selectedSubscription.last_payment_amount_pence, selectedSubscription.currency || "GBP")} />
-                <SubscriptionDetailRow label="Next payment" value={formatDateTime(selectedSubscription.next_payment_at)} />
-              </SubscriptionDetailSection>
-
-              <SubscriptionDetailSection title="Customer">
-                <SubscriptionDetailRow label="Name" value={selectedSubscription.customer_name} />
-                <SubscriptionDetailRow label="Email" value={selectedSubscription.customer_email} copyable />
-                <SubscriptionDetailRow label="Phone" value={selectedSubscription.customer_phone} copyable />
-              </SubscriptionDetailSection>
-
-              <SubscriptionDetailSection title="Migration">
-                <SubscriptionDetailRow label="Migrated from" value={selectedSubscription.migrated_from} />
-                <SubscriptionDetailRow label="Created" value={formatDateTime(selectedSubscription.created_at)} />
-                <SubscriptionDetailRow label="Updated" value={formatDateTime(selectedSubscription.updated_at)} />
-                <div className="border-t border-stone-100 py-3 first:border-t-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-stone-400">Migration notes</p>
-                  <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-stone-700">
-                    {selectedSubscription.migration_notes || "No migration notes recorded."}
-                  </p>
+              <Field label="Destination URL" required>
+                <div className="relative">
+                  <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-300" />
+                  <input
+                    className={`${inputClass} pl-10`}
+                    value={qrDraft.destination_url}
+                    onChange={(event) => setQrDraft((current) => ({ ...current, destination_url: event.target.value }))}
+                    placeholder="/shop/your-store or https://..."
+                    required
+                  />
                 </div>
-              </SubscriptionDetailSection>
+              </Field>
+
+              <Field label="Description" className="md:col-span-2">
+                <textarea
+                  className={`${inputClass} h-auto min-h-24 resize-y py-3`}
+                  value={qrDraft.description}
+                  onChange={(event) => setQrDraft((current) => ({ ...current, description: event.target.value }))}
+                  placeholder="Optional internal note about where this QR will be displayed."
+                />
+              </Field>
+
+              <div className="md:col-span-2">
+                <ToggleCard
+                  label="Track scans"
+                  description="Count how many times this QR is scanned. No raw IP address is stored."
+                  checked={qrDraft.track_scans}
+                  onChange={(value) => setQrDraft((current) => ({ ...current, track_scans: value }))}
+                />
+              </div>
             </div>
-          </div>
+
+            <div className="flex justify-end gap-3 border-t border-stone-100 px-6 py-5">
+              <button type="button" onClick={() => setQrModalOpen(false)} className="h-11 rounded-xl border border-stone-200 px-5 text-sm font-semibold text-stone-700 hover:bg-stone-50">
+                Cancel
+              </button>
+              <button type="submit" disabled={savingQr} className="inline-flex h-11 items-center gap-2 rounded-xl bg-stone-950 px-5 text-sm font-semibold text-white hover:bg-stone-800 disabled:opacity-50">
+                {savingQr ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
+                {editingQr ? "Save QR code" : "Create QR code"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -3156,61 +2759,6 @@ export default function StoreDashboardPage() {
 // ============================================================
 // UI COMPONENTS
 // ============================================================
-
-function SubscriptionSummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-stone-400">{label}</p>
-      <p className="mt-1 break-words text-sm font-semibold text-stone-900">{value}</p>
-    </div>
-  );
-}
-
-function SubscriptionDetailSection({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="mt-6 overflow-hidden rounded-2xl border border-stone-200">
-      <div className="border-b border-stone-100 bg-stone-50/70 px-4 py-3">
-        <h3 className="text-sm font-semibold text-stone-900">{title}</h3>
-      </div>
-      <div className="px-4">{children}</div>
-    </section>
-  );
-}
-
-function SubscriptionDetailRow({
-  label,
-  value,
-  mono = false,
-  copyable = false,
-}: {
-  label: string;
-  value?: string | null;
-  mono?: boolean;
-  copyable?: boolean;
-}) {
-  const shown = value && value !== "Invalid Date" ? value : "—";
-
-  return (
-    <div className="flex flex-col gap-1 border-t border-stone-100 py-3 first:border-t-0 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
-      <span className="text-xs font-medium text-stone-500">{label}</span>
-      <div className="flex min-w-0 items-start gap-2 sm:max-w-[65%]">
-        <span className={`break-all text-sm text-stone-800 ${mono ? "font-mono text-xs" : "font-medium"}`}>
-          {shown}
-        </span>
-        {copyable && value ? (
-          <button
-            type="button"
-            onClick={() => void navigator.clipboard.writeText(value).catch(() => undefined)}
-            className="shrink-0 rounded-md border border-stone-200 px-2 py-1 text-[10px] font-semibold text-stone-500 hover:bg-stone-50"
-            title={`Copy ${label}`}
-          >
-            Copy
-          </button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
 
 function MetricCard({
   icon: Icon,

@@ -228,3 +228,99 @@ export async function syncMtcMembershipsSafely(
     suppressError: true,
   });
 }
+
+export type MtcPackCreditGrant = {
+  orderId: string;
+  orderItemId: string;
+  email: string;
+  sku: string;
+  quantity: number;
+  planLabel?: string;
+};
+
+export type MtcPackCreditGrantResult = {
+  success: boolean;
+  alreadyProcessed?: boolean;
+  userId?: string;
+  creditsAdded?: number;
+  packCredits?: number;
+  message?: string;
+  error?: string;
+};
+
+function getMtcCreditGrantUrl() {
+  return requireServerEnv("MTC_CREDIT_GRANT_URL");
+}
+
+/**
+ * Grants one-off booking credits in MTC after a paid TOTS-OS order.
+ *
+ * MTC is responsible for idempotency using the TOTS order item ID.
+ */
+export async function grantMtcPackCreditsSafely(
+  grant: MtcPackCreditGrant,
+): Promise<MtcPackCreditGrantResult> {
+  try {
+    const url = getMtcCreditGrantUrl();
+    const secret = getMtcIntegrationSecret();
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(grant),
+      cache: "no-store",
+    });
+
+    const text = await response.text();
+
+    let payload: MtcPackCreditGrantResult;
+
+    try {
+      payload = text
+        ? (JSON.parse(text) as MtcPackCreditGrantResult)
+        : { success: response.ok };
+    } catch {
+      payload = {
+        success: response.ok,
+        message: text,
+      };
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        payload.error ||
+          payload.message ||
+          `MTC credit grant failed with status ${response.status}.`,
+      );
+    }
+
+    console.info("[MTC integration] Pack credits granted.", {
+      orderId: grant.orderId,
+      orderItemId: grant.orderItemId,
+      email: grant.email,
+      quantity: grant.quantity,
+      alreadyProcessed: payload.alreadyProcessed ?? false,
+    });
+
+    return payload;
+  } catch (error) {
+    const message = getErrorMessage(error);
+
+    console.error("[MTC integration] Pack credit grant failed.", {
+      orderId: grant.orderId,
+      orderItemId: grant.orderItemId,
+      email: grant.email,
+      error: message,
+    });
+
+    // Do NOT fail Stripe's webhook after payment has succeeded.
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}

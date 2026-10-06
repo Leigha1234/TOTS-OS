@@ -10,6 +10,7 @@ import {
 } from "@/lib/storeSubscriptions";
 
 import {
+  grantMtcPackCreditsSafely,
   syncMtcMembershipsSafely,
 } from "@/lib/integrations/mtc/mtc";
 
@@ -2442,6 +2443,84 @@ async function finaliseOrderPaid({
 }
 
 // ============================================================
+// MTC WALK-IN FULFILMENT
+// ============================================================
+
+async function fulfilMtcWalkInCredits({
+  order,
+  customerEmail,
+}: {
+  order: StoreOrderRow;
+  customerEmail: string | null;
+}) {
+  const email = normaliseEmail(
+    customerEmail || order.customer_email
+  );
+
+  if (!email) {
+    console.warn(
+      `[MTC WALK-IN] ${order.order_number} has no customer email.`
+    );
+    return;
+  }
+
+  const { data: items, error } =
+    await supabaseAdmin
+      .from("store_order_items")
+      .select(
+        "id, order_id, product_id, product_name, sku, quantity, unit_price, total, created_at"
+      )
+      .eq("order_id", order.id);
+
+  if (error) {
+    throw error;
+  }
+
+  const walkInItems =
+    (items as StoreOrderItemRow[] | null)?.filter(
+      (item) =>
+        asString(item.sku)?.toUpperCase() ===
+        "MTC-WALK-IN"
+    ) ?? [];
+
+  if (!walkInItems.length) {
+    return;
+  }
+
+  for (const item of walkInItems) {
+    const quantity = Math.max(
+      1,
+      safeInteger(item.quantity, 1)
+    );
+
+    const result =
+      await grantMtcPackCreditsSafely({
+        orderId: order.id,
+        orderItemId: item.id,
+        email,
+        sku: "MTC-WALK-IN",
+        quantity,
+        planLabel:
+          asString(item.product_name) ||
+          "Walk-In Session",
+      });
+
+    if (!result.success) {
+      throw new Error(
+        result.error ||
+          result.message ||
+          `MTC Walk-In fulfilment failed for order item ${item.id}.`
+      );
+    }
+
+    console.log(
+      `[MTC WALK-IN] ${order.order_number}: ` +
+        `${result.alreadyProcessed ? "already processed" : `+${result.creditsAdded ?? quantity} credit(s)`}.`
+    );
+  }
+}
+
+// ============================================================
 // COMPLETE ORDER
 // ============================================================
 
@@ -2605,6 +2684,11 @@ async function completeStoreOrder({
         ),
     });
 
+    await fulfilMtcWalkInCredits({
+      order,
+      customerEmail,
+    });
+
     return;
   }
 
@@ -2682,6 +2766,11 @@ async function completeStoreOrder({
             latest.total,
             stripeTotal
           ),
+      });
+
+      await fulfilMtcWalkInCredits({
+        order: latest,
+        customerEmail,
       });
     }
 
@@ -2806,6 +2895,11 @@ async function completeStoreOrder({
         updatedOrder.total,
         stripeTotal
       ),
+  });
+
+  await fulfilMtcWalkInCredits({
+    order: updatedOrder,
+    customerEmail,
   });
 }
 

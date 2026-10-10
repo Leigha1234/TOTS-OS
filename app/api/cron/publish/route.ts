@@ -54,6 +54,7 @@ type TikTokPostSettings = {
   brand_content_toggle?: boolean;
   is_aigc?: boolean;
   consent_given?: boolean;
+  video_duration_sec?: number | null;
 };
 
 type PublishCounters = {
@@ -2646,10 +2647,18 @@ async function publishTikTokPost({
         1,
     });
 
-  if (
-    videoUrls.length ===
-    1
-  ) {
+  if (videoUrls.length === 1) {
+    const maxDuration = Number(creatorData?.data?.max_video_post_duration_sec);
+    const recordedDuration = Number(settings.video_duration_sec);
+    if (!Number.isFinite(maxDuration) || maxDuration <= 0) {
+      throw new PermanentPublishError("TikTok did not provide a valid video duration limit. Refresh the TikTok connection and try again.", "tiktok_duration_limit_unavailable");
+    }
+    if (!Number.isFinite(recordedDuration) || recordedDuration <= 0) {
+      throw new PermanentPublishError("Video duration was not recorded. Reopen this post and save it again so its duration can be checked.", "tiktok_video_duration_missing");
+    }
+    if (recordedDuration > maxDuration) {
+      throw new PermanentPublishError(`Video duration ${Math.ceil(recordedDuration)}s exceeds the TikTok creator's ${maxDuration}s limit.`, "tiktok_video_too_long");
+    }
     return publishTikTokVideo({
       accessToken,
       creatorData,

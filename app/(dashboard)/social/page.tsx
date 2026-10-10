@@ -170,6 +170,36 @@ interface TikTokPostSettings {
 
   consent_given:
     boolean;
+
+  video_duration_sec?: number | null;
+}
+
+/** Read actual browser video metadata before saving a TikTok post. */
+async function getTikTokVideoDuration(url: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    let settled = false;
+    const timer = window.setTimeout(() => finish(new Error("Video metadata timed out.")), 15000);
+    function finish(error?: Error) {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      video.removeAttribute("src");
+      video.load();
+      if (error) reject(error);
+    }
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      const duration = video.duration;
+      if (!Number.isFinite(duration) || duration <= 0) {
+        finish(new Error("Cannot determine the video's duration."));
+        return;
+      }
+      if (!settled) { settled = true; window.clearTimeout(timer); video.removeAttribute("src"); video.load(); resolve(duration); }
+    };
+    video.onerror = () => finish(new Error("Cannot read video metadata. Try uploading the video again."));
+    video.src = url;
+  });
 }
 
 interface SocialAccount {
@@ -3124,6 +3154,32 @@ export default function SocialStudioUnified() {
       "tiktok"
     );
 
+  const tiktokVideoDurationRef = useRef<number | null>(null);
+
+  const validateTikTokVideoDuration = async (): Promise<boolean> => {
+    tiktokVideoDurationRef.current = null;
+    if (!tiktokSelected || !tiktokHasVideo) return true;
+    const videoItem = mediaItems.find((item) => item.type === "video");
+    if (!videoItem) return true;
+    const limit = tiktokCreatorInfo?.max_video_post_duration_sec;
+    if (typeof limit !== "number" || !Number.isFinite(limit) || limit <= 0) {
+      toast.error("TikTok did not provide a valid video duration limit. Refresh creator settings.");
+      return false;
+    }
+    try {
+      const duration = await getTikTokVideoDuration(videoItem.previewUrl || videoItem.existingUrl || "");
+      if (duration > limit) {
+        toast.error(`Your video is ${Math.ceil(duration)}s long. This TikTok account allows a maximum of ${limit}s.`);
+        return false;
+      }
+      tiktokVideoDurationRef.current = duration;
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not check video duration.");
+      return false;
+    }
+  };
+
   const tiktokHasVideo =
     mediaItems.some(
       (
@@ -4691,6 +4747,8 @@ export default function SocialStudioUnified() {
         return false;
       }
 
+      if (!(await validateTikTokVideoDuration())) return false;
+
       const hasInstagram =
         platforms.includes(
           "instagram"
@@ -4852,7 +4910,7 @@ export default function SocialStudioUnified() {
               tiktok_settings:
                 platform ===
                   "tiktok"
-                  ? tiktokSettings
+                  ? { ...tiktokSettings, video_duration_sec: tiktokVideoDurationRef.current }
                   : null,
 
               hashtags:
@@ -5312,6 +5370,8 @@ export default function SocialStudioUnified() {
         return;
       }
 
+      if (!(await validateTikTokVideoDuration())) return;
+
       if (
         platforms.includes(
           "instagram"
@@ -5494,7 +5554,7 @@ export default function SocialStudioUnified() {
             tiktok_settings:
               platform ===
                 "tiktok"
-                ? tiktokSettings
+                ? { ...tiktokSettings, video_duration_sec: tiktokVideoDurationRef.current }
                 : null,
           };
 
@@ -7556,6 +7616,11 @@ export default function SocialStudioUnified() {
                                 Select privacy
                               </option>
 
+                              {tiktokHasVideo && typeof tiktokCreatorInfo.max_video_post_duration_sec === "number" && (
+                                <p className="mb-3 text-xs text-stone-500">
+                                  Maximum video length for this account: {tiktokCreatorInfo.max_video_post_duration_sec} seconds. Videos are checked before saving or publishing.
+                                </p>
+                              )}
                               {tiktokCreatorInfo
                                 .privacy_level_options
                                 .map(

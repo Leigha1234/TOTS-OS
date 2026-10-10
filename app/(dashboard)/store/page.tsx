@@ -467,10 +467,8 @@ export default function StoreDashboardPage() {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiCopy, setAiCopy] = useState<AiCopy | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [aiTone, setAiTone] = useState("friendly");
-  const [aiAudience, setAiAudience] = useState("");
   const [aiFacts, setAiFacts] = useState("");
-  const [aiBrandVoice, setAiBrandVoice] = useState("");
+  const [productAdvancedOpen, setProductAdvancedOpen] = useState(false);
   const [aiBulkBusy, setAiBulkBusy] = useState(false);
   const [aiBulkProgress, setAiBulkProgress] = useState("");
   const [aiSelected, setAiSelected] = useState<string[]>([]);
@@ -750,7 +748,7 @@ export default function StoreDashboardPage() {
   }, [subscriptions, search]);
 
 
-  async function requestAi(product: ProductDraft, tone = aiTone, facts = aiFacts) {
+  async function requestAi(product: ProductDraft, facts = aiFacts) {
     if (!organisation) throw new Error("Select an organisation first.");
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) throw new Error("Please sign in again.");
@@ -763,9 +761,6 @@ export default function StoreDashboardPage() {
       body: JSON.stringify({
         organisation_id: organisation.id,
         product,
-        tone,
-        audience: aiAudience,
-        brand_voice: aiBrandVoice,
         additional_facts: facts,
       }),
     });
@@ -880,6 +875,8 @@ export default function StoreDashboardPage() {
   function openNewProduct() {
     setEditingProduct(null);
     setAiCopy(null);
+    setAiFacts("");
+    setProductAdvancedOpen(false);
     setDraft(blankProduct);
     setProductModalOpen(true);
   }
@@ -918,7 +915,31 @@ export default function StoreDashboardPage() {
       is_active: product.is_active ?? true,
     });
 
+    setProductAdvancedOpen(true);
     setProductModalOpen(true);
+  }
+
+  async function prepareProductWithClarity() {
+    if (!draft.name.trim()) {
+      setAiError("Just give Clarity a product name first.");
+      return;
+    }
+    setAiBusy(true);
+    setAiError(null);
+    try {
+      const copy = await requestAi(draft, aiFacts);
+      setAiCopy(copy);
+      setDraft((current) => ({
+        ...current,
+        name: copy.title?.trim() || current.name,
+        description: copy.description?.trim() || current.description,
+        category: copy.category?.trim() || current.category,
+      }));
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Clarity couldn't prepare this product.");
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   async function saveProduct(event: FormEvent) {
@@ -2667,13 +2688,17 @@ export default function StoreDashboardPage() {
               <button type="button" onClick={() => setAiOpen(false)} className="rounded-xl p-2 hover:bg-stone-100" aria-label="Close AI assistant"><X className="h-5 w-5" /></button>
             </div>
             <div className="overflow-y-auto p-5 sm:p-7">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Tone"><select className={inputClass} value={aiTone} onChange={(e) => setAiTone(e.target.value)}>
-                  <option value="friendly">Friendly</option><option value="professional">Professional</option><option value="luxury">Luxury</option><option value="playful">Playful</option><option value="bold">Bold</option><option value="minimal">Minimal</option>
-                </select></Field>
-                <Field label="Target audience"><input className={inputClass} value={aiAudience} onChange={(e) => setAiAudience(e.target.value)} placeholder="e.g. Busy parents, gym members" /></Field>
-                <Field label="Brand voice" className="sm:col-span-2"><input className={inputClass} value={aiBrandVoice} onChange={(e) => setAiBrandVoice(e.target.value)} placeholder="e.g. Down-to-earth, Scottish, never pushy" /></Field>
-                <Field label="Extra product facts (AI must not invent details)" className="sm:col-span-2"><textarea className={`${inputClass} h-auto min-h-20 py-3`} value={aiFacts} onChange={(e) => setAiFacts(e.target.value)} placeholder="Materials, sizes, benefits, what's included, delivery info..." /></Field>
+              <div className="rounded-2xl border border-[#dfe9d8] bg-[#f4f7f1] p-4">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-[#617451]" />
+                  <div>
+                    <p className="text-sm font-semibold text-stone-900">Clarity already knows your business</p>
+                    <p className="mt-1 text-xs leading-5 text-stone-600">It automatically uses your organisation, storefront and existing product copy to match the tone and language already used across TOTS-OS. You only need to tell it facts that are unique to this product.</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4">
+                <Field label="Anything Clarity should know? (optional)"><textarea className={`${inputClass} h-auto min-h-20 py-3`} value={aiFacts} onChange={(e) => setAiFacts(e.target.value)} placeholder="e.g. Handmade in Scotland, available in 3 sizes, collection only..." /></Field>
               </div>
               <button type="button" disabled={aiBusy || !draft.name.trim()} onClick={() => void generateAi()} className="mt-4 inline-flex h-11 items-center gap-2 rounded-xl bg-stone-900 px-5 text-sm font-bold text-white disabled:opacity-40">
                 {aiBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
@@ -2723,284 +2748,81 @@ export default function StoreDashboardPage() {
           <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-stone-100 px-6 py-5">
               <div>
-                <h2 className="text-xl font-semibold text-stone-950">
-                  {editingProduct ? "Edit product" : "Add product"}
-                </h2>
-                <p className="mt-1 text-sm text-stone-500">
-                  {organisation.name}
-                </p>
+                <h2 className="text-xl font-semibold text-stone-950">{editingProduct ? "Edit product" : "Add a product"}</h2>
+                <p className="mt-1 text-sm text-stone-500">{editingProduct ? "Update the product below." : "Give us the basics. Clarity can do the writing for you."}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => void openProductAi(editingProduct ?? undefined)}
-                className="ml-auto mr-3 inline-flex items-center gap-2 rounded-xl bg-[#edf2e8] px-3 py-2 text-xs font-bold text-[#526744] hover:bg-[#dfe9d8]"
-              >
-                <Sparkles className="h-4 w-4" /> Clarity AI
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setProductModalOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-stone-200 text-stone-500 hover:bg-stone-50"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <button type="button" onClick={() => setProductModalOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-stone-200 text-stone-500 hover:bg-stone-50"><X className="h-4 w-4" /></button>
             </div>
 
-            <form
-              onSubmit={saveProduct}
-              className="max-h-[calc(92vh-82px)] overflow-y-auto"
-            >
-              <div className="grid gap-5 p-6 md:grid-cols-2">
-                <Field label="Product name" required className="md:col-span-2">
-                  <input
-                    value={draft.name}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        name: event.target.value,
-                      }))
-                    }
-                    className={inputClass}
-                    placeholder="e.g. Couple Membership"
-                  />
-                </Field>
-
-                <Field label="Description" className="md:col-span-2">
-                  <textarea
-                    value={draft.description}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        description: event.target.value,
-                      }))
-                    }
-                    rows={4}
-                    className={`${inputClass} h-auto resize-none py-3`}
-                    placeholder="Product description..."
-                  />
-                </Field>
-
-                <Field label="Price">
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">
-                      £
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={draft.price}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          price: event.target.value,
-                        }))
-                      }
-                      className={`${inputClass} pl-8`}
-                      placeholder="0.00"
-                    />
+            <form onSubmit={saveProduct} className="max-h-[calc(92vh-82px)] overflow-y-auto">
+              <div className="space-y-5 p-6">
+                {!editingProduct && (
+                  <div className="rounded-2xl border border-[#dfe9d8] bg-[#f4f7f1] p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white"><Sparkles className="h-4 w-4 text-[#617451]" /></div>
+                      <div>
+                        <p className="text-sm font-semibold text-stone-900">Clarity does the boring bits</p>
+                        <p className="mt-1 text-xs leading-5 text-stone-600">Add the name, price and anything important. Clarity uses your existing TOTS-OS business context to write the description, category, SEO, alt text and promotional copy in your usual voice.</p>
+                      </div>
+                    </div>
                   </div>
-                </Field>
+                )}
 
-                <Field label="Compare at price">
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">
-                      £
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={draft.compare_at_price}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          compare_at_price: event.target.value,
-                        }))
-                      }
-                      className={`${inputClass} pl-8`}
-                      placeholder="Optional"
-                    />
-                  </div>
-                </Field>
+                <div className="grid gap-5 md:grid-cols-2">
+                  <Field label="What are you selling?" required className="md:col-span-2">
+                    <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} className={inputClass} placeholder="e.g. Personalised dog lead" autoFocus={!editingProduct} />
+                  </Field>
 
-                <Field label="Category">
-                  <input
-                    value={draft.category}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        category: event.target.value,
-                      }))
-                    }
-                    className={inputClass}
-                    placeholder="Memberships"
-                  />
-                </Field>
+                  <Field label="Price" required>
+                    <div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">£</span><input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} className={`${inputClass} pl-8`} placeholder="0.00" /></div>
+                  </Field>
 
-                <Field label="SKU">
-                  <input
-                    value={draft.sku}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        sku: event.target.value,
-                      }))
-                    }
-                    className={inputClass}
-                    placeholder="Optional"
-                  />
-                </Field>
+                  <Field label="Product image">
+                    <input type="url" value={draft.image_url} onChange={(event) => setDraft((current) => ({ ...current, image_url: event.target.value }))} className={inputClass} placeholder="Paste image URL (optional)" />
+                  </Field>
 
-                <Field label="Selling model">
-                  <select
-                    value={draft.selling_model}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        selling_model: event.target.value,
-                      }))
-                    }
-                    className={inputClass}
-                  >
-                    <option value="physical">Physical product</option>
-                    <option value="digital_download">Digital download</option>
-                    <option value="digital_delivery">Digital delivery</option>
-                    <option value="collect">Collection</option>
-                    <option value="customisable">Customisable</option>
-                    <option value="request_to_order">Request to order</option>
-                    <option value="service">Service</option>
-                  </select>
-                </Field>
-
-                <Field label="Purchase type">
-                  <select
-                    value={draft.purchase_type}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        purchase_type: event.target.value,
-                      }))
-                    }
-                    className={inputClass}
-                  >
-                    <option value="one_off">One-off</option>
-                    <option value="subscription">Subscription</option>
-                    <option value="membership">Membership</option>
-                  </select>
-                </Field>
-
-                <Field label="Inventory">
-                  <input
-                    type="number"
-                    min="0"
-                    value={draft.inventory_quantity}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        inventory_quantity: event.target.value,
-                      }))
-                    }
-                    className={inputClass}
-                  />
-                </Field>
-
-                <Field label="Low stock warning">
-                  <input
-                    type="number"
-                    min="0"
-                    value={draft.low_stock_threshold}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        low_stock_threshold: event.target.value,
-                      }))
-                    }
-                    className={inputClass}
-                  />
-                </Field>
-
-                <Field label="Image URL" className="md:col-span-2">
-                  <input
-                    type="url"
-                    value={draft.image_url}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        image_url: event.target.value,
-                      }))
-                    }
-                    className={inputClass}
-                    placeholder="https://..."
-                  />
-                </Field>
-
-                <div className="grid gap-3 md:col-span-2 sm:grid-cols-3">
-                  <ToggleCard
-                    label="Active"
-                    description="Show in store"
-                    checked={draft.is_active}
-                    onChange={(value) =>
-                      setDraft((current) => ({
-                        ...current,
-                        is_active: value,
-                      }))
-                    }
-                  />
-
-                  <ToggleCard
-                    label="Featured"
-                    description="Highlight product"
-                    checked={draft.featured}
-                    onChange={(value) =>
-                      setDraft((current) => ({
-                        ...current,
-                        featured: value,
-                      }))
-                    }
-                  />
-
-                  <ToggleCard
-                    label="Track stock"
-                    description="Inventory enabled"
-                    checked={draft.track_inventory}
-                    onChange={(value) =>
-                      setDraft((current) => ({
-                        ...current,
-                        track_inventory: value,
-                      }))
-                    }
-                  />
+                  <Field label="Anything else Clarity should know?" className="md:col-span-2">
+                    <textarea value={aiFacts} onChange={(event) => setAiFacts(event.target.value)} rows={3} className={`${inputClass} h-auto resize-none py-3`} placeholder="Optional — e.g. handmade in Scotland, comes in 3 sizes, collection only, includes gift box..." />
+                  </Field>
                 </div>
+
+                {!editingProduct && (
+                  <button type="button" disabled={aiBusy || !draft.name.trim()} onClick={() => void prepareProductWithClarity()} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#edf2e8] px-5 py-4 text-sm font-bold text-[#526744] transition hover:bg-[#dfe9d8] disabled:opacity-50">
+                    {aiBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
+                    {aiBusy ? "Clarity is preparing your product..." : aiCopy ? "Regenerate with Clarity" : "Let Clarity prepare the product"}
+                  </button>
+                )}
+                {aiError && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{aiError}</p>}
+                {aiCopy && !editingProduct && <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><Check className="h-4 w-4" /> Description, category, SEO and marketing copy are ready and will be saved with this product.</div>}
+
+                <button type="button" onClick={() => setProductAdvancedOpen((value) => !value)} className="flex w-full items-center justify-between border-t border-stone-100 pt-5 text-left text-sm font-semibold text-stone-600">
+                  <span>{productAdvancedOpen ? "Hide product details" : "More product details"}</span><ChevronRight className={`h-4 w-4 transition ${productAdvancedOpen ? "rotate-90" : ""}`} />
+                </button>
+
+                {productAdvancedOpen && (
+                  <div className="grid gap-5 rounded-2xl bg-stone-50 p-5 md:grid-cols-2">
+                    <Field label="Description" className="md:col-span-2"><textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} rows={4} className={`${inputClass} h-auto resize-none py-3`} placeholder="Clarity can write this for you." /></Field>
+                    <Field label="Category"><input value={draft.category} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))} className={inputClass} placeholder="Clarity can choose this" /></Field>
+                    <Field label="SKU"><input value={draft.sku} onChange={(event) => setDraft((current) => ({ ...current, sku: event.target.value }))} className={inputClass} placeholder="Optional" /></Field>
+                    <Field label="Compare at price"><div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">£</span><input type="number" min="0" step="0.01" value={draft.compare_at_price} onChange={(event) => setDraft((current) => ({ ...current, compare_at_price: event.target.value }))} className={`${inputClass} pl-8`} placeholder="Optional" /></div></Field>
+                    <Field label="Cost price"><div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">£</span><input type="number" min="0" step="0.01" value={draft.cost_price} onChange={(event) => setDraft((current) => ({ ...current, cost_price: event.target.value }))} className={`${inputClass} pl-8`} placeholder="Optional" /></div></Field>
+                    <Field label="Selling model"><select value={draft.selling_model} onChange={(event) => setDraft((current) => ({ ...current, selling_model: event.target.value }))} className={inputClass}><option value="physical">Physical product</option><option value="digital_download">Digital download</option><option value="digital_delivery">Digital delivery</option><option value="collect">Collection</option><option value="customisable">Customisable</option><option value="request_to_order">Request to order</option><option value="service">Service</option></select></Field>
+                    <Field label="Purchase type"><select value={draft.purchase_type} onChange={(event) => setDraft((current) => ({ ...current, purchase_type: event.target.value }))} className={inputClass}><option value="one_off">One-off</option><option value="subscription">Subscription</option><option value="membership">Membership</option></select></Field>
+                    <Field label="Inventory"><input type="number" min="0" value={draft.inventory_quantity} onChange={(event) => setDraft((current) => ({ ...current, inventory_quantity: event.target.value }))} className={inputClass} /></Field>
+                    <Field label="Low stock warning"><input type="number" min="0" value={draft.low_stock_threshold} onChange={(event) => setDraft((current) => ({ ...current, low_stock_threshold: event.target.value }))} className={inputClass} /></Field>
+                    <div className="grid gap-3 md:col-span-2 sm:grid-cols-3">
+                      <ToggleCard label="Active" description="Show in store" checked={draft.is_active} onChange={(value) => setDraft((current) => ({ ...current, is_active: value }))} />
+                      <ToggleCard label="Featured" description="Highlight product" checked={draft.featured} onChange={(value) => setDraft((current) => ({ ...current, featured: value }))} />
+                      <ToggleCard label="Track stock" description="Inventory enabled" checked={draft.track_inventory} onChange={(value) => setDraft((current) => ({ ...current, track_inventory: value }))} />
+                    </div>
+                    <div className="md:col-span-2"><button type="button" onClick={() => void openProductAi(editingProduct ?? undefined)} className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700"><Sparkles className="h-4 w-4" /> Open full Clarity workspace</button></div>
+                  </div>
+                )}
               </div>
 
-              <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-stone-100 bg-white px-6 py-4">
-                <button
-                  type="button"
-                  onClick={() => setProductModalOpen(false)}
-                  className="h-11 rounded-xl border border-stone-200 px-5 text-sm font-semibold text-stone-700"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={savingProduct}
-                  className="inline-flex h-11 min-w-[130px] items-center justify-center gap-2 rounded-xl bg-stone-950 px-5 text-sm font-semibold text-white disabled:opacity-60"
-                >
-                  {savingProduct ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Saving
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-4 w-4" />
-                      {editingProduct ? "Save changes" : "Add product"}
-                    </>
-                  )}
-                </button>
+              <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-stone-100 bg-white px-6 py-4">
+                <p className="hidden text-xs text-stone-400 sm:block">You can edit everything later.</p>
+                <div className="ml-auto flex gap-3"><button type="button" onClick={() => setProductModalOpen(false)} className="h-11 rounded-xl border border-stone-200 px-5 text-sm font-semibold text-stone-700">Cancel</button><button type="submit" disabled={savingProduct} className="inline-flex h-11 min-w-[130px] items-center justify-center gap-2 rounded-xl bg-stone-950 px-5 text-sm font-semibold text-white disabled:opacity-60">{savingProduct ? <><Loader2 className="h-4 w-4 animate-spin" />Saving</> : <><Check className="h-4 w-4" />{editingProduct ? "Save changes" : "Add product"}</>}</button></div>
               </div>
             </form>
           </div>

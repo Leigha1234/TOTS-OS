@@ -1895,16 +1895,29 @@ export default function PaymentsPage() {
                 team_id:
                   resolvedTeamId,
 
+                invoice_number:
+                  documentNumber,
+
+                invoice_date:
+                  invoiceDate,
+
                 amount:
                   invoiceQuoteGrandTotal,
+
+                amount_paid:
+                  0,
+
+                balance_due:
+                  invoiceQuoteGrandTotal,
+
+                currency:
+                  "GBP",
 
                 tax:
                   invoiceQuoteVatTotal,
 
                 status:
-                  options?.sendAfterCreate
-                    ? "pending"
-                    : "draft",
+                  "draft",
 
                 type:
                   "invoice",
@@ -1922,11 +1935,25 @@ export default function PaymentsPage() {
                     invoiceQuoteForm.repeatInvoice
                   ),
 
+                interval:
+                  invoiceQuoteForm.repeatInvoice
+                    ? invoiceQuoteForm.repeatFrequency || null
+                    : null,
+
+                notes:
+                  safeTrim(invoiceQuoteForm.notes) || null,
+
+                payment_terms:
+                  safeTrim(invoiceQuoteForm.terms) || null,
+
+                source:
+                  "tots-os",
+
                 data:
                   documentData,
               })
               .select(
-                "id"
+                "id, public_token"
               )
               .single();
 
@@ -1942,6 +1969,31 @@ export default function PaymentsPage() {
             throw new Error(
               error?.message ||
                 "Unable to create invoice."
+            );
+          }
+
+          // --------------------------------------------------
+          // INVOICE LINES
+          // --------------------------------------------------
+
+          const { error: invoiceLinesError } =
+            await supabase
+              .from("invoice_lines")
+              .insert(
+                items.map((item) => ({
+                  invoice_id: createdInvoice.id,
+                  organisation_id: organisationId,
+                  description: item.description,
+                  quantity: item.qty,
+                  unit_price: item.price,
+                }))
+              );
+
+          if (invoiceLinesError) {
+            console.error("Invoice lines insert error:", invoiceLinesError);
+            throw new Error(
+              invoiceLinesError.message ||
+                "The invoice was created but its line items could not be saved."
             );
           }
 
@@ -2006,32 +2058,31 @@ export default function PaymentsPage() {
               );
             }
 
+            const { data: sessionData } =
+              await supabase.auth.getSession();
+
+            const accessToken =
+              sessionData.session?.access_token;
+
+            if (!accessToken) {
+              throw new Error(
+                "Your session has expired. The invoice was saved as a draft; sign in again to send it."
+              );
+            }
+
             const response =
               await fetch(
                 "/api/send-invoices",
                 {
-                  method:
-                    "POST",
-
-                  headers:
-                    {
-                      "Content-Type":
-                        "application/json",
-                    },
-
-                  body:
-                    JSON.stringify(
-                      {
-                        invoiceId:
-                          createdInvoice.id,
-
-                        email:
-                          clientEmail,
-
-                        recipientEmail:
-                          clientEmail,
-                      }
-                    ),
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${accessToken}`,
+                  },
+                  body: JSON.stringify({
+                    invoiceId: createdInvoice.id,
+                    recipientEmail: clientEmail,
+                  }),
                 }
               );
 

@@ -152,6 +152,30 @@ type Discount = {
   created_at?: string | null;
 };
 
+type DiscountDraft = {
+  code: string;
+  discount_type: "percentage" | "fixed";
+  value: string;
+  minimum_order_amount: string;
+  maximum_discount_amount: string;
+  usage_limit: string;
+  starts_at: string;
+  expires_at: string;
+  is_active: boolean;
+};
+
+const blankDiscount: DiscountDraft = {
+  code: "",
+  discount_type: "percentage",
+  value: "10",
+  minimum_order_amount: "",
+  maximum_discount_amount: "",
+  usage_limit: "",
+  starts_at: "",
+  expires_at: "",
+  is_active: true,
+};
+
 type ProductDraft = {
   name: string;
   description: string;
@@ -435,6 +459,10 @@ export default function StoreDashboardPage() {
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [discounts, setDiscounts] = useState<Discount[]>([]);
+  const [discountModalOpen, setDiscountModalOpen] = useState(false);
+  const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null);
+  const [discountDraft, setDiscountDraft] = useState<DiscountDraft>(blankDiscount);
+  const [savingDiscount, setSavingDiscount] = useState(false);
   const [qrCodes, setQrCodes] = useState<StoreQrCode[]>([]);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [editingQr, setEditingQr] = useState<StoreQrCode | null>(null);
@@ -1207,6 +1235,95 @@ export default function StoreDashboardPage() {
     }
   }
 
+
+  const openNewDiscount = () => {
+    setEditingDiscount(null);
+    setDiscountDraft(blankDiscount);
+    setDiscountModalOpen(true);
+  };
+
+  const openEditDiscount = (discount: Discount) => {
+    setEditingDiscount(discount);
+    const toLocalInput = (value?: string | null) => {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      const offset = date.getTimezoneOffset() * 60000;
+      return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+    };
+    setDiscountDraft({
+      code: discount.code || "",
+      discount_type: discount.discount_type === "fixed" ? "fixed" : "percentage",
+      value: discount.value != null ? String(discount.value) : "",
+      minimum_order_amount: discount.minimum_order_amount != null ? String(discount.minimum_order_amount) : "",
+      maximum_discount_amount: discount.maximum_discount_amount != null ? String(discount.maximum_discount_amount) : "",
+      usage_limit: discount.usage_limit != null ? String(discount.usage_limit) : "",
+      starts_at: toLocalInput(discount.starts_at),
+      expires_at: toLocalInput(discount.expires_at),
+      is_active: discount.is_active !== false,
+    });
+    setDiscountModalOpen(true);
+  };
+
+  const saveDiscount = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!organisation) return;
+    const code = discountDraft.code.trim().toUpperCase().replace(/\s+/g, "");
+    const value = Number(discountDraft.value);
+    if (!code) return setError("Enter a discount code.");
+    if (!Number.isFinite(value) || value <= 0) return setError("Enter a valid discount value.");
+    if (discountDraft.discount_type === "percentage" && value > 100) return setError("Percentage discounts cannot be more than 100%.");
+    setSavingDiscount(true);
+    setError(null);
+    try {
+      const payload = {
+        organisation_id: organisation.id,
+        code,
+        discount_type: discountDraft.discount_type,
+        value,
+        minimum_order_amount: discountDraft.minimum_order_amount ? Number(discountDraft.minimum_order_amount) : null,
+        maximum_discount_amount: discountDraft.discount_type === "percentage" && discountDraft.maximum_discount_amount ? Number(discountDraft.maximum_discount_amount) : null,
+        usage_limit: discountDraft.usage_limit ? Math.max(1, Number.parseInt(discountDraft.usage_limit, 10)) : null,
+        starts_at: discountDraft.starts_at ? new Date(discountDraft.starts_at).toISOString() : null,
+        expires_at: discountDraft.expires_at ? new Date(discountDraft.expires_at).toISOString() : null,
+        is_active: discountDraft.is_active,
+      };
+      if (payload.starts_at && payload.expires_at && new Date(payload.expires_at) <= new Date(payload.starts_at)) {
+        throw new Error("The expiry date must be after the start date.");
+      }
+      if (editingDiscount) {
+        const { data, error: updateError } = await supabase.from("store_discounts").update(payload).eq("id", editingDiscount.id).eq("organisation_id", organisation.id).select("*").single();
+        if (updateError) throw updateError;
+        setDiscounts((current) => current.map((item) => item.id === editingDiscount.id ? data as Discount : item));
+      } else {
+        const { data, error: insertError } = await supabase.from("store_discounts").insert(payload).select("*").single();
+        if (insertError) throw insertError;
+        setDiscounts((current) => [data as Discount, ...current]);
+      }
+      setDiscountModalOpen(false);
+      setEditingDiscount(null);
+      setDiscountDraft(blankDiscount);
+    } catch (saveError) {
+      console.error("Discount save error:", saveError);
+      setError(saveError instanceof Error ? saveError.message : "We couldn't save that discount code.");
+    } finally {
+      setSavingDiscount(false);
+    }
+  };
+
+  const toggleDiscountActive = async (discount: Discount) => {
+    if (!organisation) return;
+    const { data, error: updateError } = await supabase.from("store_discounts").update({ is_active: discount.is_active === false }).eq("id", discount.id).eq("organisation_id", organisation.id).select("*").single();
+    if (updateError) return setError(updateError.message);
+    setDiscounts((current) => current.map((item) => item.id === discount.id ? data as Discount : item));
+  };
+
+  const deleteDiscount = async (discount: Discount) => {
+    if (!organisation || !window.confirm(`Delete discount code "${discount.code}"?`)) return;
+    const { error: deleteError } = await supabase.from("store_discounts").delete().eq("id", discount.id).eq("organisation_id", organisation.id);
+    if (deleteError) return setError(deleteError.message);
+    setDiscounts((current) => current.filter((item) => item.id !== discount.id));
+  };
 
   const publicQrUrl = (slug: string) => {
     if (typeof window !== "undefined") {
@@ -1996,57 +2113,41 @@ export default function StoreDashboardPage() {
           <section className="mt-6 overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
             <SectionHeader
               title="Discounts"
-              description="Discount codes connected to this organisation."
-            />
+              description="Create, edit and manage discount codes without leaving Store."
+            >
+              <button type="button" onClick={openNewDiscount} className="inline-flex h-10 items-center gap-2 rounded-xl bg-stone-950 px-4 text-sm font-semibold text-white hover:bg-stone-800">
+                <Plus className="h-4 w-4" /> Create discount
+              </button>
+            </SectionHeader>
 
             {discounts.length > 0 ? (
               <div className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-3">
                 {discounts.map((discount) => (
-                  <div
-                    key={discount.id}
-                    className="rounded-2xl border border-stone-200 p-5"
-                  >
+                  <div key={discount.id} className="rounded-2xl border border-stone-200 p-5">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#edf2e8]">
-                        <Tag className="h-5 w-5 text-[#617451]" />
-                      </div>
-
-                      <StatusBadge
-                        status={discount.is_active === false ? "inactive" : "active"}
-                      />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#edf2e8]"><Tag className="h-5 w-5 text-[#617451]" /></div>
+                      <StatusBadge status={discount.is_active === false ? "inactive" : "active"} />
                     </div>
-
-                    <p className="mt-5 font-mono text-lg font-bold text-stone-950">
-                      {discount.code}
-                    </p>
-
-                    <p className="mt-2 text-sm text-stone-500">
-                      {discount.discount_type === "percentage"
-                        ? `${toNumber(discount.value)}% off`
-                        : `${formatMoney(discount.value)} off`}
-                    </p>
-
+                    <p className="mt-5 font-mono text-lg font-bold text-stone-950">{discount.code}</p>
+                    <p className="mt-2 text-sm text-stone-500">{discount.discount_type === "percentage" ? `${toNumber(discount.value)}% off` : `${formatMoney(discount.value)} off`}</p>
+                    {discount.minimum_order_amount ? <p className="mt-1 text-xs text-stone-400">Minimum spend {formatMoney(discount.minimum_order_amount)}</p> : null}
                     <div className="mt-5 flex items-center justify-between border-t border-stone-100 pt-4 text-xs text-stone-400">
-                      <span>
-                        Used {discount.times_used ?? 0}
-                        {discount.usage_limit ? ` / ${discount.usage_limit}` : ""}
-                      </span>
-
-                      <span>
-                        {discount.expires_at
-                          ? `Ends ${formatDate(discount.expires_at)}`
-                          : "No expiry"}
-                      </span>
+                      <span>Used {discount.times_used ?? 0}{discount.usage_limit ? ` / ${discount.usage_limit}` : ""}</span>
+                      <span>{discount.expires_at ? `Ends ${formatDate(discount.expires_at)}` : "No expiry"}</span>
+                    </div>
+                    <div className="mt-4 flex gap-2">
+                      <button type="button" onClick={() => openEditDiscount(discount)} className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-xl border border-stone-200 text-xs font-semibold text-stone-700 hover:bg-stone-50"><Edit3 className="h-3.5 w-3.5" /> Edit</button>
+                      <button type="button" onClick={() => void toggleDiscountActive(discount)} className="inline-flex h-9 items-center justify-center rounded-xl border border-stone-200 px-3 text-stone-600 hover:bg-stone-50" title={discount.is_active === false ? "Activate" : "Pause"}>{discount.is_active === false ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}</button>
+                      <button type="button" onClick={() => void deleteDiscount(discount)} className="inline-flex h-9 items-center justify-center rounded-xl border border-red-100 px-3 text-red-600 hover:bg-red-50" title="Delete"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <EmptyState
-                icon={Tag}
-                title="No discount codes"
-                description="Discount codes created for this store will appear here."
-              />
+              <div className="p-6">
+                <EmptyState icon={Tag} title="No discount codes" description="Create your first percentage or fixed-value discount code here." />
+                <div className="flex justify-center pb-4"><button type="button" onClick={openNewDiscount} className="inline-flex h-10 items-center gap-2 rounded-xl bg-stone-950 px-4 text-sm font-semibold text-white"><Plus className="h-4 w-4" /> Create discount</button></div>
+              </div>
             )}
           </section>
         )}
@@ -2560,6 +2661,29 @@ export default function StoreDashboardPage() {
         )}
 
       </div>
+
+      {discountModalOpen && (
+        <div className="fixed inset-0 z-[145] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <form onSubmit={(event) => void saveDiscount(event)} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-stone-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-stone-100 px-6 py-5">
+              <div><h2 className="text-xl font-semibold text-stone-950">{editingDiscount ? "Edit discount" : "Create a discount"}</h2><p className="mt-1 text-sm text-stone-500">Set the code and offer. Everything else is optional.</p></div>
+              <button type="button" onClick={() => setDiscountModalOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-xl hover:bg-stone-100"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="grid gap-5 p-6 md:grid-cols-2">
+              <Field label="Discount code" required><input className={`${inputClass} font-mono uppercase`} value={discountDraft.code} onChange={(e) => setDiscountDraft((d) => ({...d, code:e.target.value.toUpperCase().replace(/\s/g, "")}))} placeholder="WELCOME10" required /></Field>
+              <Field label="Discount type"><select className={inputClass} value={discountDraft.discount_type} onChange={(e) => setDiscountDraft((d) => ({...d, discount_type:e.target.value as DiscountDraft["discount_type"]}))}><option value="percentage">Percentage off</option><option value="fixed">Fixed amount off</option></select></Field>
+              <Field label={discountDraft.discount_type === "percentage" ? "Percentage off" : "Amount off"} required><div className="relative">{discountDraft.discount_type === "fixed" ? <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">£</span> : null}<input type="number" min="0" max={discountDraft.discount_type === "percentage" ? 100 : undefined} step="0.01" className={`${inputClass} ${discountDraft.discount_type === "fixed" ? "pl-8" : "pr-8"}`} value={discountDraft.value} onChange={(e) => setDiscountDraft((d) => ({...d, value:e.target.value}))} required />{discountDraft.discount_type === "percentage" ? <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">%</span> : null}</div></Field>
+              <Field label="Minimum spend"><div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">£</span><input type="number" min="0" step="0.01" className={`${inputClass} pl-8`} value={discountDraft.minimum_order_amount} onChange={(e) => setDiscountDraft((d) => ({...d, minimum_order_amount:e.target.value}))} placeholder="Optional" /></div></Field>
+              {discountDraft.discount_type === "percentage" ? <Field label="Maximum discount"><div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">£</span><input type="number" min="0" step="0.01" className={`${inputClass} pl-8`} value={discountDraft.maximum_discount_amount} onChange={(e) => setDiscountDraft((d) => ({...d, maximum_discount_amount:e.target.value}))} placeholder="Optional" /></div></Field> : null}
+              <Field label="Usage limit"><input type="number" min="1" step="1" className={inputClass} value={discountDraft.usage_limit} onChange={(e) => setDiscountDraft((d) => ({...d, usage_limit:e.target.value}))} placeholder="Unlimited" /></Field>
+              <Field label="Starts"><input type="datetime-local" className={inputClass} value={discountDraft.starts_at} onChange={(e) => setDiscountDraft((d) => ({...d, starts_at:e.target.value}))} /></Field>
+              <Field label="Expires"><input type="datetime-local" className={inputClass} value={discountDraft.expires_at} onChange={(e) => setDiscountDraft((d) => ({...d, expires_at:e.target.value}))} /></Field>
+              <div className="md:col-span-2"><ToggleCard label="Active discount" description="Customers can use this code while it is active and within its date limits." checked={discountDraft.is_active} onChange={(value) => setDiscountDraft((d) => ({...d, is_active:value}))} /></div>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-stone-100 px-6 py-5"><button type="button" onClick={() => setDiscountModalOpen(false)} className="h-11 rounded-xl border border-stone-200 px-5 text-sm font-semibold text-stone-700 hover:bg-stone-50">Cancel</button><button type="submit" disabled={savingDiscount} className="inline-flex h-11 items-center gap-2 rounded-xl bg-stone-950 px-5 text-sm font-semibold text-white hover:bg-stone-800 disabled:opacity-50">{savingDiscount ? <Loader2 className="h-4 w-4 animate-spin" /> : <Tag className="h-4 w-4" />}{editingDiscount ? "Save discount" : "Create discount"}</button></div>
+          </form>
+        </div>
+      )}
 
       {qrModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">

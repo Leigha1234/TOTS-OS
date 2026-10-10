@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { AnimatePresence, motion } from "framer-motion";
 
-import { Check, ChevronDown, Loader2, Plus, Send, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, Loader2, Plus, Search, Send, Trash2, X } from "lucide-react";
 
 // ============================================================
 // TYPES
@@ -768,6 +768,20 @@ export default function InvoiceQuoteModal({
 
 
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+
+  const filteredCustomers = useMemo(() => {
+    const query = customerSearch.trim().toLowerCase();
+
+    if (!query) return customers;
+
+    return customers.filter((customer) =>
+      [customer.name, customer.email]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query))
+    );
+  }, [customers, customerSearch]);
 
   const selectedCustomer = customers.find(
     (customer) => customer.id === formData.customerId
@@ -882,22 +896,117 @@ export default function InvoiceQuoteModal({
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
+                  <div className="relative sm:col-span-2">
                     <label className={labelClass}>Customer</label>
-                    <select
-                      value={formData.customerId}
-                      onChange={(event) => handleCustomerChange(event.target.value)}
+
+                    <button
+                      type="button"
                       disabled={submitting}
-                      className={inputClass}
+                      onClick={() => setCustomerPickerOpen((value) => !value)}
+                      className={`${inputClass} flex items-center justify-between text-left`}
                     >
-                      <option value="">Select a customer...</option>
-                      {customers.map((customer) => (
-                        <option key={customer.id} value={customer.id}>
-                          {customer.name}
-                          {customer.email ? ` — ${customer.email}` : ""}
-                        </option>
-                      ))}
-                    </select>
+                      <span
+                        className={
+                          selectedCustomer ? "text-stone-800" : "text-stone-400"
+                        }
+                      >
+                        {selectedCustomer
+                          ? `${selectedCustomer.name}${
+                              selectedCustomer.email
+                                ? ` — ${selectedCustomer.email}`
+                                : ""
+                            }`
+                          : "Select a customer..."}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={`shrink-0 text-stone-400 transition ${
+                          customerPickerOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    <AnimatePresence>
+                      {customerPickerOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -4 }}
+                          className="absolute left-0 right-0 z-30 mt-2 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-xl"
+                        >
+                          <div className="border-b border-stone-100 p-3">
+                            <div className="relative">
+                              <Search
+                                size={15}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+                              />
+                              <input
+                                autoFocus
+                                value={customerSearch}
+                                onChange={(event) =>
+                                  setCustomerSearch(event.target.value)
+                                }
+                                placeholder="Search by name or email..."
+                                className="w-full rounded-xl border border-stone-200 bg-[#faf9f6] py-2.5 pl-9 pr-3 text-sm text-stone-800 outline-none placeholder:text-stone-300 focus:border-stone-900"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="max-h-64 overflow-y-auto p-2">
+                            {formData.customerId && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleCustomerChange("");
+                                  setCustomerSearch("");
+                                  setCustomerPickerOpen(false);
+                                }}
+                                className="mb-1 w-full rounded-xl px-3 py-2.5 text-left text-xs text-stone-400 transition hover:bg-stone-50"
+                              >
+                                Clear selected customer
+                              </button>
+                            )}
+
+                            {filteredCustomers.length > 0 ? (
+                              filteredCustomers.map((customer) => (
+                                <button
+                                  key={customer.id}
+                                  type="button"
+                                  onClick={() => {
+                                    handleCustomerChange(customer.id);
+                                    setCustomerSearch("");
+                                    setCustomerPickerOpen(false);
+                                  }}
+                                  className={`w-full rounded-xl px-3 py-2.5 text-left transition hover:bg-[#f3f5f0] ${
+                                    formData.customerId === customer.id
+                                      ? "bg-[#eef2e9]"
+                                      : ""
+                                  }`}
+                                >
+                                  <p className="text-sm font-semibold text-stone-800">
+                                    {customer.name}
+                                  </p>
+                                  {customer.email && (
+                                    <p className="mt-0.5 text-[11px] text-stone-400">
+                                      {customer.email}
+                                    </p>
+                                  )}
+                                </button>
+                              ))
+                            ) : (
+                              <div className="px-3 py-8 text-center">
+                                <p className="text-xs font-semibold text-stone-500">
+                                  No customers found
+                                </p>
+                                <p className="mt-1 text-[10px] text-stone-400">
+                                  Try another name or email address.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   {docType === "Quote" && !formData.customerId && (

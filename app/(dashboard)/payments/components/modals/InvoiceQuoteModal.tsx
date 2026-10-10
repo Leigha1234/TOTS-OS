@@ -1,40 +1,10 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import {
-  AnimatePresence,
-  motion,
-} from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
-import {
-  Bell,
-  Briefcase,
-  CalendarDays,
-  Check,
-  ChevronDown,
-  CircleDollarSign,
-  Contact,
-  Copy,
-  CreditCard,
-  FileDown,
-  Hash,
-  Loader2,
-  Mail,
-  MapPin,
-  Plus,
-  Printer,
-  RefreshCw,
-  Send,
-  Trash2,
-  UserRound,
-  Users,
-  X,
-} from "lucide-react";
+import { Check, ChevronDown, Loader2, Plus, Send, Trash2, X } from "lucide-react";
 
 // ============================================================
 // TYPES
@@ -796,6 +766,26 @@ export default function InvoiceQuoteModal({
     recipientEmailValid &&
     recurringValid;
 
+
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  const selectedCustomer = customers.find(
+    (customer) => customer.id === formData.customerId
+  );
+
+  const selectedProject = projects.find(
+    (project) => project.id === formData.projectId
+  );
+
+  const inputClass =
+    "w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-800 outline-none transition placeholder:text-stone-300 focus:border-stone-900 disabled:cursor-not-allowed disabled:opacity-50";
+
+  const labelClass =
+    "mb-2 block text-[9px] font-black uppercase tracking-[0.18em] text-stone-400";
+
+  const sectionTitleClass =
+    "text-[10px] font-black uppercase tracking-[0.22em] text-stone-900";
+
   // ==========================================================
   // RENDER
   // ==========================================================
@@ -804,2005 +794,736 @@ export default function InvoiceQuoteModal({
     <AnimatePresence>
       {open && (
         <motion.div
-          initial={{
-            opacity: 0,
-          }}
-          animate={{
-            opacity: 1,
-          }}
-          exit={{
-            opacity: 0,
-          }}
-          onClick={
-            onClose
-          }
-          className="fixed inset-0 z-[999] flex items-center justify-center bg-stone-900/60 p-3 backdrop-blur-sm sm:p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-stone-900/60 p-3 backdrop-blur-sm sm:p-5"
         >
           <motion.div
-            initial={{
-              scale:
-                0.97,
-              opacity: 0,
-              y: 12,
-            }}
-            animate={{
-              scale: 1,
-              opacity: 1,
-              y: 0,
-            }}
-            exit={{
-              scale:
-                0.97,
-              opacity: 0,
-              y: 12,
-            }}
-            transition={{
-              duration:
-                0.2,
-              ease:
-                "easeOut",
-            }}
-            onClick={(
-              event
-            ) =>
-              event.stopPropagation()
-            }
-            className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl sm:p-8"
+            initial={{ scale: 0.98, opacity: 0, y: 10 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.98, opacity: 0, y: 10 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            onClick={(event) => event.stopPropagation()}
+            className="flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-[2rem] bg-[#faf9f6] shadow-2xl"
           >
-            {/* =================================================
-                HEADER
-            ================================================= */}
+            {/* Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-stone-200 bg-white px-5 py-4 sm:px-7">
+              <div className="flex items-center gap-4">
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#8fa07d]">
+                    Sales
+                  </p>
+                  <h2 className="mt-1 font-serif text-2xl italic tracking-tight text-stone-900 sm:text-3xl">
+                    New {docType}
+                  </h2>
+                </div>
 
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <p className="mb-2 text-[8px] font-black uppercase tracking-[0.35em] text-[#a9b897]">
-                  Sales
-                </p>
-
-                <h2 className="font-serif text-3xl italic tracking-tight text-stone-900 sm:text-4xl">
-                  New{" "}
-                  {docType}
-                </h2>
-
-                <p className="mt-2 max-w-xl text-xs leading-5 text-stone-400">
-                  Create,
-                  assign, send
-                  and manage
-                  your financial
-                  document from
-                  one place.
-                </p>
+                <div className="hidden rounded-full bg-[#faf9f6] p-1 sm:flex">
+                  {(["Invoice", "Quote"] as InvoiceQuoteDocType[]).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => onDocTypeChange(type)}
+                      disabled={submitting}
+                      className={`rounded-full px-4 py-2 text-[8px] font-black uppercase tracking-widest transition ${
+                        docType === type
+                          ? "bg-stone-900 text-white"
+                          : "text-stone-400 hover:text-stone-700"
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <button
                 type="button"
-                onClick={
-                  onClose
-                }
-                disabled={
-                  submitting
-                }
-                aria-label="Close invoice or quote modal"
-                className="rounded-full p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-900 disabled:opacity-50"
+                onClick={onClose}
+                disabled={submitting}
+                aria-label="Close"
+                className="rounded-full p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-900"
               >
-                <X
-                  size={18}
-                />
+                <X size={18} />
               </button>
             </div>
 
-            {/* =================================================
-                DOCUMENT TYPE
-            ================================================= */}
-
-            <div className="mb-7 flex w-fit gap-1 rounded-full bg-[#faf9f6] p-1">
-              {(
-                [
-                  "Invoice",
-                  "Quote",
-                ] as InvoiceQuoteDocType[]
-              ).map(
-                (
-                  type
-                ) => (
+            <div className="overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
+              {/* Mobile document type */}
+              <div className="mb-5 flex rounded-full bg-white p-1 sm:hidden">
+                {(["Invoice", "Quote"] as InvoiceQuoteDocType[]).map((type) => (
                   <button
-                    key={
-                      type
-                    }
+                    key={type}
                     type="button"
-                    onClick={() =>
-                      onDocTypeChange(
-                        type
-                      )
-                    }
-                    disabled={
-                      submitting
-                    }
-                    className={`rounded-full px-5 py-2 text-[9px] font-black uppercase tracking-widest transition ${
-                      docType ===
-                      type
-                        ? "bg-stone-900 text-white"
-                        : "text-stone-400 hover:text-stone-700"
+                    onClick={() => onDocTypeChange(type)}
+                    className={`flex-1 rounded-full px-4 py-2 text-[8px] font-black uppercase tracking-widest ${
+                      docType === type ? "bg-stone-900 text-white" : "text-stone-400"
                     }`}
                   >
-                    {
-                      type
-                    }
+                    {type}
                   </button>
-                )
-              )}
-            </div>
-
-            {/* =================================================
-                TOP ACTION BAR
-            ================================================= */}
-
-            <div className="mb-7 flex flex-wrap gap-2 rounded-2xl border border-stone-100 bg-[#faf9f6] p-3">
-              {onDuplicate && (
-                <button
-                  type="button"
-                  onClick={
-                    onDuplicate
-                  }
-                  disabled={
-                    submitting
-                  }
-                  className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[8px] font-black uppercase tracking-widest text-stone-600 transition hover:bg-stone-900 hover:text-white"
-                >
-                  <Copy
-                    size={
-                      12
-                    }
-                  />
-
-                  Duplicate
-                </button>
-              )}
-
-              {onSavePdf && (
-                <button
-                  type="button"
-                  onClick={
-                    onSavePdf
-                  }
-                  disabled={
-                    submitting
-                  }
-                  className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[8px] font-black uppercase tracking-widest text-stone-600 transition hover:bg-stone-900 hover:text-white"
-                >
-                  <FileDown
-                    size={
-                      12
-                    }
-                  />
-
-                  Save PDF
-                </button>
-              )}
-
-              {onPrint && (
-                <button
-                  type="button"
-                  onClick={
-                    onPrint
-                  }
-                  disabled={
-                    submitting
-                  }
-                  className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[8px] font-black uppercase tracking-widest text-stone-600 transition hover:bg-stone-900 hover:text-white"
-                >
-                  <Printer
-                    size={
-                      12
-                    }
-                  />
-
-                  Print
-                </button>
-              )}
-            </div>
-
-            {/* =================================================
-                DOCUMENT DETAILS
-            ================================================= */}
-
-            <section className="mb-8">
-              <SectionHeading
-                icon={
-                  <Hash
-                    size={
-                      14
-                    }
-                  />
-                }
-                title="Document Details"
-                description="Reference numbers and important dates."
-              />
-
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {/* INVOICE NUMBER */}
-
-                <Field>
-                  <FieldLabel>
-                    {docType}{" "}
-                    Number
-                  </FieldLabel>
-
-                  <input
-                    value={
-                      formData.invoiceNumber ??
-                      ""
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      updateForm(
-                        {
-                          invoiceNumber:
-                            event
-                              .target
-                              .value,
-                        }
-                      )
-                    }
-                    placeholder={
-                      docType ===
-                      "Invoice"
-                        ? "INV-001"
-                        : "QUO-001"
-                    }
-                    className={
-                      inputClass
-                    }
-                  />
-                </Field>
-
-                {/* ORDER NUMBER */}
-
-                <Field>
-                  <FieldLabel>
-                    Order /
-                    Purchase
-                    Number
-                  </FieldLabel>
-
-                  <input
-                    value={
-                      formData.orderNumber ??
-                      ""
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      updateForm(
-                        {
-                          orderNumber:
-                            event
-                              .target
-                              .value,
-                        }
-                      )
-                    }
-                    placeholder="PO-001"
-                    className={
-                      inputClass
-                    }
-                  />
-                </Field>
-
-                {/* INVOICE DATE */}
-
-                <Field>
-                  <FieldLabel>
-                    {docType}{" "}
-                    Date
-                  </FieldLabel>
-
-                  <input
-                    type="date"
-                    value={
-                      formData.invoiceDate ??
-                      todayInputValue()
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      updateForm(
-                        {
-                          invoiceDate:
-                            event
-                              .target
-                              .value,
-                        }
-                      )
-                    }
-                    className={
-                      inputClass
-                    }
-                  />
-                </Field>
-
-                {/* DUE DATE */}
-
-                {docType ===
-                  "Invoice" && (
-                  <Field>
-                    <FieldLabel>
-                      Due Date
-                    </FieldLabel>
-
-                    <input
-                      type="date"
-                      value={
-                        formData.dueDate
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        updateForm(
-                          {
-                            dueDate:
-                              event
-                                .target
-                                .value,
-                          }
-                        )
-                      }
-                      className={
-                        inputClass
-                      }
-                    />
-                  </Field>
-                )}
-
-                {/* SALES PERSON */}
-
-                <Field>
-                  <FieldLabel>
-                    Sales Person
-                  </FieldLabel>
-
-                  <input
-                    value={
-                      formData.salesPerson ??
-                      ""
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      updateForm(
-                        {
-                          salesPerson:
-                            event
-                              .target
-                              .value,
-                        }
-                      )
-                    }
-                    placeholder="Sales person"
-                    className={
-                      inputClass
-                    }
-                  />
-                </Field>
+                ))}
               </div>
-            </section>
 
-            {/* =================================================
-                CUSTOMER
-            ================================================= */}
+              {/* 1. Customer */}
+              <section className="mb-5 rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#eef2e9] text-[10px] font-black text-[#7f916d]">
+                    1
+                  </div>
+                  <div>
+                    <h3 className={sectionTitleClass}>Customer</h3>
+                    <p className="mt-0.5 text-[11px] text-stone-400">
+                      Who is this {docType.toLowerCase()} for?
+                    </p>
+                  </div>
+                </div>
 
-            <section className="mb-8">
-              <SectionHeading
-                icon={
-                  <Users
-                    size={
-                      14
-                    }
-                  />
-                }
-                title="Customer"
-                description="Who this document belongs to."
-              />
-
-              <div className="grid gap-4 md:grid-cols-2">
-                {/* EXISTING CUSTOMER */}
-
-                <Field>
-                  <FieldLabel>
-                    Existing
-                    Customer
-                  </FieldLabel>
-
-                  <select
-                    value={
-                      formData.customerId
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      handleCustomerChange(
-                        event
-                          .target
-                          .value
-                      )
-                    }
-                    className={
-                      inputClass
-                    }
-                  >
-                    <option value="">
-                      Select
-                      customer...
-                    </option>
-
-                    {customers.map(
-                      (
-                        customer
-                      ) => (
-                        <option
-                          key={
-                            customer.id
-                          }
-                          value={
-                            customer.id
-                          }
-                        >
-                          {
-                            customer.name
-                          }
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label className={labelClass}>Customer</label>
+                    <select
+                      value={formData.customerId}
+                      onChange={(event) => handleCustomerChange(event.target.value)}
+                      disabled={submitting}
+                      className={inputClass}
+                    >
+                      <option value="">Select a customer...</option>
+                      {customers.map((customer) => (
+                        <option key={customer.id} value={customer.id}>
+                          {customer.name}
+                          {customer.email ? ` — ${customer.email}` : ""}
                         </option>
-                      )
-                    )}
-                  </select>
-                </Field>
+                      ))}
+                    </select>
+                  </div>
 
-                {/* NEW CUSTOMER */}
-
-                {docType ===
-                  "Quote" &&
-                  !formData.customerId && (
-                    <Field>
-                      <FieldLabel>
-                        New Client
-                        Name
-                      </FieldLabel>
-
+                  {docType === "Quote" && !formData.customerId && (
+                    <div className="sm:col-span-2">
+                      <label className={labelClass}>Or enter a new client</label>
                       <input
-                        value={
-                          formData.newClientName
+                        value={formData.newClientName}
+                        onChange={(event) =>
+                          updateForm({ newClientName: event.target.value })
                         }
-                        onChange={(
-                          event
-                        ) =>
-                          updateForm(
-                            {
-                              newClientName:
-                                event
-                                  .target
-                                  .value,
-
-                              customerName:
-                                event
-                                  .target
-                                  .value,
-                            }
-                          )
-                        }
-                        placeholder="Enter client name"
-                        className={
-                          inputClass
-                        }
+                        placeholder="Client or business name"
+                        className={inputClass}
                       />
-                    </Field>
+                    </div>
                   )}
 
-                {/* CUSTOMER NAME */}
-
-                <Field>
-                  <FieldLabel>
-                    Customer
-                    Name
-                  </FieldLabel>
-
-                  <input
-                    value={
-                      formData.customerName ??
-                      ""
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      updateForm(
-                        {
-                          customerName:
-                            event
-                              .target
-                              .value,
-                        }
-                      )
-                    }
-                    placeholder="Customer name"
-                    className={
-                      inputClass
-                    }
-                  />
-                </Field>
-
-                {/* CUSTOMER ADDRESS */}
-
-                <Field className="md:col-span-2">
-                  <FieldLabel>
-                    Customer
-                    Address
-                  </FieldLabel>
-
-                  <div className="relative">
-                    <MapPin
-                      size={
-                        14
-                      }
-                      className="absolute left-4 top-4 text-stone-400"
-                    />
-
-                    <textarea
-                      value={
-                        formData.customerAddress ??
-                        ""
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        updateForm(
-                          {
-                            customerAddress:
-                              event
-                                .target
-                                .value,
-                          }
-                        )
-                      }
-                      placeholder="Street, town/city, postcode"
-                      rows={3}
-                      className={`${inputClass} pl-10`}
-                    />
-                  </div>
-                </Field>
-              </div>
-            </section>
-
-            {/* =================================================
-                ASSIGNMENT
-            ================================================= */}
-
-            <section className="mb-8">
-              <SectionHeading
-                icon={
-                  <Briefcase
-                    size={
-                      14
-                    }
-                  />
-                }
-                title="Assignment"
-                description="Connect this document to the relevant work and people."
-              />
-
-              <div className="grid gap-4 md:grid-cols-3">
-                {/* PROJECT */}
-
-                <Field>
-                  <FieldLabel>
-                    Project
-                  </FieldLabel>
-
-                  <select
-                    value={
-                      formData.projectId
-                    }
-                    disabled={
-                      !formData.customerId
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      updateForm(
-                        {
-                          projectId:
-                            event
-                              .target
-                              .value,
-                        }
-                      )
-                    }
-                    className={
-                      inputClass
-                    }
-                  >
-                    <option value="">
-                      No project
-                    </option>
-
-                    {availableProjects.map(
-                      (
-                        project
-                      ) => (
-                        <option
-                          key={
-                            project.id
-                          }
-                          value={
-                            project.id
-                          }
-                        >
-                          {
-                            project.name
-                          }
-                        </option>
-                      )
-                    )}
-                  </select>
-                </Field>
-
-                {/* CONTACT */}
-
-                <Field>
-                  <FieldLabel>
-                    Customer
-                    Contact
-                  </FieldLabel>
-
-                  <select
-                    value={
-                      formData.assignedContactId ??
-                      ""
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      updateForm(
-                        {
-                          assignedContactId:
-                            event
-                              .target
-                              .value,
-                        }
-                      )
-                    }
-                    className={
-                      inputClass
-                    }
-                  >
-                    <option value="">
-                      No contact
-                    </option>
-
-                    {availableContacts.map(
-                      (
-                        contact
-                      ) => (
-                        <option
-                          key={
-                            contact.id
-                          }
-                          value={
-                            contact.id
-                          }
-                        >
-                          {
-                            contact.name
-                          }
-                        </option>
-                      )
-                    )}
-                  </select>
-                </Field>
-
-                {/* STAFF */}
-
-                <Field>
-                  <FieldLabel>
-                    Staff Member
-                  </FieldLabel>
-
-                  <select
-                    value={
-                      formData.assignedStaffId ??
-                      ""
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      updateForm(
-                        {
-                          assignedStaffId:
-                            event
-                              .target
-                              .value,
-                        }
-                      )
-                    }
-                    className={
-                      inputClass
-                    }
-                  >
-                    <option value="">
-                      Unassigned
-                    </option>
-
-                    {staffMembers.map(
-                      (
-                        member
-                      ) => (
-                        <option
-                          key={
-                            member.id
-                          }
-                          value={
-                            member.id
-                          }
-                        >
-                          {
-                            member.name
-                          }
-                        </option>
-                      )
-                    )}
-                  </select>
-                </Field>
-              </div>
-
-              {formData.projectId && (
-                <div className="mt-4 flex items-start gap-2 rounded-xl bg-[#a9b897]/10 p-3">
-                  <Briefcase
-                    size={
-                      13
-                    }
-                    className="mt-0.5 shrink-0 text-[#829473]"
-                  />
-
-                  <p className="text-[10px] leading-4 text-stone-600">
-                    This{" "}
-                    {docType.toLowerCase()}{" "}
-                    will be
-                    connected to
-                    the selected
-                    project and can
-                    appear inside
-                    the project's{" "}
-                    <strong>
-                      Money
-                    </strong>{" "}
-                    workspace.
-                  </p>
-                </div>
-              )}
-            </section>
-
-            {/* =================================================
-                SEND TO
-            ================================================= */}
-
-            <section className="mb-8">
-              <SectionHeading
-                icon={
-                  <Mail
-                    size={
-                      14
-                    }
-                  />
-                }
-                title="Send To"
-                description="Choose a saved contact or enter an email address."
-              />
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field>
-                  <FieldLabel>
-                    Contact
-                  </FieldLabel>
-
-                  <select
-                    value={
-                      formData.sendToContactId ??
-                      ""
-                    }
-                    onChange={(
-                      event
-                    ) => {
-                      const id =
-                        event
-                          .target
-                          .value;
-
-                      const contact =
-                        contacts.find(
-                          (
-                            item
-                          ) =>
-                            item.id ===
-                            id
-                        );
-
-                      updateForm(
-                        {
-                          sendToContactId:
-                            id,
-
-                          sendToEmail:
-                            contact?.email ||
-                            formData.sendToEmail ||
-                            "",
-                        }
-                      );
-                    }}
-                    className={
-                      inputClass
-                    }
-                  >
-                    <option value="">
-                      Choose
-                      contact...
-                    </option>
-
-                    {availableContacts.map(
-                      (
-                        contact
-                      ) => (
-                        <option
-                          key={
-                            contact.id
-                          }
-                          value={
-                            contact.id
-                          }
-                        >
-                          {
-                            contact.name
-                          }
-                          {contact.email
-                            ? ` — ${contact.email}`
-                            : ""}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </Field>
-
-                <Field>
-                  <FieldLabel>
-                    Email Address
-                  </FieldLabel>
-
-                  <div className="relative">
-                    <Mail
-                      size={
-                        14
-                      }
-                      className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
-                    />
-
+                  <div>
+                    <label className={labelClass}>
+                      {docType === "Invoice" ? "Invoice date" : "Quote date"}
+                    </label>
                     <input
-                      type="email"
-                      value={
-                        formData.sendToEmail ??
-                        ""
+                      type="date"
+                      value={formData.invoiceDate || todayInputValue()}
+                      onChange={(event) =>
+                        updateForm({ invoiceDate: event.target.value })
                       }
-                      onChange={(
-                        event
-                      ) =>
-                        updateForm(
-                          {
-                            sendToEmail:
-                              event
-                                .target
-                                .value,
-                          }
-                        )
-                      }
-                      placeholder="client@example.com"
-                      className={`${inputClass} pl-10`}
+                      className={inputClass}
                     />
                   </div>
 
-                  {formData.sendToEmail &&
-                    !recipientEmailValid && (
-                      <p className="mt-2 text-[10px] text-red-500">
-                        Enter a
-                        valid email
-                        address.
-                      </p>
-                    )}
-                </Field>
-              </div>
-            </section>
-
-            {/* =================================================
-                LINE ITEMS
-            ================================================= */}
-
-            <section className="mb-8">
-              <div className="mb-4 flex items-center justify-between gap-4">
-                <SectionHeading
-                  compact
-                  icon={
-                    <CircleDollarSign
-                      size={
-                        14
-                      }
+                  <div>
+                    <label className={labelClass}>
+                      {docType === "Invoice" ? "Due date" : "Valid until"}
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.dueDate}
+                      onChange={(event) => updateForm({ dueDate: event.target.value })}
+                      className={inputClass}
                     />
-                  }
-                  title="Line Items"
-                  description="Products, services or billable work."
-                />
+                  </div>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={
-                    addLineItem
-                  }
-                  disabled={
-                    submitting
-                  }
-                  className="flex shrink-0 items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-[#8fa07d] transition hover:text-stone-900 disabled:opacity-50"
-                >
-                  <Plus
-                    size={
-                      13
-                    }
-                  />
+                {(selectedCustomer || formData.customerName) && (
+                  <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-stone-400">
+                    <span className="font-semibold text-stone-600">
+                      {selectedCustomer?.name || formData.customerName}
+                    </span>
+                    {(selectedCustomer?.email || formData.sendToEmail) && (
+                      <span>{selectedCustomer?.email || formData.sendToEmail}</span>
+                    )}
+                    {selectedProject && <span>Project: {selectedProject.name}</span>}
+                  </div>
+                )}
+              </section>
 
-                  Add Item
-                </button>
-              </div>
+              {/* 2. Line items */}
+              <section className="mb-5 rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#eef2e9] text-[10px] font-black text-[#7f916d]">
+                      2
+                    </div>
+                    <div>
+                      <h3 className={sectionTitleClass}>What are you charging for?</h3>
+                      <p className="mt-0.5 text-[11px] text-stone-400">
+                        Add products, services or billable work.
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="space-y-3">
-                {lineItems.map(
-                  (
-                    item,
-                    index
-                  ) => {
-                    const lineTotal =
-                      Number(
-                        item.qty ||
-                          0
-                      ) *
-                      Number(
-                        item.price ||
-                          0
-                      );
+                  <button
+                    type="button"
+                    onClick={addLineItem}
+                    disabled={submitting}
+                    className="flex shrink-0 items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-[#7f916d]"
+                  >
+                    <Plus size={13} />
+                    Add item
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {lineItems.map((item, index) => {
+                    const lineTotal = Number(item.qty || 0) * Number(item.price || 0);
 
                     return (
                       <div
-                        key={
-                          item.id
-                        }
-                        className="rounded-2xl border border-stone-100 bg-[#faf9f6] p-4"
+                        key={item.id}
+                        className="rounded-xl border border-stone-100 bg-[#faf9f6] p-3"
                       >
-                        <div className="mb-3 flex items-center justify-between">
+                        <div className="mb-2 flex items-center justify-between">
                           <span className="text-[8px] font-black uppercase tracking-widest text-stone-300">
-                            Item{" "}
-                            {index +
-                              1}
+                            Item {index + 1}
                           </span>
-
-                          {lineItems.length >
-                            1 && (
+                          {lineItems.length > 1 && (
                             <button
                               type="button"
-                              onClick={() =>
-                                removeLineItem(
-                                  item.id
-                                )
-                              }
-                              disabled={
-                                submitting
-                              }
-                              className="text-red-400 transition hover:text-red-600"
+                              onClick={() => removeLineItem(item.id)}
+                              className="text-stone-300 transition hover:text-red-500"
                             >
-                              <Trash2
-                                size={
-                                  14
-                                }
-                              />
+                              <Trash2 size={14} />
                             </button>
                           )}
                         </div>
 
-                        <div className="grid gap-3 lg:grid-cols-[1fr_110px_150px_120px]">
-                          {/* DESCRIPTION */}
-
+                        <div className="grid gap-2 sm:grid-cols-[1fr_80px_120px_100px] sm:items-end">
                           <div>
-                            <FieldLabel>
-                              Description
-                            </FieldLabel>
-
+                            <label className={labelClass}>Description</label>
                             <input
-                              value={
-                                item.desc
+                              value={item.desc}
+                              onChange={(event) =>
+                                updateDescription(item.id, event.target.value)
                               }
-                              onChange={(
-                                event
-                              ) =>
-                                updateDescription(
-                                  item.id,
-                                  event
-                                    .target
-                                    .value
-                                )
-                              }
-                              placeholder="Description"
-                              className="w-full rounded-xl border border-stone-100 bg-white px-3 py-2.5 text-xs outline-none transition focus:border-stone-900"
+                              placeholder="e.g. Website design"
+                              className={inputClass}
                             />
                           </div>
 
-                          {/* QUANTITY */}
-
                           <div>
-                            <FieldLabel>
-                              Quantity
-                            </FieldLabel>
-
+                            <label className={labelClass}>Qty</label>
                             <input
-                              type="text"
                               inputMode="decimal"
-                              value={
-                                quantityDrafts[
-                                  item.id
-                                ] ??
-                                String(
-                                  item.qty
-                                )
+                              value={quantityDrafts[item.id] ?? String(item.qty)}
+                              onChange={(event) =>
+                                updateQuantity(item.id, event.target.value)
                               }
-                              onChange={(
-                                event
-                              ) =>
-                                updateQuantity(
-                                  item.id,
-                                  event
-                                    .target
-                                    .value
-                                )
-                              }
-                              onBlur={() =>
-                                normaliseQuantity(
-                                  item.id
-                                )
-                              }
-                              placeholder="1"
-                              className="w-full rounded-xl border border-stone-100 bg-white px-3 py-2.5 text-xs outline-none transition focus:border-stone-900"
+                              onBlur={() => normaliseQuantity(item.id)}
+                              className={inputClass}
                             />
                           </div>
 
-                          {/* UNIT PRICE */}
-
                           <div>
-                            <FieldLabel>
-                              Unit
-                              Price
-                            </FieldLabel>
-
+                            <label className={labelClass}>Price</label>
                             <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-stone-400">
+                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">
                                 £
                               </span>
-
                               <input
-                                type="text"
                                 inputMode="decimal"
-                                value={
-                                  priceDrafts[
-                                    item.id
-                                  ] ??
-                                  String(
-                                    item.price
-                                  )
+                                value={priceDrafts[item.id] ?? String(item.price)}
+                                onChange={(event) =>
+                                  updatePrice(item.id, event.target.value)
                                 }
-                                onChange={(
-                                  event
-                                ) =>
-                                  updatePrice(
-                                    item.id,
-                                    event
-                                      .target
-                                      .value
-                                  )
-                                }
-                                onBlur={() =>
-                                  normalisePrice(
-                                    item.id
-                                  )
-                                }
-                                placeholder="0.00"
-                                className="w-full rounded-xl border border-stone-100 bg-white py-2.5 pl-7 pr-3 text-xs outline-none transition focus:border-stone-900"
+                                onBlur={() => normalisePrice(item.id)}
+                                className={`${inputClass} pl-8`}
                               />
                             </div>
                           </div>
 
-                          {/* LINE TOTAL */}
-
-                          <div>
-                            <FieldLabel>
+                          <div className="rounded-xl bg-white px-3 py-3 text-right">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-stone-300">
                               Total
-                            </FieldLabel>
-
-                            <div className="flex h-[38px] items-center rounded-xl bg-stone-900 px-3 font-mono text-xs text-white">
-                              £
-                              {currency(
-                                lineTotal
-                              )}
-                            </div>
+                            </p>
+                            <p className="mt-1 font-mono text-sm font-semibold text-stone-800">
+                              £{currency(lineTotal)}
+                            </p>
                           </div>
                         </div>
                       </div>
                     );
-                  }
-                )}
-              </div>
-            </section>
-
-            {/* =================================================
-                VAT
-            ================================================= */}
-
-            <section className="mb-8">
-              <SectionHeading
-                icon={
-                  <CircleDollarSign
-                    size={
-                      14
-                    }
-                  />
-                }
-                title="VAT"
-                description="VAT can be enabled or disabled per document."
-              />
-
-              <div className="rounded-2xl border border-stone-100 bg-[#faf9f6] p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-bold text-stone-800">
-                      Add VAT
-                    </p>
-
-                    <p className="mt-1 text-[10px] text-stone-400">
-                      Turn this
-                      off for
-                      non-VAT
-                      invoices.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateForm(
-                        {
-                          vatEnabled:
-                            !vatEnabled,
-                        }
-                      )
-                    }
-                    className={`relative h-7 w-12 rounded-full transition ${
-                      vatEnabled
-                        ? "bg-[#a9b897]"
-                        : "bg-stone-200"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${
-                        vatEnabled
-                          ? "left-6"
-                          : "left-1"
-                      }`}
-                    />
-                  </button>
+                  })}
                 </div>
 
-                {vatEnabled && (
-                  <div className="mt-4 max-w-[180px]">
-                    <FieldLabel>
-                      VAT Rate
-                    </FieldLabel>
+                <div className="mt-4 flex items-center justify-between border-t border-stone-100 pt-4">
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={vatEnabled}
+                      onClick={() => updateForm({ vatEnabled: !vatEnabled })}
+                      className={`relative h-6 w-11 rounded-full transition ${
+                        vatEnabled ? "bg-[#a9b897]" : "bg-stone-200"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${
+                          vatEnabled ? "left-6" : "left-1"
+                        }`}
+                      />
+                    </button>
+                    <span className="text-[10px] font-bold text-stone-600">Add VAT</span>
+                  </label>
 
-                    <div className="relative">
+                  {vatEnabled && (
+                    <div className="flex items-center gap-2">
                       <input
                         type="text"
                         inputMode="decimal"
-                        value={
-                          formData.vatRate ??
-                          "20"
-                        }
-                        onChange={(
-                          event
-                        ) => {
-                          const value =
-                            event
-                              .target
-                              .value;
-
-                          if (
-                            /^\d*\.?\d*$/.test(
-                              value
-                            )
-                          ) {
-                            updateForm(
-                              {
-                                vatRate:
-                                  value,
-                              }
-                            );
+                        value={formData.vatRate ?? "20"}
+                        onChange={(event) => {
+                          if (/^\d*\.?\d*$/.test(event.target.value)) {
+                            updateForm({ vatRate: event.target.value });
                           }
                         }}
-                        className={`${inputClass} pr-9`}
+                        className="w-16 rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-right text-xs outline-none focus:border-stone-900"
                       />
+                      <span className="text-xs text-stone-400">%</span>
+                    </div>
+                  )}
+                </div>
+              </section>
 
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-stone-400">
-                        %
+              {/* 3. Review */}
+              <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#eef2e9] text-[10px] font-black text-[#7f916d]">
+                    3
+                  </div>
+                  <div>
+                    <h3 className={sectionTitleClass}>Review & send</h3>
+                    <p className="mt-0.5 text-[11px] text-stone-400">
+                      Check the total, then save or send.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-stone-900 p-5 text-white">
+                  <div className="mb-4 flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-500">
+                        {docType}
+                      </p>
+                      <p className="mt-1 font-mono text-sm text-stone-300">
+                        {formData.invoiceNumber || "Number generated automatically"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-500">
+                        {docType === "Invoice" ? "Balance due" : "Total"}
+                      </p>
+                      <p className="mt-1 font-mono text-2xl text-[#b8c7a7]">
+                        £{currency(displayedGrandTotal)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 border-t border-white/10 pt-4">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-stone-500">Net</span>
+                      <span className="font-mono">£{currency(netTotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-stone-500">VAT</span>
+                      <span className="font-mono">
+                        {vatEnabled ? `£${currency(displayedVat)}` : "Not applied"}
                       </span>
                     </div>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* =================================================
-                PAYMENT METHOD
-            ================================================= */}
-
-            {docType ===
-              "Invoice" && (
-              <section className="mb-8">
-                <SectionHeading
-                  icon={
-                    <CreditCard
-                      size={
-                        14
-                      }
-                    />
-                  }
-                  title="Payment"
-                  description="Tell the customer how they can pay."
-                />
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Field>
-                    <FieldLabel>
-                      Payment
-                      Method
-                    </FieldLabel>
-
-                    <select
-                      value={
-                        formData.paymentMethod ??
-                        ""
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        updateForm(
-                          {
-                            paymentMethod:
-                              event
-                                .target
-                                .value as PaymentMethod,
-                          }
-                        )
-                      }
-                      className={
-                        inputClass
-                      }
-                    >
-                      <option value="">
-                        Select
-                        payment
-                        method...
-                      </option>
-
-                      <option value="bank_transfer">
-                        Bank
-                        Transfer
-                      </option>
-
-                      <option value="card">
-                        Card
-                      </option>
-
-                      <option value="cash">
-                        Cash
-                      </option>
-
-                      <option value="direct_debit">
-                        Direct
-                        Debit
-                      </option>
-
-                      <option value="paypal">
-                        PayPal
-                      </option>
-
-                      <option value="other">
-                        Other
-                      </option>
-                    </select>
-                  </Field>
-
-                  <Field>
-                    <FieldLabel>
-                      Payment
-                      Instructions
-                    </FieldLabel>
-
-                    <textarea
-                      rows={3}
-                      value={
-                        formData.paymentInstructions ??
-                        ""
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        updateForm(
-                          {
-                            paymentInstructions:
-                              event
-                                .target
-                                .value,
-                          }
-                        )
-                      }
-                      placeholder="Bank details, payment link, reference instructions..."
-                      className={
-                        inputClass
-                      }
-                    />
-                  </Field>
-                </div>
-              </section>
-            )}
-
-            {/* =================================================
-                RECURRING INVOICE
-            ================================================= */}
-
-            {docType ===
-              "Invoice" && (
-              <section className="mb-8">
-                <SectionHeading
-                  icon={
-                    <RefreshCw
-                      size={
-                        14
-                      }
-                    />
-                  }
-                  title="Repeat Invoice"
-                  description="Automatically create this invoice again on a schedule."
-                />
-
-                <div className="rounded-2xl border border-stone-100 bg-[#faf9f6] p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-bold text-stone-800">
-                        Repeat this
-                        invoice
-                      </p>
-
-                      <p className="mt-1 text-[10px] text-stone-400">
-                        Useful for
-                        retainers,
-                        subscriptions
-                        and recurring
-                        services.
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateForm(
-                          {
-                            repeatInvoice:
-                              !formData.repeatInvoice,
-                          }
-                        )
-                      }
-                      className={`relative h-7 w-12 rounded-full transition ${
-                        formData.repeatInvoice
-                          ? "bg-[#a9b897]"
-                          : "bg-stone-200"
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${
-                          formData.repeatInvoice
-                            ? "left-6"
-                            : "left-1"
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {formData.repeatInvoice && (
-                    <div className="mt-5 grid gap-4 md:grid-cols-3">
-                      <Field>
-                        <FieldLabel>
-                          Frequency
-                        </FieldLabel>
-
-                        <select
-                          value={
-                            formData.repeatFrequency ??
-                            "monthly"
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            updateForm(
-                              {
-                                repeatFrequency:
-                                  event
-                                    .target
-                                    .value as RepeatFrequency,
-                              }
-                            )
-                          }
-                          className={
-                            inputClass
-                          }
-                        >
-                          <option value="weekly">
-                            Weekly
-                          </option>
-
-                          <option value="fortnightly">
-                            Fortnightly
-                          </option>
-
-                          <option value="monthly">
-                            Monthly
-                          </option>
-
-                          <option value="quarterly">
-                            Quarterly
-                          </option>
-
-                          <option value="yearly">
-                            Yearly
-                          </option>
-                        </select>
-                      </Field>
-
-                      <Field>
-                        <FieldLabel>
-                          Start Date
-                        </FieldLabel>
-
-                        <input
-                          type="date"
-                          value={
-                            formData.repeatStartDate ??
-                            ""
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            updateForm(
-                              {
-                                repeatStartDate:
-                                  event
-                                    .target
-                                    .value,
-                              }
-                            )
-                          }
-                          className={
-                            inputClass
-                          }
-                        />
-                      </Field>
-
-                      <Field>
-                        <FieldLabel>
-                          End Date
-                        </FieldLabel>
-
-                        <input
-                          type="date"
-                          value={
-                            formData.repeatEndDate ??
-                            ""
-                          }
-                          min={
-                            formData.repeatStartDate ??
-                            undefined
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            updateForm(
-                              {
-                                repeatEndDate:
-                                  event
-                                    .target
-                                    .value,
-                              }
-                            )
-                          }
-                          className={
-                            inputClass
-                          }
-                        />
-                      </Field>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {/* =================================================
-                REMINDERS
-            ================================================= */}
-
-            {docType ===
-              "Invoice" && (
-              <section className="mb-8">
-                <SectionHeading
-                  icon={
-                    <Bell
-                      size={
-                        14
-                      }
-                    />
-                  }
-                  title="Payment Reminders"
-                  description="Set automatic reminders around the due date."
-                />
-
-                <div className="rounded-2xl border border-stone-100 bg-[#faf9f6] p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-bold text-stone-800">
-                        Enable
-                        reminders
-                      </p>
-
-                      <p className="mt-1 text-[10px] text-stone-400">
-                        Remind
-                        customers
-                        before and
-                        after an
-                        invoice is
-                        due.
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateForm(
-                          {
-                            remindersEnabled:
-                              !formData.remindersEnabled,
-                          }
-                        )
-                      }
-                      className={`relative h-7 w-12 rounded-full transition ${
-                        formData.remindersEnabled
-                          ? "bg-[#a9b897]"
-                          : "bg-stone-200"
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${
-                          formData.remindersEnabled
-                            ? "left-6"
-                            : "left-1"
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {formData.remindersEnabled && (
-                    <div className="mt-5 grid gap-4 md:grid-cols-2">
-                      <Field>
-                        <FieldLabel>
-                          Days Before
-                          Due
-                        </FieldLabel>
-
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={
-                            formData.reminderDaysBefore ??
-                            "3"
-                          }
-                          onChange={(
-                            event
-                          ) => {
-                            const value =
-                              event
-                                .target
-                                .value;
-
-                            if (
-                              /^\d*$/.test(
-                                value
-                              )
-                            ) {
-                              updateForm(
-                                {
-                                  reminderDaysBefore:
-                                    value,
-                                }
-                              );
-                            }
-                          }}
-                          className={
-                            inputClass
-                          }
-                        />
-                      </Field>
-
-                      <Field>
-                        <FieldLabel>
-                          Days After
-                          Due
-                        </FieldLabel>
-
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={
-                            formData.reminderDaysAfter ??
-                            "1"
-                          }
-                          onChange={(
-                            event
-                          ) => {
-                            const value =
-                              event
-                                .target
-                                .value;
-
-                            if (
-                              /^\d*$/.test(
-                                value
-                              )
-                            ) {
-                              updateForm(
-                                {
-                                  reminderDaysAfter:
-                                    value,
-                                }
-                              );
-                            }
-                          }}
-                          className={
-                            inputClass
-                          }
-                        />
-                      </Field>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {/* =================================================
-                TERMS
-            ================================================= */}
-
-            <section className="mb-8">
-              <SectionHeading
-                icon={
-                  <Check
-                    size={
-                      14
-                    }
-                  />
-                }
-                title="Terms & Notes"
-                description="These can be shown on the invoice, quote or receipt."
-              />
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field>
-                  <FieldLabel>
-                    Terms
-                  </FieldLabel>
-
-                  <textarea
-                    rows={5}
-                    value={
-                      formData.terms ??
-                      ""
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      updateForm(
-                        {
-                          terms:
-                            event
-                              .target
-                              .value,
-                        }
-                      )
-                    }
-                    placeholder="Payment due within 14 days. Please use your invoice number as the payment reference."
-                    className={
-                      inputClass
-                    }
-                  />
-                </Field>
-
-                <Field>
-                  <FieldLabel>
-                    Internal /
-                    Customer
-                    Notes
-                  </FieldLabel>
-
-                  <textarea
-                    rows={5}
-                    value={
-                      formData.notes ??
-                      ""
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      updateForm(
-                        {
-                          notes:
-                            event
-                              .target
-                              .value,
-                        }
-                      )
-                    }
-                    placeholder="Additional notes..."
-                    className={
-                      inputClass
-                    }
-                  />
-                </Field>
-              </div>
-            </section>
-
-            {/* =================================================
-                TOTALS
-            ================================================= */}
-
-            <div className="rounded-[1.5rem] bg-stone-900 p-5 text-white sm:p-6">
-              <div className="space-y-3">
-                <div className="flex justify-between text-xs">
-                  <span className="text-stone-400">
-                    Net
-                  </span>
-
-                  <span className="font-mono">
-                    £
-                    {currency(
-                      netTotal
+                    {formData.dueDate && (
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-stone-500">
+                          {docType === "Invoice" ? "Due" : "Valid until"}
+                        </span>
+                        <span>{new Date(`${formData.dueDate}T12:00:00`).toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}</span>
+                      </div>
                     )}
-                  </span>
+                  </div>
                 </div>
 
-                {vatEnabled && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-stone-400">
-                      VAT{" "}
-                      {formData.vatRate
-                        ? `(${formData.vatRate}%)`
-                        : ""}
-                    </span>
-
-                    <span className="font-mono">
-                      £
-                      {currency(
-                        displayedVat
-                      )}
-                    </span>
-                  </div>
-                )}
-
-                {!vatEnabled && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-stone-400">
-                      VAT
-                    </span>
-
-                    <span className="font-mono text-stone-500">
-                      Not
-                      applied
-                    </span>
-                  </div>
-                )}
-
-                <div className="my-3 border-t border-white/10" />
-
-                <div className="flex items-end justify-between">
-                  <span className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
-                    Total
-                  </span>
-
-                  <span className="font-mono text-2xl text-[#a9b897] sm:text-3xl">
-                    £
-                    {currency(
-                      displayedGrandTotal
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* =================================================
-                RECIPIENT WARNING
-            ================================================= */}
-
-            {!hasRecipient && (
-              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
-                <p className="text-[10px] leading-4 text-amber-700">
-                  No recipient
-                  has been
-                  selected yet.
-                  You can still
-                  create the{" "}
-                  {docType.toLowerCase()},
-                  but choose a
-                  contact or email
-                  before sending
-                  it.
-                </p>
-              </div>
-            )}
-
-            {/* =================================================
-                ACTIONS
-            ================================================= */}
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={
-                  onSubmit
-                }
-                disabled={
-                  !canSubmit
-                }
-                className="flex w-full items-center justify-center gap-3 rounded-full bg-[#a9b897] py-4 text-stone-900 transition hover:bg-stone-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {submitting ? (
-                  <Loader2
-                    size={
-                      15
-                    }
-                    className="animate-spin"
-                  />
-                ) : (
-                  <Check
-                    size={
-                      15
-                    }
-                  />
-                )}
-
-                <span className="text-[9px] font-black uppercase tracking-[0.25em]">
-                  {submitting
-                    ? "Creating..."
-                    : `Create ${docType}`}
-                </span>
-              </button>
-
-              {onSend && (
+                {/* More options */}
                 <button
                   type="button"
-                  onClick={
-                    onSend
-                  }
-                  disabled={
-                    submitting ||
-                    !hasRecipient ||
-                    !recipientEmailValid
-                  }
-                  className="flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={() => setAdvancedOpen((value) => !value)}
+                  className="mt-4 flex w-full items-center justify-between rounded-xl border border-stone-200 bg-[#faf9f6] px-4 py-3 text-left transition hover:bg-stone-50"
                 >
-                  <Send
-                    size={
-                      15
-                    }
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-stone-700">
+                      More options
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-stone-400">
+                      Project, recipient, payment terms, reminders, recurring & notes
+                    </p>
+                  </div>
+                  <ChevronDown
+                    size={16}
+                    className={`text-stone-400 transition ${advancedOpen ? "rotate-180" : ""}`}
                   />
+                </button>
 
-                  <span className="text-[9px] font-black uppercase tracking-[0.25em]">
-                    Create &
-                    Send
+                <AnimatePresence initial={false}>
+                  {advancedOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-4 grid gap-4 rounded-2xl border border-stone-100 bg-[#faf9f6] p-4 sm:grid-cols-2">
+                        <div>
+                          <label className={labelClass}>Project</label>
+                          <select
+                            value={formData.projectId}
+                            onChange={(event) => updateForm({ projectId: event.target.value })}
+                            disabled={!formData.customerId}
+                            className={inputClass}
+                          >
+                            <option value="">No project</option>
+                            {availableProjects.map((project) => (
+                              <option key={project.id} value={project.id}>
+                                {project.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className={labelClass}>Invoice / quote number</label>
+                          <input
+                            value={formData.invoiceNumber ?? ""}
+                            onChange={(event) =>
+                              updateForm({ invoiceNumber: event.target.value })
+                            }
+                            placeholder="Generated automatically"
+                            className={inputClass}
+                          />
+                        </div>
+
+                        <div>
+                          <label className={labelClass}>Send to contact</label>
+                          <select
+                            value={formData.sendToContactId ?? ""}
+                            onChange={(event) => {
+                              const id = event.target.value;
+                              const contact = availableContacts.find((item) => item.id === id);
+                              updateForm({
+                                sendToContactId: id,
+                                sendToEmail: contact?.email || formData.sendToEmail || "",
+                              });
+                            }}
+                            className={inputClass}
+                          >
+                            <option value="">Customer / email below</option>
+                            {availableContacts.map((contact) => (
+                              <option key={contact.id} value={contact.id}>
+                                {contact.name}{contact.email ? ` — ${contact.email}` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className={labelClass}>Recipient email</label>
+                          <input
+                            type="email"
+                            value={formData.sendToEmail ?? ""}
+                            onChange={(event) => updateForm({ sendToEmail: event.target.value })}
+                            placeholder="client@example.com"
+                            className={inputClass}
+                          />
+                          {formData.sendToEmail && !recipientEmailValid && (
+                            <p className="mt-1 text-[10px] text-red-500">
+                              Enter a valid email address.
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className={labelClass}>Assigned staff</label>
+                          <select
+                            value={formData.assignedStaffId ?? ""}
+                            onChange={(event) =>
+                              updateForm({ assignedStaffId: event.target.value })
+                            }
+                            className={inputClass}
+                          >
+                            <option value="">Unassigned</option>
+                            {staffMembers.map((staff) => (
+                              <option key={staff.id} value={staff.id}>
+                                {staff.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className={labelClass}>Payment method</label>
+                          <select
+                            value={formData.paymentMethod ?? ""}
+                            onChange={(event) =>
+                              updateForm({
+                                paymentMethod: event.target.value as PaymentMethod | "",
+                              })
+                            }
+                            className={inputClass}
+                          >
+                            <option value="">No preference</option>
+                            <option value="card">Card / online payment</option>
+                            <option value="bank_transfer">Bank transfer</option>
+                            <option value="direct_debit">Direct debit</option>
+                            <option value="cash">Cash</option>
+                            <option value="paypal">PayPal</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className={labelClass}>Payment instructions</label>
+                          <textarea
+                            rows={2}
+                            value={formData.paymentInstructions ?? ""}
+                            onChange={(event) =>
+                              updateForm({ paymentInstructions: event.target.value })
+                            }
+                            placeholder="Optional payment instructions..."
+                            className={inputClass}
+                          />
+                        </div>
+
+                        {docType === "Invoice" && (
+                          <>
+                            <div className="sm:col-span-2 flex items-center justify-between rounded-xl bg-white p-4">
+                              <div>
+                                <p className="text-[10px] font-bold text-stone-700">
+                                  Repeat this invoice
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-stone-400">
+                                  For retainers, subscriptions and recurring services.
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={Boolean(formData.repeatInvoice)}
+                                onClick={() =>
+                                  updateForm({ repeatInvoice: !formData.repeatInvoice })
+                                }
+                                className={`relative h-6 w-11 rounded-full transition ${
+                                  formData.repeatInvoice ? "bg-[#a9b897]" : "bg-stone-200"
+                                }`}
+                              >
+                                <span
+                                  className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${
+                                    formData.repeatInvoice ? "left-6" : "left-1"
+                                  }`}
+                                />
+                              </button>
+                            </div>
+
+                            {formData.repeatInvoice && (
+                              <>
+                                <div>
+                                  <label className={labelClass}>Frequency</label>
+                                  <select
+                                    value={formData.repeatFrequency ?? ""}
+                                    onChange={(event) =>
+                                      updateForm({
+                                        repeatFrequency: event.target.value as RepeatFrequency,
+                                      })
+                                    }
+                                    className={inputClass}
+                                  >
+                                    <option value="">Choose...</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="fortnightly">Fortnightly</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="quarterly">Quarterly</option>
+                                    <option value="yearly">Yearly</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className={labelClass}>Start date</label>
+                                  <input
+                                    type="date"
+                                    value={formData.repeatStartDate ?? ""}
+                                    onChange={(event) =>
+                                      updateForm({ repeatStartDate: event.target.value })
+                                    }
+                                    className={inputClass}
+                                  />
+                                </div>
+                                <div className="sm:col-span-2">
+                                  <label className={labelClass}>End date (optional)</label>
+                                  <input
+                                    type="date"
+                                    value={formData.repeatEndDate ?? ""}
+                                    onChange={(event) =>
+                                      updateForm({ repeatEndDate: event.target.value })
+                                    }
+                                    className={inputClass}
+                                  />
+                                </div>
+                              </>
+                            )}
+
+                            <div className="sm:col-span-2 flex items-center justify-between rounded-xl bg-white p-4">
+                              <div>
+                                <p className="text-[10px] font-bold text-stone-700">
+                                  Payment reminders
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-stone-400">
+                                  Keep reminder settings with this invoice.
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={Boolean(formData.remindersEnabled)}
+                                onClick={() =>
+                                  updateForm({ remindersEnabled: !formData.remindersEnabled })
+                                }
+                                className={`relative h-6 w-11 rounded-full transition ${
+                                  formData.remindersEnabled ? "bg-[#a9b897]" : "bg-stone-200"
+                                }`}
+                              >
+                                <span
+                                  className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${
+                                    formData.remindersEnabled ? "left-6" : "left-1"
+                                  }`}
+                                />
+                              </button>
+                            </div>
+
+                            {formData.remindersEnabled && (
+                              <>
+                                <div>
+                                  <label className={labelClass}>Days before due</label>
+                                  <input
+                                    inputMode="numeric"
+                                    value={formData.reminderDaysBefore ?? "3"}
+                                    onChange={(event) => {
+                                      if (/^\d*$/.test(event.target.value)) {
+                                        updateForm({ reminderDaysBefore: event.target.value });
+                                      }
+                                    }}
+                                    className={inputClass}
+                                  />
+                                </div>
+                                <div>
+                                  <label className={labelClass}>Days after due</label>
+                                  <input
+                                    inputMode="numeric"
+                                    value={formData.reminderDaysAfter ?? "1"}
+                                    onChange={(event) => {
+                                      if (/^\d*$/.test(event.target.value)) {
+                                        updateForm({ reminderDaysAfter: event.target.value });
+                                      }
+                                    }}
+                                    className={inputClass}
+                                  />
+                                </div>
+                              </>
+                            )}
+                          </>
+                        )}
+
+                        <div>
+                          <label className={labelClass}>Terms</label>
+                          <textarea
+                            rows={3}
+                            value={formData.terms ?? ""}
+                            onChange={(event) => updateForm({ terms: event.target.value })}
+                            placeholder="Payment terms shown to the customer..."
+                            className={inputClass}
+                          />
+                        </div>
+
+                        <div>
+                          <label className={labelClass}>Notes</label>
+                          <textarea
+                            rows={3}
+                            value={formData.notes ?? ""}
+                            onChange={(event) => updateForm({ notes: event.target.value })}
+                            placeholder="Additional notes..."
+                            className={inputClass}
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {!hasRecipient && (
+                  <p className="mt-3 text-[10px] text-amber-600">
+                    You can save this {docType.toLowerCase()} now. Add an email under
+                    More options before sending it.
+                  </p>
+                )}
+              </section>
+            </div>
+
+            {/* Sticky actions */}
+            <div className="shrink-0 border-t border-stone-200 bg-white px-5 py-4 sm:px-7">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={onSubmit}
+                  disabled={!canSubmit}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-[#a9b897] py-3.5 text-stone-900 transition hover:bg-[#9aaa87] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {submitting ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <Check size={15} />
+                  )}
+                  <span className="text-[9px] font-black uppercase tracking-[0.22em]">
+                    {submitting ? "Saving..." : `Save ${docType}`}
                   </span>
                 </button>
-              )}
+
+                {onSend && (
+                  <button
+                    type="button"
+                    onClick={onSend}
+                    disabled={
+                      submitting ||
+                      !canSubmit ||
+                      !hasRecipient ||
+                      !recipientEmailValid
+                    }
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-stone-900 py-3.5 text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Send size={15} />
+                    <span className="text-[9px] font-black uppercase tracking-[0.22em]">
+                      Create & Send
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
-  );
-}
-
-// ============================================================
-// SMALL COMPONENTS
-// ============================================================
-
-const inputClass =
-  "w-full rounded-xl border border-stone-100 bg-[#faf9f6] px-4 py-3 text-sm text-stone-800 outline-none transition placeholder:text-stone-300 focus:border-stone-900 focus:bg-white disabled:cursor-not-allowed disabled:opacity-50";
-
-function Field({
-  children,
-  className = "",
-}: {
-  children:
-    React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={
-        className
-      }
-    >
-      {children}
-    </div>
-  );
-}
-
-function FieldLabel({
-  children,
-}: {
-  children:
-    React.ReactNode;
-}) {
-  return (
-    <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.22em] text-stone-400">
-      {children}
-    </label>
-  );
-}
-
-function SectionHeading({
-  icon,
-  title,
-  description,
-  compact = false,
-}: {
-  icon:
-    React.ReactNode;
-  title: string;
-  description:
-    string;
-  compact?: boolean;
-}) {
-  return (
-    <div
-      className={
-        compact
-          ? ""
-          : "mb-4"
-      }
-    >
-      <div className="flex items-center gap-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#a9b897]/15 text-[#829473]">
-          {icon}
-        </span>
-
-        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-stone-700">
-          {title}
-        </p>
-      </div>
-
-      <p className="ml-9 mt-1 text-[10px] leading-4 text-stone-400">
-        {description}
-      </p>
-    </div>
   );
 }

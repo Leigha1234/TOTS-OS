@@ -36,6 +36,10 @@ import {
   Link2,
   Power,
   PowerOff,
+  Sparkles,
+  WandSparkles,
+  ClipboardCopy,
+  Megaphone,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
@@ -164,6 +168,23 @@ type ProductDraft = {
   track_inventory: boolean;
   featured: boolean;
   is_active: boolean;
+};
+
+
+type AiCopy = {
+  title: string;
+  short_description: string;
+  description: string;
+  seo_title: string;
+  meta_description: string;
+  alt_text: string;
+  category: string;
+  tags: string[];
+  instagram: string;
+  facebook: string;
+  tiktok: string;
+  email_subject: string;
+  email_body: string;
 };
 
 type Tab =
@@ -442,6 +463,18 @@ export default function StoreDashboardPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [draft, setDraft] = useState<ProductDraft>(blankProduct);
   const [savingProduct, setSavingProduct] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiCopy, setAiCopy] = useState<AiCopy | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiTone, setAiTone] = useState("friendly");
+  const [aiAudience, setAiAudience] = useState("");
+  const [aiFacts, setAiFacts] = useState("");
+  const [aiBrandVoice, setAiBrandVoice] = useState("");
+  const [aiBulkBusy, setAiBulkBusy] = useState(false);
+  const [aiBulkProgress, setAiBulkProgress] = useState("");
+  const [aiSelected, setAiSelected] = useState<string[]>([]);
+
 
   const resolveOrganisationId = useCallback(async () => {
     // 1. Prefer an already-selected organisation stored by TOTS-OS.
@@ -716,14 +749,144 @@ export default function StoreDashboardPage() {
     );
   }, [subscriptions, search]);
 
+
+  async function requestAi(product: ProductDraft, tone = aiTone, facts = aiFacts) {
+    if (!organisation) throw new Error("Select an organisation first.");
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error("Please sign in again.");
+    const response = await fetch("/api/store/ai", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        organisation_id: organisation.id,
+        product,
+        tone,
+        audience: aiAudience,
+        brand_voice: aiBrandVoice,
+        additional_facts: facts,
+      }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "AI generation failed.");
+    return result.copy as AiCopy;
+  }
+
+  async function generateAi() {
+    setAiBusy(true);
+    setAiError(null);
+    try {
+      const result = await requestAi(draft);
+      setAiCopy(result);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "AI generation failed.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  async function saveAiCopy(productId: string, copy: AiCopy) {
+    if (!organisation) return;
+    const { error: upsertError } = await supabase
+      .from("store_product_ai_content")
+      .upsert({
+        organisation_id: organisation.id,
+        product_id: productId,
+        content: copy,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "product_id" });
+    if (upsertError) throw upsertError;
+  }
+
+  async function openProductAi(product?: Product) {
+    setAiError(null);
+    setAiCopy(null);
+    setAiOpen(true);
+    if (!product) return;
+    try {
+      const { data, error: readError } = await supabase
+        .from("store_product_ai_content")
+        .select("content")
+        .eq("product_id", product.id)
+        .maybeSingle();
+      if (readError) throw readError;
+      if (data?.content) setAiCopy(data.content as AiCopy);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Could not load saved AI copy.");
+    }
+  }
+
+  async function saveCurrentAi() {
+    if (!editingProduct || !aiCopy) return;
+    setAiBusy(true);
+    setAiError(null);
+    try {
+      await saveAiCopy(editingProduct.id, aiCopy);
+      setAiOpen(false);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Could not save AI content.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  async function generateMissingDescriptions() {
+    if (!organisation || aiSelected.length === 0) return;
+    setAiBulkBusy(true);
+    setAiBulkProgress("");
+    let success = 0;
+    let failed = 0;
+    try {
+      for (const [index, id] of aiSelected.entries()) {
+        const product = products.find((item) => item.id === id);
+        if (!product) continue;
+        setAiBulkProgress(`Generating ${index + 1} of ${aiSelected.length}: ${product.name}`);
+        try {
+          const copy = await requestAi({
+            ...blankProduct,
+            name: product.name,
+            description: product.description || "",
+            category: product.category || "",
+            price: String(product.price),
+            image_url: product.image_url || "",
+            selling_model: product.selling_model || "physical",
+          });
+          await saveAiCopy(id, copy);
+          // Only fill an empty description; never overwrite existing copy.
+          if (!product.description?.trim()) {
+            const { error: updateError } = await supabase
+              .from("store_products")
+              .update({ description: copy.description })
+              .eq("id", id)
+              .eq("organisation_id", organisation.id);
+            if (updateError) throw updateError;
+          }
+          success++;
+        } catch (e) {
+          console.error("Bulk AI product failed", id, e);
+          failed++;
+        }
+      }
+      setAiBulkProgress(`Finished: ${success} generated, ${failed} failed.`);
+      setAiSelected([]);
+      await loadStore(true);
+    } finally {
+      setAiBulkBusy(false);
+    }
+  }
+
   function openNewProduct() {
     setEditingProduct(null);
+    setAiCopy(null);
     setDraft(blankProduct);
     setProductModalOpen(true);
   }
 
   function openEditProduct(product: Product) {
     setEditingProduct(product);
+    setAiCopy(null);
 
     setDraft({
       name: product.name ?? "",
@@ -821,15 +984,19 @@ export default function StoreDashboardPage() {
           .eq("organisation_id", organisation.id);
 
         if (updateError) throw updateError;
+        if (aiCopy) await saveAiCopy(editingProduct.id, aiCopy);
       } else {
-        const { error: insertError } = await supabase
+        const { data: inserted, error: insertError } = await supabase
           .from("store_products")
           .insert({
             ...payload,
             created_at: new Date().toISOString(),
-          });
+          })
+          .select("id")
+          .single();
 
         if (insertError) throw insertError;
+        if (inserted && aiCopy) await saveAiCopy(inserted.id, aiCopy);
       }
 
       setProductModalOpen(false);
@@ -1509,6 +1676,15 @@ export default function StoreDashboardPage() {
                 onChange={setSearch}
                 placeholder="Search products..."
               />
+              <button
+                type="button"
+                onClick={() => void generateMissingDescriptions()}
+                disabled={aiBulkBusy || aiSelected.length === 0}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#cbd8bf] bg-[#edf2e8] px-4 text-xs font-bold text-[#526744] disabled:opacity-40"
+              >
+                {aiBulkBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                AI bulk ({aiSelected.length})
+              </button>
 
               <button
                 type="button"
@@ -1520,11 +1696,17 @@ export default function StoreDashboardPage() {
               </button>
             </SectionHeader>
 
+            {aiBulkProgress && (
+              <p className="border-b border-stone-100 px-6 py-3 text-xs text-stone-600" role="status">{aiBulkProgress}</p>
+            )}
             {filteredProducts.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[900px]">
                   <thead className="border-b border-stone-100 bg-stone-50/80">
                     <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">
+                      <th className="pl-6 py-4">
+                        <input type="checkbox" aria-label="Select visible products" checked={filteredProducts.length > 0 && filteredProducts.every((p) => aiSelected.includes(p.id))} onChange={(e) => setAiSelected(e.target.checked ? filteredProducts.map((p) => p.id) : [])} />
+                      </th>
                       <th className="px-6 py-4">Product</th>
                       <th className="px-4 py-4">Category</th>
                       <th className="px-4 py-4">Price</th>
@@ -1541,6 +1723,7 @@ export default function StoreDashboardPage() {
                         key={product.id}
                         className="transition hover:bg-stone-50/60"
                       >
+                        <td className="pl-6 py-4"><input type="checkbox" aria-label={`Select ${product.name}`} checked={aiSelected.includes(product.id)} onChange={(e) => setAiSelected((current) => e.target.checked ? [...new Set([...current, product.id])] : current.filter((id) => id !== product.id))} /></td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <ProductImage product={product} />
@@ -2471,6 +2654,70 @@ export default function StoreDashboardPage() {
         </div>
       )}
 
+
+      {aiOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-stone-950/60 p-3 backdrop-blur-sm sm:p-5">
+          <div className="flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] bg-[#faf9f6] shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-stone-200 bg-white px-5 py-5 sm:px-7">
+              <div>
+                <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#7b9568]"><Sparkles className="h-4 w-4" /> Clarity AI · Store</p>
+                <h2 className="mt-1 text-2xl font-semibold text-stone-900">AI Product Assistant</h2>
+                <p className="mt-1 text-xs text-stone-500">Generate product copy, SEO, image alt text and marketing captions. Nothing is published automatically.</p>
+              </div>
+              <button type="button" onClick={() => setAiOpen(false)} className="rounded-xl p-2 hover:bg-stone-100" aria-label="Close AI assistant"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="overflow-y-auto p-5 sm:p-7">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Tone"><select className={inputClass} value={aiTone} onChange={(e) => setAiTone(e.target.value)}>
+                  <option value="friendly">Friendly</option><option value="professional">Professional</option><option value="luxury">Luxury</option><option value="playful">Playful</option><option value="bold">Bold</option><option value="minimal">Minimal</option>
+                </select></Field>
+                <Field label="Target audience"><input className={inputClass} value={aiAudience} onChange={(e) => setAiAudience(e.target.value)} placeholder="e.g. Busy parents, gym members" /></Field>
+                <Field label="Brand voice" className="sm:col-span-2"><input className={inputClass} value={aiBrandVoice} onChange={(e) => setAiBrandVoice(e.target.value)} placeholder="e.g. Down-to-earth, Scottish, never pushy" /></Field>
+                <Field label="Extra product facts (AI must not invent details)" className="sm:col-span-2"><textarea className={`${inputClass} h-auto min-h-20 py-3`} value={aiFacts} onChange={(e) => setAiFacts(e.target.value)} placeholder="Materials, sizes, benefits, what's included, delivery info..." /></Field>
+              </div>
+              <button type="button" disabled={aiBusy || !draft.name.trim()} onClick={() => void generateAi()} className="mt-4 inline-flex h-11 items-center gap-2 rounded-xl bg-stone-900 px-5 text-sm font-bold text-white disabled:opacity-40">
+                {aiBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
+                {aiBusy ? "Generating..." : aiCopy ? "Regenerate all copy" : "Generate product content"}
+              </button>
+              {!draft.name.trim() && <p className="mt-2 text-xs text-amber-700">Enter the product name first, then open Clarity AI.</p>}
+              {aiError && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700" role="alert">{aiError}</p>}
+              {aiCopy && (
+                <div className="mt-6 space-y-5">
+                  <div className="rounded-2xl border border-stone-200 bg-white p-5">
+                    <h3 className="mb-4 text-sm font-bold text-stone-900">Product listing</h3>
+                    <AiTextEditor label="Product title" value={aiCopy.title} onChange={(value) => setAiCopy({ ...aiCopy, title: value })} onUse={() => setDraft((p) => ({ ...p, name: aiCopy.title }))} />
+                    <AiTextEditor label="Short description" value={aiCopy.short_description} onChange={(value) => setAiCopy({ ...aiCopy, short_description: value })} />
+                    <AiTextEditor label="Full description" value={aiCopy.description} onChange={(value) => setAiCopy({ ...aiCopy, description: value })} onUse={() => setDraft((p) => ({ ...p, description: aiCopy.description }))} />
+                    <AiTextEditor label="Suggested category" value={aiCopy.category} onChange={(value) => setAiCopy({ ...aiCopy, category: value })} onUse={() => setDraft((p) => ({ ...p, category: aiCopy.category }))} />
+                    <AiTextEditor label="Tags" value={aiCopy.tags.join(", ")} onChange={(value) => setAiCopy({ ...aiCopy, tags: value.split(",").map((v) => v.trim()).filter(Boolean) })} />
+                  </div>
+                  <div className="rounded-2xl border border-stone-200 bg-white p-5">
+                    <h3 className="mb-4 text-sm font-bold text-stone-900">SEO & accessibility</h3>
+                    <AiTextEditor label="SEO title" value={aiCopy.seo_title} onChange={(value) => setAiCopy({ ...aiCopy, seo_title: value })} />
+                    <AiTextEditor label="Meta description" value={aiCopy.meta_description} onChange={(value) => setAiCopy({ ...aiCopy, meta_description: value })} />
+                    <AiTextEditor label="Image alt text" value={aiCopy.alt_text} onChange={(value) => setAiCopy({ ...aiCopy, alt_text: value })} />
+                    <p className="text-xs text-stone-400">Review alt text against the actual product image before using it.</p>
+                  </div>
+                  <div className="rounded-2xl border border-stone-200 bg-white p-5">
+                    <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-stone-900"><Megaphone className="h-4 w-4" /> Promote with AI</h3>
+                    <AiTextEditor label="Instagram caption" value={aiCopy.instagram} onChange={(value) => setAiCopy({ ...aiCopy, instagram: value })} />
+                    <AiTextEditor label="Facebook caption" value={aiCopy.facebook} onChange={(value) => setAiCopy({ ...aiCopy, facebook: value })} />
+                    <AiTextEditor label="TikTok caption" value={aiCopy.tiktok} onChange={(value) => setAiCopy({ ...aiCopy, tiktok: value })} />
+                    <AiTextEditor label="Email subject" value={aiCopy.email_subject} onChange={(value) => setAiCopy({ ...aiCopy, email_subject: value })} />
+                    <AiTextEditor label="Email launch copy" value={aiCopy.email_body} onChange={(value) => setAiCopy({ ...aiCopy, email_body: value })} />
+                    <p className="text-xs text-stone-400">Copy captions into Social Studio or email campaigns. Direct scheduling integration is not enabled in this version.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-stone-200 bg-white px-5 py-4 sm:px-7">
+              <button type="button" onClick={() => setAiOpen(false)} className="rounded-xl border border-stone-200 px-4 py-2.5 text-sm font-semibold">Close</button>
+              {editingProduct && aiCopy && <button type="button" disabled={aiBusy} onClick={() => void saveCurrentAi()} className="rounded-xl bg-[#a9b897] px-4 py-2.5 text-sm font-bold text-stone-900 disabled:opacity-50">Save AI content</button>}
+            </div>
+          </div>
+        </div>
+      )}
+
       {productModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-2xl">
@@ -2483,6 +2730,13 @@ export default function StoreDashboardPage() {
                   {organisation.name}
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={() => void openProductAi(editingProduct ?? undefined)}
+                className="ml-auto mr-3 inline-flex items-center gap-2 rounded-xl bg-[#edf2e8] px-3 py-2 text-xs font-bold text-[#526744] hover:bg-[#dfe9d8]"
+              >
+                <Sparkles className="h-4 w-4" /> Clarity AI
+              </button>
 
               <button
                 type="button"
@@ -3111,3 +3365,32 @@ function ToggleCard({
     </button>
   );
 }
+
+function AiTextEditor({ label, value, onChange, onUse }: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  onUse?: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch { /* Clipboard may be unavailable. */ }
+  }
+  return (
+    <div className="mb-4 last:mb-0">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <label className="text-xs font-bold text-stone-600">{label}</label>
+        <div className="flex gap-2">
+          {onUse && <button type="button" onClick={onUse} className="rounded-lg bg-[#edf2e8] px-3 py-1.5 text-[11px] font-bold text-[#526744]">Use in product</button>}
+          <button type="button" onClick={() => void copy()} className="inline-flex items-center gap-1 rounded-lg border border-stone-200 px-3 py-1.5 text-[11px] font-bold text-stone-600"><ClipboardCopy className="h-3 w-3" />{copied ? "Copied" : "Copy"}</button>
+        </div>
+      </div>
+      <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={value.length > 150 ? 5 : 2} className="w-full resize-y rounded-xl border border-stone-200 bg-[#faf9f6] px-3 py-2.5 text-sm leading-6 text-stone-800 outline-none focus:border-stone-500" />
+    </div>
+  );
+}
+

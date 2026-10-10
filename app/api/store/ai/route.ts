@@ -56,13 +56,39 @@ export async function POST(request: NextRequest) {
       extra_facts: String(body.additional_facts || "").slice(0, 2500),
     };
 
-    const { data: org } = await supabase
-      .from("organisations")
-      .select("name")
-      .eq("id", organisationId)
-      .maybeSingle();
+    // Build brand context automatically. The user should not have to describe their
+    // own tone every time they add a product. These are deliberately best-effort:
+    // if an optional source is empty, Clarity simply uses the context that exists.
+    const [orgResult, settingsResult, productsResult] = await Promise.all([
+      supabase.from("organisations").select("*").eq("id", organisationId).maybeSingle(),
+      supabase.from("store_settings").select("*").eq("organisation_id", organisationId).maybeSingle(),
+      supabase.from("store_products").select("name, description, category").eq("organisation_id", organisationId).not("description", "is", null).order("updated_at", { ascending: false }).limit(8),
+    ]);
 
-    const instructions = `You are Clarity AI, a UK English ecommerce copywriter working for a small business. Produce helpful, natural, distinctive copy that fits the supplied brand. Do not invent materials, sizes, ingredients, sustainability claims, certifications, stock levels, guarantees, delivery times, product benefits, discounts, testimonials, or specifications. If information is missing, avoid claiming it. Do not assume a pictured product's appearance because you have not seen the image. Alt text must only describe verifiable facts from the provided text; otherwise leave it empty. Avoid misleading urgency, spammy hashtags, and unsupported claims. Respond ONLY with valid JSON, with exactly these keys: ${FIELDS.join(", ")}. tags must be an array of 3 to 8 short strings; every other key must be a string. SEO title <= 60 chars; meta description <= 155 chars; short_description <= 160 chars; social copy must be platform-appropriate, not repetitive. Never include markdown fences.`;
+    const org = (orgResult.data || {}) as Record<string, unknown>;
+    const settings = (settingsResult.data || {}) as Record<string, unknown>;
+    const existingProducts = Array.isArray(productsResult.data) ? productsResult.data : [];
+
+    // Only pass useful textual business context to the model; never dump secrets,
+    // billing identifiers or arbitrary database records into an AI request.
+    const pickText = (value: unknown, max = 1000) => typeof value === "string" ? value.trim().slice(0, max) : "";
+    const brandContext = {
+      business_name: pickText(org.name, 200) || "Business",
+      business_description: pickText(org.description || org.business_description || org.bio, 1200),
+      industry: pickText(org.industry || org.business_type || org.category, 200),
+      website: pickText(org.website || org.website_url, 300),
+      store_name: pickText(settings.store_name, 200),
+      store_description: pickText(settings.store_description, 1200),
+      storefront_heading: pickText(settings.hero_title, 300),
+      storefront_subheading: pickText(settings.hero_subtitle || settings.hero_description, 600),
+      existing_product_copy: existingProducts.map((item: Record<string, unknown>) => ({
+        name: pickText(item.name, 180),
+        category: pickText(item.category, 120),
+        description: pickText(item.description, 700),
+      })),
+    };
+
+    const instructions = `You are Clarity AI inside TOTS-OS. Act like the business already knows you: infer its established tone, vocabulary, level of formality and selling style from the supplied organisation, storefront and existing product context. The user must not have to choose a tone or describe their audience repeatedly. Match the existing brand naturally; if context is sparse, use clear, warm UK English and avoid generic AI-sounding hype. Produce helpful, natural, distinctive ecommerce copy that fits the supplied brand. Do not invent materials, sizes, ingredients, sustainability claims, certifications, stock levels, guarantees, delivery times, product benefits, discounts, testimonials, or specifications. If information is missing, avoid claiming it. Do not assume a pictured product's appearance because you have not seen the image. Alt text must only describe verifiable facts from the provided text; otherwise leave it empty. Avoid misleading urgency, spammy hashtags, and unsupported claims. Respond ONLY with valid JSON, with exactly these keys: ${FIELDS.join(", ")}. tags must be an array of 3 to 8 short strings; every other key must be a string. SEO title <= 60 chars; meta description <= 155 chars; short_description <= 160 chars; social copy must be platform-appropriate, not repetitive. Never include markdown fences.`;
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -74,10 +100,7 @@ export async function POST(request: NextRequest) {
         model: process.env.STORE_AI_MODEL || "gpt-6-luna",
         instructions,
         input: JSON.stringify({
-          business_name: org?.name || "Business",
-          tone: String(body.tone || "friendly").slice(0, 50),
-          audience: String(body.audience || "").slice(0, 400),
-          brand_voice: String(body.brand_voice || "").slice(0, 800),
+          brand_context: brandContext,
           product: productFacts,
         }),
         max_output_tokens: 1800,

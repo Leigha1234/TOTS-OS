@@ -103,6 +103,18 @@ type Product = {
   updated_at?: string | null;
 };
 
+type StoreOrderItem = {
+  id?: string;
+  order_id?: string | null;
+  product_id?: string | null;
+  product_name?: string | null;
+  name?: string | null;
+  title?: string | null;
+  description?: string | null;
+  quantity?: number | null;
+  [key: string]: unknown;
+};
+
 type StoreOrder = {
   id: string;
   organisation_id: string;
@@ -496,6 +508,7 @@ export default function StoreDashboardPage() {
   const [organisation, setOrganisation] = useState<Organisation | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<StoreOrder[]>([]);
+  const [orderItems, setOrderItems] = useState<StoreOrderItem[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [discountModalOpen, setDiscountModalOpen] = useState(false);
@@ -685,6 +698,23 @@ export default function StoreDashboardPage() {
         setOrganisation(organisationResult.data as Organisation);
         setProducts((productsResult.data ?? []) as Product[]);
         setOrders((ordersResult.data ?? []) as StoreOrder[]);
+
+        // Order items are scoped to the organisation's fetched orders.
+        // Keep the orders view usable if an older database has no items table.
+        const orderIds = (ordersResult.data ?? []).map((order) => order.id);
+        const fetchedItems: StoreOrderItem[] = [];
+        for (let offset = 0; offset < orderIds.length; offset += 100) {
+          const { data: itemsData, error: itemsError } = await supabase
+            .from("store_order_items")
+            .select("*")
+            .in("order_id", orderIds.slice(offset, offset + 100));
+          if (itemsError) {
+            console.warn("[store] Could not load order item details:", itemsError.message);
+            break;
+          }
+          fetchedItems.push(...((itemsData ?? []) as StoreOrderItem[]));
+        }
+        setOrderItems(fetchedItems);
         setSubscriptions((subscriptionsResult.data ?? []) as Subscription[]);
         setDiscounts((discountsResult.data ?? []) as Discount[]);
         setQrCodes((qrCodesResult.data ?? []) as StoreQrCode[]);
@@ -794,6 +824,25 @@ export default function StoreDashboardPage() {
     );
   }, [products, search, productFilter, runClubProducts]);
 
+  const orderItemLabels = useMemo(() => {
+    const productNames = new Map(products.map((product) => [product.id, product.name]));
+    const labels = new Map<string, string[]>();
+    for (const item of orderItems) {
+      if (!item.order_id) continue;
+      const name =
+        item.product_name?.trim() ||
+        item.name?.trim() ||
+        item.title?.trim() ||
+        (item.product_id ? productNames.get(item.product_id) : undefined) ||
+        item.description?.trim() ||
+        "Product details unavailable";
+      const qty = Number(item.quantity ?? 1);
+      const label = qty > 1 ? `${name} × ${qty}` : name;
+      labels.set(item.order_id, [...(labels.get(item.order_id) ?? []), label]);
+    }
+    return labels;
+  }, [orderItems, products]);
+
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return orders;
@@ -802,9 +851,10 @@ export default function StoreDashboardPage() {
       (order) =>
         order.order_number?.toLowerCase().includes(query) ||
         order.customer_name?.toLowerCase().includes(query) ||
-        order.customer_email?.toLowerCase().includes(query),
+        order.customer_email?.toLowerCase().includes(query) ||
+        (orderItemLabels.get(order.id) ?? []).some((name) => name.toLowerCase().includes(query)),
     );
-  }, [orders, search]);
+  }, [orders, search, orderItemLabels]);
 
   const filteredSubscriptions = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -2093,6 +2143,7 @@ export default function StoreDashboardPage() {
                     <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">
                       <th className="px-6 py-4">Order</th>
                       <th className="px-4 py-4">Customer</th>
+                      <th className="px-4 py-4">Items purchased</th>
                       <th className="px-4 py-4">Total</th>
                       <th className="px-4 py-4">Payment</th>
                       <th className="px-4 py-4">Fulfilment</th>
@@ -2118,6 +2169,19 @@ export default function StoreDashboardPage() {
                           </p>
                         </td>
 
+                        <td className="px-4 py-4">
+                          {(orderItemLabels.get(order.id) ?? []).length ? (
+                            <div className="space-y-1">
+                              {orderItemLabels.get(order.id)!.map((label, index) => (
+                                <p key={`${order.id}-item-${index}`} className="text-sm font-medium text-stone-800">
+                                  {label}
+                                </p>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-stone-400">Item details unavailable</span>
+                          )}
+                        </td>
                         <td className="px-4 py-4 font-semibold text-stone-900">
                           {formatMoney(order.total, order.currency || "GBP")}
                         </td>

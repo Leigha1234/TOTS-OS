@@ -86,6 +86,19 @@ type Product = {
   sort_order?: number | null;
   selling_model?: string | null;
   purchase_type?: string | null;
+  billing_interval?: string | null;
+  beneficiary_mode?: string | null;
+  product_type?: string | null;
+  family_addon_eligible?: boolean | null;
+  family_addon_discount?: number | string | null;
+  family_addon_requires_couples?: boolean | null;
+  unlimited?: boolean | null;
+  weekly_limit?: number | null;
+  monthly_limit?: number | null;
+  stripe_product_id?: string | null;
+  stripe_price_id?: string | null;
+  external_system?: string | null;
+  external_plan_code?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -189,6 +202,17 @@ type ProductDraft = {
   image_url: string;
   selling_model: string;
   purchase_type: string;
+  billing_interval: string;
+  beneficiary_mode: string;
+  product_type: string;
+  family_addon_eligible: boolean;
+  family_addon_discount: string;
+  family_addon_requires_couples: boolean;
+  unlimited: boolean;
+  weekly_limit: string;
+  monthly_limit: string;
+  external_system: string;
+  external_plan_code: string;
   track_inventory: boolean;
   featured: boolean;
   is_active: boolean;
@@ -315,6 +339,17 @@ const blankProduct: ProductDraft = {
   image_url: "",
   selling_model: "physical",
   purchase_type: "one_off",
+  billing_interval: "",
+  beneficiary_mode: "none",
+  product_type: "product",
+  family_addon_eligible: false,
+  family_addon_discount: "0",
+  family_addon_requires_couples: false,
+  unlimited: false,
+  weekly_limit: "",
+  monthly_limit: "",
+  external_system: "",
+  external_plan_code: "",
   track_inventory: true,
   featured: false,
   is_active: true,
@@ -938,6 +973,28 @@ export default function StoreDashboardPage() {
       image_url: product.image_url ?? "",
       selling_model: product.selling_model ?? "physical",
       purchase_type: product.purchase_type ?? "one_off",
+      billing_interval: product.billing_interval ?? "",
+      beneficiary_mode: product.beneficiary_mode ?? "none",
+      product_type: product.product_type ?? "product",
+      family_addon_eligible: product.family_addon_eligible ?? false,
+      family_addon_discount:
+        product.family_addon_discount !== null &&
+        product.family_addon_discount !== undefined
+          ? String(product.family_addon_discount)
+          : "0",
+      family_addon_requires_couples:
+        product.family_addon_requires_couples ?? false,
+      unlimited: product.unlimited ?? false,
+      weekly_limit:
+        product.weekly_limit !== null && product.weekly_limit !== undefined
+          ? String(product.weekly_limit)
+          : "",
+      monthly_limit:
+        product.monthly_limit !== null && product.monthly_limit !== undefined
+          ? String(product.monthly_limit)
+          : "",
+      external_system: product.external_system ?? "",
+      external_plan_code: product.external_plan_code ?? "",
       track_inventory: product.track_inventory ?? true,
       featured: product.featured ?? false,
       is_active: product.is_active ?? true,
@@ -1022,6 +1079,31 @@ export default function StoreDashboardPage() {
         is_active: draft.is_active,
         selling_model: draft.selling_model,
         purchase_type: draft.purchase_type,
+        billing_interval:
+          draft.purchase_type === "one_off"
+            ? null
+            : draft.billing_interval || null,
+        beneficiary_mode: draft.beneficiary_mode || "none",
+        product_type: draft.product_type || "product",
+        family_addon_eligible: draft.family_addon_eligible,
+        family_addon_discount: draft.family_addon_eligible
+          ? Number(draft.family_addon_discount || "0")
+          : 0,
+        family_addon_requires_couples:
+          draft.family_addon_eligible &&
+          draft.family_addon_requires_couples,
+        unlimited:
+          draft.purchase_type === "one_off" ? false : draft.unlimited,
+        weekly_limit:
+          draft.purchase_type === "one_off" || draft.unlimited || !draft.weekly_limit
+            ? null
+            : Number(draft.weekly_limit),
+        monthly_limit:
+          draft.purchase_type === "one_off" || draft.unlimited || !draft.monthly_limit
+            ? null
+            : Number(draft.monthly_limit),
+        external_system: draft.external_system.trim() || null,
+        external_plan_code: draft.external_plan_code.trim() || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -2931,7 +3013,225 @@ export default function StoreDashboardPage() {
                     <Field label="Compare at price"><div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">£</span><input type="number" min="0" step="0.01" value={draft.compare_at_price} onChange={(event) => setDraft((current) => ({ ...current, compare_at_price: event.target.value }))} className={`${inputClass} pl-8`} placeholder="Optional" /></div></Field>
                     <Field label="Cost price"><div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">£</span><input type="number" min="0" step="0.01" value={draft.cost_price} onChange={(event) => setDraft((current) => ({ ...current, cost_price: event.target.value }))} className={`${inputClass} pl-8`} placeholder="Optional" /></div></Field>
                     <Field label="Selling model"><select value={draft.selling_model} onChange={(event) => setDraft((current) => ({ ...current, selling_model: event.target.value }))} className={inputClass}><option value="physical">Physical product</option><option value="digital_download">Digital download</option><option value="digital_delivery">Digital delivery</option><option value="collect">Collection</option><option value="customisable">Customisable</option><option value="request_to_order">Request to order</option><option value="service">Service</option></select></Field>
-                    <Field label="Purchase type"><select value={draft.purchase_type} onChange={(event) => setDraft((current) => ({ ...current, purchase_type: event.target.value }))} className={inputClass}><option value="one_off">One-off</option><option value="subscription">Subscription</option><option value="membership">Membership</option></select></Field>
+                    <Field label="Purchase type">
+                      <select
+                        value={draft.purchase_type}
+                        onChange={(event) =>
+                          setDraft((current) => {
+                            const purchase_type = event.target.value;
+                            return {
+                              ...current,
+                              purchase_type,
+                              billing_interval:
+                                purchase_type === "one_off"
+                                  ? ""
+                                  : current.billing_interval || "month",
+                              unlimited:
+                                purchase_type === "one_off" ? false : current.unlimited,
+                              weekly_limit:
+                                purchase_type === "one_off" ? "" : current.weekly_limit,
+                              monthly_limit:
+                                purchase_type === "one_off" ? "" : current.monthly_limit,
+                            };
+                          })
+                        }
+                        className={inputClass}
+                      >
+                        <option value="one_off">One-off</option>
+                        <option value="subscription">Subscription</option>
+                        <option value="membership">Membership</option>
+                      </select>
+                    </Field>
+
+                    <Field label="Product type">
+                      <select
+                        value={draft.product_type}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            product_type: event.target.value,
+                          }))
+                        }
+                        className={inputClass}
+                      >
+                        <option value="product">Product</option>
+                        <option value="course">Course</option>
+                        <option value="membership">Membership</option>
+                      </select>
+                    </Field>
+
+                    <Field label="Who is it for?">
+                      <select
+                        value={draft.beneficiary_mode}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            beneficiary_mode: event.target.value,
+                          }))
+                        }
+                        className={inputClass}
+                      >
+                        <option value="none">No beneficiary details needed</option>
+                        <option value="single_adult">Single adult</option>
+                        <option value="couple">Couple</option>
+                        <option value="child">Child</option>
+                        <option value="child_plus_adult">Child + adult</option>
+                      </select>
+                    </Field>
+
+                    {draft.purchase_type !== "one_off" && (
+                      <Field label="Billing interval">
+                        <select
+                          value={draft.billing_interval || "month"}
+                          onChange={(event) =>
+                            setDraft((current) => ({
+                              ...current,
+                              billing_interval: event.target.value,
+                            }))
+                          }
+                          className={inputClass}
+                        >
+                          <option value="week">Weekly</option>
+                          <option value="month">Monthly</option>
+                          <option value="year">Yearly</option>
+                        </select>
+                      </Field>
+                    )}
+
+                    {draft.purchase_type !== "one_off" && (
+                      <>
+                        <Field label="Weekly visit / booking limit">
+                          <input
+                            type="number"
+                            min="0"
+                            value={draft.weekly_limit}
+                            disabled={draft.unlimited}
+                            onChange={(event) =>
+                              setDraft((current) => ({
+                                ...current,
+                                weekly_limit: event.target.value,
+                              }))
+                            }
+                            className={inputClass}
+                            placeholder={draft.unlimited ? "Unlimited" : "Optional"}
+                          />
+                        </Field>
+
+                        <Field label="Monthly visit / booking limit">
+                          <input
+                            type="number"
+                            min="0"
+                            value={draft.monthly_limit}
+                            disabled={draft.unlimited}
+                            onChange={(event) =>
+                              setDraft((current) => ({
+                                ...current,
+                                monthly_limit: event.target.value,
+                              }))
+                            }
+                            className={inputClass}
+                            placeholder={draft.unlimited ? "Unlimited" : "Optional"}
+                          />
+                        </Field>
+
+                        <div className="md:col-span-2">
+                          <ToggleCard
+                            label="Unlimited"
+                            description="No weekly or monthly usage limit"
+                            checked={draft.unlimited}
+                            onChange={(value) =>
+                              setDraft((current) => ({
+                                ...current,
+                                unlimited: value,
+                                weekly_limit: value ? "" : current.weekly_limit,
+                                monthly_limit: value ? "" : current.monthly_limit,
+                              }))
+                            }
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <div className="md:col-span-2 grid gap-3 sm:grid-cols-2">
+                      <ToggleCard
+                        label="Family add-on eligible"
+                        description="Allow this product to use the family add-on rules"
+                        checked={draft.family_addon_eligible}
+                        onChange={(value) =>
+                          setDraft((current) => ({
+                            ...current,
+                            family_addon_eligible: value,
+                            family_addon_discount: value
+                              ? current.family_addon_discount
+                              : "0",
+                            family_addon_requires_couples: value
+                              ? current.family_addon_requires_couples
+                              : false,
+                          }))
+                        }
+                      />
+                      <ToggleCard
+                        label="Requires couples plan"
+                        description="Only apply family add-on when the base plan is a couple"
+                        checked={draft.family_addon_requires_couples}
+                        onChange={(value) =>
+                          setDraft((current) => ({
+                            ...current,
+                            family_addon_requires_couples: value,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    {draft.family_addon_eligible && (
+                      <Field label="Family add-on discount">
+                        <div className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">£</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={draft.family_addon_discount}
+                            onChange={(event) =>
+                              setDraft((current) => ({
+                                ...current,
+                                family_addon_discount: event.target.value,
+                              }))
+                            }
+                            className={`${inputClass} pl-8`}
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </Field>
+                    )}
+
+                    <Field label="External system">
+                      <input
+                        value={draft.external_system}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            external_system: event.target.value,
+                          }))
+                        }
+                        className={inputClass}
+                        placeholder="Optional"
+                      />
+                    </Field>
+
+                    <Field label="External plan code">
+                      <input
+                        value={draft.external_plan_code}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            external_plan_code: event.target.value,
+                          }))
+                        }
+                        className={inputClass}
+                        placeholder="Optional"
+                      />
+                    </Field>
                     <Field label="Inventory"><input type="number" min="0" value={draft.inventory_quantity} onChange={(event) => setDraft((current) => ({ ...current, inventory_quantity: event.target.value }))} className={inputClass} /></Field>
                     <Field label="Low stock warning"><input type="number" min="0" value={draft.low_stock_threshold} onChange={(event) => setDraft((current) => ({ ...current, low_stock_threshold: event.target.value }))} className={inputClass} /></Field>
                     <div className="grid gap-3 md:col-span-2 sm:grid-cols-3">
@@ -2939,6 +3239,27 @@ export default function StoreDashboardPage() {
                       <ToggleCard label="Featured" description="Highlight product" checked={draft.featured} onChange={(value) => setDraft((current) => ({ ...current, featured: value }))} />
                       <ToggleCard label="Track stock" description="Inventory enabled" checked={draft.track_inventory} onChange={(value) => setDraft((current) => ({ ...current, track_inventory: value }))} />
                     </div>
+                    {editingProduct && (editingProduct.stripe_product_id || editingProduct.stripe_price_id) && (
+                      <div className="md:col-span-2 rounded-2xl border border-stone-200 bg-white p-4">
+                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-stone-400">
+                          Stripe connection
+                        </p>
+                        <div className="mt-3 grid gap-3 md:grid-cols-2">
+                          <div>
+                            <p className="text-xs text-stone-400">Product ID</p>
+                            <p className="mt-1 break-all font-mono text-xs text-stone-700">
+                              {editingProduct.stripe_product_id || "Not created"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-stone-400">Price ID</p>
+                            <p className="mt-1 break-all font-mono text-xs text-stone-700">
+                              {editingProduct.stripe_price_id || "Not created"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div className="md:col-span-2"><button type="button" onClick={() => void openProductAi(editingProduct ?? undefined)} className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700"><Sparkles className="h-4 w-4" /> Open full Clarity workspace</button></div>
                   </div>
                 )}

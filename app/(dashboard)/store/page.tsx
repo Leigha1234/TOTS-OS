@@ -856,6 +856,21 @@ export default function StoreDashboardPage() {
     );
   }, [orders, search, orderItemLabels]);
 
+  const subscriptionProductLabels = useMemo(() => {
+    const names = new Map(products.map((product) => [product.id, product.name]));
+    const labels = new Map<string, string>();
+    for (const subscription of subscriptions) {
+      const directName = subscription.product_id
+        ? names.get(subscription.product_id)
+        : undefined;
+      const orderName = subscription.order_id
+        ? (orderItemLabels.get(subscription.order_id) ?? []).join(", ")
+        : undefined;
+      labels.set(subscription.id, directName || orderName || "Product details unavailable");
+    }
+    return labels;
+  }, [subscriptions, products, orderItemLabels]);
+
   const filteredSubscriptions = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return subscriptions;
@@ -864,9 +879,10 @@ export default function StoreDashboardPage() {
       (subscription) =>
         subscription.customer_name?.toLowerCase().includes(query) ||
         subscription.customer_email?.toLowerCase().includes(query) ||
-        subscription.status?.toLowerCase().includes(query),
+        subscription.status?.toLowerCase().includes(query) ||
+        subscriptionProductLabels.get(subscription.id)?.toLowerCase().includes(query),
     );
-  }, [subscriptions, search]);
+  }, [subscriptions, search, subscriptionProductLabels]);
 
 
   async function requestAi(product: ProductDraft, facts = aiFacts) {
@@ -2233,6 +2249,7 @@ export default function StoreDashboardPage() {
                   <thead className="border-b border-stone-100 bg-stone-50/80">
                     <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">
                       <th className="px-6 py-4">Customer</th>
+                      <th className="px-4 py-4">Membership / product</th>
                       <th className="px-4 py-4">Amount</th>
                       <th className="px-4 py-4">Interval</th>
                       <th className="px-4 py-4">Status</th>
@@ -2253,6 +2270,12 @@ export default function StoreDashboardPage() {
                           </p>
                           <p className="mt-0.5 text-xs text-stone-400">
                             {subscription.customer_email || "—"}
+                          </p>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <p className="max-w-[300px] text-sm font-medium text-stone-800">
+                            {subscriptionProductLabels.get(subscription.id) || "Product details unavailable"}
                           </p>
                         </td>
 

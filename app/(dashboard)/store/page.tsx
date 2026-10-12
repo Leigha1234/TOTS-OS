@@ -355,6 +355,10 @@ const blankProduct: ProductDraft = {
   is_active: true,
 };
 
+function isRunClubProduct(product: Product) {
+  return product.slug === "mtc-run-club-single-session" || product.slug === "mtc-run-club-8-week-block";
+}
+
 function slugify(value: string) {
   return value
     .toLowerCase()
@@ -774,17 +778,21 @@ export default function StoreDashboardPage() {
     };
   }, [products, orders, subscriptions]);
 
+  const [productFilter, setProductFilter] = useState<"all" | "run_club">("all");
+  const runClubProducts = useMemo(() => products.filter(isRunClubProduct), [products]);
+
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return products;
+    const visibleProducts = productFilter === "run_club" ? runClubProducts : products;
+    if (!query) return visibleProducts;
 
-    return products.filter(
+    return visibleProducts.filter(
       (product) =>
         product.name.toLowerCase().includes(query) ||
         product.category?.toLowerCase().includes(query) ||
         product.sku?.toLowerCase().includes(query),
     );
-  }, [products, search]);
+  }, [products, search, productFilter, runClubProducts]);
 
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -1778,6 +1786,36 @@ export default function StoreDashboardPage() {
           </div>
         </div>
 
+        {(tab === "overview" || tab === "products") && runClubProducts.length > 0 && (
+          <section className="mt-6 overflow-hidden rounded-[24px] bg-stone-950 p-6 text-white shadow-sm">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-yellow-300">MTC × Rooted CIC</p>
+                <h2 className="mt-2 text-2xl font-bold">MTC Run Club</h2>
+                <p className="mt-2 text-sm text-stone-300">Sundays, 9am · Meet at MTC, Lossiemouth</p>
+                <p className="mt-1 text-sm text-stone-300">Run or walk. Finish at The Den for coffee and a catch-up.</p>
+                <p className="mt-3 text-xs text-stone-400">Included for MTC members. These passes are for non-members. Café purchases are separate.</p>
+              </div>
+              <button type="button" onClick={() => { setTab("products"); setProductFilter("run_club"); setSearch(""); }} className="rounded-xl bg-yellow-300 px-4 py-2.5 text-sm font-semibold text-stone-950 hover:bg-yellow-200">View Run Club products</button>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {runClubProducts.map((product) => (
+                <button key={product.id} type="button" onClick={() => openEditProduct(product)} className="rounded-2xl border border-white/15 bg-white/5 p-4 text-left transition hover:bg-white/10">
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="font-semibold">{product.name}</h3>
+                    <span className="text-xl font-bold text-yellow-300">{formatMoney(product.price)}</span>
+                  </div>
+                  <p className="mt-2 text-xs text-stone-300">{product.slug === "mtc-run-club-8-week-block" ? "8-week block" : "Single session"} · One-off payment</p>
+                  <div className="mt-3 flex items-center justify-between text-xs">
+                    <span>{product.is_active === false || product.status?.toLowerCase() === "archived" ? "Inactive" : "Active"}</span>
+                    <span className="inline-flex items-center gap-1">Edit product <ChevronRight className="h-3.5 w-3.5" /></span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         {tab === "overview" && (
           <div className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_.65fr]">
             <section className="rounded-[24px] border border-stone-200 bg-white shadow-sm">
@@ -1915,6 +1953,13 @@ export default function StoreDashboardPage() {
                 Add product
               </button>
             </SectionHeader>
+
+            {runClubProducts.length > 0 && (
+              <div className="flex gap-2 border-b border-stone-100 px-6 py-3">
+                <button type="button" aria-pressed={productFilter === "all"} onClick={() => setProductFilter("all")} className={`rounded-lg px-3 py-2 text-xs font-semibold ${productFilter === "all" ? "bg-stone-950 text-white" : "bg-stone-100 text-stone-600"}`}>All products</button>
+                <button type="button" aria-pressed={productFilter === "run_club"} onClick={() => setProductFilter("run_club")} className={`rounded-lg px-3 py-2 text-xs font-semibold ${productFilter === "run_club" ? "bg-stone-950 text-white" : "bg-stone-100 text-stone-600"}`}>Run Club ({runClubProducts.length})</button>
+              </div>
+            )}
 
             {aiBulkProgress && (
               <p className="border-b border-stone-100 px-6 py-3 text-xs text-stone-600" role="status">{aiBulkProgress}</p>

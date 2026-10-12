@@ -23,6 +23,7 @@ import {
 import SectionShell from "./SectionShell";
 import MetricCard from "./MetricCard";
 import StatusPill from "./StatusPill";
+import TransactionDetailModal from "./modals/TransactionDetailModal";
 
 // ==================================================
 // TYPES
@@ -193,6 +194,7 @@ export default function FinanceSales({
 
   onToggleSubscription,
   onToggleRecurring,
+  refresh,
 }: FinanceSalesProps) {
   // ==================================================
   // STATE
@@ -219,6 +221,8 @@ export default function FinanceSales({
     setStatusFilter,
   ] =
     useState("all");
+
+  const [selectedTransaction, setSelectedTransaction] = useState<LedgerEntry | null>(null);
 
   // ==================================================
   // CUSTOMER LOOKUP
@@ -1433,7 +1437,8 @@ export default function FinanceSales({
                     return (
                       <tr
                         key={`${entry.type}-${entry.id}`}
-                        className="group transition-colors hover:bg-[#faf9f6]/60"
+                        onClick={() => setSelectedTransaction(entry)}
+                        className="group cursor-pointer transition-colors hover:bg-[#faf9f6]/80"
                       >
                         <td className="px-6 py-5">
                           <span className="font-mono text-[9px] font-black text-[#a9b897]">
@@ -1505,11 +1510,12 @@ export default function FinanceSales({
                               hasMarkHandler && (
                                 <button
                                   type="button"
-                                  onClick={() =>
+                                  onClick={(event) => {
+                                    event.stopPropagation();
                                     void handleMarkStatus(
                                       entry
-                                    )
-                                  }
+                                    );
+                                  }}
                                   title={
                                     entry.type ===
                                     "Invoice"
@@ -1529,11 +1535,12 @@ export default function FinanceSales({
                             {hasDeleteHandler && (
                               <button
                                 type="button"
-                                onClick={() =>
+                                onClick={(event) => {
+                                  event.stopPropagation();
                                   void handleDelete(
                                     entry
-                                  )
-                                }
+                                  );
+                                }}
                                 title="Delete"
                                 className="rounded-full bg-red-50 p-2 text-red-500 transition-all hover:bg-red-100"
                               >
@@ -1555,6 +1562,14 @@ export default function FinanceSales({
           </table>
         </div>
       </section>
+
+      <TransactionDetailModal
+        open={Boolean(selectedTransaction)}
+        entry={selectedTransaction ? { id: selectedTransaction.id, type: selectedTransaction.type } : null}
+        customers={customers}
+        onClose={() => setSelectedTransaction(null)}
+        onSaved={refresh}
+      />
 
       {/* ==================================================
           OVERDUE WARNING

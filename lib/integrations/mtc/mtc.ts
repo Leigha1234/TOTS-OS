@@ -240,6 +240,7 @@ export type MtcPackCreditGrant = {
 
 export type MtcPackCreditGrantResult = {
   success: boolean;
+  pending?: boolean;
   alreadyProcessed?: boolean;
   userId?: string;
   creditsAdded?: number;

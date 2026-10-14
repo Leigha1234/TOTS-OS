@@ -2446,7 +2446,7 @@ async function finaliseOrderPaid({
 // MTC WALK-IN FULFILMENT
 // ============================================================
 
-async function fulfilMtcWalkInCredits({
+async function fulfilMtcCourseAndWalkInCredits({
   order,
   customerEmail,
 }: {
@@ -2476,30 +2476,34 @@ async function fulfilMtcWalkInCredits({
     throw error;
   }
 
-  const walkInItems =
+  const creditItems =
     (items as StoreOrderItemRow[] | null)?.filter(
       (item) =>
-        asString(item.sku)?.toUpperCase() ===
-        "MTC-WALK-IN"
+        ["MTC-WALK-IN", "MTC-HYROX-BEGINNER-4WK"].includes(
+          asString(item.sku)?.trim().toUpperCase() ?? ""
+        )
     ) ?? [];
 
-  if (!walkInItems.length) {
+  if (!creditItems.length) {
     return;
   }
 
-  for (const item of walkInItems) {
+  for (const item of creditItems) {
     const quantity = Math.max(
       1,
       safeInteger(item.quantity, 1)
     );
+
+    const sku = asString(item.sku)?.trim().toUpperCase() ?? "";
+    const creditsPerUnit = sku === "MTC-HYROX-BEGINNER-4WK" ? 8 : 1;
 
     const result =
       await grantMtcPackCreditsSafely({
         orderId: order.id,
         orderItemId: item.id,
         email,
-        sku: "MTC-WALK-IN",
-        quantity,
+        sku,
+        quantity: quantity * creditsPerUnit,
         planLabel:
           asString(item.product_name) ||
           "Walk-In Session",
@@ -2509,13 +2513,13 @@ async function fulfilMtcWalkInCredits({
       throw new Error(
         result.error ||
           result.message ||
-          `MTC Walk-In fulfilment failed for order item ${item.id}.`
+          `MTC credit fulfilment failed for order item ${item.id}.`
       );
     }
 
     console.log(
       `[MTC WALK-IN] ${order.order_number}: ` +
-        `${result.alreadyProcessed ? "already processed" : `+${result.creditsAdded ?? quantity} credit(s)`}.`
+        `${result.alreadyProcessed ? "already processed" : result.pending ? "pending account registration" : `+${result.creditsAdded ?? quantity * creditsPerUnit} credit(s)`}.`
     );
   }
 }
@@ -2684,7 +2688,7 @@ async function completeStoreOrder({
         ),
     });
 
-    await fulfilMtcWalkInCredits({
+    await fulfilMtcCourseAndWalkInCredits({
       order,
       customerEmail,
     });
@@ -2768,7 +2772,7 @@ async function completeStoreOrder({
           ),
       });
 
-      await fulfilMtcWalkInCredits({
+      await fulfilMtcCourseAndWalkInCredits({
         order: latest,
         customerEmail,
       });
@@ -2897,7 +2901,7 @@ async function completeStoreOrder({
       ),
   });
 
-  await fulfilMtcWalkInCredits({
+  await fulfilMtcCourseAndWalkInCredits({
     order: updatedOrder,
     customerEmail,
   });

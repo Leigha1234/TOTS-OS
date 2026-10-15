@@ -102,12 +102,68 @@ export async function GET(request: NextRequest) {
     }
     const products = [...productsMap.values()].map(({ orders, ...x }) => ({ ...x, orders: orders.size })).sort((a,b) => b.revenue - a.revenue);
     const storeSubs = tables.store_subscriptions.filter(x => active(x.status));
+    // Reporting-only deduplication: a matching legacy membership ID is strong evidence;
+    // email + plan is only a candidate grouping and is never used to change billing.
+    const recurring = tables.store_subscriptions.filter(x => ['stripe','gocardless'].includes(str(x.payment_provider)));
+    const recurringActive = recurring.filter(x => str(x.status) === 'active');
+    const identity = (x: Row) => {
+      const legacy = str(x.external_membership_id);
+      const email = str(x.customer_email);
+      const plan = str(x.legacy_membership_name || x.plan_name || x.plan_label || x.product_name);
+      return legacy ? `legacy:${legacy}` : email && plan ? `email-plan:${str(x.payment_provider)}:${email}:${plan}` : `row:${x.id}`;
+    };
+    // Explicit legacy-ID duplicates and candidate email/plan duplicates are displayed separately.
+    const legacyCounts = new Map<string, number>();
+    for (const x of recurringActive) if (x.external_membership_id) {
+      const key = `${str(x.payment_provider)}:${str(x.external_membership_id)}`;
+      legacyCounts.set(key, (legacyCounts.get(key) || 0) + 1);
+    }
+    const candidateGroups = new Map<string, Row[]>();
+    for (const x of recurringActive) {
+      const email = str(x.customer_email); const plan = str(x.legacy_membership_name || x.plan_name || x.plan_label || x.product_name);
+      const key = email && plan ? `${str(x.payment_provider)}:${email}:${plan}` : `row:${x.id}`;
+      candidateGroups.set(key, [...(candidateGroups.get(key) || []), x]);
+    }
+    const candidateDuplicateRecords = [...candidateGroups.values()].reduce((sum, group) => sum + Math.max(0, group.length - 1), 0);
+    const knownDuplicateRecords = [...legacyCounts.values()].reduce((sum, count) => sum + Math.max(0, count - 1), 0);
+    const providerStats = ['stripe','gocardless'].map(provider => {
+      const subset = recurringActive.filter(x => str(x.payment_provider) === provider);
+      return { provider, activeRecords: subset.length, verifiedCollectionEnabled: subset.filter(x => x.collection_enabled === true && str(x.processor_verification_status) === 'verified').length,
+        collectionDisabled: subset.filter(x => x.collection_enabled !== true).length,
+        unverified: subset.filter(x => str(x.processor_verification_status) !== 'verified').length };
+    });
+    const planStats = new Map<string, { name: string; activeRecords: number; trialing: number; canceled: number; recordedMonthlyValue: number }>();
+    for (const x of recurring) {
+      const name = String(x.legacy_membership_name || x.plan_name || x.plan_label || x.product_name || 'Unidentified membership');
+      const p = planStats.get(name) || { name, activeRecords: 0, trialing: 0, canceled: 0, recordedMonthlyValue: 0 };
+      const status = str(x.status);
+      if (status === 'active') { p.activeRecords++; p.recordedMonthlyValue += monthly(n(x.unit_amount_pence) / 100 * n(x.quantity || 1), x.billing_interval); }
+      if (status === 'trialing') p.trialing++;
+      if (status === 'canceled' || status === 'cancelled') p.canceled++;
+      planStats.set(name, p);
+    }
+    const cancellationMonths = new Map<string, number>();
+    for (const x of recurring) if (x.cancelled_at) {
+      const month = date(x.cancelled_at).slice(0, 7);
+      if (month) cancellationMonths.set(month, (cancellationMonths.get(month) || 0) + 1);
+    }
+    const rollingOrders = [7,14,30].map(windowDays => {
+      const since = shift(now, -windowDays).getTime();
+      const inWindow = tables.store_orders.filter(x => {
+        const t = Date.parse(String(x.created_at || ''));
+        return Number.isFinite(t) && t >= since && t <= now.getTime();
+      });
+      const paidOrders = inWindow.filter(x => paid(x.payment_status));
+      const pendingOrders = inWindow.filter(x => str(x.payment_status) === 'pending');
+      return { days: windowDays, received: inWindow.length, paid: paidOrders.length, pending: pendingOrders.length,
+        paidOrderValue: paidOrders.reduce((sum,x) => sum + n(x.total) - n(x.refunded_amount), 0) };
+    });
     const storeMrr = storeSubs.reduce((s,x) => s + monthly(n(x.unit_amount_pence) / 100 * n(x.quantity || 1), x.billing_interval), 0);
     const otherSubs = tables.subscriptions.filter(x => x.active === true || active(x.status));
     const otherMrr = otherSubs.reduce((s,x) => s + monthly(n(x.amount), x.interval), 0);
     const plans = new Map<string, { name: string; count: number; mrr: number }>();
     for (const x of storeSubs) {
-      const name = String(x.plan_name || x.plan_label || x.product_name || x.price_name || x.plan_code || 'Uncategorised');
+      const name = String(x.legacy_membership_name || x.plan_name || x.plan_label || x.product_name || x.price_name || x.plan_code || 'Uncategorised');
       const row = plans.get(name) || { name, count: 0, mrr: 0 }; row.count++; row.mrr += monthly(n(x.unit_amount_pence) / 100 * n(x.quantity || 1), x.billing_interval); plans.set(name, row);
     }
     const activeProjects = tables.projects.filter(x => !x.deleted_at && !finished(x.status));
@@ -124,12 +180,19 @@ export async function GET(request: NextRequest) {
       organisation: { id: org, name: orgInfo?.name || 'Your organisation' }, modules,
       period: { from, to: today, days },
       finance: { invoicePayments: invoicePaid, storeRevenue, expenses: expenses.reduce((s,x) => s + n(x.amount), 0), outstanding: invoices.reduce((s,x) => s + Math.max(0,n(x.balance_due)),0), overdueAmount: overdue.reduce((s,x) => s+n(x.balance_due),0), overdueCount: overdue.length, overdueInvoices: overdue.slice(0,30).map(x => ({id:x.id,number:x.invoice_number,due_date:x.due_date,balance_due:x.balance_due})), invoicesIssued: invoices.filter(x => between(x.invoice_date || x.created_at,from,today)).length, refunds: refunded, failedPayments },
-      store: { revenue: storeRevenue, previousRevenue, growthPercent: previousRevenue > 0 ? (storeRevenue - previousRevenue) / previousRevenue * 100 : null, orders: selectedOrders.length, units: items.reduce((s,x) => s+n(x.quantity),0), averageOrder: selectedOrders.length ? storeRevenue / selectedOrders.length : 0, products: products.slice(0,50), trend },
-      subscriptions: { active: storeSubs.length, storeMrr, otherActive: otherSubs.length, otherMrr, totalMrr: storeMrr+otherMrr, plans: [...plans.values()].sort((a,b)=>b.mrr-a.mrr) },
+      store: { revenue: storeRevenue, previousRevenue, growthPercent: previousRevenue > 0 ? (storeRevenue - previousRevenue) / previousRevenue * 100 : null, orders: selectedOrders.length, units: items.reduce((s,x) => s+n(x.quantity),0), averageOrder: selectedOrders.length ? storeRevenue / selectedOrders.length : 0, products: products.slice(0,50), trend, rollingOrders },
+      subscriptions: { active: storeSubs.length, storeMrr, otherActive: otherSubs.length, otherMrr, totalMrr: storeMrr+otherMrr, plans: [...plans.values()].sort((a,b)=>b.mrr-a.mrr),
+        membership: { activeRecords: recurringActive.length, candidateDistinctGroups: candidateGroups.size,
+          candidateDuplicateRecords, knownLegacyDuplicateRecords: knownDuplicateRecords,
+          trialingRecords: recurring.filter(x => str(x.status) === 'trialing').length,
+          verifiedCollectionEnabledRecords: recurringActive.filter(x => x.collection_enabled === true && str(x.processor_verification_status) === 'verified').length,
+          providers: providerStats, plans: [...planStats.values()].sort((a,b)=>b.activeRecords-a.activeRecords),
+          cancellationMonths: [...cancellationMonths.entries()].sort((a,b)=>b[0].localeCompare(a[0])).map(([month,count])=>({month,count})),
+          actualCollectionsAvailable: false, verifiedPayingMembersAvailable: false, churnAvailable: false } },
       work: { activeProjects: activeProjects.length, overdueProjects: activeProjects.filter(x => !!date(x.due_date) && date(x.due_date) < today).length, overdueTasks: overdueTasks.length, dueToday: tasks.filter(x => !finished(x.status) && date(x.due_date) === today).length, totalTasks: tasks.length, overdueTaskItems: overdueTasks.slice(0,25).map(x=>({id:x.id,title:x.title||x.name,due_date:x.due_date})) },
       calendar: { upcomingEvents: events.length, upcomingBookings: bookings.length, events: events.slice(0,15).map(x=>({id:x.id,title:x.title||x.name,start_time:x.start_time||x.starts_at})) },
       customers: { total: tables.customers.length, new: tables.customers.filter(x=>between(x.created_at,from,today)).length },
-      notes: ['Store revenue and invoice payments may overlap; they are not added together.', 'Invoice payments are based on paid_at and may exclude partial payments.', 'Subscription MRR is an estimate, not cash received. Store and legacy subscriptions may overlap.', 'Store revenue trends use recorded order payment dates.'],
+      notes: ['Store revenue and invoice payments may overlap; they are not added together.', 'Invoice payments are based on paid_at and may exclude partial payments.', 'Subscription MRR is an estimate, not cash received. Store and legacy subscriptions may overlap.', 'Membership groups are diagnostic, not verified unique paying members. Historical collections and churn need a reconciled payment ledger and membership history.', 'Store revenue trends use recorded order payment dates.'],
       warnings,
     }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (e) {

@@ -1,20 +1,15 @@
 "use client";
 
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
 import Link from "next/link";
 import Image from "next/image";
 
-import {
-  usePathname,
-  useRouter,
-} from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import {
   LayoutDashboard,
+  BarChart3,
   Users,
   Calendar,
   Megaphone,
@@ -32,17 +27,11 @@ import {
   LockKeyhole,
 } from "lucide-react";
 
-import {
-  toast,
-} from "sonner";
+import { toast } from "sonner";
 
-import {
-  supabase,
-} from "../../lib/supabase";
+import { supabase } from "../../lib/supabase";
 
-import {
-  useSettings,
-} from "@/app/context/SettingsContext";
+import { useSettings } from "@/app/context/SettingsContext";
 
 // ============================================================
 // PRIVATE TOTS ADMIN USER
@@ -70,90 +59,53 @@ type BillingMode =
   | "unknown";
 
 type SidebarLink = {
-  href:
-    string;
-
-  label:
-    string;
-
-  icon:
-    React.ElementType;
-
-  adminOnly?:
-    boolean;
-
-  requiredModule?:
-    ModuleKey;
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  adminOnly?: boolean;
+  requiredModule?: ModuleKey;
+  requiresVerifiedAccess?: boolean;
 };
 
 type SidebarSection = {
-  title?:
-    string;
-
-  links:
-    SidebarLink[];
+  title?: string;
+  links: SidebarLink[];
 };
 
 type AccountAccessResponse = {
-  allowed?:
-    boolean;
-
-  reason?:
-    string;
-
-  userId?:
-    string | null;
-
-  organisationId?:
-    string | null;
-
-  organisationName?:
-    string | null;
-
-  billingModel?:
-    string | null;
-
-  billingPackage?:
-    string | null;
-
-  modules?:
-    string[];
-
-  activeModules?:
-    string[];
-
-  accessStatus?:
-    string | null;
+  allowed?: boolean;
+  reason?: string;
+  userId?: string | null;
+  organisationId?: string | null;
+  organisationName?: string | null;
+  billingModel?: string | null;
+  billingPackage?: string | null;
+  modules?: string[];
+  activeModules?: string[];
+  accessStatus?: string | null;
 };
 
 // ============================================================
 // MODULE KEYS
 // ============================================================
 
-const MODULE_KEYS:
-  ModuleKey[] = [
-    "core",
-    "clientsProjects",
-    "finance",
-    "social",
-    "email",
-    "store",
-  ];
+const MODULE_KEYS: ModuleKey[] = [
+  "core",
+  "clientsProjects",
+  "finance",
+  "social",
+  "email",
+  "store",
+];
 
 // ============================================================
 // HELPERS
 // ============================================================
 
-function isModuleKey(
-  value:
-    unknown,
-): value is ModuleKey {
+function isModuleKey(value: unknown): value is ModuleKey {
   return (
-    typeof value ===
-      "string" &&
-    MODULE_KEYS.includes(
-      value as ModuleKey,
-    )
+    typeof value === "string" &&
+    MODULE_KEYS.includes(value as ModuleKey)
   );
 }
 
@@ -162,1119 +114,591 @@ function isModuleKey(
 // ============================================================
 
 export default function Sidebar() {
-  const pathname =
-    usePathname();
+  const pathname = usePathname();
+  const router = useRouter();
 
-  const router =
-    useRouter();
-
-  let context:
-    any =
-    null;
+  let context: any = null;
 
   try {
-    context =
-      useSettings();
+    context = useSettings();
   } catch {
-    console.warn(
-      "Sidebar: SettingsContext missing",
-    );
+    console.warn("Sidebar: SettingsContext missing");
   }
 
   // ==========================================================
   // STATE
   // ==========================================================
 
-  const [
-    collapsed,
-    setCollapsed,
-  ] =
-    useState(
-      false,
-    );
+  const [collapsed, setCollapsed] = useState(false);
+  const [isCompact, setIsCompact] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  const [
-    isCompact,
-    setIsCompact,
-  ] =
-    useState(
-      false,
-    );
+  const [loading, setLoading] = useState(true);
+  const [signedIn, setSignedIn] = useState(false);
 
-  const [
-    isMobile,
-    setIsMobile,
-  ] =
-    useState(
-      false,
-    );
+  const [currentUserId, setCurrentUserId] = useState<
+    string | null
+  >(null);
 
-  const [
-    loading,
-    setLoading,
-  ] =
-    useState(
-      true,
-    );
+  const [billingMode, setBillingMode] =
+    useState<BillingMode>("loading");
 
-  const [
-    signedIn,
-    setSignedIn,
-  ] =
-    useState(
-      false,
-    );
+  const [activeModules, setActiveModules] = useState<
+    ModuleKey[]
+  >([]);
 
-  const [
-    currentUserId,
-    setCurrentUserId,
-  ] =
-    useState<
-      string |
-      null
-    >(
-      null,
-    );
-
-  const [
-    billingMode,
-    setBillingMode,
-  ] =
-    useState<
-      BillingMode
-    >(
-      "loading",
-    );
-
-  const [
-    activeModules,
-    setActiveModules,
-  ] =
-    useState<
-      ModuleKey[]
-    >(
-      [],
-    );
-
-  const [
-    localColor,
-    setLocalColor,
-  ] =
-    useState(
-      "#a9b897",
-    );
+  const [localColor, setLocalColor] = useState("#a9b897");
 
   // ==========================================================
   // ADMIN ACCESS
   // ==========================================================
 
   const isTotsAdmin =
-    signedIn &&
-    currentUserId ===
-      TOTS_ADMIN_USER_ID;
+    signedIn && currentUserId === TOTS_ADMIN_USER_ID;
 
   // ==========================================================
   // MODULE HELPER
   // ==========================================================
 
-  const hasModule =
-    (
-      moduleKey:
-        ModuleKey,
-    ) => {
-      if (
-        isTotsAdmin
-      ) {
-        return true;
-      }
+  const hasModule = (moduleKey: ModuleKey) => {
+    if (isTotsAdmin) {
+      return true;
+    }
 
-      if (
-        billingMode ===
-        "legacy"
-      ) {
-        return true;
-      }
+    if (billingMode === "legacy") {
+      return true;
+    }
 
-      if (
-        billingMode ===
-        "modular"
-      ) {
-        return activeModules.includes(
-          moduleKey,
-        );
-      }
+    if (billingMode === "modular") {
+      return activeModules.includes(moduleKey);
+    }
 
-      return false;
-    };
+    return false;
+  };
 
   // ==========================================================
   // ALL LINKS
   // ==========================================================
 
-  const allLinks:
-    SidebarLink[] = [
-      {
-        href:
-          "/dashboard",
-
-        label:
-          "Home",
-
-        icon:
-          LayoutDashboard,
-      },
-
-      {
-        href:
-          "/crm",
-
-        label:
-          "Contacts",
-
-        icon:
-          Users,
-
-        requiredModule:
-          "core",
-      },
-
-      {
-        href:
-          "/campaigns",
-
-        label:
-          "Campaigns",
-
-        icon:
-          Megaphone,
-
-        requiredModule:
-          "email",
-      },
-
-      {
-        href:
-          "/social",
-
-        label:
-          "Social",
-
-        icon:
-          Globe,
-
-        requiredModule:
-          "social",
-      },
-
-      {
-        href:
-          "/payments",
-
-        label:
-          "Finance",
-
-        icon:
-          CircleDollarSign,
-
-        requiredModule:
-          "finance",
-      },
-
-      {
-        href:
-          "/notes",
-
-        label:
-          "Notes",
-
-        icon:
-          StickyNote,
-
-        requiredModule:
-          "core",
-      },
-
-      {
-        href:
-          "/store",
-
-        label:
-          "Store",
-
-        icon:
-          Store,
-
-        requiredModule:
-          "store",
-      },
-
-      {
-        href:
-          "/projects",
-
-        label:
-          "Clients & Projects",
-
-        icon:
-          Building2,
-
-        requiredModule:
-          "clientsProjects",
-      },
-
-      {
-        href:
-          "/calendar",
-
-        label:
-          "Calendar",
-
-        icon:
-          Calendar,
-
-        requiredModule:
-          "core",
-      },
-
-      {
-        href:
-          "/tots-admin",
-
-        label:
-          "TOTS Admin",
-
-        icon:
-          ShieldCheck,
-
-        adminOnly:
-          true,
-      },
-
-      {
-        href:
-          "/settings",
-
-        label:
-          "Settings",
-
-        icon:
-          Settings,
-      },
-    ];
+  const allLinks: SidebarLink[] = [
+    {
+      href: "/dashboard",
+      label: "Home",
+      icon: LayoutDashboard,
+    },
+    {
+      href: "/insights",
+      label: "Insights",
+      icon: BarChart3,
+      requiresVerifiedAccess: true,
+    },
+    {
+      href: "/crm",
+      label: "Contacts",
+      icon: Users,
+      requiredModule: "core",
+    },
+    {
+      href: "/campaigns",
+      label: "Campaigns",
+      icon: Megaphone,
+      requiredModule: "email",
+    },
+    {
+      href: "/social",
+      label: "Social",
+      icon: Globe,
+      requiredModule: "social",
+    },
+    {
+      href: "/payments",
+      label: "Finance",
+      icon: CircleDollarSign,
+      requiredModule: "finance",
+    },
+    {
+      href: "/notes",
+      label: "Notes",
+      icon: StickyNote,
+      requiredModule: "core",
+    },
+    {
+      href: "/store",
+      label: "Store",
+      icon: Store,
+      requiredModule: "store",
+    },
+    {
+      href: "/projects",
+      label: "Clients & Projects",
+      icon: Building2,
+      requiredModule: "clientsProjects",
+    },
+    {
+      href: "/calendar",
+      label: "Calendar",
+      icon: Calendar,
+      requiredModule: "core",
+    },
+    {
+      href: "/tots-admin",
+      label: "TOTS Admin",
+      icon: ShieldCheck,
+      adminOnly: true,
+    },
+    {
+      href: "/settings",
+      label: "Settings",
+      icon: Settings,
+    },
+  ];
 
   // ==========================================================
   // RESPONSIVE MODE
   // ==========================================================
 
-  useEffect(
-    () => {
-      function syncResponsiveMode() {
-        const mobile =
-          window.innerWidth <
-          768;
+  useEffect(() => {
+    function syncResponsiveMode() {
+      const mobile = window.innerWidth < 768;
+      const compactHeight = window.innerHeight <= 820;
 
-        const compactHeight =
-          window.innerHeight <=
-          820;
+      setIsMobile(mobile);
+      setIsCompact(mobile || compactHeight);
 
-        setIsMobile(
-          mobile,
-        );
-
-        setIsCompact(
-          mobile ||
-            compactHeight,
-        );
-
-        if (
-          mobile
-        ) {
-          setCollapsed(
-            true,
-          );
-        }
+      if (mobile) {
+        setCollapsed(true);
       }
+    }
 
-      syncResponsiveMode();
+    syncResponsiveMode();
 
-      window.addEventListener(
+    window.addEventListener("resize", syncResponsiveMode);
+
+    return () => {
+      window.removeEventListener(
         "resize",
         syncResponsiveMode,
       );
-
-      return () => {
-        window.removeEventListener(
-          "resize",
-          syncResponsiveMode,
-        );
-      };
-    },
-    [],
-  );
+    };
+  }, []);
 
   // ==========================================================
   // LOAD SIDEBAR CONTEXT
   // ==========================================================
 
-  useEffect(
-    () => {
-      let cancelled =
-        false;
+  useEffect(() => {
+    let cancelled = false;
 
-      async function loadSidebarContext() {
+    async function loadSidebarContext() {
+      try {
+        setLoading(true);
+        setBillingMode("loading");
+        setActiveModules([]);
+
+        // ====================================================
+        // SESSION
+        // ====================================================
+
+        const {
+          data: sessionData,
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
+        if (cancelled) {
+          return;
+        }
+
+        if (sessionError) {
+          console.warn(
+            "Sidebar session load error:",
+            sessionError,
+          );
+        }
+
+        const user = sessionData?.session?.user;
+
+        if (!user?.id) {
+          setSignedIn(false);
+          setCurrentUserId(null);
+          setBillingMode("unknown");
+          return;
+        }
+
+        setSignedIn(true);
+        setCurrentUserId(user.id);
+
+        // ====================================================
+        // BRAND COLOUR
+        // ====================================================
+
         try {
-          setLoading(
-            true,
-          );
-
-          setBillingMode(
-            "loading",
-          );
-
-          setActiveModules(
-            [],
-          );
-
-          // ==================================================
-          // SESSION
-          // ==================================================
-
           const {
-            data:
-              sessionData,
+            data: profile,
+            error: profileError,
+          } = await supabase
+            .from("profiles")
+            .select("brand_color")
+            .eq("id", user.id)
+            .maybeSingle();
 
-            error:
-              sessionError,
-          } =
-            await supabase
-              .auth
-              .getSession();
-
-          if (
-            cancelled
-          ) {
-            return;
-          }
-
-          if (
-            sessionError
-          ) {
+          if (profileError) {
             console.warn(
-              "Sidebar session load error:",
-              sessionError,
-            );
-          }
-
-          const user =
-            sessionData
-              ?.session
-              ?.user;
-
-          if (
-            !user?.id
-          ) {
-            setSignedIn(
-              false,
-            );
-
-            setCurrentUserId(
-              null,
-            );
-
-            setBillingMode(
-              "unknown",
-            );
-
-            return;
-          }
-
-          setSignedIn(
-            true,
-          );
-
-          setCurrentUserId(
-            user.id,
-          );
-
-          // ==================================================
-          // BRAND COLOUR
-          // ==================================================
-
-          try {
-            const {
-              data:
-                profile,
-
-              error:
-                profileError,
-            } =
-              await supabase
-                .from(
-                  "profiles",
-                )
-                .select(
-                  "brand_color",
-                )
-                .eq(
-                  "id",
-                  user.id,
-                )
-                .maybeSingle();
-
-            if (
-              profileError
-            ) {
-              console.warn(
-                "Sidebar brand colour load error:",
-                profileError,
-              );
-            }
-
-            if (
-              !cancelled &&
-              profile
-                ?.brand_color
-            ) {
-              setLocalColor(
-                String(
-                  profile
-                    .brand_color,
-                ),
-              );
-            }
-          } catch (
-            profileError
-          ) {
-            console.warn(
-              "Sidebar profile lookup failed:",
+              "Sidebar brand colour load error:",
               profileError,
             );
           }
 
-          // ==================================================
-          // TOTS ADMIN
-          // ==================================================
-
-          if (
-            user.id ===
-            TOTS_ADMIN_USER_ID
-          ) {
-            setBillingMode(
-              "legacy",
-            );
-
-            setActiveModules(
-              [...MODULE_KEYS],
-            );
-
-            return;
+          if (!cancelled && profile?.brand_color) {
+            setLocalColor(String(profile.brand_color));
           }
-
-          // ==================================================
-          // AUTHORITATIVE ACCOUNT ACCESS
-          // ==================================================
-
-          const response =
-            await fetch(
-              "/api/account/access",
-              {
-                method:
-                  "GET",
-
-                cache:
-                  "no-store",
-              },
-            );
-
-          const data =
-            (
-              await response
-                .json()
-                .catch(
-                  () => ({}),
-                )
-            ) as AccountAccessResponse;
-
-          if (
-            cancelled
-          ) {
-            return;
-          }
-
-          if (
-            response.status ===
-            401
-          ) {
-            setSignedIn(
-              false,
-            );
-
-            setCurrentUserId(
-              null,
-            );
-
-            setBillingMode(
-              "unknown",
-            );
-
-            return;
-          }
-
-          if (
-            !response.ok ||
-            data.allowed !==
-              true
-          ) {
-            console.warn(
-              "Sidebar account access unavailable:",
-              {
-                status:
-                  response.status,
-
-                reason:
-                  data.reason,
-              },
-            );
-
-            setBillingMode(
-              "unknown",
-            );
-
-            setActiveModules(
-              [],
-            );
-
-            return;
-          }
-
-          // ==================================================
-          // BILLING MODEL
-          // ==================================================
-
-          const rawBillingModel =
-            String(
-              data.billingModel ||
-                "",
-            )
-              .trim()
-              .toLowerCase();
-
-          if (
-            rawBillingModel ===
-            "legacy_tier"
-          ) {
-            setBillingMode(
-              "legacy",
-            );
-
-            setActiveModules(
-              [],
-            );
-
-            return;
-          }
-
-          if (
-            rawBillingModel ===
-            "modular"
-          ) {
-            const rawModules =
-              Array.isArray(
-                data.modules,
-              )
-                ? data.modules
-                : Array.isArray(
-                    data.activeModules,
-                  )
-                  ? data.activeModules
-                  : [];
-
-            const modules =
-              rawModules.filter(
-                isModuleKey,
-              );
-
-            setBillingMode(
-              "modular",
-            );
-
-            setActiveModules(
-              Array.from(
-                new Set(
-                  modules,
-                ),
-              ),
-            );
-
-            return;
-          }
-
-          setBillingMode(
-            "unknown",
+        } catch (profileError) {
+          console.warn(
+            "Sidebar profile lookup failed:",
+            profileError,
           );
-
-          setActiveModules(
-            [],
-          );
-        } catch (
-          error
-        ) {
-          console.error(
-            "Sidebar load error:",
-            error,
-          );
-
-          if (
-            !cancelled
-          ) {
-            setBillingMode(
-              "unknown",
-            );
-
-            setActiveModules(
-              [],
-            );
-          }
-        } finally {
-          if (
-            !cancelled
-          ) {
-            setLoading(
-              false,
-            );
-          }
         }
-      }
 
-      void loadSidebarContext();
+        // ====================================================
+        // TOTS ADMIN
+        // ====================================================
 
-      // ======================================================
-      // AUTH STATE CHANGES
-      // ======================================================
+        if (user.id === TOTS_ADMIN_USER_ID) {
+          setBillingMode("legacy");
+          setActiveModules([...MODULE_KEYS]);
+          return;
+        }
 
-      const {
-        data:
-          authListener,
-      } =
-        supabase
-          .auth
-          .onAuthStateChange(
-            (
-              event,
-              session,
-            ) => {
-              if (
-                cancelled
-              ) {
-                return;
-              }
+        // ====================================================
+        // AUTHORITATIVE ACCOUNT ACCESS
+        // ====================================================
 
-              const user =
-                session
-                  ?.user;
+        const response = await fetch(
+          "/api/account/access",
+          {
+            method: "GET",
+            cache: "no-store",
+          },
+        );
 
-              setSignedIn(
-                Boolean(
-                  user?.id,
-                ),
-              );
+        const data = (
+          await response.json().catch(() => ({}))
+        ) as AccountAccessResponse;
 
-              setCurrentUserId(
-                user?.id ||
-                  null,
-              );
+        if (cancelled) {
+          return;
+        }
 
-              if (
-                event ===
-                  "SIGNED_IN" ||
-                event ===
-                  "USER_UPDATED" ||
-                event ===
-                  "TOKEN_REFRESHED"
-              ) {
-                void loadSidebarContext();
-              }
+        if (response.status === 401) {
+          setSignedIn(false);
+          setCurrentUserId(null);
+          setBillingMode("unknown");
+          return;
+        }
 
-              if (
-                event ===
-                "SIGNED_OUT"
-              ) {
-                setBillingMode(
-                  "unknown",
-                );
-
-                setActiveModules(
-                  [],
-                );
-              }
+        if (!response.ok || data.allowed !== true) {
+          console.warn(
+            "Sidebar account access unavailable:",
+            {
+              status: response.status,
+              reason: data.reason,
             },
           );
 
-      return () => {
-        cancelled =
-          true;
+          setBillingMode("unknown");
+          setActiveModules([]);
+          return;
+        }
 
-        authListener
-          .subscription
-          .unsubscribe();
-      };
-    },
-    [],
-  );
+        // ====================================================
+        // BILLING MODEL
+        // ====================================================
+
+        const rawBillingModel = String(
+          data.billingModel || "",
+        )
+          .trim()
+          .toLowerCase();
+
+        if (rawBillingModel === "legacy_tier") {
+          setBillingMode("legacy");
+          setActiveModules([]);
+          return;
+        }
+
+        if (rawBillingModel === "modular") {
+          const rawModules = Array.isArray(data.modules)
+            ? data.modules
+            : Array.isArray(data.activeModules)
+              ? data.activeModules
+              : [];
+
+          const modules = rawModules.filter(isModuleKey);
+
+          setBillingMode("modular");
+          setActiveModules(Array.from(new Set(modules)));
+          return;
+        }
+
+        setBillingMode("unknown");
+        setActiveModules([]);
+      } catch (error) {
+        console.error("Sidebar load error:", error);
+
+        if (!cancelled) {
+          setBillingMode("unknown");
+          setActiveModules([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadSidebarContext();
+
+    // ========================================================
+    // AUTH STATE CHANGES
+    // ========================================================
+
+    const {
+      data: authListener,
+    } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (cancelled) {
+          return;
+        }
+
+        const user = session?.user;
+
+        setSignedIn(Boolean(user?.id));
+        setCurrentUserId(user?.id || null);
+
+        if (
+          event === "SIGNED_IN" ||
+          event === "USER_UPDATED" ||
+          event === "TOKEN_REFRESHED"
+        ) {
+          void loadSidebarContext();
+        }
+
+        if (event === "SIGNED_OUT") {
+          setBillingMode("unknown");
+          setActiveModules([]);
+        }
+      },
+    );
+
+    return () => {
+      cancelled = true;
+
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   // ==========================================================
   // LOGOUT
   // ==========================================================
 
-  const handleLogout =
-    async () => {
-      try {
-        const {
-          error,
-        } =
-          await supabase
-            .auth
-            .signOut();
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
 
-        if (
-          error
-        ) {
-          throw error;
-        }
-
-        setSignedIn(
-          false,
-        );
-
-        setCurrentUserId(
-          null,
-        );
-
-        setBillingMode(
-          "unknown",
-        );
-
-        setActiveModules(
-          [],
-        );
-
-        toast.success(
-          "Logged out successfully",
-        );
-
-        router.push(
-          "/login",
-        );
-
-        router.refresh();
-      } catch (
-        error
-      ) {
-        console.error(
-          "Logout error:",
-          error,
-        );
-
-        toast.error(
-          "Unable to log out",
-        );
+      if (error) {
+        throw error;
       }
-    };
+
+      setSignedIn(false);
+      setCurrentUserId(null);
+      setBillingMode("unknown");
+      setActiveModules([]);
+
+      toast.success("Logged out successfully");
+
+      router.push("/login");
+      router.refresh();
+    } catch (error) {
+      console.error("Logout error:", error);
+
+      toast.error("Unable to log out");
+    }
+  };
 
   // ==========================================================
   // BRAND COLOUR
   // ==========================================================
 
   const activeColor =
-    context
-      ?.settings
-      ?.brandColor ||
-    localColor;
+    context?.settings?.brandColor || localColor;
 
   // ==========================================================
   // LINK ACCESS
   // ==========================================================
 
-  const userCanAccessLink =
-    (
-      link:
-        SidebarLink,
-    ) => {
-      if (
-        !signedIn
-      ) {
-        return false;
-      }
+  const userCanAccessLink = (link: SidebarLink) => {
+    if (!signedIn) {
+      return false;
+    }
 
-      if (
-        link.adminOnly
-      ) {
-        return isTotsAdmin;
-      }
+    if (link.adminOnly) {
+      return isTotsAdmin;
+    }
 
-      if (
-        !link.requiredModule
-      ) {
-        return true;
-      }
-
-      return hasModule(
-        link.requiredModule,
+    if (link.requiresVerifiedAccess) {
+      return (
+        isTotsAdmin ||
+        billingMode === "legacy" ||
+        billingMode === "modular"
       );
-    };
+    }
+
+    if (!link.requiredModule) {
+      return true;
+    }
+
+    return hasModule(link.requiredModule);
+  };
 
   // ==========================================================
   // VISIBLE LINKS
   // ==========================================================
 
-  const visibleLinks =
-    signedIn
-      ? allLinks.filter(
-          userCanAccessLink,
-        )
-      : [];
+  const visibleLinks = signedIn
+    ? allLinks.filter(userCanAccessLink)
+    : [];
 
   // ==========================================================
   // CAN SEE
   // ==========================================================
 
-  const canSee =
-    (
-      href:
-        string,
-    ) => {
-      if (
-        !signedIn
-      ) {
-        return false;
-      }
+  const canSee = (href: string) => {
+    if (!signedIn) {
+      return false;
+    }
 
-      return visibleLinks.some(
-        (
-          link,
-        ) =>
-          link.href ===
-          href,
-      );
-    };
+    return visibleLinks.some((link) => link.href === href);
+  };
 
   // ==========================================================
   // SIDEBAR SECTIONS
   // ==========================================================
 
-  const sections:
-    SidebarSection[] = [
-      {
-        links: [
-          {
-            href:
-              "/dashboard",
-
-            label:
-              "Home",
-
-            icon:
-              LayoutDashboard,
-          },
-        ],
-      },
-
-      {
-        title:
-          "Core",
-
-        links: [
-          {
-            href:
-              "/crm",
-
-            label:
-              "Contacts",
-
-            icon:
-              Users,
-
-            requiredModule:
-              "core",
-          },
-
-          {
-            href:
-              "/notes",
-
-            label:
-              "Notes",
-
-            icon:
-              StickyNote,
-
-            requiredModule:
-              "core",
-          },
-
-          {
-            href:
-              "/calendar",
-
-            label:
-              "Calendar",
-
-            icon:
-              Calendar,
-
-            requiredModule:
-              "core",
-          },
-        ],
-      },
-
-      {
-        title:
-          "Marketing",
-
-        links: [
-          {
-            href:
-              "/campaigns",
-
-            label:
-              "Email Marketing",
-
-            icon:
-              Megaphone,
-
-            requiredModule:
-              "email",
-          },
-
-          {
-            href:
-              "/social",
-
-            label:
-              "Social Studio",
-
-            icon:
-              Globe,
-
-            requiredModule:
-              "social",
-          },
-        ],
-      },
-
-      {
-        title:
-          "Finance",
-
-        links: [
-          {
-            href:
-              "/payments",
-
-            label:
-              "Finance",
-
-            icon:
-              CircleDollarSign,
-
-            requiredModule:
-              "finance",
-          },
-        ],
-      },
-
-      {
-        title:
-          "Commerce",
-
-        links: [
-          {
-            href:
-              "/store",
-
-            label:
-              "Store",
-
-            icon:
-              Store,
-
-            requiredModule:
-              "store",
-          },
-        ],
-      },
-
-      {
-        title:
-          "Clients & Projects",
-
-        links: [
-          {
-            href:
-              "/projects",
-
-            label:
-              "Workspace",
-
-            icon:
-              Building2,
-
-            requiredModule:
-              "clientsProjects",
-          },
-        ],
-      },
-
-      {
-        title:
-          "TOTS Platform",
-
-        links: [
-          {
-            href:
-              "/tots-admin",
-
-            label:
-              "TOTS Admin",
-
-            icon:
-              ShieldCheck,
-
-            adminOnly:
-              true,
-          },
-        ],
-      },
-    ];
+  const sections: SidebarSection[] = [
+    {
+      links: [
+        {
+          href: "/dashboard",
+          label: "Home",
+          icon: LayoutDashboard,
+        },
+        {
+          href: "/insights",
+          label: "Insights",
+          icon: BarChart3,
+          requiresVerifiedAccess: true,
+        },
+      ],
+    },
+    {
+      title: "Core",
+      links: [
+        {
+          href: "/crm",
+          label: "Contacts",
+          icon: Users,
+          requiredModule: "core",
+        },
+        {
+          href: "/notes",
+          label: "Notes",
+          icon: StickyNote,
+          requiredModule: "core",
+        },
+        {
+          href: "/calendar",
+          label: "Calendar",
+          icon: Calendar,
+          requiredModule: "core",
+        },
+      ],
+    },
+    {
+      title: "Marketing",
+      links: [
+        {
+          href: "/campaigns",
+          label: "Email Marketing",
+          icon: Megaphone,
+          requiredModule: "email",
+        },
+        {
+          href: "/social",
+          label: "Social Studio",
+          icon: Globe,
+          requiredModule: "social",
+        },
+      ],
+    },
+    {
+      title: "Finance",
+      links: [
+        {
+          href: "/payments",
+          label: "Finance",
+          icon: CircleDollarSign,
+          requiredModule: "finance",
+        },
+      ],
+    },
+    {
+      title: "Commerce",
+      links: [
+        {
+          href: "/store",
+          label: "Store",
+          icon: Store,
+          requiredModule: "store",
+        },
+      ],
+    },
+    {
+      title: "Clients & Projects",
+      links: [
+        {
+          href: "/projects",
+          label: "Workspace",
+          icon: Building2,
+          requiredModule: "clientsProjects",
+        },
+      ],
+    },
+    {
+      title: "TOTS Platform",
+      links: [
+        {
+          href: "/tots-admin",
+          label: "TOTS Admin",
+          icon: ShieldCheck,
+          adminOnly: true,
+        },
+      ],
+    },
+  ];
 
   // ==========================================================
   // ACTIVE LINK
   // ==========================================================
 
-  const isActive =
-    (
-      href:
-        string,
-    ) => {
-      if (
-        href ===
-        "/dashboard"
-      ) {
-        return (
-          pathname ===
-          "/dashboard"
-        );
-      }
+  const isActive = (href: string) => {
+    if (href === "/dashboard") {
+      return pathname === "/dashboard";
+    }
 
-      return (
-        pathname ===
-          href ||
-        pathname.startsWith(
-          `${href}/`,
-        )
-      );
-    };
+    return (
+      pathname === href ||
+      pathname.startsWith(`${href}/`)
+    );
+  };
 
   // ==========================================================
   // RENDER
@@ -1285,19 +709,14 @@ export default function Sidebar() {
       className={`
         relative
         z-[300]
-
         flex
         h-[100dvh]
         flex-col
-
         border-r
         border-stone-200
-
         bg-stone-50
-
         transition-all
         duration-300
-
         ${
           collapsed
             ? "w-16 sm:w-20"
@@ -1314,13 +733,11 @@ export default function Sidebar() {
           flex
           shrink-0
           items-center
-
           ${
             collapsed
               ? "justify-center"
               : "justify-between"
           }
-
           ${
             isCompact
               ? "min-h-16 px-2 sm:px-3"
@@ -1336,16 +753,8 @@ export default function Sidebar() {
             <Image
               src="/icon.png"
               alt="TOTS-OS"
-              width={
-                isCompact
-                  ? 42
-                  : 52
-              }
-              height={
-                isCompact
-                  ? 42
-                  : 52
-              }
+              width={isCompact ? 42 : 52}
+              height={isCompact ? 42 : 52}
               priority
               className="shrink-0 object-contain"
             />
@@ -1384,85 +793,66 @@ export default function Sidebar() {
           </Link>
         )}
 
-        {!collapsed &&
-          !isMobile && (
-            <button
-              type="button"
-              onClick={() =>
-                setCollapsed(
-                  true,
-                )
-              }
-              title="Collapse sidebar"
-              className="
-                flex
-                h-9
-                w-9
-                shrink-0
-                items-center
-                justify-center
-
-                rounded-xl
-
-                text-stone-400
-
-                transition
-
-                hover:bg-white
-                hover:text-stone-800
-                hover:shadow-sm
-              "
-            >
-              <PanelLeftClose
-                size={17}
-                strokeWidth={1.7}
-              />
-            </button>
-          )}
+        {!collapsed && !isMobile && (
+          <button
+            type="button"
+            onClick={() => setCollapsed(true)}
+            title="Collapse sidebar"
+            className="
+              flex
+              h-9
+              w-9
+              shrink-0
+              items-center
+              justify-center
+              rounded-xl
+              text-stone-400
+              transition
+              hover:bg-white
+              hover:text-stone-800
+              hover:shadow-sm
+            "
+          >
+            <PanelLeftClose
+              size={17}
+              strokeWidth={1.7}
+            />
+          </button>
+        )}
       </div>
 
       {/* =====================================================
           COLLAPSED EXPAND CONTROL
       ===================================================== */}
 
-      {collapsed &&
-        !isMobile && (
-          <div className="shrink-0 px-3 pb-3">
-            <button
-              type="button"
-              onClick={() =>
-                setCollapsed(
-                  false,
-                )
-              }
-              title="Expand sidebar"
-              className="
-                mx-auto
-
-                flex
-                h-9
-                w-9
-                items-center
-                justify-center
-
-                rounded-xl
-
-                text-stone-400
-
-                transition
-
-                hover:bg-white
-                hover:text-stone-800
-                hover:shadow-sm
-              "
-            >
-              <PanelLeftOpen
-                size={17}
-                strokeWidth={1.7}
-              />
-            </button>
-          </div>
-        )}
+      {collapsed && !isMobile && (
+        <div className="shrink-0 px-3 pb-3">
+          <button
+            type="button"
+            onClick={() => setCollapsed(false)}
+            title="Expand sidebar"
+            className="
+              mx-auto
+              flex
+              h-9
+              w-9
+              items-center
+              justify-center
+              rounded-xl
+              text-stone-400
+              transition
+              hover:bg-white
+              hover:text-stone-800
+              hover:shadow-sm
+            "
+          >
+            <PanelLeftOpen
+              size={17}
+              strokeWidth={1.7}
+            />
+          </button>
+        </div>
+      )}
 
       {/* =====================================================
           NAVIGATION
@@ -1472,13 +862,10 @@ export default function Sidebar() {
         className="
           min-h-0
           flex-1
-
           overflow-y-auto
           overscroll-contain
-
           px-2
           pb-3
-
           sm:px-3
         "
       >
@@ -1497,161 +884,114 @@ export default function Sidebar() {
                 : "space-y-6"
             }
           >
-            {sections.map(
-              (
-                section,
-                sectionIndex,
-              ) => {
-                const sectionLinks =
-                  section
-                    .links
-                    .filter(
-                      userCanAccessLink,
-                    );
+            {sections.map((section, sectionIndex) => {
+              const sectionLinks =
+                section.links.filter(userCanAccessLink);
 
-                if (
-                  sectionLinks.length ===
-                  0
-                ) {
-                  return null;
-                }
+              if (sectionLinks.length === 0) {
+                return null;
+              }
 
-                return (
+              return (
+                <div
+                  key={
+                    section.title ||
+                    `section-${sectionIndex}`
+                  }
+                >
+                  {!collapsed && section.title && (
+                    <p
+                      className={`
+                        px-3
+                        font-semibold
+                        uppercase
+                        text-stone-400
+                        ${
+                          isCompact
+                            ? "mb-1 text-[9px] tracking-[0.14em]"
+                            : "mb-2 text-[10px] tracking-[0.16em]"
+                        }
+                      `}
+                    >
+                      {section.title}
+                    </p>
+                  )}
+
                   <div
-                    key={
-                      section.title ||
-                      `section-${sectionIndex}`
+                    className={
+                      isCompact
+                        ? "space-y-0.5"
+                        : "space-y-1"
                     }
                   >
-                    {!collapsed &&
-                      section.title && (
-                        <p
+                    {sectionLinks.map((item) => {
+                      const active = isActive(item.href);
+                      const Icon = item.icon;
+
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          aria-label={item.label}
+                          title={
+                            collapsed
+                              ? item.label
+                              : undefined
+                          }
+                          style={{
+                            backgroundColor: active
+                              ? activeColor
+                              : "transparent",
+                          }}
                           className={`
-                            px-3
-
-                            font-semibold
-                            uppercase
-
-                            text-stone-400
-
+                            group
+                            flex
+                            items-center
+                            font-medium
+                            transition-all
+                            duration-200
                             ${
                               isCompact
-                                ? "mb-1 text-[9px] tracking-[0.14em]"
-                                : "mb-2 text-[10px] tracking-[0.16em]"
+                                ? "rounded-lg px-2.5 py-2 text-[12px]"
+                                : "rounded-xl px-3 py-2.5 text-sm"
+                            }
+                            ${
+                              collapsed
+                                ? "justify-center"
+                                : "gap-3"
+                            }
+                            ${
+                              active
+                                ? "text-white shadow-sm"
+                                : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
                             }
                           `}
                         >
-                          {
-                            section.title
-                          }
-                        </p>
-                      )}
+                          <Icon
+                            size={
+                              isMobile
+                                ? 18
+                                : isCompact
+                                  ? 16
+                                  : 18
+                            }
+                            strokeWidth={
+                              active ? 2.2 : 1.8
+                            }
+                          />
 
-                    <div
-                      className={
-                        isCompact
-                          ? "space-y-0.5"
-                          : "space-y-1"
-                      }
-                    >
-                      {sectionLinks.map(
-                        (
-                          item,
-                        ) => {
-                          const active =
-                            isActive(
-                              item.href,
-                            );
-
-                          const Icon =
-                            item.icon;
-
-                          return (
-                            <Link
-                              key={
-                                item.href
-                              }
-                              href={
-                                item.href
-                              }
-                              aria-label={
-                                item.label
-                              }
-                              title={
-                                collapsed
-                                  ? item.label
-                                  : undefined
-                              }
-                              style={{
-                                backgroundColor:
-                                  active
-                                    ? activeColor
-                                    : "transparent",
-                              }}
-                              className={`
-                                group
-
-                                flex
-                                items-center
-
-                                font-medium
-
-                                transition-all
-                                duration-200
-
-                                ${
-                                  isCompact
-                                    ? "rounded-lg px-2.5 py-2 text-[12px]"
-                                    : "rounded-xl px-3 py-2.5 text-sm"
-                                }
-
-                                ${
-                                  collapsed
-                                    ? "justify-center"
-                                    : "gap-3"
-                                }
-
-                                ${
-                                  active
-                                    ? "text-white shadow-sm"
-                                    : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
-                                }
-                              `}
-                            >
-                              <Icon
-                                size={
-                                  isMobile
-                                    ? 18
-                                    : isCompact
-                                      ? 16
-                                      : 18
-                                }
-                                strokeWidth={
-                                  active
-                                    ? 2.2
-                                    : 1.8
-                                }
-                              />
-
-                              {!collapsed && (
-                                <span>
-                                  {
-                                    item.label
-                                  }
-                                </span>
-                              )}
-                            </Link>
-                          );
-                        },
-                      )}
-                    </div>
+                          {!collapsed && (
+                            <span>{item.label}</span>
+                          )}
+                        </Link>
+                      );
+                    })}
                   </div>
-                );
-              },
-            )}
+                </div>
+              );
+            })}
 
-            {billingMode ===
-              "unknown" &&
+            {billingMode === "unknown" &&
               !isTotsAdmin && (
                 <div
                   className={`
@@ -1660,7 +1000,6 @@ export default function Sidebar() {
                     border-stone-200
                     bg-white
                     text-stone-500
-
                     ${
                       collapsed
                         ? "flex justify-center p-2"
@@ -1680,10 +1019,8 @@ export default function Sidebar() {
                       </p>
 
                       <p className="mt-1 text-[9px] leading-4">
-                        We couldn&apos;t
-                        verify your module
-                        access. Home and
-                        Settings remain
+                        We couldn&apos;t verify your module
+                        access. Home and Settings remain
                         available.
                       </p>
                     </div>
@@ -1700,17 +1037,12 @@ export default function Sidebar() {
 
       {!loading &&
         signedIn &&
-        canSee(
-          "/settings",
-        ) && (
+        canSee("/settings") && (
           <div
             className={`
               shrink-0
-
               px-2
-
               sm:px-3
-
               ${
                 isCompact
                   ? "pb-1"
@@ -1727,37 +1059,27 @@ export default function Sidebar() {
                   : undefined
               }
               style={{
-                backgroundColor:
-                  isActive(
-                    "/settings",
-                  )
-                    ? activeColor
-                    : "transparent",
+                backgroundColor: isActive("/settings")
+                  ? activeColor
+                  : "transparent",
               }}
               className={`
                 flex
                 items-center
-
                 font-medium
-
                 transition-all
-
                 ${
                   isCompact
                     ? "rounded-lg px-2.5 py-2 text-[12px]"
                     : "rounded-xl px-3 py-2.5 text-sm"
                 }
-
                 ${
                   collapsed
                     ? "justify-center"
                     : "gap-3"
                 }
-
                 ${
-                  isActive(
-                    "/settings",
-                  )
+                  isActive("/settings")
                     ? "text-white"
                     : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
                 }
@@ -1773,11 +1095,7 @@ export default function Sidebar() {
                 }
               />
 
-              {!collapsed && (
-                <span>
-                  Settings
-                </span>
-              )}
+              {!collapsed && <span>Settings</span>}
             </Link>
           </div>
         )}
@@ -1790,10 +1108,8 @@ export default function Sidebar() {
         <div
           className={`
             shrink-0
-
             border-t
             border-stone-200
-
             ${
               isCompact
                 ? "p-2"
@@ -1803,9 +1119,7 @@ export default function Sidebar() {
         >
           <button
             type="button"
-            onClick={() =>
-              void handleLogout()
-            }
+            onClick={() => void handleLogout()}
             aria-label="Logout"
             title={
               collapsed
@@ -1816,22 +1130,16 @@ export default function Sidebar() {
               flex
               w-full
               items-center
-
               font-medium
-
               text-stone-500
-
               transition
-
               hover:bg-red-50
               hover:text-red-600
-
               ${
                 isCompact
                   ? "rounded-lg px-2.5 py-2 text-[12px]"
                   : "rounded-xl px-3 py-2.5 text-sm"
               }
-
               ${
                 collapsed
                   ? "justify-center"
@@ -1849,11 +1157,7 @@ export default function Sidebar() {
               }
             />
 
-            {!collapsed && (
-              <span>
-                Logout
-              </span>
-            )}
+            {!collapsed && <span>Logout</span>}
           </button>
         </div>
       )}

@@ -1,985 +1,139 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-// ============================================================
-// HELPERS
-// ============================================================
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 type Row = Record<string, any>;
-
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const num = (value: unknown): number => {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : 0;
-};
-
-const iso = (value: unknown): string =>
-  typeof value === "string" ? value : "";
-
-const inRange = (
-  value: unknown,
-  from: string,
-  to: string,
-): boolean => {
-  const date = iso(value).slice(0, 10);
-  return Boolean(date && date >= from && date <= to);
-};
-
-const done = (value: unknown): boolean =>
-  [
-    "completed",
-    "complete",
-    "done",
-    "finished",
-    "closed",
-    "cancelled",
-    "canceled",
-    "archived",
-  ].includes(String(value || "").toLowerCase());
-
-const paid = (value: unknown): boolean =>
-  [
-    "paid",
-    "succeeded",
-    "completed",
-    "complete",
-  ].includes(String(value || "").toLowerCase());
-
-const activeSubscription = (value: unknown): boolean =>
-  ["active", "trialing"].includes(
-    String(value || "").toLowerCase(),
-  );
-
-function monthlyAmount(
-  amount: number,
-  interval: unknown,
-): number {
-  const value = String(interval || "month").toLowerCase();
-
-  if (value.includes("year")) return amount / 12;
-  if (value.includes("week")) return (amount * 52) / 12;
-  if (value.includes("day")) return (amount * 365) / 12;
-
-  return amount;
-}
-
-function errorResponse(
-  message: string,
-  status: number,
-) {
-  return NextResponse.json(
-    { error: message },
-    {
-      status,
-      headers: {
-        "Cache-Control": "private, no-store",
-      },
-    },
-  );
-}
-
-// ============================================================
-// GET INSIGHTS
-// ============================================================
+const n = (v: unknown) => Number.isFinite(Number(v)) ? Number(v) : 0;
+const str = (v: unknown) => String(v ?? '').trim().toLowerCase();
+const date = (v: unknown) => typeof v === 'string' ? v.slice(0, 10) : '';
+const between = (v: unknown, a: string, b: string) => !!date(v) && date(v) >= a && date(v) <= b;
+const day = (d: Date) => d.toISOString().slice(0, 10);
+const shift = (d: Date, days: number) => new Date(d.getTime() + days * 86400000);
+const active = (v: unknown) => ['active', 'trialing'].includes(str(v));
+const paid = (v: unknown) => ['paid', 'succeeded', 'completed', 'complete'].includes(str(v));
+const finished = (v: unknown) => ['completed', 'complete', 'done', 'finished', 'closed', 'cancelled', 'canceled', 'archived'].includes(str(v));
+const monthly = (amount: number, interval: unknown) => { const i = str(interval); return i.includes('year') ? amount / 12 : i.includes('week') ? amount * 52 / 12 : i.includes('day') ? amount * 365 / 12 : amount; };
+const uuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
 export async function GET(request: NextRequest) {
   try {
-    // ========================================================
-    // ENVIRONMENT
-    // ========================================================
-
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !anon || !service) return NextResponse.json({ error: 'Supabase configuration missing.' }, { status: 503 });
+    const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+    if (!token) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+    const auth = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: { user }, error: authError } = await auth.auth.getUser(token);
+    if (authError || !user) return NextResponse.json({ error: 'Session expired.' }, { status: 401 });
+    const db = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
 
-    if (!url || !anon || !service) {
-      return errorResponse(
-        "Supabase configuration missing.",
-        503,
-      );
+    // Resolve the same primary organisation as account/access; never trust an unverified client ID.
+    const { data: profile, error: profileError } = await db.from('profiles').select('organisation_id').eq('id', user.id).maybeSingle();
+    if (profileError) throw profileError;
+    const requested = request.nextUrl.searchParams.get('organisation_id') || '';
+    if (requested && !uuid(requested)) return NextResponse.json({ error: 'Invalid organisation.' }, { status: 400 });
+    let org = requested || profile?.organisation_id || '';
+    if (!org) {
+      const { data, error } = await db.from('organisation_members').select('organisation_id').eq('user_id', user.id).limit(1);
+      if (error) throw error;
+      org = data?.[0]?.organisation_id || '';
     }
-
-    // ========================================================
-    // AUTHENTICATION
-    // Supports existing Bearer-token requests and SSR cookies.
-    // ========================================================
-
-    const authorization =
-      request.headers.get("authorization") || "";
-
-    const token = authorization.replace(/^Bearer\s+/i, "").trim();
-
-    let userId: string | null = null;
-
-    if (token) {
-      const auth = createClient(url, anon, {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        },
-      });
-
-      const {
-        data: { user },
-        error,
-      } = await auth.auth.getUser(token);
-
-      if (!error && user) {
-        userId = user.id;
-      }
-    } else {
-      const cookieStore = await cookies();
-
-      const auth = createServerClient(url, anon, {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll() {
-            // Read-only route.
-          },
-        },
-      });
-
-      const {
-        data: { user },
-        error,
-      } = await auth.auth.getUser();
-
-      if (!error && user) {
-        userId = user.id;
-      }
+    if (!org) {
+      const { data, error } = await db.from('user_organisations').select('organisation_id').eq('user_id', user.id).limit(1);
+      if (!error) org = data?.[0]?.organisation_id || '';
     }
-
-    if (!userId) {
-      return errorResponse(
-        "Please sign in again.",
-        401,
-      );
+    if (!org) {
+      const { data, error } = await db.from('organisations').select('id').eq('created_by', user.id).limit(1);
+      if (error) throw error;
+      org = data?.[0]?.id || '';
     }
-
-    // ========================================================
-    // SERVICE CLIENT
-    // Never expose this client or its credentials to the browser.
-    // ========================================================
-
-    const db = createClient(url, service, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    });
-
-    // ========================================================
-    // RESOLVE AUTHORISED ORGANISATIONS
-    // Mirrors the sources used by /api/account/access.
-    // ========================================================
-
-    const authorisedOrganisationIds = new Set<string>();
-
-    const {
-      data: profile,
-      error: profileError,
-    } = await db
-      .from("profiles")
-      .select("organisation_id")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (profileError) {
-      console.error(
-        "Insights profile lookup failed:",
-        profileError,
-      );
-
-      return errorResponse(
-        "Unable to verify organisation access.",
-        500,
-      );
-    }
-
-    if (
-      profile?.organisation_id &&
-      UUID_REGEX.test(String(profile.organisation_id))
-    ) {
-      authorisedOrganisationIds.add(
-        String(profile.organisation_id),
-      );
-    }
-
-    const {
-      data: memberships,
-      error: membershipError,
-    } = await db
-      .from("organisation_members")
-      .select("organisation_id")
-      .eq("user_id", userId);
-
-    if (membershipError) {
-      console.error(
-        "Insights membership lookup failed:",
-        membershipError,
-      );
-
-      return errorResponse(
-        "Unable to verify organisation access.",
-        500,
-      );
-    }
-
-    for (const membership of memberships || []) {
-      if (
-        membership.organisation_id &&
-        UUID_REGEX.test(String(membership.organisation_id))
-      ) {
-        authorisedOrganisationIds.add(
-          String(membership.organisation_id),
-        );
-      }
-    }
-
-    const {
-      data: userOrganisations,
-      error: userOrganisationError,
-    } = await db
-      .from("user_organisations")
-      .select("organisation_id")
-      .eq("user_id", userId);
-
-    if (userOrganisationError) {
-      console.error(
-        "Insights user_organisations lookup failed:",
-        userOrganisationError,
-      );
-
-      return errorResponse(
-        "Unable to verify organisation access.",
-        500,
-      );
-    }
-
-    for (const membership of userOrganisations || []) {
-      if (
-        membership.organisation_id &&
-        UUID_REGEX.test(String(membership.organisation_id))
-      ) {
-        authorisedOrganisationIds.add(
-          String(membership.organisation_id),
-        );
-      }
-    }
-
-    const {
-      data: ownedOrganisations,
-      error: ownershipError,
-    } = await db
-      .from("organisations")
-      .select("id")
-      .eq("created_by", userId);
-
-    if (ownershipError) {
-      console.error(
-        "Insights ownership lookup failed:",
-        ownershipError,
-      );
-
-      return errorResponse(
-        "Unable to verify organisation access.",
-        500,
-      );
-    }
-
-    for (const organisation of ownedOrganisations || []) {
-      if (
-        organisation.id &&
-        UUID_REGEX.test(String(organisation.id))
-      ) {
-        authorisedOrganisationIds.add(String(organisation.id));
-      }
-    }
-
-    // ========================================================
-    // CHOOSE ACTIVE ORGANISATION
-    // ========================================================
-
-    const requestedOrganisationId =
-      request.nextUrl.searchParams.get("organisation_id")?.trim() ||
-      "";
-
-    if (
-      requestedOrganisationId &&
-      !UUID_REGEX.test(requestedOrganisationId)
-    ) {
-      return errorResponse("Invalid organisation.", 400);
-    }
-
-    if (authorisedOrganisationIds.size === 0) {
-      return errorResponse(
-        "No organisation is linked to your account.",
-        403,
-      );
-    }
-
-    let organisationId: string;
-
-    if (requestedOrganisationId) {
-      if (!authorisedOrganisationIds.has(requestedOrganisationId)) {
-        return errorResponse(
-          "You do not have access to this organisation.",
-          403,
-        );
-      }
-
-      organisationId = requestedOrganisationId;
-    } else if (
-      profile?.organisation_id &&
-      authorisedOrganisationIds.has(
-        String(profile.organisation_id),
-      )
-    ) {
-      organisationId = String(profile.organisation_id);
-    } else if (authorisedOrganisationIds.size === 1) {
-      organisationId = [...authorisedOrganisationIds][0];
-    } else {
-      return errorResponse(
-        "Multiple organisations are linked to your account. Please select an active organisation.",
-        400,
-      );
-    }
-
-    // ========================================================
-    // VERIFY ORGANISATION EXISTS
-    // ========================================================
-
-    const {
-      data: organisation,
-      error: organisationError,
-    } = await db
-      .from("organisations")
-      .select(
-        "id,name,billing_model,subscription_tier,subscription_status,access_status",
-      )
-      .eq("id", organisationId)
-      .maybeSingle();
-
-    if (organisationError || !organisation) {
-      console.error(
-        "Insights organisation lookup failed:",
-        organisationError,
-      );
-
-      return errorResponse(
-        "Organisation could not be verified.",
-        403,
-      );
-    }
-
-    // ========================================================
-    // CHECK MODULE ENTITLEMENTS
-    // ========================================================
-
-    const billingModel = String(
-      organisation.billing_model || "",
-    ).toLowerCase();
-
-    const isLegacy =
-      billingModel === "legacy_tier" ||
-      (
-        !billingModel &&
-        ["standard", "professional", "premium", "elite"].includes(
-          String(organisation.subscription_tier || "").toLowerCase(),
-        )
-      );
-
-    let enabledModules: string[] = [];
-
-    if (isLegacy) {
-      enabledModules = [
-        "core",
-        "clientsProjects",
-        "finance",
-        "social",
-        "email",
-        "store",
-      ];
-    } else if (billingModel === "modular") {
-      const {
-        data: modules,
-        error: modulesError,
-      } = await db
-        .from("organisation_modules")
-        .select("module_key")
-        .eq("organisation_id", organisationId)
-        .eq("status", "active");
-
-      if (modulesError) {
-        console.error(
-          "Insights module lookup failed:",
-          modulesError,
-        );
-
-        return errorResponse(
-          "Unable to verify reporting permissions.",
-          500,
-        );
-      }
-
-      enabledModules = (modules || []).map(
-        (module) => String(module.module_key),
-      );
-    }
-
-    // A valid organisation link alone is not proof of an
-    // active subscription. Require the account access policy
-    // to be satisfied before exposing reporting data.
-    const subscriptionStatus = String(
-      organisation.subscription_status || "",
-    ).toLowerCase();
-
-    const accessStatus = String(
-      organisation.access_status || "",
-    ).toLowerCase();
-
-    if (
-      accessStatus !== "active" ||
-      !["active", "trialing", "beta", "trial"].includes(
-        subscriptionStatus,
-      )
-    ) {
-      return errorResponse(
-        "Insights is unavailable for this organisation.",
-        403,
-      );
-    }
-
-    // ========================================================
-    // REPORTING PERIOD
-    // ========================================================
-
-    const today = new Date().toISOString().slice(0, 10);
-
-    const requestedDays = Number(
-      request.nextUrl.searchParams.get("days") || 30,
-    );
-
-    const days = Math.min(
-      366,
-      Math.max(
-        7,
-        Number.isFinite(requestedDays)
-          ? requestedDays
-          : 30,
-      ),
-    );
-
-    const fromDate = new Date(
-      Date.now() - (days - 1) * 86400000,
-    )
-      .toISOString()
-      .slice(0, 10);
-
-    const next30 = new Date(
-      Date.now() + 30 * 86400000,
-    )
-      .toISOString()
-      .slice(0, 10);
-
-    // ========================================================
-    // FETCH REPORTING TABLES
-    // ========================================================
-
-    const tables = [
-      "invoices",
-      "expenses",
-      "store_orders",
-      "store_products",
-      "store_subscriptions",
-      "subscriptions",
-      "projects",
-      "tasks",
-      "project_tasks",
-      "events",
-      "bookings",
-      "customers",
-    ] as const;
-
-    const financeTables = new Set([
-      "invoices",
-      "expenses",
+    if (!uuid(org)) return NextResponse.json({ error: 'No active organisation found.' }, { status: 403 });
+    const [member, owner, legacyMember] = await Promise.all([
+      db.from('organisation_members').select('organisation_id').eq('organisation_id', org).eq('user_id', user.id).limit(1),
+      db.from('organisations').select('id,name,billing_model').eq('id', org).eq('created_by', user.id).limit(1),
+      db.from('user_organisations').select('organisation_id').eq('organisation_id', org).eq('user_id', user.id).limit(1),
     ]);
+    const isMember = !!member.data?.length || !!owner.data?.length || !!legacyMember.data?.length || profile?.organisation_id === org;
+    if (!isMember) return NextResponse.json({ error: 'You do not have access to this organisation.' }, { status: 403 });
+    const { data: orgInfo } = await db.from('organisations').select('id,name,billing_model').eq('id', org).maybeSingle();
+    const { data: moduleRows } = await db.from('organisation_modules').select('module_key,status').eq('organisation_id', org).eq('status', 'active');
+    const modules = orgInfo?.billing_model === 'modular' ? (moduleRows || []).map(x => x.module_key) : ['core','clientsProjects','finance','social','email','store'];
 
-    const storeTables = new Set([
-      "store_orders",
-      "store_products",
-      "store_subscriptions",
-    ]);
-
-    const projectTables = new Set([
-      "projects",
-      "tasks",
-      "project_tasks",
-    ]);
-
-    function canReadTable(table: string): boolean {
-      if (financeTables.has(table)) {
-        return enabledModules.includes("finance");
+    const days = Math.min(365, Math.max(7, Number(request.nextUrl.searchParams.get('days') || 30) || 30));
+    const now = new Date(); const today = day(now); const from = day(shift(now, -(days - 1)));
+    const prevTo = day(shift(now, -days)); const prevFrom = day(shift(now, -(days * 2 - 1)));
+    const next30 = day(shift(now, 30));
+    const warnings: string[] = [];
+    async function rows(table: string): Promise<Row[]> {
+      const output: Row[] = [];
+      for (let offset = 0; offset < 100000; offset += 1000) {
+        const { data, error } = await db.from(table).select('*').eq('organisation_id', org).range(offset, offset + 999);
+        if (error) { warnings.push(`${table}: ${error.message}`); return []; }
+        output.push(...(data || [])); if (!data || data.length < 1000) break;
       }
-
-      if (storeTables.has(table)) {
-        return enabledModules.includes("store");
-      }
-
-      if (projectTables.has(table)) {
-        return enabledModules.includes("clientsProjects");
-      }
-
-      if (table === "subscriptions") {
-        return enabledModules.includes("finance");
-      }
-
-      if (
-        table === "events" ||
-        table === "bookings" ||
-        table === "customers"
-      ) {
-        return enabledModules.includes("core");
-      }
-
-      return false;
+      return output;
     }
-
-    async function all(table: string): Promise<Row[]> {
-      if (!canReadTable(table)) {
-        return [];
-      }
-
-      const rows: Row[] = [];
-
-      for (let start = 0; start < 100000; start += 1000) {
-        const { data, error } = await db
-          .from(table)
-          .select("*")
-          .eq("organisation_id", organisationId)
-          .range(start, start + 999);
-
-        if (error) {
-          throw new Error(`${table}: ${error.message}`);
-        }
-
-        rows.push(...(data || []));
-
-        if (!data || data.length < 1000) {
-          break;
-        }
-      }
-
-      return rows;
-    }
-
-    const fetched = await Promise.all(
-      tables.map((table) => all(table)),
-    );
-
-    const data = Object.fromEntries(
-      tables.map((table, index) => [
-        table,
-        fetched[index],
-      ]),
-    ) as Record<string, Row[]>;
-
-    // ========================================================
-    // FINANCE
-    // ========================================================
-
-    const invoices = data.invoices.filter(
-      (invoice) =>
-        ![
-          "void",
-          "voided",
-          "cancelled",
-          "canceled",
-          "draft",
-        ].includes(
-          String(invoice.status || "").toLowerCase(),
-        ),
-    );
-
-    const overdueInvoices = invoices.filter(
-      (invoice) =>
-        num(invoice.balance_due) > 0 &&
-        Boolean(invoice.due_date) &&
-        iso(invoice.due_date).slice(0, 10) < today,
-    );
-
-    const invoicePaid = invoices
-      .filter((invoice) =>
-        inRange(invoice.paid_at, fromDate, today),
-      )
-      .reduce(
-        (sum, invoice) =>
-          sum + num(invoice.amount_paid),
-        0,
-      );
-
-    const expenses = data.expenses.filter(
-      (expense) =>
-        inRange(
-          expense.date || expense.created_at,
-          fromDate,
-          today,
-        ) &&
-        ![
-          "void",
-          "cancelled",
-          "canceled",
-        ].includes(
-          String(expense.status || "").toLowerCase(),
-        ),
-    );
-
-    // ========================================================
-    // STORE ORDERS
-    // ========================================================
-
-    const orders = data.store_orders.filter(
-      (order) =>
-        paid(order.payment_status) &&
-        inRange(
-          order.paid_at ||
-            order.checkout_completed_at ||
-            order.created_at,
-          fromDate,
-          today,
-        ),
-    );
-
-    const orderIds = orders.map((order) => String(order.id));
-
+    const names = ['invoices','expenses','store_orders','store_subscriptions','subscriptions','projects','tasks','project_tasks','events','bookings','customers'];
+    const values = await Promise.all(names.map(rows));
+    const tables = Object.fromEntries(names.map((key, i) => [key, values[i]])) as Record<string, Row[]>;
+    const invoices = tables.invoices.filter(x => !['void','voided','cancelled','canceled','draft'].includes(str(x.status)));
+    const overdue = invoices.filter(x => n(x.balance_due) > 0 && !!date(x.due_date) && date(x.due_date) < today);
+    const orders = tables.store_orders.filter(x => paid(x.payment_status));
+    const selectedOrders = orders.filter(x => between(x.paid_at || x.checkout_completed_at || x.created_at, from, today));
+    const previousOrders = orders.filter(x => between(x.paid_at || x.checkout_completed_at || x.created_at, prevFrom, prevTo));
+    const orderRevenue = (arr: Row[]) => arr.reduce((sum, x) => sum + n(x.total) - n(x.refunded_amount), 0);
+    const storeRevenue = orderRevenue(selectedOrders);
+    const previousRevenue = orderRevenue(previousOrders);
+    const ids = selectedOrders.map(x => x.id).filter(Boolean);
     const items: Row[] = [];
-
-    if (enabledModules.includes("store")) {
-      for (let index = 0; index < orderIds.length; index += 100) {
-        const ids = orderIds.slice(index, index + 100);
-
-        const { data: rows, error } = await db
-          .from("store_order_items")
-          .select(
-            "id,order_id,product_id,product_name,quantity,total",
-          )
-          .in("order_id", ids);
-
-        if (error) {
-          throw new Error(
-            `store_order_items: ${error.message}`,
-          );
-        }
-
-        items.push(...(rows || []));
-      }
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data, error } = await db.from('store_order_items').select('id,order_id,product_id,product_name,quantity,total').in('order_id', ids.slice(i, i + 100));
+      if (error) { warnings.push(`store_order_items: ${error.message}`); break; }
+      items.push(...(data || []));
     }
-
-    const productMap = new Map<
-      string,
-      {
-        id: string;
-        name: string;
-        units: number;
-        revenue: number;
-        orders: Set<string>;
-      }
-    >();
-
+    const productsMap = new Map<string, { id: string; name: string; units: number; revenue: number; orders: Set<string> }>();
     for (const item of items) {
-      const key = String(
-        item.product_id ||
-          item.product_name ||
-          item.id,
-      );
-
-      const row = productMap.get(key) || {
-        id: key,
-        name: String(
-          item.product_name || "Unnamed product",
-        ),
-        units: 0,
-        revenue: 0,
-        orders: new Set<string>(),
-      };
-
-      row.units += num(item.quantity);
-      row.revenue += num(item.total);
-      row.orders.add(String(item.order_id));
-
-      productMap.set(key, row);
+      const id = String(item.product_id || item.product_name || item.id);
+      const entry = productsMap.get(id) || { id, name: String(item.product_name || 'Unnamed product'), units: 0, revenue: 0, orders: new Set<string>() };
+      entry.units += n(item.quantity); entry.revenue += n(item.total); entry.orders.add(item.order_id); productsMap.set(id, entry);
     }
-
-    const products = [...productMap.values()]
-      .map(({ orders: productOrders, ...rest }) => ({
-        ...rest,
-        orders: productOrders.size,
-      }))
-      .sort((a, b) => b.revenue - a.revenue);
-
-    // ========================================================
-    // SUBSCRIPTIONS
-    // ========================================================
-
-    const activeSubscriptions =
-      data.store_subscriptions.filter(
-        (subscription) =>
-          activeSubscription(subscription.status),
-      );
-
-    const storeMrr = activeSubscriptions.reduce(
-      (sum, subscription) =>
-        sum +
-        monthlyAmount(
-          (num(subscription.unit_amount_pence) / 100) *
-            num(subscription.quantity || 1),
-          subscription.billing_interval,
-        ),
-      0,
-    );
-
-    const otherSubscriptions = data.subscriptions.filter(
-      (subscription) =>
-        subscription.active === true ||
-        String(subscription.status || "").toLowerCase() ===
-          "active",
-    );
-
-    const otherMrr = otherSubscriptions.reduce(
-      (sum, subscription) =>
-        sum +
-        monthlyAmount(
-          num(subscription.amount),
-          subscription.interval,
-        ),
-      0,
-    );
-
-    // ========================================================
-    // PROJECTS AND TASKS
-    // ========================================================
-
-    const activeProjects = data.projects.filter(
-      (project) =>
-        !project.deleted_at &&
-        !done(project.status),
-    );
-
-    const allTasks = [
-      ...data.tasks.filter((task) => !task.deleted_at),
-      ...data.project_tasks,
-    ];
-
-    const overdueTasks = allTasks.filter(
-      (task) =>
-        !done(task.status) &&
-        Boolean(task.due_date) &&
-        iso(task.due_date).slice(0, 10) < today,
-    );
-
-    // ========================================================
-    // CALENDAR
-    // ========================================================
-
-    const upcomingEvents = data.events.filter(
-      (event) =>
-        iso(event.start_time).slice(0, 10) >= today &&
-        iso(event.start_time).slice(0, 10) <= next30,
-    );
-
-    const upcomingBookings = data.bookings.filter(
-      (booking) =>
-        iso(booking.start_time).slice(0, 10) >= today &&
-        iso(booking.start_time).slice(0, 10) <= next30 &&
-        !["cancelled", "canceled"].includes(
-          String(booking.status || "").toLowerCase(),
-        ),
-    );
-
-    // ========================================================
-    // STORE REVENUE
-    // ========================================================
-
-    const storeRevenue = orders.reduce(
-      (sum, order) =>
-        sum +
-        num(order.total) -
-        num(order.refunded_amount),
-      0,
-    );
-
-    // ========================================================
-    // RESPONSE
-    // Preserve the existing Insights frontend data structure.
-    // ========================================================
-
-    const result = {
-      period: {
-        from: fromDate,
-        to: today,
-        days,
-      },
-
-      finance: {
-        invoicePayments: invoicePaid,
-        storeRevenue,
-
-        expenses: expenses.reduce(
-          (sum, expense) =>
-            sum + num(expense.amount),
-          0,
-        ),
-
-        outstanding: invoices.reduce(
-          (sum, invoice) =>
-            sum + Math.max(0, num(invoice.balance_due)),
-          0,
-        ),
-
-        overdueAmount: overdueInvoices.reduce(
-          (sum, invoice) =>
-            sum + num(invoice.balance_due),
-          0,
-        ),
-
-        overdueCount: overdueInvoices.length,
-
-        overdueInvoices: overdueInvoices
-          .slice(0, 30)
-          .map((invoice) => ({
-            id: invoice.id,
-            number: invoice.invoice_number,
-            due_date: invoice.due_date,
-            balance_due: invoice.balance_due,
-            customer_id: invoice.customer_id,
-          })),
-
-        invoicesIssued: invoices.filter((invoice) =>
-          inRange(
-            invoice.invoice_date || invoice.created_at,
-            fromDate,
-            today,
-          ),
-        ).length,
-      },
-
-      store: {
-        revenue: storeRevenue,
-        orders: orders.length,
-
-        units: items.reduce(
-          (sum, item) =>
-            sum + num(item.quantity),
-          0,
-        ),
-
-        averageOrder: orders.length
-          ? storeRevenue / orders.length
-          : 0,
-
-        products: products.slice(0, 50),
-      },
-
-      subscriptions: {
-        active: activeSubscriptions.length,
-        storeMrr,
-
-        otherActive: otherSubscriptions.length,
-        otherMrr,
-
-        totalMrr: storeMrr + otherMrr,
-      },
-
-      work: {
-        activeProjects: activeProjects.length,
-
-        overdueProjects: activeProjects.filter(
-          (project) =>
-            Boolean(project.due_date) &&
-            iso(project.due_date).slice(0, 10) < today,
-        ).length,
-
-        overdueTasks: overdueTasks.length,
-
-        dueToday: allTasks.filter(
-          (task) =>
-            !done(task.status) &&
-            iso(task.due_date).slice(0, 10) === today,
-        ).length,
-
-        totalTasks: allTasks.length,
-
-        overdueTaskItems: overdueTasks
-          .slice(0, 25)
-          .map((task) => ({
-            id: task.id,
-            title: task.title || task.name,
-            due_date: task.due_date,
-            project_id: task.project_id,
-          })),
-      },
-
-      calendar: {
-        upcomingEvents: upcomingEvents.length,
-        upcomingBookings: upcomingBookings.length,
-
-        events: upcomingEvents
-          .slice(0, 15)
-          .map((event) => ({
-            id: event.id,
-            title: event.title,
-            start_time: event.start_time,
-          })),
-      },
-
-      customers: {
-        total: data.customers.length,
-
-        new: data.customers.filter((customer) =>
-          inRange(
-            customer.created_at,
-            fromDate,
-            today,
-          ),
-        ).length,
-      },
-
-      modules: enabledModules,
-
-      organisation: {
-        id: organisation.id,
-        name: organisation.name,
-      },
-
-      notes: [
-        "Store revenue and invoice payments are shown separately to avoid assuming they are distinct income sources.",
-        "Invoice payments shown use paid invoices; partial payments outside the selected paid date may not be represented.",
-        "MRR is a run rate, not cash received. Legacy and Store subscriptions may overlap; review before adding them together.",
-        "Event and booking counts may overlap if a booking creates an event.",
-      ],
-    };
-
-    return NextResponse.json(result, {
-      headers: {
-        "Cache-Control": "private, no-store",
-      },
-    });
-  } catch (error) {
-    console.error("Insights report error:", error);
-
-    return errorResponse(
-      "Could not load Insights. Check server logs and table permissions.",
-      500,
-    );
+    const products = [...productsMap.values()].map(({ orders, ...x }) => ({ ...x, orders: orders.size })).sort((a,b) => b.revenue - a.revenue);
+    const storeSubs = tables.store_subscriptions.filter(x => active(x.status));
+    const storeMrr = storeSubs.reduce((s,x) => s + monthly(n(x.unit_amount_pence) / 100 * n(x.quantity || 1), x.billing_interval), 0);
+    const otherSubs = tables.subscriptions.filter(x => x.active === true || active(x.status));
+    const otherMrr = otherSubs.reduce((s,x) => s + monthly(n(x.amount), x.interval), 0);
+    const plans = new Map<string, { name: string; count: number; mrr: number }>();
+    for (const x of storeSubs) {
+      const name = String(x.plan_name || x.plan_label || x.product_name || x.price_name || x.plan_code || 'Uncategorised');
+      const row = plans.get(name) || { name, count: 0, mrr: 0 }; row.count++; row.mrr += monthly(n(x.unit_amount_pence) / 100 * n(x.quantity || 1), x.billing_interval); plans.set(name, row);
+    }
+    const activeProjects = tables.projects.filter(x => !x.deleted_at && !finished(x.status));
+    const tasks = [...tables.tasks.filter(x => !x.deleted_at), ...tables.project_tasks.filter(x => !x.deleted_at)];
+    const overdueTasks = tasks.filter(x => !finished(x.status) && !!date(x.due_date) && date(x.due_date) < today);
+    const events = tables.events.filter(x => between(x.start_time || x.starts_at, today, next30));
+    const bookings = tables.bookings.filter(x => between(x.start_time || x.starts_at, today, next30) && !['cancelled','canceled'].includes(str(x.status)));
+    const expenses = tables.expenses.filter(x => between(x.date || x.created_at, from, today) && !['void','cancelled','canceled'].includes(str(x.status)));
+    const invoicePaid = invoices.filter(x => between(x.paid_at, from, today)).reduce((s,x) => s + n(x.amount_paid), 0);
+    const refunded = selectedOrders.reduce((s,x) => s + n(x.refunded_amount), 0);
+    const failedPayments = tables.store_orders.filter(x => ['failed','payment_failed'].includes(str(x.payment_status)) && between(x.created_at, from, today)).length;
+    const trend = Array.from({ length: days }, (_, i) => { const d = day(shift(new Date(from + 'T12:00:00Z'), i)); return { date: d, revenue: selectedOrders.filter(x => date(x.paid_at || x.checkout_completed_at || x.created_at) === d).reduce((s,x) => s + n(x.total) - n(x.refunded_amount), 0) }; });
+    return NextResponse.json({
+      organisation: { id: org, name: orgInfo?.name || 'Your organisation' }, modules,
+      period: { from, to: today, days },
+      finance: { invoicePayments: invoicePaid, storeRevenue, expenses: expenses.reduce((s,x) => s + n(x.amount), 0), outstanding: invoices.reduce((s,x) => s + Math.max(0,n(x.balance_due)),0), overdueAmount: overdue.reduce((s,x) => s+n(x.balance_due),0), overdueCount: overdue.length, overdueInvoices: overdue.slice(0,30).map(x => ({id:x.id,number:x.invoice_number,due_date:x.due_date,balance_due:x.balance_due})), invoicesIssued: invoices.filter(x => between(x.invoice_date || x.created_at,from,today)).length, refunds: refunded, failedPayments },
+      store: { revenue: storeRevenue, previousRevenue, growthPercent: previousRevenue > 0 ? (storeRevenue - previousRevenue) / previousRevenue * 100 : null, orders: selectedOrders.length, units: items.reduce((s,x) => s+n(x.quantity),0), averageOrder: selectedOrders.length ? storeRevenue / selectedOrders.length : 0, products: products.slice(0,50), trend },
+      subscriptions: { active: storeSubs.length, storeMrr, otherActive: otherSubs.length, otherMrr, totalMrr: storeMrr+otherMrr, plans: [...plans.values()].sort((a,b)=>b.mrr-a.mrr) },
+      work: { activeProjects: activeProjects.length, overdueProjects: activeProjects.filter(x => !!date(x.due_date) && date(x.due_date) < today).length, overdueTasks: overdueTasks.length, dueToday: tasks.filter(x => !finished(x.status) && date(x.due_date) === today).length, totalTasks: tasks.length, overdueTaskItems: overdueTasks.slice(0,25).map(x=>({id:x.id,title:x.title||x.name,due_date:x.due_date})) },
+      calendar: { upcomingEvents: events.length, upcomingBookings: bookings.length, events: events.slice(0,15).map(x=>({id:x.id,title:x.title||x.name,start_time:x.start_time||x.starts_at})) },
+      customers: { total: tables.customers.length, new: tables.customers.filter(x=>between(x.created_at,from,today)).length },
+      notes: ['Store revenue and invoice payments may overlap; they are not added together.', 'Invoice payments are based on paid_at and may exclude partial payments.', 'Subscription MRR is an estimate, not cash received. Store and legacy subscriptions may overlap.', 'Store revenue trends use recorded order payment dates.'],
+      warnings,
+    }, { headers: { 'Cache-Control': 'private, no-store' } });
+  } catch (e) {
+    console.error('Insights report error', e);
+    return NextResponse.json({ error: 'Could not load Insights. Check server logs.' }, { status: 500 });
   }
 }

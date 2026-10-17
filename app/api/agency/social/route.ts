@@ -41,8 +41,13 @@ export async function GET(req:NextRequest){
    }
   }
   if(!permitted)return NextResponse.json({error:"Social access not granted"},{status:403});
+  // Only public account metadata is returned. Never expose Meta access tokens.
+  const {data:accounts,error:accountsError}=await db.from("social_accounts")
+    .select("id,platform,display_name,page_name,avatar_url,instagram_business_account_id,page_id,updated_at")
+    .eq("organisation_id",org).order("updated_at",{ascending:false});
+  if(accountsError)throw Error("Unable to load connected accounts");
   const {data:posts,error}=await db.from("socials").select("id,caption,platform,status,scheduled_for,created_at,media_url").eq("organisation_id",org).order("created_at",{ascending:false}).limit(100);
   if(error)throw Error("Unable to load posts");
-  return NextResponse.json({posts:posts||[]},{headers:{"Cache-Control":"no-store"}});
+  return NextResponse.json({posts:posts||[],accounts:accounts||[]},{headers:{"Cache-Control":"no-store"}});
  }catch(e){console.error("Agency social",e);return NextResponse.json({error:"Unable to load social data"},{status:500});}
 }

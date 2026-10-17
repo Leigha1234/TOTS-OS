@@ -92,3 +92,63 @@ export async function POST(request: NextRequest) {
     return fail("Invalid schedule request", 400);
   }
 }
+
+/** Edit a pending organisation post without changing its owner or platform. */
+export async function PATCH(request: NextRequest) {
+  try {
+    const body: Record<string, unknown> = await request.json();
+    const organisationId = typeof body.organisationId === "string" ? body.organisationId : "";
+    const access = await requireAgencySocialAccess(request.headers.get("authorization"), organisationId, "edit");
+    if (!access.ok) return fail(access.error, access.status);
+    const postId = typeof body.postId === "string" ? body.postId : "";
+    const platform = typeof body.platform === "string" ? body.platform : "";
+    const caption = typeof body.caption === "string" ? body.caption.trim() : "";
+    const hashtags = typeof body.hashtags === "string" ? body.hashtags.trim() : "";
+    const when = typeof body.scheduledFor === "string" ? new Date(body.scheduledFor) : new Date(NaN);
+    if (!UUID.test(postId) || !["facebook", "instagram"].includes(platform) || !caption || caption.length > 10000 ||
+        !Number.isFinite(when.getTime()) || when.getTime() < Date.now() + 120_000) {
+      return fail("Invalid post, caption or future schedule", 400);
+    }
+    if (!Array.isArray(body.mediaUrls) || body.mediaUrls.length > 10 ||
+        body.mediaUrls.some((url) => typeof url !== "string")) return fail("Invalid media list", 400);
+    const mediaUrls = (body.mediaUrls as string[]).map((url) => url.trim()).filter(Boolean);
+    if (new Set(mediaUrls).size !== mediaUrls.length) return fail("Duplicate media URLs", 400);
+    if (platform === "instagram" && !mediaUrls.length) return fail("Instagram requires media", 400);
+    if (platform === "facebook" && mediaUrls.length > 1 && mediaUrls.some((url) => VIDEO_EXT.test(url))) {
+      return fail("Facebook multi-image posts cannot include videos", 400);
+    }
+    const storageUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!storageUrl) return fail("Storage is not configured", 500);
+    const origin = new URL(storageUrl).origin;
+    const prefix = `/storage/v1/object/public/social-assets/organisations/${organisationId}/`;
+    for (const url of mediaUrls) {
+      let parsed: URL;
+      try { parsed = new URL(url); } catch { return fail("Invalid media URL", 400); }
+      if (parsed.origin !== origin || !parsed.pathname.startsWith(prefix) ||
+          !parsed.pathname.slice(prefix.length) || parsed.pathname.slice(prefix.length).includes("/")) {
+        return fail("Media must belong to the selected organisation", 400);
+      }
+    }
+    // Do not update a post that the worker has already claimed or attempted.
+    const { data: existing, error: lookupError } = await access.db.from("socials")
+      .select("id,status,attempts,last_attempt_at")
+      .eq("id", postId).eq("organisation_id", organisationId).eq("platform", platform).maybeSingle();
+    if (lookupError) return fail("Unable to load post", 500);
+    if (!existing) return fail("Post not found", 404);
+    if (existing.status !== "scheduled" || Number(existing.attempts || 0) > 0 || existing.last_attempt_at) {
+      return fail("This post has already started publishing and cannot be edited", 409);
+    }
+    const format = mediaUrls.length > 1 ? "carousel" : (typeof body.format === "string" ? body.format : "Post");
+    const { data, error } = await access.db.from("socials").update({
+      caption, hashtags: hashtags || null, media_url: mediaUrls[0] || null,
+      media_urls: mediaUrls, scheduled_for: when.toISOString(), format,
+    }).eq("id", postId).eq("organisation_id", organisationId).eq("platform", platform)
+      .eq("status", "scheduled").is("last_attempt_at", null)
+      .select("id,platform,status,scheduled_for").maybeSingle();
+    if (error) return fail("Unable to update post", 500);
+    if (!data) return fail("Post is no longer editable", 409);
+    return NextResponse.json({ post: data }, { headers: { "Cache-Control": "no-store" } });
+  } catch {
+    return fail("Invalid edit request", 400);
+  }
+}

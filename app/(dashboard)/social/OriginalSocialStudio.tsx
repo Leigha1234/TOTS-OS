@@ -2938,6 +2938,29 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
         // actual visual instead of uploading the whole video.
         // ====================================================
 
+        // Resize image previews for AI analysis only. Original files remain
+        // untouched for publication. This avoids 413 responses for carousels.
+        const compactAiImage = async (file: File): Promise<File> => {
+          if (!file.type.startsWith("image/") || file.type === "image/svg+xml") return file;
+          const bitmap = await createImageBitmap(file);
+          try {
+            const maxEdge = 1280;
+            const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+            canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+            const context = canvas.getContext("2d");
+            if (!context) throw new Error("Image preview unavailable");
+            context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            const blob = await new Promise<Blob>((resolve, reject) =>
+              canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Could not resize image")), "image/jpeg", 0.72)
+            );
+            return new File([blob], "ai-preview.jpg", { type: "image/jpeg" });
+          } finally {
+            bitmap.close();
+          }
+        };
+
         for (
           const item of
           mediaItems
@@ -2949,13 +2972,15 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
             continue;
           }
 
+          if (visualItemsAdded >= 10) break;
+
           if (
             item.type ===
             "image"
           ) {
             formData.append(
               "files",
-              item.file
+              await compactAiImage(item.file)
             );
 
             visualItemsAdded +=
@@ -5628,6 +5653,52 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
           "Choose a future time for the scheduled post."
         );
 
+        return;
+      }
+
+      if (selectedOrganisationId) {
+        if (platforms.some((p) => p !== "facebook" && p !== "instagram")) {
+          toast.error("Client editing supports Facebook and Instagram only.");
+          return;
+        }
+        const original = Object.entries(editingPostIds).filter(([, id]) => Boolean(id));
+        if (!original.length || original.length !== platforms.length ||
+            original.some(([p]) => !platforms.includes(p as PlatformId))) {
+          toast.error("Keep the original platforms when editing. Create a separate post for additional platforms.");
+          return;
+        }
+        setIsPosting(true);
+        setStatus("Saving client changes…");
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.access_token) throw new Error("Please sign in again.");
+          const urls = await resolveComposerMedia();
+          for (const [platform, postId] of original) {
+            const response = await fetch("/api/agency/social/schedule", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+              body: JSON.stringify({
+                organisationId: selectedOrganisationId,
+                postId, platform,
+                caption: caption.trim(), hashtags: hashtags.trim(),
+                mediaUrls: urls, format, scheduledFor: publishDate.toISOString(),
+              }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(`${platform}: ${result.error || "Unable to save changes"}`);
+          }
+          toast.success("Client scheduled post updated.");
+          await syncPosts(true);
+          resetComposer();
+          setViewMode("planner");
+          setStatus("Ready");
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Unable to update client post.");
+          setStatus("Unable to save changes");
+        } finally {
+          setIsPosting(false);
+          setIsUploadingMedia(false);
+        }
         return;
       }
 
@@ -8371,7 +8442,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                       <p className="text-xs text-amber-900">
                         Client workspace: Facebook and Instagram posts use MTC's connected account.
                         Post Now queues publishing for the next worker run. Media uploads are limited to 25 MB per file.
-                        Editing existing scheduled client posts is not yet supported.
+                        Scheduled client posts can now be edited before the publishing worker starts.
                       </p>
                       <button
                         type="button"
@@ -8435,7 +8506,6 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                   <button
                     type="button"
                     disabled={
-                      (Boolean(selectedOrganisationId) && isEditingScheduledPost) ||
                       isPosting ||
                       isUploadingMedia ||
                       platforms.length ===

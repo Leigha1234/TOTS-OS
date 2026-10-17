@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   }
   if (!allowed) return NextResponse.json({ error: "Email Marketing view permission not granted" }, { status: 403 });
   const [campaigns, lists] = await Promise.all([
-    db.from("campaigns").select("id,title,subject,status,scheduled_for,sent_at,created_at,sent_count,open_count,click_count,failed_count,list_id").eq("organisation_id", organisationId).order("created_at", { ascending: false }).limit(100),
+    db.from("campaigns").select("id,title,subject,status,scheduled_for,sent_at,created_at,sent_count,open_count,click_count,list_id").eq("organisation_id", organisationId).order("created_at", { ascending: false }).limit(100),
     db.from("subscriber_lists").select("id,name").eq("organisation_id", organisationId).order("name").limit(100),
   ]);
   if (campaigns.error || lists.error) return NextResponse.json({ error: "Unable to load client campaigns" }, { status: 500 });

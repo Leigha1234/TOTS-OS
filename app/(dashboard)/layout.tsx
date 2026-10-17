@@ -247,7 +247,7 @@ function DashboardLayoutInner({
   children,
 }: DashboardLayoutProps) {
   const agencyContext = useActiveAgencyContext();
-  const clientRouteAllowed = (pathnameForClientAccess: string) => pathnameForClientAccess === "/agency" || pathnameForClientAccess.startsWith("/agency/") || ((pathnameForClientAccess === "/social" || pathnameForClientAccess.startsWith("/social/")) && agencyContext.active?.permissions?.social?.view === true);
+  const clientRouteAllowed = (pathnameForClientAccess: string) => pathnameForClientAccess === "/agency" || pathnameForClientAccess.startsWith("/agency/") || ((pathnameForClientAccess === "/social" || pathnameForClientAccess.startsWith("/social/")) && agencyContext.active?.permissions?.social?.view === true) || ((pathnameForClientAccess === "/campaigns" || pathnameForClientAccess.startsWith("/campaigns/")) && agencyContext.active?.permissions?.email?.view === true);
   // ==========================================================
   // STATE
   // ==========================================================

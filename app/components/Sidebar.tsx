@@ -1,7 +1,7 @@
 "use client";
 
 import GlobalOrganisationSwitcher from "./GlobalOrganisationSwitcher";
-import { useActiveAgencyContext } from "@/lib/use-active-agency-context";
+import { useActiveAgencyContext } from "../../lib/use-active-agency-context";
 
 import { useEffect, useState } from "react";
 
@@ -552,6 +552,7 @@ export default function Sidebar() {
     if (agencyContext.delegated) {
       if (link.href === "/agency") return true;
       if (link.href === "/social") return agencyContext.active?.permissions?.social?.view === true;
+      if (link.href === "/campaigns") return agencyContext.active?.permissions?.email?.view === true;
       return false;
     }
 

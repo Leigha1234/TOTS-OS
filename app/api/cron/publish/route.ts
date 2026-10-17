@@ -707,9 +707,9 @@ async function getMetaConnection({
         `
       )
       .eq(
-        "user_id",
-        post.user_id
-      )
+         post.organisation_id ? "organisation_id" : "user_id",
+         post.organisation_id || post.user_id
+       )
       .eq(
         "platform",
         "meta"
@@ -735,53 +735,8 @@ async function getMetaConnection({
       )
       .maybeSingle();
 
-  if (
-    !data &&
-    post.organisation_id &&
-    !error
-  ) {
-    const fallback =
-      await supabase
-        .from(
-          "social_accounts"
-        )
-        .select(
-          `
-            id,
-            user_id,
-            organisation_id,
-            platform,
-            access_token,
-            expires_at,
-            page_id,
-            page_name,
-            page_access_token,
-            instagram_business_account_id
-          `
-        )
-        .eq(
-          "user_id",
-          post.user_id
-        )
-        .eq(
-          "platform",
-          "meta"
-        )
-        .is(
-          "organisation_id",
-          null
-        )
-        .limit(
-          1
-        )
-        .maybeSingle();
+  // Organisation-owned posts must never fall back to an unscoped connection.
 
-    data =
-      fallback.data;
-
-    error =
-      fallback.error;
-  }
 
   if (
     error
@@ -2041,9 +1996,9 @@ async function getTikTokConnection({
         `
       )
       .eq(
-        "user_id",
-        post.user_id
-      )
+         post.organisation_id ? "organisation_id" : "user_id",
+         post.organisation_id || post.user_id
+       )
       .eq(
         "platform",
         "tiktok"
@@ -2072,50 +2027,8 @@ async function getTikTokConnection({
       )
       .maybeSingle();
 
-  if (
-    !connection &&
-    post.organisation_id &&
-    !connectionError
-  ) {
-    const fallback =
-      await supabase
-        .from(
-          "social_accounts"
-        )
-        .select(
-          `
-            id,
-            user_id,
-            organisation_id,
-            access_token,
-            refresh_token,
-            expires_at,
-            platform_user_id
-          `
-        )
-        .eq(
-          "user_id",
-          post.user_id
-        )
-        .eq(
-          "platform",
-          "tiktok"
-        )
-        .is(
-          "organisation_id",
-          null
-        )
-        .limit(
-          1
-        )
-        .maybeSingle();
+  // Organisation-owned posts must never fall back to an unscoped connection.
 
-    connection =
-      fallback.data;
-
-    connectionError =
-      fallback.error;
-  }
 
   if (
     connectionError

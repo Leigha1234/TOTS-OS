@@ -1,8 +1,4 @@
-import {
-  NextRequest,
-  NextResponse,
-} from "next/server";
-
+import { NextRequest, NextResponse } from "next/server";
 import {
   createServerClient,
 } from "@supabase/ssr";
@@ -28,6 +24,7 @@ type PublishDestination =
 type PublishRequestBody = {
   socialAccountId?:
     string;
+  organisationId?: string;
 
   content?:
     string;
@@ -97,20 +94,18 @@ type MetaErrorResponse = {
 };
 
 type SupabaseCookieToSet = {
-  name:
-    string;
-
-  value:
-    string;
-
-  options?:
-    Parameters<
-      Awaited<
-        ReturnType<
-          typeof cookies
-        >
-      >["set"]
-    >[2];
+  name: string;
+  value: string;
+  options?: {
+    path?: string;
+    domain?: string;
+    maxAge?: number;
+    expires?: Date;
+    httpOnly?: boolean;
+    secure?: boolean;
+    sameSite?: boolean | "lax" | "strict" | "none";
+    priority?: "low" | "medium" | "high";
+  };
 };
 
 // ============================================================
@@ -554,767 +549,129 @@ async function publishToInstagram({
 }
 
 // ============================================================
-// POST
+// POST — IMMEDIATE META PUBLISHING
 // ============================================================
+// Important: this route requires the caller to explicitly provide the
+// selected organisation. No client-provided account or org ID is trusted.
+export async function POST(req: NextRequest) {
+  const noStore = { "Cache-Control": "no-store" };
+  const fail = (error: string, status: number) =>
+    NextResponse.json({ success: false, error }, { status, headers: noStore });
 
-export async function POST(
-  req:
-    NextRequest
-) {
   try {
-    // ========================================================
-    // ENVIRONMENT
-    // ========================================================
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anon) return fail("Social publishing is not configured.", 500);
 
-    const supabaseUrl =
-      process.env
-        .NEXT_PUBLIC_SUPABASE_URL;
-
-    const supabaseAnonKey =
-      process.env
-        .NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (
-      !supabaseUrl ||
-      !supabaseAnonKey
-    ) {
-      console.error(
-        "[SOCIAL POST] Missing Supabase environment variables."
-      );
-
-      return NextResponse.json(
-        {
-          success:
-            false,
-
-          error:
-            "Social publishing is not configured correctly.",
+    // Preserve the existing cookie-based login, but also support an
+    // Authorization bearer token for agency-aware frontend requests.
+    const cookieStore = await cookies();
+    const supabase = createServerClient(url, anon, {
+      cookies: {
+        getAll() { return cookieStore.getAll(); },
+        setAll(cookiesToSet: SupabaseCookieToSet[]) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options));
+          } catch { /* Cookie writes can be unavailable in route contexts. */ }
         },
-        {
-          status:
-            500,
-        }
-      );
-    }
-
-    // ========================================================
-    // SUPABASE
-    // ========================================================
-
-    const cookieStore =
-      await cookies();
-
-    const supabase =
-      createServerClient(
-        supabaseUrl,
-        supabaseAnonKey,
-        {
-          cookies: {
-            getAll() {
-              return cookieStore.getAll();
-            },
-
-            setAll(
-              cookiesToSet:
-                SupabaseCookieToSet[]
-            ) {
-              try {
-                cookiesToSet.forEach(
-                  ({
-                    name,
-                    value,
-                    options,
-                  }) => {
-                    cookieStore.set(
-                      name,
-                      value,
-                      options
-                    );
-                  }
-                );
-              } catch {
-                /*
-                 * Cookie writes can be unavailable
-                 * in some route contexts.
-                 */
-              }
-            },
-          },
-        }
-      );
-
-    // ========================================================
-    // AUTHENTICATED USER
-    // ========================================================
-
-    const {
-      data: {
-        user,
       },
+    });
 
-      error:
-        authError,
-    } =
-      await supabase.auth.getUser();
+    const incomingBearer = req.headers.get("authorization");
+    const bearerToken = incomingBearer?.match(/^Bearer\s+(.+)$/i)?.[1];
+    let token = bearerToken || "";
+    if (!token) {
+      const { data: { session } } = await supabase.auth.getSession();
+      token = session?.access_token || "";
+    }
+    if (!token) return fail("You must be signed in to publish.", 401);
 
-    if (
-      authError ||
-      !user
-    ) {
-      console.error(
-        "[SOCIAL POST] Authentication failed:",
-        authError
-      );
+    let body: PublishRequestBody;
+    try { body = (await req.json()) as PublishRequestBody; }
+    catch { return fail("Invalid social post request.", 400); }
 
-      return NextResponse.json(
-        {
-          success:
-            false,
+    const organisationId = cleanString(body.organisationId);
+    const socialAccountId = cleanString(body.socialAccountId);
+    const content = cleanString(body.content);
+    const imageUrl = cleanString(body.imageUrl);
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID.test(organisationId)) {
+      return fail("Select an organisation before publishing. Update the Social Studio caller to send organisationId.", 400);
+    }
+    if (!UUID.test(socialAccountId)) return fail("Select a social account first.", 400);
+    if (!content || content.length > 10000) return fail("Add post content (up to 10,000 characters).", 400);
 
-          error:
-            "You must be signed in to publish social posts.",
-        },
-        {
-          status:
-            401,
-        }
-      );
+    // Authorise the actual action, not just viewing the organisation.
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) return fail("You must be signed in to publish.", 401);
+
+    // Use the authenticated client so Supabase RLS enforces access.
+    const { data: rawAccount, error: accountError } = await supabase
+      .from("social_accounts")
+      .select("id,user_id,organisation_id,platform,access_token,page_id,page_name,page_access_token,instagram_business_account_id,display_name")
+      .eq("id", socialAccountId)
+      .eq("organisation_id", organisationId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (accountError) return fail("Unable to load the connected account.", 500);
+    if (!rawAccount) return fail("Social account not found in the selected organisation.", 404);
+    const account = rawAccount as SocialAccountRow;
+    const platform = cleanString(account.platform).toLowerCase();
+
+    if (!["meta", "facebook", "instagram"].includes(platform)) {
+      if (platform === "tiktok") return fail("Use the TOTS-OS TikTok publishing workflow.", 409);
+      if (platform === "linkedin") return fail("LinkedIn publishing is not available through this endpoint.", 501);
+      return fail(`Unsupported social platform: ${platform || "unknown"}.`, 400);
     }
 
-    // ========================================================
-    // BODY
-    // ========================================================
-
-    let body:
-      PublishRequestBody;
-
-    try {
-      body =
-        (
-          await req.json()
-        ) as PublishRequestBody;
-    } catch {
-      return NextResponse.json(
-        {
-          success:
-            false,
-
-          error:
-            "Invalid social post request.",
-        },
-        {
-          status:
-            400,
-        }
-      );
+    const requested = body.destinations;
+    if (requested !== undefined && !Array.isArray(requested)) {
+      return fail("Invalid publishing destinations.", 400);
+    }
+    if (requested?.some((d) => d !== "facebook" && d !== "instagram")) {
+      return fail("Only Facebook and Instagram are supported here.", 400);
+    }
+    let destinations: PublishDestination[] = requested?.length
+      ? [...new Set(requested)]
+      : ["facebook"];
+    if (!requested?.length && imageUrl && account.instagram_business_account_id) {
+      destinations.push("instagram");
+    }
+    if (destinations.includes("instagram") && !imageUrl) {
+      return fail("Instagram image publishing requires an image URL.", 400);
     }
 
-    const socialAccountId =
-      cleanString(
-        body.socialAccountId
-      );
-
-    const content =
-      cleanString(
-        body.content
-      );
-
-    const imageUrl =
-      cleanString(
-        body.imageUrl
-      );
-
-    let destinations:
-      PublishDestination[] =
-      Array.isArray(
-        body.destinations
-      )
-        ? body.destinations.filter(
-            (
-              destination
-            ):
-              destination is PublishDestination =>
-              destination ===
-                "facebook" ||
-              destination ===
-                "instagram"
-          )
-        : [];
-
-    // ========================================================
-    // VALIDATE
-    // ========================================================
-
-    if (
-      !socialAccountId
-    ) {
-      return NextResponse.json(
-        {
-          success:
-            false,
-
-          error:
-            "Select a social account first.",
-        },
-        {
-          status:
-            400,
-        }
-      );
-    }
-
-    if (
-      !content
-    ) {
-      return NextResponse.json(
-        {
-          success:
-            false,
-
-          error:
-            "Add some post content first.",
-        },
-        {
-          status:
-            400,
-        }
-      );
-    }
-
-    // ========================================================
-    // LOAD ACCOUNT
-    // ========================================================
-
-    const {
-      data:
-        rawAccount,
-
-      error:
-        accountError,
-    } =
-      await supabase
-        .from(
-          "social_accounts"
-        )
-        .select(
-          `
-            id,
-            user_id,
-            organisation_id,
-            platform,
-            platform_user_id,
-            access_token,
-            page_id,
-            page_name,
-            page_access_token,
-            instagram_business_account_id,
-            display_name
-          `
-        )
-        .eq(
-          "id",
-          socialAccountId
-        )
-        .eq(
-          "user_id",
-          user.id
-        )
-        .maybeSingle();
-
-    if (
-      accountError
-    ) {
-      console.error(
-        "[SOCIAL POST] Social account lookup failed:",
-        accountError
-      );
-
-      return NextResponse.json(
-        {
-          success:
-            false,
-
-          error:
-            "The connected social account could not be loaded.",
-
-          details:
-            accountError.message,
-        },
-        {
-          status:
-            500,
-        }
-      );
-    }
-
-    if (
-      !rawAccount
-    ) {
-      return NextResponse.json(
-        {
-          success:
-            false,
-
-          error:
-            "Social account not found.",
-        },
-        {
-          status:
-            404,
-        }
-      );
-    }
-
-    const account =
-      rawAccount as unknown as
-        SocialAccountRow;
-
-    const platform =
-      cleanString(
-        account.platform
-      ).toLowerCase();
-
-    // ========================================================
-    // META
-    // ========================================================
-
-    if (
-      platform ===
-        "meta" ||
-      platform ===
-        "facebook" ||
-      platform ===
-        "instagram"
-    ) {
-      if (
-        destinations.length ===
-        0
-      ) {
-        destinations =
-          [
-            "facebook",
-          ];
-
-        if (
-          imageUrl &&
-          account
-            .instagram_business_account_id
-        ) {
-          destinations.push(
-            "instagram"
-          );
-        }
+    const results: Array<Record<string, unknown>> = [];
+    const errors: Array<{ destination: PublishDestination; error: string }> = [];
+    for (const destination of destinations) {
+      try {
+        const result = destination === "facebook"
+          ? await publishToFacebook({ account, content, imageUrl })
+          : await publishToInstagram({ account, content, imageUrl });
+        results.push(result as unknown as Record<string, unknown>);
+      } catch (error) {
+        errors.push({ destination, error: error instanceof Error ? error.message : "Publishing failed." });
       }
-
-      destinations =
-        Array.from(
-          new Set(
-            destinations
-          )
-        );
-
-      const results:
-        Array<
-          Record<
-            string,
-            unknown
-          >
-        > =
-        [];
-
-      const errors:
-        Array<{
-          destination:
-            PublishDestination;
-
-          error:
-            string;
-        }> =
-        [];
-
-      // ======================================================
-      // FACEBOOK
-      // ======================================================
-
-      if (
-        destinations.includes(
-          "facebook"
-        )
-      ) {
-        try {
-          const result =
-            await publishToFacebook({
-              account,
-
-              content,
-
-              imageUrl,
-            });
-
-          results.push(
-            result
-          );
-        } catch (
-          error:
-            unknown
-        ) {
-          const message =
-            error instanceof
-              Error
-              ? error.message
-              : "Facebook publishing failed.";
-
-          console.error(
-            "[SOCIAL POST] Facebook error:",
-            message
-          );
-
-          errors.push({
-            destination:
-              "facebook",
-
-            error:
-              message,
-          });
-        }
-      }
-
-      // ======================================================
-      // INSTAGRAM
-      // ======================================================
-
-      if (
-        destinations.includes(
-          "instagram"
-        )
-      ) {
-        try {
-          const result =
-            await publishToInstagram({
-              account,
-
-              content,
-
-              imageUrl,
-            });
-
-          results.push(
-            result
-          );
-        } catch (
-          error:
-            unknown
-        ) {
-          const message =
-            error instanceof
-              Error
-              ? error.message
-              : "Instagram publishing failed.";
-
-          console.error(
-            "[SOCIAL POST] Instagram error:",
-            message
-          );
-
-          errors.push({
-            destination:
-              "instagram",
-
-            error:
-              message,
-          });
-        }
-      }
-
-      if (
-        destinations.length ===
-        0
-      ) {
-        return NextResponse.json(
-          {
-            success:
-              false,
-
-            error:
-              "Select Facebook or Instagram before publishing.",
-          },
-          {
-            status:
-              400,
-          }
-        );
-      }
-
-      if (
-        results.length ===
-          0 &&
-        errors.length >
-          0
-      ) {
-        console.error(
-          "[SOCIAL POST] Meta publishing failed:",
-          errors
-        );
-
-        return NextResponse.json(
-          {
-            success:
-              false,
-
-            partialSuccess:
-              false,
-
-            error:
-              errors
-                .map(
-                  (
-                    item
-                  ) =>
-                    `${
-                      item.destination ===
-                      "facebook"
-                        ? "Facebook"
-                        : "Instagram"
-                    }: ${item.error}`
-                )
-                .join(
-                  " "
-                ),
-
-            results:
-              [],
-
-            errors,
-          },
-          {
-            status:
-              500,
-
-            headers: {
-              "Cache-Control":
-                "no-store",
-            },
-          }
-        );
-      }
-
-      const successfulDestinations =
-        results
-          .map(
-            (
-              result
-            ) =>
-              cleanString(
-                result.destination
-              )
-          )
-          .filter(
-            Boolean
-          );
-
-      console.log(
-        "[SOCIAL POST] Meta publishing completed:",
-        {
-          userId:
-            user.id,
-
-          socialAccountId:
-            account.id,
-
-          pageId:
-            account.page_id,
-
-          instagramBusinessAccountId:
-            account
-              .instagram_business_account_id,
-
-          destinations,
-
-          successfulDestinations,
-
-          results,
-
-          errors,
-        }
-      );
-
-      let message =
-        "Your post was published successfully.";
-
-      if (
-        errors.length >
-        0
-      ) {
-        message =
-          "Your post was published to some selected platforms, but one destination failed.";
-      } else if (
-        successfulDestinations.includes(
-          "facebook"
-        ) &&
-        successfulDestinations.includes(
-          "instagram"
-        )
-      ) {
-        message =
-          "Your post was published successfully to Facebook and Instagram.";
-      } else if (
-        successfulDestinations.includes(
-          "instagram"
-        )
-      ) {
-        message =
-          "Your post was published successfully to Instagram.";
-      } else if (
-        successfulDestinations.includes(
-          "facebook"
-        )
-      ) {
-        message =
-          "Your post was published successfully to Facebook.";
-      }
-
-      return NextResponse.json(
-        {
-          success:
-            true,
-
-          partialSuccess:
-            errors.length >
-            0,
-
-          message,
-
-          successfulDestinations,
-
-          results,
-
-          errors,
-        },
-        {
-          status:
-            200,
-
-          headers: {
-            "Cache-Control":
-              "no-store",
-          },
-        }
-      );
     }
 
-    // ========================================================
-    // LINKEDIN
-    // ========================================================
-
-    if (
-      platform ===
-      "linkedin"
-    ) {
-      return NextResponse.json(
-        {
-          success:
-            false,
-
-          error:
-            "LinkedIn publishing integration is not finished yet.",
-        },
-        {
-          status:
-            501,
-        }
-      );
-    }
-
-    // ========================================================
-    // TIKTOK
-    // ========================================================
-
-    if (
-      platform ===
-      "tiktok"
-    ) {
-      /*
-       * TikTok Direct Post is intentionally handled by the
-       * scheduled-post publishing worker rather than this
-       * legacy immediate Meta publishing route.
-       *
-       * TikTok requires creator-info validation, explicit
-       * privacy selection, interaction settings, commercial
-       * disclosure settings and video-transfer information.
-       *
-       * Do not initialise a TikTok post here until those values
-       * are available in this request.
-       */
-
-      return NextResponse.json(
-        {
-          success:
-            false,
-
-          code:
-            "tiktok_publish_worker_required",
-
-          error:
-            "TikTok posts must be published through the TOTS-OS TikTok publishing workflow.",
-        },
-        {
-          status:
-            409,
-
-          headers: {
-            "Cache-Control":
-              "no-store",
-          },
-        }
-      );
-    }
-
-    // ========================================================
-    // UNSUPPORTED
-    // ========================================================
-
-    return NextResponse.json(
-      {
-        success:
-          false,
-
-        error:
-          `Unsupported social platform: ${platform || "unknown"}.`,
-      },
-      {
-        status:
-          400,
-      }
-    );
-  } catch (
-    error:
-      unknown
-  ) {
-    console.error(
-      "[SOCIAL POST] Unexpected error:",
-      error
-    );
-
-    return NextResponse.json(
-      {
-        success:
-          false,
-
-        error:
-          error instanceof
-            Error
-            ? error.message
-            : "Unable to publish social post.",
-      },
-      {
-        status:
-          500,
-
-        headers: {
-          "Cache-Control":
-            "no-store",
-        },
-      }
-    );
+    // Never log access tokens or raw Meta API payloads.
+    console.info("[SOCIAL POST] Publishing outcome", {
+      organisationId, socialAccountId, destinations,
+      successCount: results.length, failureCount: errors.length,
+    });
+    const success = results.length > 0;
+    return NextResponse.json({
+      success,
+      partialSuccess: success && errors.length > 0,
+      message: success
+        ? errors.length ? "Published to some destinations; others failed." : "Post published successfully."
+        : "Publishing failed.",
+      successfulDestinations: results.map((r) => r.destination),
+      results, errors,
+    }, { status: success ? 200 : 502, headers: noStore });
+  } catch (error) {
+    console.error("[SOCIAL POST] Unexpected publishing error", error instanceof Error ? error.message : "Unknown error");
+    return fail("Unable to publish social post.", 500);
   }
 }

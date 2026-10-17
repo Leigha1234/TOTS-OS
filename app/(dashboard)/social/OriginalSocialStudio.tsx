@@ -1187,7 +1187,12 @@ function resultFromPost(
 // PAGE
 // ============================================================
 
-export default function SocialStudioUnified() {
+type SocialStudioProps = {
+  /** Organisation verified by the parent page. Delegated editing is not enabled by this prop. */
+  selectedOrganisationId?: string;
+};
+
+export default function SocialStudioUnified({ selectedOrganisationId }: SocialStudioProps = {}) {
   // ==========================================================
   // VIEW
   // ==========================================================
@@ -1819,8 +1824,8 @@ export default function SocialStudioUnified() {
           }
 
           const organisationId =
-            profile
-              ?.organisation_id ||
+            selectedOrganisationId ||
+            profile?.organisation_id ||
             null;
 
           if (
@@ -2079,6 +2084,7 @@ export default function SocialStudioUnified() {
       [
         supabase,
         user?.id,
+        selectedOrganisationId,
       ]
     );
 
@@ -2097,6 +2103,50 @@ export default function SocialStudioUnified() {
       loadBusinessKnowledge,
     ]
   );
+
+  // ==========================================================
+  // DELEGATED ORGANISATION — SAVE TEXT DRAFTS SAFELY
+  // ==========================================================
+
+  const saveAgencyDraft = async () => {
+    if (!selectedOrganisationId) return;
+    const chosenPlatforms = platforms.filter(
+      (platform) => platform === "facebook" || platform === "instagram"
+    );
+    if (!caption.trim() || chosenPlatforms.length !== 1 || platforms.length !== 1) {
+      toast.error("For client drafts, choose either Facebook or Instagram and enter a caption.");
+      return;
+    }
+    setIsPosting(true);
+    try {
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (sessionError || !token) throw new Error("Please sign in again.");
+      const response = await fetch("/api/agency/social/save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          organisationId: selectedOrganisationId,
+          platform: chosenPlatforms[0],
+          caption: caption.trim(),
+          hashtags: hashtags.trim(),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || "Unable to save draft.");
+      toast.success("Client draft saved. Nothing was published.");
+      await syncPosts(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save draft.");
+    } finally {
+      setIsPosting(false);
+    }
+  };
 
   // ==========================================================
   // LOAD POSTS
@@ -2123,6 +2173,31 @@ export default function SocialStudioUnified() {
         }
 
         try {
+          // Agency-managed organisations must read through the authenticated,
+          // organisation-authorised API, not through the user's own RLS context.
+          if (selectedOrganisationId) {
+            const { data: sessionData, error: sessionError } =
+              await supabase.auth.getSession();
+            const token = sessionData.session?.access_token;
+            if (sessionError || !token) {
+              throw new Error("Please sign in again.");
+            }
+            const response = await fetch(
+              `/api/agency/social/posts?organisationId=${encodeURIComponent(selectedOrganisationId)}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+                cache: "no-store",
+              }
+            );
+            const payload = await response.json();
+            if (!response.ok) {
+              throw new Error(payload?.error || "Unable to load organisation posts");
+            }
+            const loadedPosts = (payload.posts || []) as SocialPost[];
+            if (mountedRef.current) setPosts(loadedPosts);
+            return loadedPosts;
+          }
+
           const {
             data,
             error,
@@ -2150,8 +2225,8 @@ export default function SocialStudioUnified() {
                 tiktok_settings
               `)
               .eq(
-                "user_id",
-                user.id
+                selectedOrganisationId ? "organisation_id" : "user_id",
+                selectedOrganisationId || user.id
               )
               .order(
                 "scheduled_for",
@@ -2217,6 +2292,7 @@ export default function SocialStudioUnified() {
       [
         supabase,
         user?.id,
+        selectedOrganisationId,
       ]
     );
 
@@ -2257,6 +2333,32 @@ export default function SocialStudioUnified() {
         }
 
         try {
+          // Delegated client connections are loaded via a permission-checked
+          // server endpoint. Never query a client's credentials in the browser.
+          if (selectedOrganisationId) {
+            const { data: sessionData, error: sessionError } =
+              await supabase.auth.getSession();
+            const token = sessionData.session?.access_token;
+            if (sessionError || !token) {
+              throw new Error("Please sign in again to view client accounts.");
+            }
+            const response = await fetch(
+              `/api/agency/social/accounts?organisationId=${encodeURIComponent(selectedOrganisationId)}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+                cache: "no-store",
+              }
+            );
+            const payload = await response.json();
+            if (!response.ok) {
+              throw new Error(payload?.error || "Unable to load client accounts");
+            }
+            if (mountedRef.current) {
+              setAccounts((payload.accounts || []) as SocialAccount[]);
+            }
+            return;
+          }
+
           const {
             data,
             error,
@@ -2276,8 +2378,8 @@ export default function SocialStudioUnified() {
                 display_name
               `)
               .eq(
-                "user_id",
-                user.id
+                selectedOrganisationId ? "organisation_id" : "user_id",
+                selectedOrganisationId || user.id
               );
 
           if (
@@ -2320,6 +2422,7 @@ export default function SocialStudioUnified() {
       [
         supabase,
         user?.id,
+        selectedOrganisationId,
       ]
     );
 
@@ -3022,18 +3125,14 @@ export default function SocialStudioUnified() {
 
   const facebookConnected =
     Boolean(
-      metaAccount
-        ?.page_id &&
-      metaAccount
-        ?.page_access_token
+      metaAccount?.page_id &&
+      (selectedOrganisationId || metaAccount?.page_access_token)
     );
 
   const instagramConnected =
     Boolean(
-      metaAccount
-        ?.instagram_business_account_id &&
-      metaAccount
-        ?.page_access_token
+      metaAccount?.instagram_business_account_id &&
+      (selectedOrganisationId || metaAccount?.page_access_token)
     );
 
   const linkedinAccount =
@@ -4844,6 +4943,11 @@ export default function SocialStudioUnified() {
 
           return false;
         }
+      }
+
+      if (selectedOrganisationId) {
+        toast.error("Client publishing and scheduling are not enabled yet.");
+        return false;
       }
 
       setIsPosting(
@@ -8195,12 +8299,33 @@ export default function SocialStudioUnified() {
                     </div>
                   )}
 
+                  {/* Client work is draft-only until organisation-aware
+                      media, scheduling and publishing are verified. */}
+                  {selectedOrganisationId && (
+                    <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-xs text-amber-900">
+                        Client workspace: save text-only Facebook or Instagram drafts here.
+                        Publishing, scheduling and media uploads are disabled until their
+                        organisation-specific permissions and routes are completed.
+                      </p>
+                      <button
+                        type="button"
+                        disabled={isPosting || isUploadingMedia || !caption.trim() || platforms.length !== 1 || !["facebook", "instagram"].includes(platforms[0])}
+                        onClick={() => void saveAgencyDraft()}
+                        className="w-full rounded-xl bg-stone-900 px-5 py-4 text-xs font-bold text-white disabled:opacity-40"
+                      >
+                        {isPosting ? "Saving draft…" : "Save client draft"}
+                      </button>
+                    </div>
+                  )}
+
                   {/* POST NOW */}
 
                   {!isEditingScheduledPost && (
                     <button
                       type="button"
                       disabled={
+                        Boolean(selectedOrganisationId) ||
                         isPosting ||
                         isUploadingMedia ||
                         platforms.length ===
@@ -8246,6 +8371,7 @@ export default function SocialStudioUnified() {
                   <button
                     type="button"
                     disabled={
+                      Boolean(selectedOrganisationId) ||
                       isPosting ||
                       isUploadingMedia ||
                       platforms.length ===

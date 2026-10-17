@@ -4,6 +4,16 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const fail = (a: { status: number; error: string }) => NextResponse.json({ error: a.error }, { status: a.status });
 const fields = "id,organisation_id,title,subject,content,custom_html,editor_mode,preview_text,template_id,list_id,status,scheduled_for,created_at,sent_at,sent_count,open_count,click_count,brand_color,brand_font,cta_text,cta_url,header_image_url,reply_to,sender_name,social_links";
+
+const editableFields = ["content", "custom_html", "editor_mode", "preview_text", "template_id", "brand_color", "brand_font", "cta_text", "cta_url", "header_image_url", "reply_to", "sender_name"] as const;
+function draftFields(body: Record<string, unknown>): Record<string, unknown> {
+  const output: Record<string, unknown> = {};
+  for (const key of editableFields) {
+    const value = body[key];
+    if (typeof value === "string") output[key] = value.slice(0, ["content", "custom_html"].includes(key) ? 500000 : 2000);
+  }
+  return output;
+}
 async function access(req: NextRequest, org: string, action: EmailAction) { return requireAgencyEmailAccess(req.headers.get("authorization"), org, action); }
 export async function GET(req: NextRequest) {
   const org = req.nextUrl.searchParams.get("organisationId") || "";
@@ -28,7 +38,7 @@ export async function POST(req: NextRequest) {
     const { data } = await a.db.from("subscriber_lists").select("id").eq("organisation_id", org).eq("id", listId).maybeSingle();
     if (!data) return fail({ status: 400, error: "Audience does not belong to this organisation" });
   }
-  const { data, error } = await a.db.from("campaigns").insert({ organisation_id: org, user_id: a.user.id, title, subject, content: typeof body.content === "string" ? body.content.slice(0, 500000) : "", list_id: listId || null, status: "draft" }).select(fields).single();
+  const { data, error } = await a.db.from("campaigns").insert({ organisation_id: org, user_id: a.user.id, title, subject, ...draftFields(body), content: typeof body.content === "string" ? body.content.slice(0, 500000) : "", list_id: listId || null, status: "draft" }).select(fields).single();
   return error ? fail({ status: 500, error: "Unable to create campaign" }) : NextResponse.json({ campaign: data }, { status: 201 });
 }
 export async function PATCH(req: NextRequest) {
@@ -38,7 +48,7 @@ export async function PATCH(req: NextRequest) {
   const { data: existing } = await a.db.from("campaigns").select("id,status").eq("id", body.id).eq("organisation_id", org).maybeSingle();
   if (!existing) return fail({ status: 404, error: "Campaign not found" });
   if (existing.status !== "draft") return fail({ status: 409, error: "Only draft campaigns can be edited through this endpoint" });
-  const patch: Record<string, unknown> = {};
+  const patch: Record<string, unknown> = draftFields(body);
   for (const key of ["title", "subject", "content", "custom_html", "preview_text", "sender_name", "reply_to", "cta_text", "cta_url", "header_image_url", "brand_color", "brand_font", "editor_mode"] as const) {
     if (body[key] !== undefined) {
       if (typeof body[key] !== "string") return fail({ status: 400, error: `Invalid ${key}` });

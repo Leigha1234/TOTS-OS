@@ -1445,7 +1445,7 @@ function StepBar({
 // PAGE
 // ==================================================
 
-export default function CampaignsPage() {
+export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisationId?: string }) {
   const supabase =
     useMemo(
       () =>
@@ -1864,6 +1864,7 @@ export default function CampaignsPage() {
         }
 
         const orgId =
+          agencyOrganisationId ||
           profile?.organisation_id ||
           null;
 
@@ -1943,7 +1944,7 @@ export default function CampaignsPage() {
       };
 
     void loadUser();
-  }, [supabase]);
+  }, [supabase, agencyOrganisationId]);
 
   // ==================================================
   // TEMPLATES
@@ -2457,6 +2458,22 @@ export default function CampaignsPage() {
         return;
       }
 
+      // Delegated organisation: retrieve client data through the server-verified
+      // agency API, never through the signed-in user's own Supabase RLS context.
+      if (agencyOrganisationId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const response = await fetch(`/api/agency/email/campaigns?organisationId=${encodeURIComponent(agencyOrganisationId)}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store",
+        });
+        if (!response.ok) { console.error("Unable to load delegated campaigns", await response.text()); return; }
+        const result = await response.json();
+        const clientCampaigns = (result.campaigns || []) as Campaign[];
+        setCampaigns(clientCampaigns);
+        setSelectedCampaign(previous => previous ? clientCampaigns.find(c => c.id === previous.id) || null : null);
+        return;
+      }
+
       const {
         data:
           campaignData,
@@ -2747,6 +2764,18 @@ export default function CampaignsPage() {
         return;
       }
 
+      if (agencyOrganisationId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const response = await fetch(`/api/agency/email/lists?organisationId=${encodeURIComponent(agencyOrganisationId)}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store",
+        });
+        if (!response.ok) { console.error("Unable to load delegated audiences", await response.text()); return; }
+        const result = await response.json();
+        setLists(result.lists || []);
+        return;
+      }
+
       const {
         data,
         error,
@@ -2785,6 +2814,7 @@ export default function CampaignsPage() {
       ) {
         return;
       }
+      if (agencyOrganisationId) { setProfiles([]); return; }
 
       const {
         data,
@@ -2826,6 +2856,7 @@ export default function CampaignsPage() {
       ) {
         return;
       }
+      if (agencyOrganisationId) { setSubscriberCounts({}); return; }
 
       const [
         profileResult,
@@ -4395,6 +4426,7 @@ export default function CampaignsPage() {
             body: JSON.stringify(
               {
                 campaignId,
+                ...(agencyOrganisationId ? { organisationId: agencyOrganisationId } : {}),
               }
             ),
           }
@@ -4466,9 +4498,27 @@ export default function CampaignsPage() {
             null,
         };
 
-        if (
-          editingCampaignId
-        ) {
+        if (agencyOrganisationId) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) throw new Error("Please sign in");
+          const response = await fetch("/api/agency/email/campaigns", {
+            method: editingCampaignId ? "PATCH" : "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              organisationId: agencyOrganisationId,
+              ...(editingCampaignId ? { id: editingCampaignId } : {}),
+              ...payload,
+              title: draftTitle,
+              listId: payload.list_id || null,
+            }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Unable to save client draft");
+          if (result.campaign?.id) setEditingCampaignId(result.campaign.id);
+        } else if (editingCampaignId) {
           const {
             error,
           } =
@@ -4553,6 +4603,31 @@ export default function CampaignsPage() {
 
   const saveAndSendNow =
     async () => {
+      if (agencyOrganisationId) {
+        if (!validateCampaign()) return;
+        setSavingCampaign(true);
+        try {
+          const ids = getSelectedAudienceIds();
+          if (!ids.length) throw new Error("Choose an audience");
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) throw new Error("Sign in required");
+          for (const listId of ids) {
+            const response = await fetch("/api/agency/email/dispatch", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+              body: JSON.stringify({ organisationId: agencyOrganisationId, mode: "send",
+                campaignId: ids.length === 1 ? editingCampaignId : null,
+                listId, ...buildPayload(null), list_id: listId }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Unable to queue client campaign");
+          }
+          await loadCampaigns(); setEditingCampaignId(null); setScreen("campaigns");
+        } catch (error) { alert(error instanceof Error ? error.message : "Could not send campaign"); }
+        finally { setSavingCampaign(false); }
+        return;
+      }
+
       if (
         !validateCampaign() ||
         !organisationId
@@ -4635,6 +4710,33 @@ export default function CampaignsPage() {
 
   const scheduleCampaign =
     async () => {
+      if (agencyOrganisationId) {
+        if (!validateCampaign() || !campaignForm.scheduledFor) return;
+        const scheduledFor = localInputToIso(campaignForm.scheduledFor);
+        if (!scheduledFor || Date.parse(scheduledFor) <= Date.now()) { alert("Choose a future date and time"); return; }
+        setSavingCampaign(true);
+        try {
+          const ids = getSelectedAudienceIds();
+          if (!ids.length) throw new Error("Choose an audience");
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) throw new Error("Sign in required");
+          for (const listId of ids) {
+            const response = await fetch("/api/agency/email/dispatch", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+              body: JSON.stringify({ organisationId: agencyOrganisationId, mode: "schedule",
+                campaignId: ids.length === 1 ? editingCampaignId : null,
+                listId, ...buildPayload(scheduledFor), list_id: listId, scheduledFor }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Unable to schedule client campaign");
+          }
+          await loadCampaigns(); setEditingCampaignId(null); setScreen("campaigns");
+        } catch (error) { alert(error instanceof Error ? error.message : "Could not schedule campaign"); }
+        finally { setSavingCampaign(false); }
+        return;
+      }
+
       if (
         !validateCampaign() ||
         !organisationId

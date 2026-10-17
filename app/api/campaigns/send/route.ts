@@ -2167,10 +2167,10 @@ export async function POST(
   req: NextRequest
 ) {
   try {
-    const user =
-      await getAuthenticatedUser(
-        req
-      );
+    const internalCron = Boolean(process.env.CRON_SECRET) &&
+      req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
+    const authenticatedUser = internalCron ? null : await getAuthenticatedUser(req);
+    const user = authenticatedUser || (internalCron ? { id: "cron" } : null);
 
     if (!user) {
       return NextResponse.json(
@@ -2224,7 +2224,7 @@ export async function POST(
     if (requestedOrganisationId && !isUuid(requestedOrganisationId)) {
       return NextResponse.json({ success: false, error: "Invalid organisationId" }, { status: 400 });
     }
-    if (requestedOrganisationId) {
+    if (requestedOrganisationId && !internalCron) {
       const access = await requireAgencyEmailAccess(
         req.headers.get("authorization"), requestedOrganisationId, "send"
       );
@@ -2244,7 +2244,7 @@ export async function POST(
       data: profile,
       error: profileError,
     } =
-      await supabaseAdmin
+      internalCron ? { data: null, error: null } : await supabaseAdmin
         .from(
           "profiles"
         )
@@ -2326,6 +2326,14 @@ export async function POST(
       );
     }
 
+    // Internal cron calls may ONLY queue a due scheduled campaign.
+    if (internalCron && (body?.internalScheduled !== true ||
+        campaign.status !== "queued" || !campaign.scheduled_for ||
+        Date.parse(campaign.scheduled_for) > Date.now() ||
+        campaign.organisation_id !== requestedOrganisationId)) {
+      return NextResponse.json({ error: "Scheduled campaign not due" }, { status: 403 });
+    }
+
     if (
       campaign.organisation_id !==
       (requestedOrganisationId || userOrganisationId)
@@ -2343,6 +2351,12 @@ export async function POST(
             403,
         }
       );
+    }
+
+    // A scheduled campaign must never be dispatched before its due time.
+    if (campaign.status === "queued" && campaign.scheduled_for &&
+        Date.parse(campaign.scheduled_for) > Date.now()) {
+      return NextResponse.json({ error: "Campaign is scheduled for a future time" }, { status: 409 });
     }
 
     // Do not allow a campaign to reference another organisation's audience.

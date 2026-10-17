@@ -20,6 +20,7 @@ import {
   LogOut,
   CircleDollarSign,
   Building2,
+  BriefcaseBusiness,
   PanelLeftClose,
   PanelLeftOpen,
   Store,
@@ -185,6 +186,11 @@ export default function Sidebar() {
       href: "/dashboard",
       label: "Home",
       icon: LayoutDashboard,
+    },
+    {
+      href: "/agency",
+      label: "Agency Workspace",
+      icon: BriefcaseBusiness,
     },
     {
       href: "/insights",
@@ -590,6 +596,11 @@ export default function Sidebar() {
           href: "/dashboard",
           label: "Home",
           icon: LayoutDashboard,
+        },
+        {
+          href: "/agency",
+          label: "Agency Workspace",
+          icon: BriefcaseBusiness,
         },
         {
           href: "/insights",

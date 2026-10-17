@@ -22,6 +22,7 @@ import {
 
 import {
   Building2,
+  BriefcaseBusiness,
   Calendar,
   CircleDollarSign,
   Globe,
@@ -367,6 +368,11 @@ function DashboardLayoutInner({
           href: "/dashboard",
           label: "Home",
           icon: LayoutDashboard,
+        },
+        {
+          href: "/agency",
+          label: "Agency Workspace",
+          icon: BriefcaseBusiness,
         },
         {
           href: "/calendar",

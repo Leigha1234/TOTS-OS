@@ -1,5 +1,7 @@
 "use client";
 
+import GlobalOrganisationSwitcher from "./GlobalOrganisationSwitcher";
+
 import { useEffect, useState } from "react";
 
 import Link from "next/link";
@@ -830,6 +832,10 @@ export default function Sidebar() {
             />
           </button>
         )}
+      </div>
+
+      <div className="shrink-0 px-2 pb-3">
+        <GlobalOrganisationSwitcher compact={collapsed} />
       </div>
 
       {/* =====================================================

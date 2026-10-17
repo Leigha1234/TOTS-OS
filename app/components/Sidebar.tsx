@@ -1,6 +1,7 @@
 "use client";
 
 import GlobalOrganisationSwitcher from "./GlobalOrganisationSwitcher";
+import { useActiveAgencyContext } from "@/lib/use-active-agency-context";
 
 import { useEffect, useState } from "react";
 
@@ -119,6 +120,7 @@ function isModuleKey(value: unknown): value is ModuleKey {
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const agencyContext = useActiveAgencyContext();
 
   let context: any = null;
 
@@ -544,6 +546,15 @@ export default function Sidebar() {
   // ==========================================================
 
   const userCanAccessLink = (link: SidebarLink) => {
+    // Delegated clients: do not expose modules that still query the agency's own data.
+    // Social is the only integrated client module. Agency Workspace remains accessible.
+    if (agencyContext.loading || agencyContext.error) return false;
+    if (agencyContext.delegated) {
+      if (link.href === "/agency") return true;
+      if (link.href === "/social") return agencyContext.active?.permissions?.social?.view === true;
+      return false;
+    }
+
     if (!signedIn) {
       return false;
     }

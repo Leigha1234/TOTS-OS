@@ -49,17 +49,13 @@ export default function GlobalOrganisationSwitcher({ compact = false }: { compac
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
-  useEffect(() => {
-    const onFocus = () => { void refresh(); };
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [refresh]);
+  // Do not refresh on window focus: closing Safari file pickers remounts editors.
 
   const active = contexts.find(o => o.id === selected);
   return (
     <div className="rounded-xl border border-[#A9B897]/70 bg-[#FAF8F5] p-2 text-[#4f4a46]">
       {compact ? (
-        <button type="button" onClick={() => void refresh()} title={`Organisation: ${active?.name || "Loading"} (preview)`}
+        <button type="button" onClick={() => void refresh()} title={`Organisation: ${active?.name || "Loading"}`}
           className="flex w-full justify-center p-1"><Building2 size={19} /></button>
       ) : (
         <>
@@ -70,7 +66,7 @@ export default function GlobalOrganisationSwitcher({ compact = false }: { compac
             </button>
           </div>
           <div className="relative">
-            <select aria-label="Selected organisation (preview)" value={selected} disabled={loading || !contexts.length}
+            <select aria-label="Selected organisation" value={selected} disabled={loading || !contexts.length}
               onChange={e => {
                 const next = e.target.value;
                 if (!contexts.some(o => o.id === next)) return;
@@ -84,7 +80,7 @@ export default function GlobalOrganisationSwitcher({ compact = false }: { compac
             </select>
             <ChevronDown size={12} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
           </div>
-          <p className="mt-1 text-[10px] text-stone-500">{active?.kind === "delegated" ? "Client access" : "Your workspace"} · Preview only</p>
+          <p className="mt-1 text-[10px] text-stone-500">{active?.kind === "delegated" ? "Client access" : "Your workspace"} · Agency access</p>
           {error && <p role="alert" className="mt-1 text-[10px] text-red-700">{error}</p>}
         </>
       )}

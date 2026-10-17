@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 
 import Sidebar from "@/app/components/Sidebar";
+import { useActiveAgencyContext } from "@/lib/use-active-agency-context";
 import Footer from "@/app/components/Footer";
 import Clarity from "@/app/components/Clarity";
 import NotificationBell from "@/app/components/NotificationBell";
@@ -245,6 +246,8 @@ export default function DashboardLayout({
 function DashboardLayoutInner({
   children,
 }: DashboardLayoutProps) {
+  const agencyContext = useActiveAgencyContext();
+  const clientRouteAllowed = (pathnameForClientAccess: string) => pathnameForClientAccess === "/agency" || pathnameForClientAccess.startsWith("/agency/") || ((pathnameForClientAccess === "/social" || pathnameForClientAccess.startsWith("/social/")) && agencyContext.active?.permissions?.social?.view === true);
   // ==========================================================
   // STATE
   // ==========================================================
@@ -1228,7 +1231,17 @@ function DashboardLayoutInner({
             md:pb-12
           "
         >
-          {children}
+          {agencyContext.loading ? (
+            <div className="p-6 text-sm text-stone-500">Checking organisation access…</div>
+          ) : agencyContext.error ? (
+            <div role="alert" className="rounded-xl border border-red-200 bg-white p-6 text-sm text-red-700">{agencyContext.error}</div>
+          ) : agencyContext.delegated && !clientRouteAllowed(pathname) ? (
+            <div className="mx-auto max-w-xl rounded-2xl border border-stone-200 bg-white p-8">
+              <h1 className="text-xl font-semibold text-stone-900">Client module not available</h1>
+              <p className="mt-3 text-sm text-stone-600">This module is not enabled for the selected client. Switch to your own organisation, or open an authorised client module.</p>
+              <Link className="mt-5 inline-block rounded-lg bg-[#A9B897] px-4 py-2 text-sm font-semibold text-stone-900" href="/agency">Agency Workspace</Link>
+            </div>
+          ) : children}
 
           <Footer />
         </div>

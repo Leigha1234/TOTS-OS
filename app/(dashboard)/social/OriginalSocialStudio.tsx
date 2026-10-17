@@ -4709,6 +4709,25 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                 : "jpg"
             );
 
+          if (selectedOrganisationId) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) throw new Error("Please sign in again.");
+            const formData = new FormData();
+            formData.append("organisationId", selectedOrganisationId);
+            formData.append("file", mediaItem.file);
+            const uploadResponse = await fetch("/api/agency/social/upload", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${session.access_token}` },
+              body: formData,
+            });
+            const uploadResult = await uploadResponse.json().catch(() => ({}));
+            if (!uploadResponse.ok || !uploadResult.url) {
+              throw new Error(uploadResult.error || `Media upload failed for ${mediaItem.file.name}`);
+            }
+            finalMediaUrls.push(uploadResult.url);
+            continue;
+          }
+
           const filePath =
             `${user.id}/${crypto.randomUUID()}.${extension}`;
 
@@ -4945,9 +4964,56 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
         }
       }
 
+      // Agency posts must go through the server-authorised organisation route.
       if (selectedOrganisationId) {
-        toast.error("Client publishing and scheduling are not enabled yet.");
-        return false;
+        if (platforms.some((platform) => platform !== "facebook" && platform !== "instagram")) {
+          toast.error("Client publishing currently supports Facebook and Instagram only.");
+          return false;
+        }
+        if (!metaAccount?.id) {
+          toast.error("Connect the client's Facebook/Instagram account first.");
+          return false;
+        }
+        setIsPosting(true);
+        setStatus(instant ? "Queueing publication…" : "Scheduling…");
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.access_token) throw new Error("Please sign in again.");
+          const urls = await resolveComposerMedia();
+          // The worker publishes queued posts; Post Now queues for its next run.
+          const when = instant ? new Date(Date.now() + 90_000).toISOString() : new Date(scheduledTime).toISOString();
+          const errors: string[] = [];
+          for (const platform of platforms) {
+            const response = await fetch("/api/agency/social/schedule", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+              body: JSON.stringify({
+                organisationId: selectedOrganisationId,
+                accountId: metaAccount.id,
+                platform,
+                caption: [caption.trim(), hashtags.trim()].filter(Boolean).join("\n\n"),
+                mediaUrl: urls[0] || "",
+                mediaUrls: urls,
+                format,
+                scheduledFor: when,
+              }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) errors.push(`${platform}: ${result.error || "Unable to queue post"}`);
+          }
+          if (errors.length) throw new Error(errors.join("; "));
+          toast.success(instant ? "Post queued for the next publishing run." : "Client post scheduled.");
+          await syncPosts(true);
+          setStatus("Ready");
+          return true;
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Unable to save client post.");
+          setStatus("Unable to queue post");
+          return false;
+        } finally {
+          setIsPosting(false);
+          setIsUploadingMedia(false);
+        }
       }
 
       setIsPosting(
@@ -8299,14 +8365,13 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                     </div>
                   )}
 
-                  {/* Client work is draft-only until organisation-aware
-                      media, scheduling and publishing are verified. */}
+                  {/* Client posts use organisation-scoped upload and scheduling endpoints. */}
                   {selectedOrganisationId && (
                     <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                       <p className="text-xs text-amber-900">
-                        Client workspace: save text-only Facebook or Instagram drafts here.
-                        Publishing, scheduling and media uploads are disabled until their
-                        organisation-specific permissions and routes are completed.
+                        Client workspace: Facebook and Instagram posts use MTC's connected account.
+                        Post Now queues publishing for the next worker run. Media uploads are limited to 25 MB per file.
+                        Editing existing scheduled client posts is not yet supported.
                       </p>
                       <button
                         type="button"
@@ -8325,7 +8390,6 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                     <button
                       type="button"
                       disabled={
-                        Boolean(selectedOrganisationId) ||
                         isPosting ||
                         isUploadingMedia ||
                         platforms.length ===
@@ -8371,7 +8435,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                   <button
                     type="button"
                     disabled={
-                      Boolean(selectedOrganisationId) ||
+                      (Boolean(selectedOrganisationId) && isEditingScheduledPost) ||
                       isPosting ||
                       isUploadingMedia ||
                       platforms.length ===

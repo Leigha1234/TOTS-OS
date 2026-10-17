@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import OriginalSocialStudio from "./OriginalSocialStudio";
-import ClientSocialStudio from "@/app/components/ClientSocialStudio";
 
 const STORAGE_KEY = "tots_agency_preview_organisation_id";
 
@@ -72,20 +71,16 @@ export default function SocialPage() {
   if (error) return <div role="alert" className="p-8 text-red-700">{error}</div>;
   if (!context) return <div className="p-8">No authorised organisation found.</div>;
 
-  // IMPORTANT: The legacy editor still reads accounts using the logged-in user's
-  // identity. Do not mount it for a delegated organisation until its data reads,
-  // writes, uploads and publishing routes are organisation-aware and authorised.
+  // Delegated workspace preview: live publishing and scheduling remain blocked
+  // in OriginalSocialStudio. Do not deploy this as a production-ready agency editor
+  // until every mutation, upload, and third-party route has been audited.
   if (context.kind === "delegated") {
     if (context.permissions?.social?.view !== true) {
       return <div role="alert" className="p-8">Social Studio access has not been granted for {context.name}.</div>;
     }
-    return (
-      <ClientSocialStudio
-        key={context.id}
-        organisationId={context.id}
-        organisationName={context.name}
-      />
-    );
+    // The original editor already disables client publishing and scheduling.
+    // This is an interface preview with text-draft support, NOT live publishing.
+    return <OriginalSocialStudio key={context.id} selectedOrganisationId={context.id} />;
   }
 
   return <OriginalSocialStudio key={context.id} />;

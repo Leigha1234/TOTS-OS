@@ -11,6 +11,8 @@ import {
   Resend,
 } from "resend";
 
+import { requireAgencyEmailAccess, isUuid } from "@/lib/agency-email-access";
+
 import {
   createCampaignUnsubscribeToken,
 } from "@/lib/campaign-unsubscribe-token";
@@ -2215,6 +2217,25 @@ export async function POST(
       );
     }
 
+    // Agency mode is explicit: the caller supplies the client organisation.
+    // Never trust a client-selected organisation without checking grants.
+    const requestedOrganisationId = typeof body?.organisationId === "string"
+      ? body.organisationId.trim() : "";
+    if (requestedOrganisationId && !isUuid(requestedOrganisationId)) {
+      return NextResponse.json({ success: false, error: "Invalid organisationId" }, { status: 400 });
+    }
+    if (requestedOrganisationId) {
+      const access = await requireAgencyEmailAccess(
+        req.headers.get("authorization"), requestedOrganisationId, "send"
+      );
+      if (!access.ok) {
+        return NextResponse.json({ success: false, error: access.error }, { status: access.status });
+      }
+      if (access.user.id !== user.id) {
+        return NextResponse.json({ success: false, error: "Authentication mismatch" }, { status: 403 });
+      }
+    }
+
     // ----------------------------------------------
     // Resolve the signed-in user's organisation.
     // ----------------------------------------------
@@ -2248,7 +2269,7 @@ export async function POST(
           ""
       ).trim();
 
-    if (!userOrganisationId) {
+    if (!userOrganisationId && !requestedOrganisationId) {
       return NextResponse.json(
         {
           success:
@@ -2307,7 +2328,7 @@ export async function POST(
 
     if (
       campaign.organisation_id !==
-      userOrganisationId
+      (requestedOrganisationId || userOrganisationId)
     ) {
       return NextResponse.json(
         {
@@ -2322,6 +2343,19 @@ export async function POST(
             403,
         }
       );
+    }
+
+    // Do not allow a campaign to reference another organisation's audience.
+    if (campaign.list_id) {
+      const { data: audience, error: audienceError } = await supabaseAdmin
+        .from("subscriber_lists")
+        .select("id,organisation_id")
+        .eq("id", campaign.list_id)
+        .eq("organisation_id", campaign.organisation_id)
+        .maybeSingle();
+      if (audienceError || !audience) {
+        return NextResponse.json({ success: false, error: "Campaign audience does not belong to this organisation" }, { status: 400 });
+      }
     }
 
     if (

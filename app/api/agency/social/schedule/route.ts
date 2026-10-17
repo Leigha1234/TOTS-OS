@@ -3,58 +3,92 @@ import { requireAgencySocialAccess } from "../../../../../lib/agency-social-acce
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const fail = (error: string, status: number) => NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store" } });
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Queue an organisation's Meta post. The cron worker performs actual publishing. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const fail = (error: string, status: number) => NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store" } });
+const VIDEO_EXT = /\.(mp4|mov|m4v)(?:$|[?#])/i;
+
+/** Organisation-authorised queueing. The existing cron worker publishes the post. */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as Record<string, unknown>;
+    const body: Record<string, unknown> = await request.json();
     const organisationId = typeof body.organisationId === "string" ? body.organisationId : "";
     const access = await requireAgencySocialAccess(request.headers.get("authorization"), organisationId, "publish");
     if (!access.ok) return fail(access.error, access.status);
+
     const caption = typeof body.caption === "string" ? body.caption.trim() : "";
     const platform = body.platform;
     const accountId = typeof body.accountId === "string" ? body.accountId : "";
-    const mediaUrl = typeof body.mediaUrl === "string" ? body.mediaUrl.trim() : "";
-    const mediaUrls = Array.isArray(body.mediaUrls) ? body.mediaUrls : [];
-    if (mediaUrls.length > 1) return fail("Multiple media items are not supported by the agency scheduling endpoint yet", 400);
     const scheduledFor = typeof body.scheduledFor === "string" ? body.scheduledFor : "";
     const scheduled = new Date(scheduledFor);
     if (!caption || caption.length > 10000 || !["facebook", "instagram"].includes(String(platform)) ||
         !UUID.test(accountId) || !Number.isFinite(scheduled.getTime()) || scheduled.getTime() < Date.now() + 60_000) {
       return fail("Invalid caption, platform, account or future schedule", 400);
     }
-    if (platform === "instagram" && !mediaUrl) return fail("Instagram requires media", 400);
-    if (mediaUrl) {
+
+    const supplied = body.mediaUrls;
+    if (supplied !== undefined && (!Array.isArray(supplied) || supplied.some((url) => typeof url !== "string"))) {
+      return fail("mediaUrls must be an array of URLs", 400);
+    }
+    const mediaUrls = Array.isArray(supplied)
+      ? supplied.map((url: string) => url.trim()).filter(Boolean)
+      : [];
+    const single = typeof body.mediaUrl === "string" ? body.mediaUrl.trim() : "";
+    if (single && !mediaUrls.includes(single)) mediaUrls.unshift(single);
+    if (new Set(mediaUrls).size !== mediaUrls.length) return fail("Duplicate media URLs", 400);
+    if (mediaUrls.length > 10) return fail("A carousel can contain at most 10 media items", 400);
+    if (platform === "instagram" && mediaUrls.length === 0) return fail("Instagram requires at least one image or video", 400);
+    if (platform === "facebook" && mediaUrls.length > 1 && mediaUrls.some((url) => VIDEO_EXT.test(url))) {
+      return fail("Facebook multi-image posts support images only; publish videos separately", 400);
+    }
+
+    const storageBase = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!storageBase) return fail("Storage is not configured", 500);
+    const origin = new URL(storageBase).origin;
+    const expectedPrefix = `/storage/v1/object/public/social-assets/organisations/${organisationId}/`;
+    for (const mediaUrl of mediaUrls) {
       let parsed: URL;
       try { parsed = new URL(mediaUrl); } catch { return fail("Invalid media URL", 400); }
-      const storageOrigin = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "https://invalid.example").origin;
-      if (parsed.origin !== storageOrigin || !parsed.pathname.startsWith("/storage/v1/object/public/social-assets/organisations/" + organisationId + "/")) {
-        return fail("Media must be uploaded to this organisation", 400);
+      if (parsed.origin !== origin || !parsed.pathname.startsWith(expectedPrefix) ||
+          parsed.pathname.slice(expectedPrefix.length).includes("/") || !parsed.pathname.slice(expectedPrefix.length)) {
+        return fail("All media must be uploaded to the selected organisation", 400);
       }
     }
+
     const { data: account, error: accountError } = await access.db.from("social_accounts")
       .select("id,platform,instagram_business_account_id,page_id")
       .eq("id", accountId).eq("organisation_id", organisationId).maybeSingle();
     if (accountError) return fail("Unable to verify social connection", 500);
     if (!account || !["meta", "facebook", "instagram"].includes(account.platform)) return fail("Connected Meta account not found", 404);
-    // The existing cron worker selects the first organisation Meta account.
-    // Refuse ambiguous setups rather than risk publishing to a different page.
-    const { data: allAccounts, error: allAccountsError } = await access.db.from("social_accounts")
-      .select("id,platform").eq("organisation_id", organisationId).in("platform", ["meta", "facebook", "instagram"]);
-    if (allAccountsError) return fail("Unable to verify connected accounts", 500);
-    if ((allAccounts || []).length !== 1 || allAccounts?.[0]?.id !== accountId) {
+
+    // The current worker resolves the organisation's Meta connection. Do not allow ambiguous selection.
+    const { data: accounts, error: accountsError } = await access.db.from("social_accounts")
+      .select("id").eq("organisation_id", organisationId).in("platform", ["meta", "facebook", "instagram"]);
+    if (accountsError) return fail("Unable to verify connected accounts", 500);
+    if (accounts?.length !== 1 || accounts[0]?.id !== accountId) {
       return fail("This organisation must have exactly one Meta connection for safe publishing", 409);
     }
     if (platform === "instagram" && !account.instagram_business_account_id) return fail("Instagram business account not connected", 409);
     if (platform === "facebook" && !account.page_id) return fail("Facebook page not connected", 409);
+
+    const format = mediaUrls.length > 1 ? "carousel" : (typeof body.format === "string" ? body.format : "post");
     const { data, error } = await access.db.from("socials").insert({
-      organisation_id: organisationId, user_id: access.user.id, platform,
-      caption, media_url: mediaUrl || null, media_urls: mediaUrl ? [mediaUrl] : [],
-      scheduled_for: scheduled.toISOString(), status: "scheduled",
+      organisation_id: organisationId,
+      user_id: access.user.id,
+      platform,
+      caption,
+      format,
+      media_url: mediaUrls[0] || null,
+      media_urls: mediaUrls,
+      scheduled_for: scheduled.toISOString(),
+      status: "scheduled",
     }).select("id,organisation_id,platform,scheduled_for,status").single();
-    if (error) { console.error("[AGENCY SOCIAL SCHEDULE]", error.message); return fail("Unable to schedule post", 500); }
+    if (error) {
+      console.error("[AGENCY SOCIAL SCHEDULE]", error.message);
+      return fail("Unable to schedule post", 500);
+    }
     return NextResponse.json({ post: data }, { status: 201, headers: { "Cache-Control": "no-store" } });
-  } catch { return fail("Invalid schedule request", 400); }
+  } catch {
+    return fail("Invalid schedule request", 400);
+  }
 }

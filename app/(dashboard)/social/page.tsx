@@ -24,7 +24,8 @@ export default function SocialPage() {
   const [error, setError] = useState("");
 
   const refresh = useCallback(async () => {
-    setLoading(true);
+    // Do not unmount the editor during background permission refreshes.
+    // Native file pickers trigger browser focus when they close.
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !session) throw new Error("Please log in");
@@ -60,10 +61,8 @@ export default function SocialPage() {
     void refresh();
     const onChange = () => void refresh();
     window.addEventListener("tots:organisation-changed", onChange);
-    window.addEventListener("focus", onChange);
     return () => {
       window.removeEventListener("tots:organisation-changed", onChange);
-      window.removeEventListener("focus", onChange);
     };
   }, [refresh]);
 
@@ -71,15 +70,10 @@ export default function SocialPage() {
   if (error) return <div role="alert" className="p-8 text-red-700">{error}</div>;
   if (!context) return <div className="p-8">No authorised organisation found.</div>;
 
-  // Delegated workspace preview: live publishing and scheduling remain blocked
-  // in OriginalSocialStudio. Do not deploy this as a production-ready agency editor
-  // until every mutation, upload, and third-party route has been audited.
   if (context.kind === "delegated") {
     if (context.permissions?.social?.view !== true) {
       return <div role="alert" className="p-8">Social Studio access has not been granted for {context.name}.</div>;
     }
-    // The original editor already disables client publishing and scheduling.
-    // This is an interface preview with text-draft support, NOT live publishing.
     return <OriginalSocialStudio key={context.id} selectedOrganisationId={context.id} />;
   }
 

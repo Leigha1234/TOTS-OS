@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAgencySocialAccess } from "../../../../lib/agency-social-access";
+import { requireAgencySocialAccess } from "../../../../../lib/agency-social-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

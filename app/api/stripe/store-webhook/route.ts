@@ -2443,7 +2443,7 @@ async function finaliseOrderPaid({
 }
 
 // ============================================================
-// MTC WALK-IN FULFILMENT
+// MTC COURSE AND WALK-IN FULFILMENT
 // ============================================================
 
 async function fulfilMtcCourseAndWalkInCredits({
@@ -2459,7 +2459,7 @@ async function fulfilMtcCourseAndWalkInCredits({
 
   if (!email) {
     console.warn(
-      `[MTC WALK-IN] ${order.order_number} has no customer email.`
+      `[MTC CREDIT] ${order.order_number} has no customer email.`
     );
     return;
   }
@@ -2479,7 +2479,12 @@ async function fulfilMtcCourseAndWalkInCredits({
   const creditItems =
     (items as StoreOrderItemRow[] | null)?.filter(
       (item) =>
-        ["MTC-WALK-IN", "MTC-HYROX-BEGINNER-4WK"].includes(
+        [
+          "MTC-WALK-IN",
+          "MTC-HYROX-BEGINNER-4WK",
+          "MTC-CROSSFIT-BEGINNER-4WK",
+          "MTC-MUMFIT-BEGINNER-4WK",
+        ].includes(
           asString(item.sku)?.trim().toUpperCase() ?? ""
         )
     ) ?? [];
@@ -2495,7 +2500,6 @@ async function fulfilMtcCourseAndWalkInCredits({
     );
 
     const sku = asString(item.sku)?.trim().toUpperCase() ?? "";
-    const creditsPerUnit = sku === "MTC-HYROX-BEGINNER-4WK" ? 8 : 1;
 
     const result =
       await grantMtcPackCreditsSafely({
@@ -2503,7 +2507,7 @@ async function fulfilMtcCourseAndWalkInCredits({
         orderItemId: item.id,
         email,
         sku,
-        quantity: quantity * creditsPerUnit,
+        quantity,
         planLabel:
           asString(item.product_name) ||
           "Walk-In Session",
@@ -2518,8 +2522,8 @@ async function fulfilMtcCourseAndWalkInCredits({
     }
 
     console.log(
-      `[MTC WALK-IN] ${order.order_number}: ` +
-        `${result.alreadyProcessed ? "already processed" : result.pending ? "pending account registration" : `+${result.creditsAdded ?? quantity * creditsPerUnit} credit(s)`}.`
+      `[MTC CREDIT] ${order.order_number}: ` +
+        `${result.alreadyProcessed ? "already processed" : result.pending ? "pending account registration" : `+${result.creditsAdded ?? quantity} credit(s)`}.`
     );
   }
 }

@@ -1,3 +1,5 @@
+import { campaignSender } from "@/lib/campaign-sender";
+import { requireAgencyEmailAccess } from "@/lib/agency-email-access";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -81,6 +83,12 @@ export async function POST(req: Request) {
     // -----------------------------------------
 
     const body = await req.json();
+    if (body.organisationId) {
+      const access = await requireAgencyEmailAccess(req.headers.get("authorization"), body.organisationId, "send");
+      if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
+      if (access.user.id !== user.id) return NextResponse.json({ error: "Authentication mismatch" }, { status: 403 });
+    }
+
 
     const {
       to,
@@ -162,10 +170,7 @@ export async function POST(req: Request) {
      * the campaign sender name.
      */
 
-    const from =
-      configuredFrom.includes("<")
-        ? configuredFrom
-        : `${resolvedSenderName} <${configuredFrom}>`;
+    const from = campaignSender(configuredFrom, resolvedSenderName).from;
 
     // -----------------------------------------
     // OPTIONAL REPLY-TO

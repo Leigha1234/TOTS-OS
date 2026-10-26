@@ -335,6 +335,19 @@ type StoreSettings = {
 // HELPERS
 // ============================================================
 
+// Keep these values aligned with store_settings_layout_style_check.
+const STORE_LAYOUTS = [
+  "minimal",
+  "editorial",
+  "catalogue",
+  "memberships",
+  "custom",
+] as const;
+
+function isStoreLayout(value: string): boolean {
+  return STORE_LAYOUTS.some((layout) => layout === value);
+}
+
 const inputClass =
   "h-11 w-full rounded-xl border border-stone-200 bg-white px-4 text-sm text-stone-900 outline-none transition placeholder:text-stone-300 focus:border-stone-400 focus:ring-2 focus:ring-stone-100";
 
@@ -732,7 +745,7 @@ export default function StoreDashboardPage() {
                 button_text_colour: "#ffffff",
                 heading_font: "Inter",
                 body_font: "Inter",
-                layout_style: "classic",
+                layout_style: "minimal",
                 card_style: "rounded",
                 border_radius: 24,
                 show_search: true,
@@ -1273,6 +1286,12 @@ export default function StoreDashboardPage() {
   async function saveStoreSettings() {
     if (!organisation || !storeSettings) return;
 
+    const layoutStyle = storeSettings.layout_style ?? "minimal";
+    if (!isStoreLayout(layoutStyle)) {
+      setError("Choose a supported layout before saving: Minimal, Editorial, Catalogue, Memberships or Custom.");
+      return;
+    }
+
     const slug =
       storeSettings.slug.trim() ||
       slugify(storeSettings.store_name || organisation.name);
@@ -1289,6 +1308,7 @@ export default function StoreDashboardPage() {
       const payload = {
         ...storeSettings,
         organisation_id: organisation.id,
+        layout_style: layoutStyle,
         slug,
         store_name: storeSettings.store_name.trim() || organisation.name,
         updated_at: new Date().toISOString(),
@@ -1312,6 +1332,9 @@ export default function StoreDashboardPage() {
       setError(
         settingsError instanceof Error
           ? settingsError.message
+          : typeof settingsError === "object" && settingsError !== null &&
+              "message" in settingsError && typeof settingsError.message === "string"
+            ? settingsError.message
           : "We couldn't save the storefront settings.",
       );
     } finally {
@@ -2682,15 +2705,23 @@ export default function StoreDashboardPage() {
               <div className="mt-5 grid gap-5 md:grid-cols-2">
                 <Field label="Layout">
                   <select
-                    value={storeSettings.layout_style || "classic"}
+                    value={storeSettings.layout_style ?? "minimal"}
                     onChange={(event) =>
                       updateStoreSetting("layout_style", event.target.value)
                     }
                     className={inputClass}
                   >
-                    <option value="classic">Classic</option>
+                    {storeSettings.layout_style != null &&
+                      !isStoreLayout(storeSettings.layout_style) && (
+                        <option value={storeSettings.layout_style} disabled>
+                          Unsupported layout — choose another
+                        </option>
+                      )}
                     <option value="minimal">Minimal</option>
+                    <option value="editorial">Editorial</option>
+                    <option value="catalogue">Catalogue</option>
                     <option value="memberships">Memberships</option>
+                    <option value="custom">Custom</option>
                   </select>
                 </Field>
 

@@ -1,3 +1,5 @@
+import { campaignSender } from "@/lib/campaign-sender";
+import { dispatchDueCampaigns, canDeliverCampaignEmail } from "@/lib/campaign-schedule-dispatch";
 import {
   NextRequest,
   NextResponse,
@@ -469,6 +471,7 @@ async function updateCampaignProgress(campaign: any) {
 }
 
 async function processCampaign() {
+  await dispatchDueCampaigns(supabaseAdmin);
   await recoverStaleDeliveries();
 
   const campaign = await findNextCampaign();
@@ -486,6 +489,7 @@ async function processCampaign() {
   if (!campaign.list_id) throw new Error("Campaign is missing list_id");
 
   const fromEmail = process.env.RESEND_FROM_EMAIL;
+  const sender = fromEmail ? campaignSender(fromEmail, campaign.sender_name) : null;
   if (!fromEmail) throw new Error("Missing RESEND_FROM_EMAIL");
 
   const trackingBaseUrl = normaliseBaseUrl(
@@ -547,6 +551,7 @@ async function processCampaign() {
     let unsubscribeUrl: string;
 
     try {
+      if (!(await canDeliverCampaignEmail(supabaseAdmin, campaign, delivery))) throw new Error("Recipient is no longer subscribed to this audience");
       unsubscribeUrl = buildUnsubscribeUrl({
         campaign,
         delivery,
@@ -578,11 +583,11 @@ async function processCampaign() {
     try {
       const { data, error } = await resend.emails.send(
         {
-          from: fromEmail,
+          from: sender!.from,
           to: [email],
           subject: campaign.subject || campaign.title || "Campaign",
           html,
-          replyTo: campaign.reply_to || fromEmail,
+          replyTo: campaign.reply_to || sender!.address,
           headers: {
             "List-Unsubscribe": `<${unsubscribeUrl}>`,
           },

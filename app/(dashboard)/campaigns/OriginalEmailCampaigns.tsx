@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { createBrowserClient } from "@supabase/ssr";
+import { createAgencyCampaignClient } from "@/lib/agency-campaign-client";
 
 import {
   ArrowLeft,
@@ -1445,18 +1446,26 @@ function StepBar({
 // PAGE
 // ==================================================
 
-export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisationId?: string }) {
-  const supabase =
-    useMemo(
-      () =>
-        createBrowserClient(
-          process.env
-            .NEXT_PUBLIC_SUPABASE_URL!,
-          process.env
-            .NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        ),
-      []
-    );
+export default function CampaignsPage({ clientOrganisationId }: { clientOrganisationId?: string } = {}) {
+  const browserClient = useMemo(() => createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  ), []);
+  const supabase = useMemo(() => clientOrganisationId
+    ? createAgencyCampaignClient(browserClient, clientOrganisationId)
+    : browserClient, [browserClient, clientOrganisationId]);
+
+  const campaignFetch = async (url: string, options: RequestInit) => {
+    if (!clientOrganisationId) return fetch(url, options);
+    const { data: { session } } = await browserClient.auth.getSession();
+    if (!session) throw new Error("Please sign in again.");
+    const target = url === "/api/campaigns/resend-failed"
+      ? "/api/agency/email/resend-failed" : url;
+    return fetch(target, {
+      ...options,
+      headers: { ...options.headers, Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ ...JSON.parse(String(options.body || "{}")), organisationId: clientOrganisationId }),
+    });
+  };
 
   // ==================================================
   // MAIN NAVIGATION
@@ -1818,6 +1827,25 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
   useEffect(() => {
     const loadUser =
       async () => {
+        if (clientOrganisationId) {
+          try {
+            const { data: { session } } = await browserClient.auth.getSession();
+            if (!session) throw new Error("Please sign in again.");
+            const response = await fetch(`/api/agency/email/branding?organisationId=${encodeURIComponent(clientOrganisationId)}`, {
+              headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store",
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Unable to load client branding");
+            setCompany(result.company);
+            setCampaignForm(emptyForm(result.company));
+            setOrganisationId(clientOrganisationId);
+          } catch (error) {
+            setLoading(false);
+            alert(error instanceof Error ? error.message : "Unable to load selected client");
+          }
+          return;
+        }
+
         const {
           data: {
             user,
@@ -1864,7 +1892,6 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
         }
 
         const orgId =
-          agencyOrganisationId ||
           profile?.organisation_id ||
           null;
 
@@ -1944,7 +1971,7 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
       };
 
     void loadUser();
-  }, [supabase, agencyOrganisationId]);
+  }, [supabase, browserClient, clientOrganisationId]);
 
   // ==================================================
   // TEMPLATES
@@ -1954,7 +1981,7 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
     try {
       const stored =
         window.localStorage.getItem(
-          "tots_campaign_templates"
+          (clientOrganisationId ? `tots_campaign_templates:${clientOrganisationId}` : "tots_campaign_templates")
         );
 
       if (!stored) {
@@ -2190,7 +2217,7 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
       );
 
       window.localStorage.setItem(
-        "tots_campaign_templates",
+        (clientOrganisationId ? `tots_campaign_templates:${clientOrganisationId}` : "tots_campaign_templates"),
         JSON.stringify(
           nextTemplates
         )
@@ -2260,7 +2287,7 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
       );
 
       window.localStorage.setItem(
-        "tots_campaign_templates",
+        (clientOrganisationId ? `tots_campaign_templates:${clientOrganisationId}` : "tots_campaign_templates"),
         JSON.stringify(
           next
         )
@@ -2275,6 +2302,20 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
     async (
       file: File
     ): Promise<string> => {
+      if (clientOrganisationId) {
+        const { data: { session } } = await browserClient.auth.getSession();
+        if (!session) throw new Error("Please sign in again.");
+        const form = new FormData();
+        form.set("organisationId", clientOrganisationId);
+        form.set("file", file);
+        const response = await fetch("/api/agency/email/upload", {
+          method: "POST", headers: { Authorization: `Bearer ${session.access_token}` }, body: form,
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Image upload failed");
+        return result.url;
+      }
+
       const extension =
         file.name
           .split(".")
@@ -2455,22 +2496,6 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
       if (
         !organisationId
       ) {
-        return;
-      }
-
-      // Delegated organisation: retrieve client data through the server-verified
-      // agency API, never through the signed-in user's own Supabase RLS context.
-      if (agencyOrganisationId) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        const response = await fetch(`/api/agency/email/campaigns?organisationId=${encodeURIComponent(agencyOrganisationId)}`, {
-          headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store",
-        });
-        if (!response.ok) { console.error("Unable to load delegated campaigns", await response.text()); return; }
-        const result = await response.json();
-        const clientCampaigns = (result.campaigns || []) as Campaign[];
-        setCampaigns(clientCampaigns);
-        setSelectedCampaign(previous => previous ? clientCampaigns.find(c => c.id === previous.id) || null : null);
         return;
       }
 
@@ -2764,18 +2789,6 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
         return;
       }
 
-      if (agencyOrganisationId) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        const response = await fetch(`/api/agency/email/lists?organisationId=${encodeURIComponent(agencyOrganisationId)}`, {
-          headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store",
-        });
-        if (!response.ok) { console.error("Unable to load delegated audiences", await response.text()); return; }
-        const result = await response.json();
-        setLists(result.lists || []);
-        return;
-      }
-
       const {
         data,
         error,
@@ -2814,7 +2827,6 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
       ) {
         return;
       }
-      if (agencyOrganisationId) { setProfiles([]); return; }
 
       const {
         data,
@@ -2856,7 +2868,6 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
       ) {
         return;
       }
-      if (agencyOrganisationId) { setSubscriberCounts({}); return; }
 
       const [
         profileResult,
@@ -4409,7 +4420,7 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
       }
 
       const response =
-        await fetch(
+        await campaignFetch(
           "/api/campaigns/send",
           {
             method:
@@ -4426,7 +4437,6 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
             body: JSON.stringify(
               {
                 campaignId,
-                ...(agencyOrganisationId ? { organisationId: agencyOrganisationId } : {}),
               }
             ),
           }
@@ -4498,27 +4508,9 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
             null,
         };
 
-        if (agencyOrganisationId) {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) throw new Error("Please sign in");
-          const response = await fetch("/api/agency/email/campaigns", {
-            method: editingCampaignId ? "PATCH" : "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              organisationId: agencyOrganisationId,
-              ...(editingCampaignId ? { id: editingCampaignId } : {}),
-              ...payload,
-              title: draftTitle,
-              listId: payload.list_id || null,
-            }),
-          });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || "Unable to save client draft");
-          if (result.campaign?.id) setEditingCampaignId(result.campaign.id);
-        } else if (editingCampaignId) {
+        if (
+          editingCampaignId
+        ) {
           const {
             error,
           } =
@@ -4603,31 +4595,6 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
 
   const saveAndSendNow =
     async () => {
-      if (agencyOrganisationId) {
-        if (!validateCampaign()) return;
-        setSavingCampaign(true);
-        try {
-          const ids = getSelectedAudienceIds();
-          if (!ids.length) throw new Error("Choose an audience");
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) throw new Error("Sign in required");
-          for (const listId of ids) {
-            const response = await fetch("/api/agency/email/dispatch", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-              body: JSON.stringify({ organisationId: agencyOrganisationId, mode: "send",
-                campaignId: ids.length === 1 ? editingCampaignId : null,
-                listId, ...buildPayload(null), list_id: listId }),
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || "Unable to queue client campaign");
-          }
-          await loadCampaigns(); setEditingCampaignId(null); setScreen("campaigns");
-        } catch (error) { alert(error instanceof Error ? error.message : "Could not send campaign"); }
-        finally { setSavingCampaign(false); }
-        return;
-      }
-
       if (
         !validateCampaign() ||
         !organisationId
@@ -4710,33 +4677,6 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
 
   const scheduleCampaign =
     async () => {
-      if (agencyOrganisationId) {
-        if (!validateCampaign() || !campaignForm.scheduledFor) return;
-        const scheduledFor = localInputToIso(campaignForm.scheduledFor);
-        if (!scheduledFor || Date.parse(scheduledFor) <= Date.now()) { alert("Choose a future date and time"); return; }
-        setSavingCampaign(true);
-        try {
-          const ids = getSelectedAudienceIds();
-          if (!ids.length) throw new Error("Choose an audience");
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) throw new Error("Sign in required");
-          for (const listId of ids) {
-            const response = await fetch("/api/agency/email/dispatch", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-              body: JSON.stringify({ organisationId: agencyOrganisationId, mode: "schedule",
-                campaignId: ids.length === 1 ? editingCampaignId : null,
-                listId, ...buildPayload(scheduledFor), list_id: listId, scheduledFor }),
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || "Unable to schedule client campaign");
-          }
-          await loadCampaigns(); setEditingCampaignId(null); setScreen("campaigns");
-        } catch (error) { alert(error instanceof Error ? error.message : "Could not schedule campaign"); }
-        finally { setSavingCampaign(false); }
-        return;
-      }
-
       if (
         !validateCampaign() ||
         !organisationId
@@ -4877,7 +4817,7 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
         }
 
         const response =
-          await fetch(
+          await campaignFetch(
             "/api/campaigns/resend-failed",
             {
               method: "POST",
@@ -5053,7 +4993,7 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
           );
 
         const response =
-          await fetch(
+          await campaignFetch(
             "/api/campaigns/send-test",
             {
               method:
@@ -5148,7 +5088,7 @@ export default function CampaignsPage({ agencyOrganisationId }: { agencyOrganisa
 
       try {
         const response =
-          await fetch(
+          await campaignFetch(
             "/api/campaigns/ai-generate",
             {
               method:

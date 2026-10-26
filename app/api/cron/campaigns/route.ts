@@ -1,3 +1,5 @@
+import { campaignSender } from "@/lib/campaign-sender";
+import { dispatchDueCampaigns, canDeliverCampaignEmail } from "@/lib/campaign-schedule-dispatch";
 import {
   NextRequest,
   NextResponse,
@@ -5,7 +7,6 @@ import {
 
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
-import { POST as queueScheduledCampaign } from "@/app/api/campaigns/send/route";
 
 import {
   createCampaignUnsubscribeToken,
@@ -470,6 +471,7 @@ async function updateCampaignProgress(campaign: any) {
 }
 
 async function processCampaign() {
+  await dispatchDueCampaigns(supabaseAdmin);
   await recoverStaleDeliveries();
 
   const campaign = await findNextCampaign();
@@ -487,6 +489,7 @@ async function processCampaign() {
   if (!campaign.list_id) throw new Error("Campaign is missing list_id");
 
   const fromEmail = process.env.RESEND_FROM_EMAIL;
+  const sender = fromEmail ? campaignSender(fromEmail, campaign.sender_name) : null;
   if (!fromEmail) throw new Error("Missing RESEND_FROM_EMAIL");
 
   const trackingBaseUrl = normaliseBaseUrl(
@@ -548,6 +551,7 @@ async function processCampaign() {
     let unsubscribeUrl: string;
 
     try {
+      if (!(await canDeliverCampaignEmail(supabaseAdmin, campaign, delivery))) throw new Error("Recipient is no longer subscribed to this audience");
       unsubscribeUrl = buildUnsubscribeUrl({
         campaign,
         delivery,
@@ -579,11 +583,11 @@ async function processCampaign() {
     try {
       const { data, error } = await resend.emails.send(
         {
-          from: fromEmail,
+          from: sender!.from,
           to: [email],
           subject: campaign.subject || campaign.title || "Campaign",
           html,
-          replyTo: campaign.reply_to || fromEmail,
+          replyTo: campaign.reply_to || sender!.address,
           headers: {
             "List-Unsubscribe": `<${unsubscribeUrl}>`,
           },
@@ -652,29 +656,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Convert due queued campaigns to processing deliveries before the normal worker.
-    // Keep the batch bounded; the existing delivery worker handles the actual sending.
-    const { data: due, error: dueError } = await supabaseAdmin.from("campaigns")
-      .select("id,organisation_id").eq("status", "queued")
-      .not("scheduled_for", "is", null)
-      .lte("scheduled_for", new Date().toISOString())
-      .order("scheduled_for", { ascending: true }).limit(5);
-    if (dueError) throw new Error(`Could not load scheduled campaigns: ${dueError.message}`);
-    const schedulingErrors: string[] = [];
-    for (const campaign of due || []) {
-      const internal = new NextRequest(new URL("/api/campaigns/send", req.url), {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.CRON_SECRET}` },
-        body: JSON.stringify({ campaignId: campaign.id, organisationId: campaign.organisation_id, internalScheduled: true }),
-      });
-      const response = await queueScheduledCampaign(internal);
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        schedulingErrors.push(`${campaign.id}: ${error.error || response.status}`);
-      }
-    }
     const result = await processCampaign();
-    if (schedulingErrors.length) return NextResponse.json({ ...result, schedulingErrors });
     return NextResponse.json(result);
   } catch (error) {
     console.error("CAMPAIGN CRON ERROR:", error);

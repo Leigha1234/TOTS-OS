@@ -6032,27 +6032,15 @@ export default function ShopFrontPage() {
 
                           <div className="flex gap-3">
 
-                            <div className="h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-white">
-
-                              {image ? (
+                            {image && (
+                              <div className="h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-white">
                                 <img
-                                  src={
-                                    image
-                                  }
-                                  alt={
-                                    line.product.name
-                                  }
+                                  src={image}
+                                  alt={line.product.name}
                                   className="h-full w-full object-cover"
                                 />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center text-stone-300">
-                                  <Package
-                                    size={18}
-                                  />
-                                </div>
-                              )}
-
-                            </div>
+                              </div>
+                            )}
 
                             <div className="min-w-0 flex-1">
 
@@ -7153,7 +7141,7 @@ function RootedFundraiserSection({
                     key={product.id}
                     className="group flex min-h-[300px] flex-col overflow-hidden rounded-[22px] border border-[#D7DDD8] bg-white shadow-[0_8px_24px_rgba(49,91,69,.07)] transition duration-300 hover:-translate-y-1 hover:border-[#AFC0B5] hover:shadow-[0_16px_36px_rgba(49,91,69,.12)]"
                   >
-                    {image ? (
+                    {image && (
                       <div className="relative flex h-36 items-center justify-center overflow-hidden bg-[#F4F7F4] p-4">
                         <img
                           src={image}
@@ -7161,13 +7149,6 @@ function RootedFundraiserSection({
                           loading="lazy"
                           className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]"
                         />
-                      </div>
-                    ) : (
-                      <div
-                        aria-hidden="true"
-                        className="flex h-24 items-center justify-center bg-[#F4F7F4]"
-                      >
-                        <ShoppingBag size={28} className="text-[#315B45]" />
                       </div>
                     )}
 
@@ -7874,6 +7855,7 @@ function ProductCard({
 
       {/* IMAGE */}
 
+      {image && (
       <div
         className={`store-product-image relative overflow-hidden bg-[#f2f0ec] ${
           featuredLayout
@@ -7881,24 +7863,12 @@ function ProductCard({
             : "aspect-[4/3]"
         }`}
       >
-        {image ? (
-          <img
-            src={
-              image
-            }
-            alt={
-              product.name
-            }
-            loading="lazy"
-            className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.035]"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-stone-300">
-            <Package
-              size={30}
-            />
-          </div>
-        )}
+        <img
+          src={image}
+          alt={product.name}
+          loading="lazy"
+          className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.035]"
+        />
 
         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
 
@@ -7941,6 +7911,7 @@ function ProductCard({
 
         </div>
       </div>
+      )}
 
       {/* CONTENT */}
 

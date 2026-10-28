@@ -212,6 +212,7 @@ type ProductDraft = {
   inventory_quantity: string;
   low_stock_threshold: string;
   image_url: string;
+  show_image: boolean;
   selling_model: string;
   purchase_type: string;
   billing_interval: string;
@@ -362,6 +363,7 @@ const blankProduct: ProductDraft = {
   inventory_quantity: "0",
   low_stock_threshold: "5",
   image_url: "",
+  show_image: true,
   selling_model: "physical",
   purchase_type: "one_off",
   billing_interval: "",
@@ -1059,6 +1061,7 @@ export default function StoreDashboardPage() {
       ),
       low_stock_threshold: String(product.low_stock_threshold ?? 5),
       image_url: product.image_url ?? "",
+      show_image: Boolean(product.image_url),
       selling_model: product.selling_model ?? "physical",
       purchase_type: product.purchase_type ?? "one_off",
       billing_interval: product.billing_interval ?? "",
@@ -1161,7 +1164,7 @@ export default function StoreDashboardPage() {
           ? lowStockThreshold
           : 0,
         track_inventory: draft.track_inventory,
-        image_url: draft.image_url.trim() || null,
+        image_url: draft.show_image ? (draft.image_url.trim() || null) : null,
         featured: draft.featured,
         status: draft.is_active ? "active" : "draft",
         is_active: draft.is_active,
@@ -1379,7 +1382,7 @@ export default function StoreDashboardPage() {
     setError(null);
     try {
       const url = await uploadStoreImage(file, "products", "product");
-      setDraft(current => ({ ...current, image_url: url }));
+      setDraft(current => ({ ...current, image_url: url, show_image: true }));
     } catch (uploadError) {
       console.error("Product image upload error:", uploadError);
       setError(uploadError instanceof Error ? uploadError.message : "We couldn't upload the product image.");
@@ -3120,16 +3123,34 @@ export default function StoreDashboardPage() {
                     <div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">£</span><input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} className={`${inputClass} pl-8`} placeholder="0.00" /></div>
                   </Field>
 
-                  <Field label="Product image">
-                    <div className="space-y-2">
-                      {draft.image_url && <img src={draft.image_url} alt="Product preview" className="h-28 w-full rounded-xl border border-stone-200 object-contain" />}
-                      <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#a9b897] bg-[#f4f7f1] px-3 py-3 text-sm font-semibold text-[#526744]">
-                        {uploadingProductImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                        {uploadingProductImage ? "Uploading image…" : "Upload product image"}
-                        <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" disabled={uploadingProductImage} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadProductImage(file); event.target.value = ""; }} />
+                  <Field label="Product image" className="md:col-span-2">
+                    <div className="space-y-3">
+                      <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={draft.show_image}
+                          onChange={(event) => setDraft((current) => ({ ...current, show_image: event.target.checked }))}
+                          className="h-4 w-4 accent-[#617451]"
+                        />
+                        <span>
+                          <span className="block text-sm font-semibold text-stone-900">Show an image for this product</span>
+                          <span className="block text-xs text-stone-500">Turn off for simple items such as water. No image is required.</span>
+                        </span>
                       </label>
-                      <input type="url" value={draft.image_url} onChange={(event) => setDraft((current) => ({ ...current, image_url: event.target.value }))} className={inputClass} placeholder="Or paste an image URL" />
-                      {draft.image_url && <button type="button" onClick={() => setDraft(current => ({ ...current, image_url: "" }))} className="text-xs text-red-600">Remove image</button>}
+                      {draft.show_image ? (
+                        <div className="space-y-2">
+                          {draft.image_url && <img src={draft.image_url} alt="Product preview" className="h-28 w-full rounded-xl border border-stone-200 object-contain" />}
+                          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#a9b897] bg-[#f4f7f1] px-3 py-3 text-sm font-semibold text-[#526744]">
+                            {uploadingProductImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                            {uploadingProductImage ? "Uploading image…" : "Upload product image"}
+                            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" disabled={uploadingProductImage} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadProductImage(file); event.target.value = ""; }} />
+                          </label>
+                          <input type="url" value={draft.image_url} onChange={(event) => setDraft((current) => ({ ...current, image_url: event.target.value }))} className={inputClass} placeholder="Or paste an image URL" />
+                          {draft.image_url && <button type="button" onClick={() => setDraft(current => ({ ...current, image_url: "" }))} className="text-xs text-red-600">Remove image</button>}
+                        </div>
+                      ) : (
+                        <p className="rounded-xl bg-[#f4f7f1] px-4 py-3 text-xs text-[#526744]">This product will be saved without an image. Its name, price and details will still be shown.</p>
+                      )}
                     </div>
                   </Field>
 

@@ -4014,25 +4014,6 @@ export default function ShopFrontPage() {
           cursor: not-allowed !important;
         }
 
-        .mtc-app-store .a11y-skip-link {
-          position: fixed;
-          left: 16px;
-          top: 12px;
-          z-index: 9999;
-          transform: translateY(-160%);
-          border-radius: 10px;
-          background: #111;
-          color: #fff !important;
-          padding: 12px 16px;
-          font-size: 14px;
-          font-weight: 800;
-          text-decoration: none;
-        }
-
-        .mtc-app-store .a11y-skip-link:focus {
-          transform: translateY(0);
-        }
-
         .mtc-app-store .rooted-kicker,
         .mtc-app-store .rooted-meta {
           font-size: 12px !important;
@@ -4199,8 +4180,6 @@ export default function ShopFrontPage() {
       {/* =====================================================
           HEADER
       ===================================================== */}
-
-      <a href="#main-content" className="a11y-skip-link">Skip to main content</a>
 
       <header className="sticky top-0 z-40 border-b border-stone-200/80 backdrop-blur-xl" style={{ background: `${pageBackground}F2` }}>
         <div className="mx-auto flex h-[72px] max-w-[1360px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">

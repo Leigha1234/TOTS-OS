@@ -544,6 +544,7 @@ export default function StoreDashboardPage() {
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const [uploadingAsset, setUploadingAsset] = useState<"logo" | "hero" | "favicon" | null>(null);
+  const [uploadingProductImage, setUploadingProductImage] = useState(false);
 
   const [tab, setTab] = useState<Tab>("overview");
   const [search, setSearch] = useState("");
@@ -1342,75 +1343,48 @@ export default function StoreDashboardPage() {
     }
   }
 
-  async function uploadStoreAsset(
-    assetType: "logo" | "hero" | "favicon",
-    file: File,
-  ) {
+  async function uploadStoreImage(file: File, folder: "products" | "branding", name: string): Promise<string> {
+    if (!organisation) throw new Error("Select an organisation first.");
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error("Please choose a JPG, PNG, WebP or GIF image.");
+    }
+    if (file.size > 8 * 1024 * 1024) throw new Error("Images must be under 8 MB.");
+    const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : file.type === "image/gif" ? "gif" : "jpg";
+    // Unique filenames avoid requiring UPDATE/UPSERT permissions on existing objects.
+    const path = `${organisation.id}/${folder}/${name}-${crypto.randomUUID()}.${extension}`;
+    const { error: uploadError } = await supabase.storage.from("store-assets")
+      .upload(path, file, { upsert: false, contentType: file.type, cacheControl: "3600" });
+    if (uploadError) throw uploadError;
+    return supabase.storage.from("store-assets").getPublicUrl(path).data.publicUrl;
+  }
+
+  async function uploadStoreAsset(assetType: "logo" | "hero" | "favicon", file: File) {
     if (!organisation || !storeSettings) return;
-
-    if (!file.type.startsWith("image/")) {
-      setError("Please choose an image file.");
-      return;
-    }
-
-    const maxBytes = assetType === "favicon" ? 2 * 1024 * 1024 : 8 * 1024 * 1024;
-
-    if (file.size > maxBytes) {
-      setError(
-        `This image is ${(file.size / 1024 / 1024).toFixed(2)} MB. Please choose a file under ${
-          assetType === "favicon" ? "2" : "8"
-        } MB.`,
-      );
-      return;
-    }
-
     setUploadingAsset(assetType);
     setError(null);
-
     try {
-      const extension =
-        file.type === "image/png"
-          ? "png"
-          : file.type === "image/webp"
-            ? "webp"
-            : file.type === "image/svg+xml"
-              ? "svg"
-              : file.type === "image/x-icon"
-                ? "ico"
-                : "jpg";
-
-      const path = `${organisation.id}/${assetType}.${extension}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("store-assets")
-        .upload(path, file, {
-          upsert: true,
-          contentType: file.type,
-          cacheControl: "3600",
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from("store-assets").getPublicUrl(path);
-      const url = `${data.publicUrl}?v=${Date.now()}`;
-
-      updateStoreSetting(
-        assetType === "logo"
-          ? "logo_url"
-          : assetType === "hero"
-            ? "hero_image_url"
-            : "favicon_url",
-        url,
-      );
+      const url = await uploadStoreImage(file, "branding", assetType);
+      updateStoreSetting(assetType === "logo" ? "logo_url" : assetType === "hero" ? "hero_image_url" : "favicon_url", url);
     } catch (uploadError) {
       console.error("Store asset upload error:", uploadError);
-      setError(
-        uploadError instanceof Error
-          ? uploadError.message
-          : "We couldn't upload that image.",
-      );
+      setError(uploadError instanceof Error ? uploadError.message : "We couldn't upload that image.");
     } finally {
       setUploadingAsset(null);
+    }
+  }
+
+  async function uploadProductImage(file: File) {
+    setUploadingProductImage(true);
+    setError(null);
+    try {
+      const url = await uploadStoreImage(file, "products", "product");
+      setDraft(current => ({ ...current, image_url: url }));
+    } catch (uploadError) {
+      console.error("Product image upload error:", uploadError);
+      setError(uploadError instanceof Error ? uploadError.message : "We couldn't upload the product image.");
+    } finally {
+      setUploadingProductImage(false);
     }
   }
 
@@ -3147,7 +3121,16 @@ export default function StoreDashboardPage() {
                   </Field>
 
                   <Field label="Product image">
-                    <input type="url" value={draft.image_url} onChange={(event) => setDraft((current) => ({ ...current, image_url: event.target.value }))} className={inputClass} placeholder="Paste image URL (optional)" />
+                    <div className="space-y-2">
+                      {draft.image_url && <img src={draft.image_url} alt="Product preview" className="h-28 w-full rounded-xl border border-stone-200 object-contain" />}
+                      <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#a9b897] bg-[#f4f7f1] px-3 py-3 text-sm font-semibold text-[#526744]">
+                        {uploadingProductImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                        {uploadingProductImage ? "Uploading image…" : "Upload product image"}
+                        <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" disabled={uploadingProductImage} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadProductImage(file); event.target.value = ""; }} />
+                      </label>
+                      <input type="url" value={draft.image_url} onChange={(event) => setDraft((current) => ({ ...current, image_url: event.target.value }))} className={inputClass} placeholder="Or paste an image URL" />
+                      {draft.image_url && <button type="button" onClick={() => setDraft(current => ({ ...current, image_url: "" }))} className="text-xs text-red-600">Remove image</button>}
+                    </div>
                   </Field>
 
                   <Field label="Anything else Clarity should know?" className="md:col-span-2">

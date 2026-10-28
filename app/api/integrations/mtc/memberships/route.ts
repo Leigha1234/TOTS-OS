@@ -478,6 +478,15 @@ export async function GET(req: Request) {
           }
         );
 
+    // A payment refresh must retrieve exactly one membership, even when the
+    // organisation eventually has more than the database's default row limit.
+    const subscriptionId = new URL(req.url).searchParams.get("subscription_id");
+    if (subscriptionId) {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(subscriptionId)) {
+        return NextResponse.json({ error: "Invalid subscription_id" }, { status: 400 });
+      }
+      subscriptionQuery = subscriptionQuery.eq("id", subscriptionId);
+    }
     if (updatedSince) {
       subscriptionQuery =
         subscriptionQuery.gte(

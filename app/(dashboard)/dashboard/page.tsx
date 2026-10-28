@@ -4032,7 +4032,7 @@ function DashboardContent() {
                     className="flex w-full items-center gap-3 rounded-xl bg-[#faf9f6] p-3 text-left transition hover:bg-stone-100"
                   >
 
-                    <div className="min-w-[42px] text-center">
+                    <div className="min-w-[65px] text-center">
 
                       <p className="text-[8px] font-black uppercase text-[#8b9c74]">
                         {event.startAt?.toLocaleDateString(
@@ -4040,6 +4040,8 @@ function DashboardContent() {
                           {
                             weekday:
                               "short",
+                            day: "numeric",
+                            month: "short",
                           }
                         )}
                       </p>

@@ -1171,6 +1171,35 @@ export default function CalendarPage() {
       null
     );
 
+  // Persist unfinished new events across navigation and file-picker focus changes.
+  // Drafts are isolated by signed-in user and organisation.
+  const calendarDraftKey =
+    currentUser?.id && currentProfile?.organisation_id
+      ? `orbi:calendar:new-event:${currentUser.id}:${currentProfile.organisation_id}`
+      : null;
+
+  useEffect(() => {
+    if (!isModalOpen || viewMode !== "CREATE" || !calendarDraftKey) return;
+    const draft = {
+      title: formTitle, date: formDate, time: formTime,
+      endDate: formEndDate, endTime: formEndTime,
+      repeat: formRepeat, allDay: formAllDay, color: formColor,
+      location: formLocation, link: formLink, guests: formGuests,
+      internalTeam: formInternalTeam, tags: formTags,
+      description: formDescription,
+    };
+    try {
+      // Do not save an untouched blank form as a draft.
+      if (draft.title.trim() || draft.description.trim() || draft.location.trim() ||
+          draft.link.trim() || draft.guests.trim() || draft.tags.trim() || draft.internalTeam.trim()) {
+        localStorage.setItem(calendarDraftKey, JSON.stringify(draft));
+      }
+    } catch { /* Private browsing / storage disabled. */ }
+  }, [isModalOpen, viewMode, calendarDraftKey, formTitle, formDate,
+      formTime, formEndDate, formEndTime, formRepeat, formAllDay,
+      formColor, formLocation, formLink, formGuests, formInternalTeam,
+      formTags, formDescription]);
+
   // ==========================================================
   // BOOKING STATE
   // ==========================================================
@@ -2360,6 +2389,32 @@ export default function CalendarPage() {
         null
       );
 
+      // Restore the user's unfinished new-event draft, if present.
+      if (calendarDraftKey) {
+        try {
+          const raw = localStorage.getItem(calendarDraftKey);
+          if (raw) {
+            const draft = JSON.parse(raw);
+            if (draft && typeof draft === "object") {
+              if (typeof draft.title === "string") setFormTitle(draft.title);
+              if (typeof draft.date === "string") setFormDate(draft.date);
+              if (typeof draft.time === "string") setFormTime(draft.time);
+              if (typeof draft.endDate === "string") setFormEndDate(draft.endDate);
+              if (typeof draft.endTime === "string") setFormEndTime(draft.endTime);
+              if (typeof draft.repeat === "string") setFormRepeat(draft.repeat);
+              if (typeof draft.allDay === "boolean") setFormAllDay(draft.allDay);
+              if (typeof draft.color === "string") setFormColor(draft.color);
+              if (typeof draft.location === "string") setFormLocation(draft.location);
+              if (typeof draft.link === "string") setFormLink(draft.link);
+              if (typeof draft.guests === "string") setFormGuests(draft.guests);
+              if (typeof draft.internalTeam === "string") setFormInternalTeam(draft.internalTeam);
+              if (typeof draft.tags === "string") setFormTags(draft.tags);
+              if (typeof draft.description === "string") setFormDescription(draft.description);
+            }
+          }
+        } catch { /* Ignore invalid stored drafts. */ }
+      }
+
       setViewMode(
         "CREATE"
       );
@@ -2855,6 +2910,10 @@ export default function CalendarPage() {
 
         await syncCalendar();
 
+        // Clear only after the new event has been saved successfully.
+        if (calendarDraftKey) {
+          try { localStorage.removeItem(calendarDraftKey); } catch { /* ignore */ }
+        }
         setIsModalOpen(
           false
         );

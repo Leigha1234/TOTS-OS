@@ -8,6 +8,8 @@ import {
   createClient,
 } from "@supabase/supabase-js";
 
+import { Resend } from "resend";
+
 export const runtime =
   "nodejs";
 
@@ -98,6 +100,125 @@ type GenericRow =
     string,
     any
   >;
+
+// ============================================================
+// TASK RECIPIENTS: assigned_to is organisation_members.id,
+// NOT tasks.user_id (the creator).
+// ============================================================
+
+async function resolveTaskRecipients(supabase: any, task: GenericRow): Promise<string[]> {
+  const organisationId = getOrganisationId(task);
+  if (!organisationId) return [];
+
+  const membershipId = cleanString(task.assigned_to);
+  if (membershipId) {
+    const { data, error } = await supabase
+      .from("organisation_members")
+      .select("user_id, organisation_id")
+      .eq("id", membershipId)
+      .eq("organisation_id", organisationId)
+      .maybeSingle();
+    if (error) throw new Error(`Task membership lookup failed: ${error.message}`);
+    // Never fall back to the creator or whole organisation when an assignee is invalid.
+    return data?.user_id ? [data.user_id] : [];
+  }
+
+  // Older tasks may store a user id in assignee. Validate membership first.
+  const legacyAssignee = cleanString(task.assignee);
+  if (legacyAssignee) {
+    const { data, error } = await supabase
+      .from("organisation_members")
+      .select("user_id")
+      .eq("organisation_id", organisationId)
+      .eq("user_id", legacyAssignee)
+      .maybeSingle();
+    if (error) throw new Error(`Legacy task assignee lookup failed: ${error.message}`);
+    return data?.user_id ? [data.user_id] : [];
+  }
+
+  // Unassigned tasks must not notify their creator or every organisation member.
+  return [];
+}
+
+function escapeTaskHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+async function sendTaskEmail({ supabase, input, notificationId }: {
+  supabase: any;
+  input: NotificationInput;
+  notificationId: string;
+}) {
+  const resendKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.RESEND_FROM_EMAIL;
+  if (!resendKey || !fromEmail) {
+    console.warn("[NOTIFICATION CRON] Task email not configured");
+    return;
+  }
+
+  const { data: preference, error: preferenceError } = await supabase
+    .from("notification_preferences")
+    .select("email_enabled, task_reminder, task_overdue, task_assigned, task_review")
+    .eq("user_id", input.userId)
+    .maybeSingle();
+  if (preferenceError) throw new Error(`Preferences lookup failed: ${preferenceError.message}`);
+  if (preference?.email_enabled === false) return;
+
+  const event = String(input.metadata?.status || "");
+  if (event === "custom_reminder" && preference?.task_reminder === false) return;
+  if (event === "overdue" && preference?.task_overdue === false) return;
+  if ((event === "due_today" || event === "due_tomorrow") && preference?.task_reminder === false) return;
+  if (event === "assigned" && preference?.task_assigned === false) return;
+  if (event === "needs_checked" && preference?.task_review === false) return;
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("email")
+    .eq("id", input.userId)
+    .maybeSingle();
+  if (profileError) throw new Error(`Profile lookup failed: ${profileError.message}`);
+  if (!profile?.email) return;
+
+  // The unique key atomically claims this notification/channel across cron invocations.
+  const { data: claim, error: claimError } = await supabase
+    .from("notification_deliveries")
+    .upsert({
+      notification_id: notificationId,
+      user_id: input.userId,
+      channel: "email",
+      dedupe_key: input.dedupeKey,
+      status: "processing",
+      attempts: 1,
+    }, { onConflict: "user_id,channel,dedupe_key", ignoreDuplicates: true })
+    .select("id")
+    .maybeSingle();
+  if (claimError) throw new Error(`Delivery claim failed: ${claimError.message}`);
+  if (!claim?.id) return;
+
+  try {
+    const resend = new Resend(resendKey);
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: profile.email,
+      subject: `TOTS-OS | ${input.title}`,
+      html: `<div style="background:#f7f6f2;padding:32px 16px;font-family:Arial,sans-serif;color:#292524"><div style="max-width:560px;margin:auto;background:#fff;border-radius:18px;padding:32px"><p style="font-size:12px;letter-spacing:2px;color:#829473;font-weight:bold">TOTS-OS</p><h1 style="font-size:26px">${escapeTaskHtml(input.title)}</h1><p style="font-size:15px;line-height:1.7">${escapeTaskHtml(input.message)}</p><p style="font-size:12px;color:#78716c">Sign in to TOTS-OS to view your tasks.</p></div></div>`,
+    });
+    if (error) throw new Error(error.message || "Resend failed");
+    await supabase.from("notification_deliveries")
+      .update({ status: "sent", provider_message_id: data?.id || null, sent_at: new Date().toISOString(), error_message: null })
+      .eq("id", claim.id);
+  } catch (error) {
+    await supabase.from("notification_deliveries")
+      .update({ status: "failed", error_message: error instanceof Error ? error.message : String(error) })
+      .eq("id", claim.id);
+    console.error("[NOTIFICATION CRON] Task email failed:", error);
+  }
+}
 
 // ============================================================
 // DATE HELPERS
@@ -799,6 +920,7 @@ async function createNotification({
 
   try {
     const {
+      data: inserted,
       error,
     } =
       await supabase
@@ -814,7 +936,9 @@ async function createNotification({
             ignoreDuplicates:
               true,
           }
-        );
+        )
+        .select("id")
+        .maybeSingle();
 
     if (
       error
@@ -853,8 +977,21 @@ async function createNotification({
      * is relied on as the source of truth.
      */
 
-    counters.created +=
-      1;
+    if (!inserted?.id) {
+      counters.duplicates += 1;
+      return false;
+    }
+
+    counters.created += 1;
+
+    if (input.type === "task") {
+      try {
+        await sendTaskEmail({ supabase, input, notificationId: inserted.id });
+      } catch (emailError) {
+        console.error("[NOTIFICATION CRON] Task delivery error:", emailError);
+        counters.errors += 1;
+      }
+    }
 
     return true;
   } catch (
@@ -1354,6 +1491,8 @@ async function processTasks({
       continue;
     }
 
+    if (task.deleted_at) continue;
+
     const status =
       getFirstString(
         task,
@@ -1408,18 +1547,33 @@ async function processTasks({
         task
       );
 
+    // Resolve once, with strict organisation membership checks.
+    let taskRecipients: string[] = [];
+    try {
+      taskRecipients = await resolveTaskRecipients(supabase, task);
+    } catch (recipientError) {
+      console.error("[NOTIFICATION CRON] Task recipient error:", recipientError);
+      counters.errors += 1;
+      continue;
+    }
+    if (!taskRecipients.length) {
+      counters.skipped += 1;
+      continue;
+    }
+
+    const notifyTask = async (build: (userId: string) => Omit<NotificationInput, "userId">) => {
+      for (const userId of taskRecipients) {
+        await createNotification({ supabase, counters, input: { userId, ...build(userId) } });
+      }
+    };
+
     // ========================================================
     // CUSTOM REMINDER — independent of due date
     // ========================================================
     const reminderAt = getFirstDate(task, ["reminder_at"]);
 
     if (reminderAt && reminderAt.getTime() <= now.getTime()) {
-      await notifyRow({
-        supabase,
-        counters,
-        row: task,
-        organisationUserCache,
-        build: (userId) => ({
+      await notifyTask((userId) => ({
           organisationId,
           title: "Task reminder",
           message: `Reminder: ${title}${dueDate ? ` (due ${dueDate.toLocaleDateString("en-GB")})` : ""}.`,
@@ -1433,8 +1587,7 @@ async function processTasks({
             due_date: dueDate?.toISOString() ?? null,
             status: "custom_reminder",
           },
-        }),
-      });
+        }));
     }
 
     // Due-date notifications require a due date; custom reminders don't.
@@ -1450,18 +1603,7 @@ async function processTasks({
         now
       )
     ) {
-      await notifyRow({
-        supabase,
-
-        counters,
-
-        row:
-          task,
-
-        organisationUserCache,
-
-        build:
-          (
+      await notifyTask((
             userId
           ) => ({
             organisationId,
@@ -1491,8 +1633,7 @@ async function processTasks({
               status:
                 "overdue",
             },
-          }),
-      });
+          }));
 
       continue;
     }
@@ -1507,18 +1648,7 @@ async function processTasks({
         now
       )
     ) {
-      await notifyRow({
-        supabase,
-
-        counters,
-
-        row:
-          task,
-
-        organisationUserCache,
-
-        build:
-          (
+      await notifyTask((
             userId
           ) => ({
             organisationId,
@@ -1548,8 +1678,7 @@ async function processTasks({
               status:
                 "due_today",
             },
-          }),
-      });
+          }));
 
       continue;
     }
@@ -1567,18 +1696,7 @@ async function processTasks({
         )
       )
     ) {
-      await notifyRow({
-        supabase,
-
-        counters,
-
-        row:
-          task,
-
-        organisationUserCache,
-
-        build:
-          (
+      await notifyTask((
             userId
           ) => ({
             organisationId,
@@ -1608,8 +1726,7 @@ async function processTasks({
               status:
                 "due_tomorrow",
             },
-          }),
-      });
+          }));
     }
   }
 }

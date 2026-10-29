@@ -629,6 +629,7 @@ export default function ProjectEngine() {
   const [taskView, setTaskView] = useState<"board" | "list">("board");
   const [taskDueDate, setTaskDueDate] = useState("");
   const [taskReminder, setTaskReminder] = useState("");
+  const [expandedTimelineTaskId, setExpandedTimelineTaskId] = useState<string | null>(null);
   const [taskPriority, setTaskPriority] = useState("normal");
   const [taskStatus, setTaskStatus] = useState("todo");
   const [customTaskStatuses, setCustomTaskStatuses] = useState<{key:string;label:string}[]>([]);
@@ -5167,56 +5168,61 @@ export default function ProjectEngine() {
                   Project journey
                 </h2>
 
-                <div className="mt-8 space-y-3">
-                  {!timelineEvents.length ? (
-                    <EmptyMessage>
-                      No timeline activity yet.
-                    </EmptyMessage>
-                  ) : (
-                    timelineEvents.map(
-                      (
-                        event
-                      ) => (
-                        <div
-                          key={
-                            event.id
-                          }
-                          className="rounded-2xl border border-stone-100 bg-stone-50 p-5"
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <p className="text-[8px] font-black uppercase tracking-wider text-[#829473]">
-                                {
-                                  event.type
-                                }
-                              </p>
-
-                              <p className="mt-2 font-semibold">
-                                {
-                                  event.title
-                                }
-                              </p>
-
-                              {event.description && (
-                                <p className="mt-2 text-xs leading-5 text-stone-500">
-                                  {
-                                    event.description
-                                  }
-                                </p>
-                              )}
-                            </div>
-
-                            <span className="text-[10px] text-stone-400">
-                              {formatDate(
-                                event.date
-                              )}
+                {/* Due-date chart: each bar represents a task, click for details. */}
+                {(() => {
+                  const dated = tasks.filter((t) => t.due_date && !Number.isNaN(new Date(String(t.due_date).slice(0, 10) + "T12:00:00").getTime()))
+                    .slice().sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
+                  if (!dated.length) return <div className="mt-8"><EmptyMessage>Add due dates to tasks to see the visual project timeline.</EmptyMessage></div>;
+                  const day = 86400000;
+                  const toDay = (value: string) => Math.floor(new Date(value.slice(0, 10) + "T12:00:00Z").getTime() / day);
+                  const earliest = Math.min(...dated.map((t) => toDay(String(t.created_at || t.due_date))));
+                  const latest = Math.max(...dated.map((t) => toDay(String(t.due_date))));
+                  const start = Math.min(earliest, Math.floor(Date.now() / day));
+                  const end = Math.max(latest, start + 6);
+                  const range = Math.max(1, end - start);
+                  const today = Math.floor(Date.now() / day);
+                  return <div className="mt-7 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-stone-500">
+                      <span>{dated.length} scheduled tasks · Select a bar for the breakdown</span>
+                      <span>{new Date(start * day).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – {new Date(end * day).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
+                    </div>
+                    <div className="rounded-2xl border border-stone-200 bg-white p-4 space-y-3">
+                      <div className="grid grid-cols-[minmax(110px,35%)_1fr] gap-3 text-[10px] font-semibold uppercase tracking-wider text-stone-400"><span>Task</span><span>Schedule → Due date</span></div>
+                      {dated.map((task) => {
+                        const due = toDay(String(task.due_date));
+                        const created = toDay(String(task.created_at || task.due_date));
+                        const left = Math.max(0, Math.min(100, ((Math.min(created, due) - start) / range) * 100));
+                        const width = Math.max(2, Math.min(100 - left, ((Math.max(due, created) - Math.min(due, created)) / range) * 100));
+                        const expanded = expandedTimelineTaskId === task.id;
+                        return <div key={task.id}>
+                          <button type="button" onClick={() => setExpandedTimelineTaskId(expanded ? null : task.id)} className={`grid w-full grid-cols-[minmax(110px,35%)_1fr] items-center gap-3 rounded-xl p-2 text-left transition ${expanded ? "bg-[#f1f4ec]" : "hover:bg-stone-50"}`} aria-expanded={expanded}>
+                            <span className="min-w-0 truncate text-xs font-medium text-stone-800" title={task.title}>{task.title}</span>
+                            <span className="relative block h-8 rounded-lg bg-stone-100" title={`Due ${String(task.due_date).slice(0,10)}`}>
+                              {today >= start && today <= end && <span className="absolute inset-y-0 z-10 w-px bg-rose-400" style={{left: `${((today-start)/range)*100}%`}} />}
+                              <span className={`absolute top-2 h-4 rounded-md ${isTaskComplete(task.status) ? "bg-emerald-600" : task.priority === "urgent" ? "bg-rose-500" : "bg-[#829473]"}`} style={{left: `${left}%`, width: `${width}%`}} />
+                              <span className="absolute top-1 h-6 w-1.5 rounded-full bg-stone-700" style={{left: `${Math.max(0, Math.min(99, ((due-start)/range)*100))}%`}} />
                             </span>
-                          </div>
-                        </div>
-                      )
-                    )
-                  )}
-                </div>
+                          </button>
+                          {expanded && <div className="ml-2 mt-1 rounded-xl border border-stone-200 bg-stone-50 p-4 text-xs text-stone-600 space-y-2">
+                            <p className="text-sm font-semibold text-stone-900">{task.title}</p>
+                            {task.description && <p className="whitespace-pre-wrap">{task.description}</p>}
+                            <div className="flex flex-wrap gap-x-5 gap-y-2"><span><b>Status:</b> {String(task.status || "To do").replaceAll("_", " ")}</span><span><b>Priority:</b> {task.priority || "Normal"}</span><span><b>Due:</b> {formatDate(String(task.due_date))}</span>{task.reminder_at && <span><b>Reminder:</b> {new Date(task.reminder_at).toLocaleString("en-GB")}</span>}</div>
+                            <button type="button" className="rounded-lg bg-[#829473] px-3 py-2 font-semibold text-white" onClick={() => setActiveTab("Tasks")}>Open tasks board</button>
+                          </div>}
+                        </div>;
+                      })}
+                    </div>
+                    <p className="text-xs text-stone-400">Bars run from task creation to due date. Dark markers indicate deadlines; the red vertical line is today. Green bars are completed and red bars are urgent.</p>
+                  </div>;
+                })()}
+                <details className="mt-8 rounded-2xl border border-stone-100 p-4">
+                  <summary className="cursor-pointer text-sm font-semibold text-stone-700">Activity history ({timelineEvents.length})</summary>
+                  <div className="mt-4 space-y-3">
+                    {timelineEvents.map((event) => <div key={event.id} className="rounded-xl bg-stone-50 p-4">
+                      <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase text-[#829473]">{event.type}</p><p className="mt-1 text-sm font-semibold">{event.title}</p>{event.description && <p className="mt-1 text-xs text-stone-500">{event.description}</p>}</div><span className="shrink-0 text-xs text-stone-400">{formatDate(event.date)}</span></div>
+                    </div>)}
+                  </div>
+                </details>
               </Panel>
             </motion.section>
           )}

@@ -1392,12 +1392,6 @@ async function processTasks({
         ]
       );
 
-    if (
-      !dueDate
-    ) {
-      continue;
-    }
-
     const title =
       getFirstString(
         task,
@@ -1413,6 +1407,38 @@ async function processTasks({
       getOrganisationId(
         task
       );
+
+    // ========================================================
+    // CUSTOM REMINDER — independent of due date
+    // ========================================================
+    const reminderAt = getFirstDate(task, ["reminder_at"]);
+
+    if (reminderAt && reminderAt.getTime() <= now.getTime()) {
+      await notifyRow({
+        supabase,
+        counters,
+        row: task,
+        organisationUserCache,
+        build: (userId) => ({
+          organisationId,
+          title: "Task reminder",
+          message: `Reminder: ${title}${dueDate ? ` (due ${dueDate.toLocaleDateString("en-GB")})` : ""}.`,
+          type: "task",
+          link: "/projects",
+          // Timestamp included so editing a reminder produces a new alert.
+          dedupeKey: `task:${taskId}:reminder:${reminderAt.toISOString()}:${userId}`,
+          metadata: {
+            task_id: taskId,
+            reminder_at: reminderAt.toISOString(),
+            due_date: dueDate?.toISOString() ?? null,
+            status: "custom_reminder",
+          },
+        }),
+      });
+    }
+
+    // Due-date notifications require a due date; custom reminders don't.
+    if (!dueDate) continue;
 
     // ========================================================
     // OVERDUE

@@ -30,6 +30,11 @@ import {
   Hash,
   LayoutDashboard,
   ListTodo,
+  Bell,
+  GripVertical,
+  Flag,
+  Columns3,
+  List,
   Loader2,
   MessageSquareText,
   Paperclip,
@@ -620,6 +625,52 @@ export default function ProjectEngine() {
     useState<any[]>(
       []
     );
+
+  const [taskView, setTaskView] = useState<"board" | "list">("board");
+  const [taskDueDate, setTaskDueDate] = useState("");
+  const [taskReminder, setTaskReminder] = useState("");
+  const [taskPriority, setTaskPriority] = useState("normal");
+  const [taskStatus, setTaskStatus] = useState("todo");
+  const [customTaskStatuses, setCustomTaskStatuses] = useState<{key:string;label:string}[]>([]);
+  const [newTaskStatus, setNewTaskStatus] = useState("");
+  const [taskBusy, setTaskBusy] = useState(false);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const taskStatuses = useMemo(() => [
+    {key:"todo",label:"To do"},
+    {key:"in_progress",label:"In progress"},
+    {key:"needs_checked",label:"Needs checked"},
+    {key:"done",label:"Completed"},
+    ...customTaskStatuses.filter(x=>!["todo","in_progress","needs_checked","done"].includes(x.key)),
+  ], [customTaskStatuses]);
+
+  useEffect(() => {
+    if (!organisationId) return;
+    let cancelled = false;
+    void supabase.from("task_statuses").select("key,label").eq("organisation_id",organisationId).order("sort_order").then(({data,error})=>{
+      if(!cancelled && !error) setCustomTaskStatuses((data||[]) as {key:string;label:string}[]);
+    });
+    return ()=>{cancelled=true};
+  },[organisationId,supabase]);
+
+  // In-app reminders while the project page is open. Background/email delivery requires a server job.
+  const shownTaskReminders = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const check = () => {
+      const now = Date.now();
+      for(const task of tasks){
+        if(!task.reminder_at || isTaskComplete(task.status)) continue;
+        const at = new Date(task.reminder_at).getTime();
+        const key = `${task.id}:${task.reminder_at}`;
+        if(Number.isFinite(at) && at <= now && !shownTaskReminders.current.has(key)){
+          shownTaskReminders.current.add(key);
+          toast.info(`Task reminder: ${task.title}`,{duration:10000});
+        }
+      }
+    };
+    check();
+    const interval = window.setInterval(check,60000);
+    return ()=>window.clearInterval(interval);
+  },[tasks]);
 
   const [
     comments,
@@ -2698,90 +2749,48 @@ export default function ProjectEngine() {
   // TASK ACTIONS
   // ==========================================================
 
-  const addTask =
-    async () => {
-      if (
-        !taskInput.trim() ||
-        !projectId ||
-        !organisationId ||
-        !currentUserId
-      ) {
-        return;
-      }
+  const addTask = async () => {
+    if (!taskInput.trim() || !projectId || !organisationId || !currentUserId || taskBusy) return;
+    const validAssignee = taskAssignee && teamMembers.some(m=>m.id===taskAssignee) ? taskAssignee : null;
+    setTaskBusy(true);
+    const {data,error} = await supabase.from("tasks").insert({
+      project_id:projectId,title:taskInput.trim(),status:taskStatus,
+      organisation_id:organisationId,user_id:currentUserId,assigned_to:validAssignee,
+      customer_id:project?.customer_id || null,
+      due_date:taskDueDate || null,
+      reminder_at:taskReminder ? new Date(taskReminder).toISOString() : null,
+      priority:taskPriority,
+    }).select("*").single();
+    setTaskBusy(false);
+    if(error){toast.error(error.message);return;}
+    setTasks(previous=>[...previous,data]);
+    setTaskInput("");setTaskDueDate("");setTaskReminder("");setTaskPriority("normal");setTaskStatus("todo");
+    toast.success("Task created");
+  };
 
-      const validAssignee =
-        taskAssignee &&
-        teamMembers.some(
-          (
-            member
-          ) =>
-            member.id ===
-            taskAssignee
-        )
-          ? taskAssignee
-          : null;
+  const updateTaskFields = async (taskId:string,changes:Record<string,unknown>) => {
+    if(!organisationId || !projectId) return;
+    const {data,error}=await supabase.from("tasks").update(changes)
+      .eq("id",taskId).eq("organisation_id",organisationId).eq("project_id",projectId)
+      .select("*").single();
+    if(error){toast.error(error.message);return;}
+    setTasks(previous=>previous.map(t=>t.id===taskId?data:t));
+  };
 
-      const {
-        data,
-        error,
-      } =
-        await supabase
-          .from(
-            "tasks"
-          )
-          .insert({
-            project_id:
-              projectId,
-
-            title:
-              taskInput.trim(),
-
-            status:
-              "todo",
-
-            organisation_id:
-              organisationId,
-
-            user_id:
-              currentUserId,
-
-            assigned_to:
-              validAssignee,
-
-            customer_id:
-              project?.customer_id ||
-              null,
-          })
-          .select("*")
-          .single();
-
-      if (
-        error
-      ) {
-        toast.error(
-          error.message
-        );
-
-        return;
-      }
-
-      setTasks(
-        (
-          previous
-        ) => [
-          ...previous,
-          data,
-        ]
-      );
-
-      setTaskInput(
-        ""
-      );
-
-      toast.success(
-        "Task created"
-      );
-    };
+  const addCustomTaskStatus = async () => {
+    const label=newTaskStatus.trim();
+    if(!label || !organisationId) return;
+    const key=`custom_${label.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"")}`;
+    if(taskStatuses.some(x=>x.key===key || x.label.toLowerCase()===label.toLowerCase())){
+      toast.error("This status already exists");return;
+    }
+    const {error}=await supabase.from("task_statuses").insert({
+      organisation_id:organisationId,key,label,sort_order:taskStatuses.length,
+    });
+    if(error){toast.error(error.message);return;}
+    setCustomTaskStatuses(prev=>[...prev,{key,label}]);setNewTaskStatus("");
+    toast.success("Status added");
+  };
 
   const toggleTaskComplete =
     async (
@@ -5045,306 +5054,89 @@ export default function ProjectEngine() {
               TASKS
           ================================================== */}
 
-          {activeTab ===
-            "Tasks" && (
-            <motion.section
-              key="tasks"
-              initial={{
-                opacity:
-                  0,
-              }}
-              animate={{
-                opacity:
-                  1,
-              }}
-            >
+          {activeTab === "Tasks" && (
+            <motion.section key="tasks" initial={{opacity:0}} animate={{opacity:1}}>
               <Panel>
-                <SectionEyebrow>
-                  Project Tasks
-                </SectionEyebrow>
-
-                <h2 className="mt-1 font-serif text-3xl italic">
-                  What needs done
-                </h2>
-
-                <div className="mt-8 flex flex-col gap-3 lg:flex-row">
-                  <input
-                    value={
-                      taskInput
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setTaskInput(
-                        event.target.value
-                      )
-                    }
-                    placeholder="Add a task..."
-                    className="flex-1 rounded-2xl border border-stone-100 bg-stone-50 p-4 text-sm outline-none"
-                  />
-
-                  <select
-                    value={
-                      taskAssignee
-                    }
-                    onChange={(
-                      event
-                    ) => {
-                      setTaskAssignee(
-                        event.target.value
-                      );
-
-                      setAssigneeInitialised(
-                        true
-                      );
-                    }}
-                    className="rounded-2xl border border-stone-100 bg-stone-50 p-4 text-xs"
-                  >
-                    <option value="">
-                      Unassigned
-                    </option>
-
-                    {teamMembers.map(
-                      (
-                        member
-                      ) => (
-                        <option
-                          key={
-                            member.id
-                          }
-                          value={
-                            member.id
-                          }
-                        >
-                          {getMemberDisplayName(
-                            member
-                          )}
-                        </option>
-                      )
-                    )}
-                  </select>
-
-                  <button
-                    onClick={() =>
-                      void addTask()
-                    }
-                    className="rounded-2xl bg-stone-900 px-6 py-4 text-[9px] font-black uppercase tracking-wider text-white"
-                  >
-                    Add Task
-                  </button>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div><SectionEyebrow>Project Tasks</SectionEyebrow>
+                    <h2 className="mt-1 font-serif text-3xl italic">Plan the work</h2>
+                    <p className="mt-2 text-sm text-stone-500">Assign owners, set deadlines and move tasks through your workflow.</p>
+                  </div>
+                  <div className="flex rounded-xl border border-stone-200 bg-stone-50 p-1">
+                    <button onClick={()=>setTaskView("board")} className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs ${taskView==="board"?"bg-white shadow-sm":""}`}><Columns3 size={15}/> Board</button>
+                    <button onClick={()=>setTaskView("list")} className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs ${taskView==="list"?"bg-white shadow-sm":""}`}><List size={15}/> List</button>
+                  </div>
                 </div>
-
-                {leastBusyUser && (
-                  <div className="mt-5 rounded-2xl bg-[#a9b897]/10 p-4 text-xs text-stone-600">
-                    <strong>
-                      TOTS suggestion:
-                    </strong>{" "}
-                    {getMemberDisplayName(
-                      leastBusyUser
-                    )}{" "}
-                    currently has the lightest workload.
+                <div className="mt-7 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                  <div className="grid gap-3 lg:grid-cols-3">
+                    <label className="lg:col-span-3 text-xs font-semibold text-stone-600">New task
+                      <input value={taskInput} onChange={e=>setTaskInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")void addTask()}} placeholder="What needs done?" className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm outline-none" />
+                    </label>
+                    <label className="text-xs font-semibold text-stone-600">Assigned to
+                      <select value={taskAssignee} onChange={e=>{setTaskAssignee(e.target.value);setAssigneeInitialised(true)}} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm"><option value="">Unassigned</option>{teamMembers.map(m=><option key={m.id} value={m.id}>{getMemberDisplayName(m)}</option>)}</select>
+                    </label>
+                    <label className="text-xs font-semibold text-stone-600">Due date
+                      <input type="date" value={taskDueDate} onChange={e=>setTaskDueDate(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm" />
+                    </label>
+                    <label className="text-xs font-semibold text-stone-600">Reminder
+                      <input type="datetime-local" value={taskReminder} onChange={e=>setTaskReminder(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm" />
+                    </label>
+                    <label className="text-xs font-semibold text-stone-600">Priority
+                      <select value={taskPriority} onChange={e=>setTaskPriority(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm"><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select>
+                    </label>
+                    <label className="text-xs font-semibold text-stone-600">Status
+                      <select value={taskStatus} onChange={e=>setTaskStatus(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm">{taskStatuses.map(st=><option key={st.key} value={st.key}>{st.label}</option>)}</select>
+                    </label>
+                    <button disabled={taskBusy || !taskInput.trim()} onClick={()=>void addTask()} className="self-end rounded-xl bg-stone-900 px-5 py-3 text-xs font-bold text-white disabled:opacity-40">{taskBusy?"Saving…":"+ Add task"}</button>
+                  </div>
+                </div>
+                <div className="mt-5 flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-stone-500">Custom workflow status:</span>
+                  <input value={newTaskStatus} onChange={e=>setNewTaskStatus(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")void addCustomTaskStatus()}} placeholder="e.g. Waiting on client" className="rounded-lg border border-stone-200 px-3 py-2 text-xs" />
+                  <button onClick={()=>void addCustomTaskStatus()} className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-semibold">Add status</button>
+                </div>
+                <div className="mt-6 flex flex-wrap gap-3 text-xs text-stone-500">
+                  <span>{tasks.length} tasks</span><span>·</span><span>{tasks.filter(t=>isTaskComplete(t.status)).length} completed</span>
+                  <span>·</span><span>{tasks.filter(t=>t.priority==="urgent"&&!isTaskComplete(t.status)).length} urgent</span>
+                </div>
+                {!tasks.length ? <div className="mt-8"><EmptyMessage>No tasks yet. Add your first task above.</EmptyMessage></div> : (
+                  <div className={taskView==="board"?"mt-6 flex gap-4 overflow-x-auto pb-4":"mt-6 space-y-3"}>
+                    {(taskView==="board"?taskStatuses:[{key:"all",label:"All tasks"}]).map(column=>{
+                      const columnTasks=tasks.filter(t=>column.key==="all" || (t.status||"todo")===column.key);
+                      return <div key={column.key}
+                        onDragOver={e=>{if(taskView==="board")e.preventDefault()}}
+                        onDrop={e=>{e.preventDefault();if(draggedTaskId && column.key!=="all")void updateTaskFields(draggedTaskId,{status:column.key});setDraggedTaskId(null)}}
+                        className={taskView==="board"?"w-[300px] min-w-[300px] rounded-2xl bg-stone-100/70 p-3":""}>
+                        {taskView==="board"&&<div className="mb-3 flex items-center justify-between px-2"><h3 className="text-xs font-black uppercase tracking-wider text-stone-700">{column.label}</h3><span className="rounded-full bg-white px-2 py-1 text-xs">{columnTasks.length}</span></div>}
+                        <div className="space-y-3">{columnTasks.map(task=>{
+                          const assigned=teamMembers.find(m=>m.id===task.assigned_to);
+                          const expanded=expandedTaskId===task.id;
+                          const overdue=task.due_date && !isTaskComplete(task.status) && String(task.due_date).slice(0,10)<new Date().toLocaleDateString("en-CA");
+                          const taskComments=comments.filter(c=>c.task_id===task.id);
+                          return <div key={task.id} draggable={taskView==="board"} onDragStart={()=>setDraggedTaskId(task.id)} onDragEnd={()=>setDraggedTaskId(null)} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+                            <div className="flex items-start justify-between gap-2"><div className="flex min-w-0 items-start gap-2">{taskView==="board"&&<GripVertical size={15} className="mt-1 shrink-0 text-stone-300"/>}<div><p className={`break-words text-sm font-semibold ${isTaskComplete(task.status)?"text-stone-400 line-through":"text-stone-800"}`}>{task.title}</p><p className="mt-1 text-xs text-stone-500">{assigned?getMemberDisplayName(assigned):"Unassigned"}</p></div></div><button onClick={()=>void deleteTask(task.id)} aria-label="Delete task" className="shrink-0 text-stone-300 hover:text-red-500"><Trash2 size={15}/></button></div>
+                            <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                              {task.priority&&task.priority!=="normal"&&<span className={`rounded-full px-2 py-1 font-bold ${task.priority==="urgent"?"bg-red-100 text-red-700":task.priority==="high"?"bg-orange-100 text-orange-700":"bg-stone-100 text-stone-500"}`}><Flag size={11} className="mr-1 inline"/>{task.priority}</span>}
+                              {task.due_date&&<span className={`rounded-full px-2 py-1 ${overdue?"bg-red-100 text-red-700":"bg-stone-100 text-stone-600"}`}><Calendar size={11} className="mr-1 inline"/>{String(task.due_date).slice(0,10)}</span>}
+                              {task.reminder_at&&<span className="rounded-full bg-stone-100 px-2 py-1 text-stone-600"><Bell size={11} className="mr-1 inline"/>Reminder</span>}
+                            </div>
+                            <select aria-label="Task status" value={task.status||"todo"} onChange={e=>void updateTaskFields(task.id,{status:e.target.value})} className="mt-3 w-full rounded-lg border border-stone-200 bg-stone-50 px-2 py-2 text-xs">{taskStatuses.map(st=><option key={st.key} value={st.key}>{st.label}</option>)}</select>
+                            <button onClick={()=>setExpandedTaskId(expanded?null:task.id)} className="mt-3 text-xs font-semibold text-stone-600 underline underline-offset-4">{expanded?"Close details":"Edit details & comments"}</button>
+                            {expanded&&<div className="mt-4 space-y-3 border-t border-stone-100 pt-4">
+                              <label className="block text-xs font-semibold">Assignee<select value={task.assigned_to||""} onChange={e=>void updateTaskFields(task.id,{assigned_to:e.target.value||null})} className="mt-1 w-full rounded-lg border p-2 text-xs"><option value="">Unassigned</option>{teamMembers.map(m=><option key={m.id} value={m.id}>{getMemberDisplayName(m)}</option>)}</select></label>
+                              <label className="block text-xs font-semibold">Due date<input type="date" value={task.due_date?String(task.due_date).slice(0,10):""} onChange={e=>void updateTaskFields(task.id,{due_date:e.target.value||null})} className="mt-1 w-full rounded-lg border p-2 text-xs"/></label>
+                              <label className="block text-xs font-semibold">Reminder<input type="datetime-local" value={task.reminder_at?new Date(new Date(task.reminder_at).getTime()-new Date(task.reminder_at).getTimezoneOffset()*60000).toISOString().slice(0,16):""} onChange={e=>void updateTaskFields(task.id,{reminder_at:e.target.value?new Date(e.target.value).toISOString():null})} className="mt-1 w-full rounded-lg border p-2 text-xs"/></label>
+                              <label className="block text-xs font-semibold">Priority<select value={task.priority||"normal"} onChange={e=>void updateTaskFields(task.id,{priority:e.target.value})} className="mt-1 w-full rounded-lg border p-2 text-xs"><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label>
+                              {task.description&&<p className="text-xs leading-5 text-stone-600">{task.description}</p>}
+                              <div className="border-t pt-3"><p className="mb-2 text-xs font-bold">Comments</p>{taskComments.map(c=><div key={c.id} className="mb-2 rounded-lg bg-stone-50 p-2 text-xs">{c.content}</div>)}<div className="flex gap-2"><input value={commentInput[task.id]||""} onChange={e=>setCommentInput(p=>({...p,[task.id]:e.target.value}))} placeholder="Add comment" className="min-w-0 flex-1 rounded-lg border p-2 text-xs"/><button onClick={()=>void addComment(task.id)} className="rounded-lg bg-stone-900 px-3 text-xs text-white">Send</button></div></div>
+                            </div>}
+                          </div>;
+                        })}{columnTasks.length===0&&<p className="p-4 text-center text-xs text-stone-400">Drop tasks here</p>}</div>
+                      </div>;
+                    })}
                   </div>
                 )}
-
-                <div className="mt-8 space-y-3">
-                  {!tasks.length ? (
-                    <EmptyMessage>
-                      No tasks yet.
-                    </EmptyMessage>
-                  ) : (
-                    tasks.map(
-                      (
-                        task
-                      ) => {
-                        const done =
-                          isTaskComplete(
-                            task.status
-                          );
-
-                        const assigned =
-                          teamMembers.find(
-                            (
-                              member
-                            ) =>
-                              member.id ===
-                              task.assigned_to
-                          );
-
-                        const taskComments =
-                          comments.filter(
-                            (
-                              comment
-                            ) =>
-                              comment.task_id ===
-                              task.id
-                          );
-
-                        const expanded =
-                          expandedTaskId ===
-                          task.id;
-
-                        return (
-                          <div
-                            key={
-                              task.id
-                            }
-                            className="overflow-hidden rounded-2xl border border-stone-100 bg-stone-50"
-                          >
-                            <div className="flex items-center justify-between gap-4 p-5">
-                              <div className="flex items-start gap-4">
-                                <button
-                                  onClick={() =>
-                                    void toggleTaskComplete(
-                                      task
-                                    )
-                                  }
-                                  className={`flex h-7 w-7 items-center justify-center rounded-lg border-2 ${
-                                    done
-                                      ? "border-[#a9b897] bg-[#a9b897] text-white"
-                                      : "border-stone-200 bg-white text-transparent"
-                                  }`}
-                                >
-                                  <Check
-                                    size={
-                                      13
-                                    }
-                                  />
-                                </button>
-
-                                <div>
-                                  <p
-                                    className={`font-semibold ${
-                                      done
-                                        ? "text-stone-400 line-through"
-                                        : "text-stone-700"
-                                    }`}
-                                  >
-                                    {
-                                      task.title
-                                    }
-                                  </p>
-
-                                  <p className="mt-1 text-[10px] text-stone-400">
-                                    {assigned
-                                      ? `Assigned to ${getMemberDisplayName(
-                                          assigned
-                                        )}`
-                                      : "Unassigned"}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() =>
-                                    setExpandedTaskId(
-                                      expanded
-                                        ? null
-                                        : task.id
-                                    )
-                                  }
-                                  className="rounded-xl border bg-white px-3 py-2 text-[8px] font-black uppercase"
-                                >
-                                  {expanded
-                                    ? "Close"
-                                    : "Details"}
-                                </button>
-
-                                <button
-                                  onClick={() =>
-                                    void deleteTask(
-                                      task.id
-                                    )
-                                  }
-                                  className="p-2 text-red-300"
-                                >
-                                  <Trash2
-                                    size={
-                                      14
-                                    }
-                                  />
-                                </button>
-                              </div>
-                            </div>
-
-                            {expanded && (
-                              <div className="border-t bg-white p-5">
-                                {task.description && (
-                                  <p className="mb-5 text-sm leading-6 text-stone-600">
-                                    {
-                                      task.description
-                                    }
-                                  </p>
-                                )}
-
-                                <p className="mb-3 text-[8px] font-black uppercase tracking-wider text-stone-400">
-                                  Comments
-                                </p>
-
-                                <div className="space-y-2">
-                                  {taskComments.map(
-                                    (
-                                      comment
-                                    ) => (
-                                      <div
-                                        key={
-                                          comment.id
-                                        }
-                                        className="rounded-xl bg-stone-50 p-3 text-xs"
-                                      >
-                                        {
-                                          comment.content
-                                        }
-                                      </div>
-                                    )
-                                  )}
-                                </div>
-
-                                <div className="mt-3 flex gap-2">
-                                  <input
-                                    value={
-                                      commentInput[
-                                        task.id
-                                      ] ||
-                                      ""
-                                    }
-                                    onChange={(
-                                      event
-                                    ) =>
-                                      setCommentInput(
-                                        (
-                                          previous
-                                        ) => ({
-                                          ...previous,
-
-                                          [task.id]:
-                                            event.target.value,
-                                        })
-                                      )
-                                    }
-                                    placeholder="Add comment..."
-                                    className="flex-1 rounded-xl border bg-stone-50 p-3 text-xs"
-                                  />
-
-                                  <button
-                                    onClick={() =>
-                                      void addComment(
-                                        task.id
-                                      )
-                                    }
-                                    className="rounded-xl bg-[#a9b897] px-4 text-xs text-white"
-                                  >
-                                    Send
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-                    )
-                  )}
-                </div>
+                <p className="mt-5 text-xs text-stone-400">Reminders appear in-app while this project page is open. Email and background notifications require a scheduled server process.</p>
               </Panel>
             </motion.section>
           )}

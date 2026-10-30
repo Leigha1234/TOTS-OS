@@ -545,10 +545,71 @@ export default function StoreDashboardPage() {
   });
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [stripeConnect, setStripeConnect] = useState<{ connected: boolean; details_submitted?: boolean; charges_enabled?: boolean; payouts_enabled?: boolean; account_id?: string | null } | null>(null);
+  const [stripeConnectBusy, setStripeConnectBusy] = useState(false);
+  const [stripeConnectLoading, setStripeConnectLoading] = useState(false);
+  const [stripeConnectError, setStripeConnectError] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("overview");
+
+  const refreshStripeConnect = useCallback(async () => {
+    if (!organisation?.id) return;
+    setStripeConnectLoading(true);
+    setStripeConnectError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Please sign in again.");
+      const response = await fetch(`/api/store/stripe-connect/status?organisation_id=${encodeURIComponent(organisation.id)}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        cache: "no-store",
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Could not check Stripe connection.");
+      setStripeConnect({
+        connected: Boolean(result.connected ?? result.account_id ?? result.stripe_account_id),
+        account_id: result.account_id ?? result.stripe_account_id ?? null,
+        details_submitted: Boolean(result.details_submitted),
+        charges_enabled: Boolean(result.charges_enabled),
+        payouts_enabled: Boolean(result.payouts_enabled),
+      });
+    } catch (e) {
+      setStripeConnectError(e instanceof Error ? e.message : "Could not check Stripe connection.");
+    } finally {
+      setStripeConnectLoading(false);
+    }
+  }, [organisation?.id]);
+
+  useEffect(() => {
+    if (tab === "settings" && organisation?.id) void refreshStripeConnect();
+  }, [tab, organisation?.id, refreshStripeConnect]);
+
+  async function openStripeConnect(action: "onboard" | "dashboard") {
+    if (!organisation?.id || stripeConnectBusy) return;
+    setStripeConnectBusy(true);
+    setStripeConnectError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Please sign in again.");
+      const response = await fetch(`/api/store/stripe-connect/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ organisation_id: organisation.id }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Stripe could not be opened.");
+      const destination = result.url ?? result.onboarding_url ?? result.dashboard_url;
+      if (typeof destination !== "string" || !destination.startsWith("https://")) {
+        throw new Error("The Stripe endpoint did not return a secure redirect URL.");
+      }
+      window.location.assign(destination);
+    } catch (e) {
+      setStripeConnectError(e instanceof Error ? e.message : "Stripe could not be opened.");
+      setStripeConnectBusy(false);
+    }
+  }
+
   const [uploadingAsset, setUploadingAsset] = useState<"logo" | "hero" | "favicon" | null>(null);
   const [uploadingProductImage, setUploadingProductImage] = useState(false);
 
-  const [tab, setTab] = useState<Tab>("overview");
   const [search, setSearch] = useState("");
 
   const [loading, setLoading] = useState(true);
@@ -2487,6 +2548,27 @@ export default function StoreDashboardPage() {
 
         {tab === "settings" && storeSettings && (
           <div className="mt-6 space-y-6">
+            <section className="rounded-[24px] border border-stone-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h2 className="flex items-center gap-2 text-lg font-semibold text-stone-900"><CreditCard className="h-5 w-5" /> Stripe Connect</h2>
+                  <p className="mt-1 text-sm text-stone-500">Connect your organisation’s Stripe account to accept payments and receive payouts.</p>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${stripeConnect?.charges_enabled && stripeConnect?.payouts_enabled ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
+                  {stripeConnectLoading ? "Checking…" : stripeConnect?.charges_enabled && stripeConnect?.payouts_enabled ? "Ready to take payments" : stripeConnect?.connected ? "Setup incomplete" : "Not connected"}
+                </span>
+              </div>
+              {stripeConnectError && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{stripeConnectError}</p>}
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button type="button" disabled={stripeConnectBusy || stripeConnectLoading} onClick={() => void openStripeConnect("onboard")} className="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-stone-700 disabled:opacity-50">
+                  {stripeConnectBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                  {!stripeConnect?.connected ? "Connect with Stripe" : stripeConnect.charges_enabled && stripeConnect.payouts_enabled ? "Manage Stripe setup" : "Complete Stripe setup"}
+                </button>
+                {stripeConnect?.connected && <button type="button" disabled={stripeConnectBusy} onClick={() => void openStripeConnect("dashboard")} className="inline-flex items-center gap-2 rounded-xl border border-stone-200 px-4 py-2.5 text-sm font-semibold text-stone-800 hover:bg-stone-50 disabled:opacity-50">Open Stripe Dashboard <ExternalLink className="h-4 w-4" /></button>}
+                <button type="button" disabled={stripeConnectLoading} onClick={() => void refreshStripeConnect()} className="inline-flex items-center gap-2 rounded-xl border border-stone-200 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${stripeConnectLoading ? "animate-spin" : ""}`} /> Refresh status</button>
+              </div>
+              {stripeConnect?.connected && <p className="mt-3 text-xs text-stone-500">Payments: {stripeConnect.charges_enabled ? "Enabled" : "Pending"} · Payouts: {stripeConnect.payouts_enabled ? "Enabled" : "Pending"}</p>}
+            </section>
             <section className="rounded-[24px] border border-stone-200 bg-white shadow-sm">
               <SectionHeader
                 title="Storefront"

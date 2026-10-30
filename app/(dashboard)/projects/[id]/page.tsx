@@ -99,6 +99,24 @@ type ProjectTab =
   | "Notes"
   | "Settings";
 
+// Date-only controls, preserving the selected day in the user's local timezone.
+function reminderAtNine(date: string): string | null {
+  if (!date) return null;
+  return new Date(`${date}T09:00:00`).toISOString();
+}
+
+function reminderPickerDate(value: string | null | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+}
+
+function openDatePicker(input: HTMLInputElement) {
+  // Safari versions without showPicker retain their native date-input behaviour.
+  try { input.showPicker?.(); } catch { /* Native fallback; no permission changes. */ }
+}
+
 type Customer = {
   id: string;
   name?: string | null;
@@ -2763,7 +2781,7 @@ export default function ProjectEngine() {
       organisation_id:organisationId,user_id:currentUserId,assigned_to:validAssignee,
       customer_id:project?.customer_id || null,
       due_date:taskDueDate || null,
-      reminder_at:taskReminder ? new Date(taskReminder).toISOString() : null,
+      reminder_at:reminderAtNine(taskReminder),
       priority:taskPriority,
     }).select("*").single();
     setTaskBusy(false);
@@ -5151,10 +5169,10 @@ export default function ProjectEngine() {
                       <select value={taskAssignee} onChange={e=>{setTaskAssignee(e.target.value);setAssigneeInitialised(true)}} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm"><option value="">Unassigned</option>{teamMembers.map(m=><option key={m.id} value={m.id}>{getMemberDisplayName(m)}</option>)}</select>
                     </label>
                     <label className="text-xs font-semibold text-stone-600">Due date
-                      <input type="date" value={taskDueDate} onChange={e=>setTaskDueDate(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm" />
+                      <input type="date" onClick={e=>openDatePicker(e.currentTarget)} value={taskDueDate} onChange={e=>setTaskDueDate(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm" />
                     </label>
-                    <label className="text-xs font-semibold text-stone-600">Reminder
-                      <input type="datetime-local" value={taskReminder} onChange={e=>setTaskReminder(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm" />
+                    <label className="text-xs font-semibold text-stone-600">Reminder date (9am local time)
+                      <input type="date" onClick={e=>openDatePicker(e.currentTarget)} value={taskReminder} onChange={e=>setTaskReminder(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm" />
                     </label>
                     <label className="text-xs font-semibold text-stone-600">Priority
                       <select value={taskPriority} onChange={e=>setTaskPriority(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm"><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select>
@@ -5199,8 +5217,8 @@ export default function ProjectEngine() {
                             <button onClick={()=>setExpandedTaskId(expanded?null:task.id)} className="mt-3 text-xs font-semibold text-stone-600 underline underline-offset-4">{expanded?"Close details":"Edit details & comments"}</button>
                             {expanded&&<div className="mt-4 space-y-3 border-t border-stone-100 pt-4">
                               <label className="block text-xs font-semibold">Assignee<select value={task.assigned_to||""} onChange={e=>void updateTaskFields(task.id,{assigned_to:e.target.value||null})} className="mt-1 w-full rounded-lg border p-2 text-xs"><option value="">Unassigned</option>{teamMembers.map(m=><option key={m.id} value={m.id}>{getMemberDisplayName(m)}</option>)}</select></label>
-                              <label className="block text-xs font-semibold">Due date<input type="date" value={task.due_date?String(task.due_date).slice(0,10):""} onChange={e=>void updateTaskFields(task.id,{due_date:e.target.value||null})} className="mt-1 w-full rounded-lg border p-2 text-xs"/></label>
-                              <label className="block text-xs font-semibold">Reminder<input type="datetime-local" value={task.reminder_at?new Date(new Date(task.reminder_at).getTime()-new Date(task.reminder_at).getTimezoneOffset()*60000).toISOString().slice(0,16):""} onChange={e=>void updateTaskFields(task.id,{reminder_at:e.target.value?new Date(e.target.value).toISOString():null})} className="mt-1 w-full rounded-lg border p-2 text-xs"/></label>
+                              <label className="block text-xs font-semibold">Due date<input type="date" onClick={e=>openDatePicker(e.currentTarget)} value={task.due_date?String(task.due_date).slice(0,10):""} onChange={e=>void updateTaskFields(task.id,{due_date:e.target.value||null})} className="mt-1 w-full rounded-lg border p-2 text-xs"/></label>
+                              <label className="block text-xs font-semibold">Reminder date (9am local time)<input type="date" onClick={e=>openDatePicker(e.currentTarget)} value={reminderPickerDate(task.reminder_at)} onChange={e=>void updateTaskFields(task.id,{reminder_at:reminderAtNine(e.target.value)})} className="mt-1 w-full rounded-lg border p-2 text-xs"/></label>
                               <label className="block text-xs font-semibold">Priority<select value={task.priority||"normal"} onChange={e=>void updateTaskFields(task.id,{priority:e.target.value})} className="mt-1 w-full rounded-lg border p-2 text-xs"><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label>
                               {task.description&&<p className="text-xs leading-5 text-stone-600">{task.description}</p>}
                               <p className="text-xs text-stone-500">Task fields save automatically when changed.</p>

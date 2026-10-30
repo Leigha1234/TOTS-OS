@@ -100,16 +100,18 @@ type ProjectTab =
   | "Settings";
 
 // Date-only controls, preserving the selected day in the user's local timezone.
-function reminderAtNine(date: string): string | null {
-  if (!date) return null;
-  return new Date(`${date}T09:00:00`).toISOString();
+function reminderToIso(value: string): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
 }
 
-function reminderPickerDate(value: string | null | undefined): string {
+function reminderPickerDateTime(value: string | null | undefined): string {
   if (!value) return "";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "";
-  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function openDatePicker(input: HTMLInputElement) {
@@ -2781,7 +2783,7 @@ export default function ProjectEngine() {
       organisation_id:organisationId,user_id:currentUserId,assigned_to:validAssignee,
       customer_id:project?.customer_id || null,
       due_date:taskDueDate || null,
-      reminder_at:reminderAtNine(taskReminder),
+      reminder_at:reminderToIso(taskReminder),
       priority:taskPriority,
     }).select("*").single();
     setTaskBusy(false);
@@ -5171,8 +5173,8 @@ export default function ProjectEngine() {
                     <label className="text-xs font-semibold text-stone-600">Due date
                       <input type="date" onClick={e=>openDatePicker(e.currentTarget)} value={taskDueDate} onChange={e=>setTaskDueDate(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm" />
                     </label>
-                    <label className="text-xs font-semibold text-stone-600">Reminder date (9am local time)
-                      <input type="date" onClick={e=>openDatePicker(e.currentTarget)} value={taskReminder} onChange={e=>setTaskReminder(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm" />
+                    <label className="text-xs font-semibold text-stone-600">Reminder date and time
+                      <input type="datetime-local" step="60" value={taskReminder} onChange={e=>setTaskReminder(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm" />
                     </label>
                     <label className="text-xs font-semibold text-stone-600">Priority
                       <select value={taskPriority} onChange={e=>setTaskPriority(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-200 bg-white p-3 text-sm"><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select>
@@ -5218,7 +5220,7 @@ export default function ProjectEngine() {
                             {expanded&&<div className="mt-4 space-y-3 border-t border-stone-100 pt-4">
                               <label className="block text-xs font-semibold">Assignee<select value={task.assigned_to||""} onChange={e=>void updateTaskFields(task.id,{assigned_to:e.target.value||null})} className="mt-1 w-full rounded-lg border p-2 text-xs"><option value="">Unassigned</option>{teamMembers.map(m=><option key={m.id} value={m.id}>{getMemberDisplayName(m)}</option>)}</select></label>
                               <label className="block text-xs font-semibold">Due date<input type="date" onClick={e=>openDatePicker(e.currentTarget)} value={task.due_date?String(task.due_date).slice(0,10):""} onChange={e=>void updateTaskFields(task.id,{due_date:e.target.value||null})} className="mt-1 w-full rounded-lg border p-2 text-xs"/></label>
-                              <label className="block text-xs font-semibold">Reminder date (9am local time)<input type="date" onClick={e=>openDatePicker(e.currentTarget)} value={reminderPickerDate(task.reminder_at)} onChange={e=>void updateTaskFields(task.id,{reminder_at:reminderAtNine(e.target.value)})} className="mt-1 w-full rounded-lg border p-2 text-xs"/></label>
+                              <label className="block text-xs font-semibold">Reminder date and time<input type="datetime-local" step="60" value={reminderPickerDateTime(task.reminder_at)} onChange={e=>void updateTaskFields(task.id,{reminder_at:reminderToIso(e.target.value)})} className="mt-1 w-full rounded-lg border p-2 text-xs"/></label>
                               <label className="block text-xs font-semibold">Priority<select value={task.priority||"normal"} onChange={e=>void updateTaskFields(task.id,{priority:e.target.value})} className="mt-1 w-full rounded-lg border p-2 text-xs"><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label>
                               {task.description&&<p className="text-xs leading-5 text-stone-600">{task.description}</p>}
                               <p className="text-xs text-stone-500">Task fields save automatically when changed.</p>

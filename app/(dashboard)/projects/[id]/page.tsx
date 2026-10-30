@@ -635,6 +635,10 @@ export default function ProjectEngine() {
   const [customTaskStatuses, setCustomTaskStatuses] = useState<{key:string;label:string}[]>([]);
   const [newTaskStatus, setNewTaskStatus] = useState("");
   const [taskBusy, setTaskBusy] = useState(false);
+  const [savingComments, setSavingComments] = useState<Record<string, boolean>>({});
+  const commentLocks = useRef(new Set<string>());
+  const [attachmentError, setAttachmentError] = useState("");
+  const uploadLock = useRef(false);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const taskStatuses = useMemo(() => [
     {key:"todo",label:"To do"},
@@ -2171,6 +2175,7 @@ export default function ProjectEngine() {
                 .list(
                   `${orgId}/${projectId}`,
                   {
+                    limit: 1000,
                     sortBy: {
                       column:
                         "created_at",
@@ -2188,6 +2193,7 @@ export default function ProjectEngine() {
                 "Project files unavailable:",
                 storageError.message
               );
+              setAttachmentError(`Project file listing failed: ${storageError.message}`);
 
               setProjectFiles(
                 []
@@ -2195,7 +2201,7 @@ export default function ProjectEngine() {
             } else {
               const mapped = await Promise.all(
                 (storageRows || [])
-                  .filter((item) => item.name !== ".emptyFolderPlaceholder")
+                  .filter((item) => item.name !== ".emptyFolderPlaceholder" && item.id)
                   .map(async (item) => {
                     const path = `${orgId}/${projectId}/${item.name}`;
                     const { data: signed, error: signError } = await supabase.storage
@@ -2228,6 +2234,7 @@ export default function ProjectEngine() {
             setProjectFiles(
               []
             );
+              setAttachmentError(storageError instanceof Error ? storageError.message : "Project file listing failed");
           }
         } catch (
           error
@@ -2938,13 +2945,13 @@ export default function ProjectEngine() {
           taskId
         ]?.trim();
 
-      if (
-        !text ||
-        !currentUserId ||
-        !organisationId
-      ) {
-        return;
-      }
+      if (!text) { toast.info("Enter a comment before saving. Task fields save automatically."); return; }
+      if (!currentUserId || !organisationId) { toast.error("Account not ready. Refresh and sign in again."); return; }
+      if (commentLocks.current.has(taskId)) return;
+      commentLocks.current.add(taskId);
+      setSavingComments(p => ({ ...p, [taskId]: true }));
+
+      try {
 
       const {
         data,
@@ -3001,8 +3008,15 @@ export default function ProjectEngine() {
       );
 
       toast.success(
-        "Comment added"
+        "Comment saved"
       );
+      window.dispatchEvent(new Event("os-project-data-changed"));
+      } catch (error: any) {
+        toast.error(error?.message || "Unable to save comment");
+      } finally {
+        commentLocks.current.delete(taskId);
+        setSavingComments(p => ({ ...p, [taskId]: false }));
+      }
     };
 
   // ==========================================================
@@ -3167,14 +3181,21 @@ export default function ProjectEngine() {
 
   const uploadProjectFile =
     async (
-      file: File
+      file: File,
+      taskId?: string
     ) => {
       if (
         !organisationId ||
         !projectId
       ) {
+        toast.error("Project context is not ready. Refresh before uploading.");
         return;
       }
+
+      if (uploadLock.current) { toast.info("Please wait for the current upload."); return; }
+      if (taskId && !tasks.some(t => t.id === taskId)) { toast.error("Task does not belong to this project."); return; }
+      uploadLock.current = true;
+      setAttachmentError("");
 
       setFileUploading(
         true
@@ -3188,7 +3209,7 @@ export default function ProjectEngine() {
           );
 
         const fileName =
-          `${Date.now()}-${safeName}`;
+          `${taskId ? `task-${taskId}--` : ""}${Date.now()}-${crypto.randomUUID()}--${safeName}`;
 
         const path =
           `${organisationId}/${projectId}/${fileName}`;
@@ -3223,7 +3244,8 @@ export default function ProjectEngine() {
         });
         if (fileRecordError) {
           console.error("Project file metadata could not be saved", fileRecordError);
-          toast.warning("File uploaded, but its database record could not be saved");
+          const cleanup = await supabase.storage.from("project-files").remove([path]);
+          throw new Error(`File record could not be saved: ${fileRecordError.message}. ${cleanup.error ? "Storage cleanup also failed; ask an admin to remove the unlinked object." : "The newly uploaded object was removed; nothing was saved."}`);
         }
 
         const { data: signedData, error: signedError } = await supabase.storage
@@ -3258,21 +3280,52 @@ export default function ProjectEngine() {
         );
 
         toast.success(
-          "File uploaded"
+          taskId ? "Task attachment saved" : "File saved"
         );
+        if (signedError) {
+          setAttachmentError(`File saved, but download permission failed: ${signedError.message}`);
+          toast.warning("File saved, but it could not be opened. Check Storage SELECT permissions.");
+        }
+        window.dispatchEvent(new Event("os-project-data-changed"));
       } catch (
         error: any
       ) {
+        setAttachmentError(error?.message || "Unable to upload file");
         toast.error(
           error?.message ||
             "Unable to upload file"
         );
       } finally {
+        uploadLock.current = false;
         setFileUploading(
           false
         );
       }
     };
+
+  const uploadSelectedFiles = async (files: File[], taskId?: string) => {
+    for (const file of files) await uploadProjectFile(file, taskId);
+  };
+
+  const attachmentName = (name: string) => name
+    .replace(/^task-[0-9a-f-]{36}--/i, "")
+    .replace(/^\d+-[0-9a-f-]{36}--/i, "")
+    .replace(/^\d+-/, "");
+
+  const openProjectFile = async (file: ProjectFile) => {
+    // Renew expiring private links only when requested. No public bucket URLs.
+    const tab = window.open("about:blank", "_blank");
+    if (tab) tab.opener = null;
+    const { data, error } = await supabase.storage.from("project-files").createSignedUrl(file.path, 300);
+    if (error || !data?.signedUrl) {
+      tab?.close();
+      setAttachmentError(error?.message || "Unable to open file");
+      toast.error(error?.message || "Unable to open file");
+      return;
+    }
+    if (tab) tab.location.href = data.signedUrl;
+    else toast.error("Allow pop-ups for this site to open the file.");
+  };
 
   const deleteProjectFile =
     async (
@@ -5135,7 +5188,7 @@ export default function ProjectEngine() {
                           const expanded=expandedTaskId===task.id;
                           const overdue=task.due_date && !isTaskComplete(task.status) && String(task.due_date).slice(0,10)<new Date().toLocaleDateString("en-CA");
                           const taskComments=comments.filter(c=>c.task_id===task.id);
-                          return <div key={task.id} draggable={taskView==="board"} onDragStart={()=>setDraggedTaskId(task.id)} onDragEnd={()=>setDraggedTaskId(null)} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+                          return <div key={task.id} draggable={taskView==="board" && !expanded} onDragStart={e=>{if(expanded || (e.target instanceof Element && e.target.closest("button,input,select,textarea,a,label"))){e.preventDefault();return;}setDraggedTaskId(task.id)}} onDragEnd={()=>setDraggedTaskId(null)} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
                             <div className="flex items-start justify-between gap-2"><div className="flex min-w-0 items-start gap-2">{taskView==="board"&&<GripVertical size={15} className="mt-1 shrink-0 text-stone-300"/>}<div><p className={`break-words text-sm font-semibold ${isTaskComplete(task.status)?"text-stone-400 line-through":"text-stone-800"}`}>{task.title}</p><p className="mt-1 text-xs text-stone-500">{assigned?getMemberDisplayName(assigned):"Unassigned"}</p></div></div><button onClick={()=>void deleteTask(task.id)} aria-label="Delete task" className="shrink-0 text-stone-300 hover:text-red-500"><Trash2 size={15}/></button></div>
                             <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                               {task.priority&&task.priority!=="normal"&&<span className={`rounded-full px-2 py-1 font-bold ${task.priority==="urgent"?"bg-red-100 text-red-700":task.priority==="high"?"bg-orange-100 text-orange-700":"bg-stone-100 text-stone-500"}`}><Flag size={11} className="mr-1 inline"/>{task.priority}</span>}
@@ -5150,7 +5203,17 @@ export default function ProjectEngine() {
                               <label className="block text-xs font-semibold">Reminder<input type="datetime-local" value={task.reminder_at?new Date(new Date(task.reminder_at).getTime()-new Date(task.reminder_at).getTimezoneOffset()*60000).toISOString().slice(0,16):""} onChange={e=>void updateTaskFields(task.id,{reminder_at:e.target.value?new Date(e.target.value).toISOString():null})} className="mt-1 w-full rounded-lg border p-2 text-xs"/></label>
                               <label className="block text-xs font-semibold">Priority<select value={task.priority||"normal"} onChange={e=>void updateTaskFields(task.id,{priority:e.target.value})} className="mt-1 w-full rounded-lg border p-2 text-xs"><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label>
                               {task.description&&<p className="text-xs leading-5 text-stone-600">{task.description}</p>}
-                              <div className="border-t pt-3"><p className="mb-2 text-xs font-bold">Comments</p>{taskComments.map(c=><div key={c.id} className="mb-2 rounded-lg bg-stone-50 p-2 text-xs">{c.content}</div>)}<div className="flex gap-2"><input value={commentInput[task.id]||""} onChange={e=>setCommentInput(p=>({...p,[task.id]:e.target.value}))} placeholder="Add comment" className="min-w-0 flex-1 rounded-lg border p-2 text-xs"/><button onClick={()=>void addComment(task.id)} className="rounded-lg bg-stone-900 px-3 text-xs text-white">Send</button></div></div>
+                              <p className="text-xs text-stone-500">Task fields save automatically when changed.</p>
+                              <div className="border-t pt-3">
+                                <p className="mb-2 text-xs font-bold">Attachments</p>
+                                <label className="block text-xs font-semibold">Add task attachments
+                                  <input type="file" multiple disabled={fileUploading} className="mt-2 block w-full text-xs" onChange={e=>{const files=Array.from(e.currentTarget.files||[]);e.currentTarget.value="";void uploadSelectedFiles(files,task.id)}} />
+                                </label>
+                                {fileUploading && <p className="mt-2 text-xs" role="status">Saving file…</p>}
+                                {projectFiles.filter(f=>f.path.split("/").pop()?.startsWith(`task-${task.id}--`)).map(f=><div key={f.path} className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-stone-50 p-2"><button type="button" onClick={()=>void openProjectFile(f)} className="min-w-0 truncate text-left text-xs underline">{attachmentName(f.name)}</button><button type="button" disabled={fileUploading} onClick={()=>void deleteProjectFile(f)} aria-label={`Delete ${attachmentName(f.name)}`}><Trash2 size={14}/></button></div>)}
+                                {attachmentError && <p role="alert" className="mt-2 break-words text-xs text-red-600">{attachmentError}</p>}
+                              </div>
+                              <div className="border-t pt-3"><p className="mb-2 text-xs font-bold">Comments</p>{taskComments.map(c=><div key={c.id} className="mb-2 rounded-lg bg-stone-50 p-2 text-xs">{c.content}</div>)}<div className="flex gap-2"><input value={commentInput[task.id]||""} onChange={e=>setCommentInput(p=>({...p,[task.id]:e.target.value}))} placeholder="Add comment" className="min-w-0 flex-1 rounded-lg border p-2 text-xs"/><button type="button" disabled={!!savingComments[task.id]} onClick={()=>void addComment(task.id)} className="rounded-lg bg-stone-900 px-3 text-xs text-white disabled:opacity-40">{savingComments[task.id]?"Saving…":"Save"}</button></div></div>
                             </div>}
                           </div>;
                         })}{columnTasks.length===0&&<p className="p-4 text-center text-xs text-stone-400">Drop tasks here</p>}</div>
@@ -5450,6 +5513,7 @@ export default function ProjectEngine() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={() =>
                       fileInputRef.current?.click()
                     }
@@ -5481,22 +5545,15 @@ export default function ProjectEngine() {
                       fileInputRef
                     }
                     type="file"
-                    hidden
+                    multiple
+                    disabled={fileUploading}
+                    aria-label="Add project files"
+                    className="block max-w-full text-xs"
                     onChange={(
                       event
                     ) => {
-                      const file =
-                        event.target.files?.[
-                          0
-                        ];
-
-                      if (
-                        file
-                      ) {
-                        void uploadProjectFile(
-                          file
-                        );
-                      }
+                      const files = Array.from(event.target.files || []);
+                      void uploadSelectedFiles(files);
 
                       event.target.value =
                         "";
@@ -5505,6 +5562,8 @@ export default function ProjectEngine() {
                 </div>
 
                 <div className="mt-8">
+                  {attachmentError && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{attachmentError}</p>}
+                  <p className="mb-3 text-xs text-stone-500">Task attachments also appear here. Files are private and links are renewed when opened.</p>
                   {!projectFiles.length ? (
                     <div className="rounded-[2rem] border-2 border-dashed border-stone-200 bg-stone-50 p-14 text-center">
                       <Cloud className="mx-auto text-stone-200" />
@@ -5540,10 +5599,7 @@ export default function ProjectEngine() {
 
                               <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold">
-                                  {file.name.replace(
-                                    /^\d+-/,
-                                    ""
-                                  )}
+                                  {attachmentName(file.name)}
                                 </p>
 
                                 <p className="mt-1 text-[10px] text-stone-400">
@@ -5557,13 +5613,10 @@ export default function ProjectEngine() {
                             </div>
 
                             <div className="flex gap-2">
-                              {file.publicUrl && (
-                                <a
-                                  href={
-                                    file.publicUrl
-                                  }
-                                  target="_blank"
-                                  rel="noreferrer"
+                                <button
+                                  type="button"
+                                  onClick={() => void openProjectFile(file)}
+                                  aria-label={`Open ${attachmentName(file.name)}`}
                                   className="flex h-9 w-9 items-center justify-center rounded-xl bg-white"
                                 >
                                   <Download
@@ -5571,8 +5624,7 @@ export default function ProjectEngine() {
                                       14
                                     }
                                   />
-                                </a>
-                              )}
+                                </button>
 
                               <button
                                 onClick={() =>

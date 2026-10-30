@@ -2026,17 +2026,14 @@ export default function ProjectEngine() {
                   }
                 ),
 
-              /*
-               * Your notes table uses a TEXT "project" column,
-               * not project_id.
-               */
+              /* Project notes use the UUID project_id relationship. */
               supabase
                 .from(
                   "notes"
                 )
                 .select("*")
                 .eq(
-                  "project",
+                  "project_id",
                   projectId
                 )
                 .eq(
@@ -2276,6 +2273,26 @@ export default function ProjectEngine() {
       .subscribe();
     window.addEventListener("os-project-data-changed", refreshTasks);
     return () => { window.removeEventListener("os-project-data-changed", refreshTasks); void supabase.removeChannel(channel); };
+  }, [projectId, organisationId, supabase]);
+
+  // Refresh project notes when edited from the Notes page or another session.
+  useEffect(() => {
+    if (!projectId || !organisationId) return;
+    const refreshNotes = async () => {
+      const { data, error } = await supabase.from("notes").select("*")
+        .eq("project_id", projectId)
+        .eq("organisation_id", organisationId)
+        .order("created_at", { ascending: false });
+      if (!error && data) setProjectNotes(data);
+    };
+    const channel = supabase.channel(`project-notes-sync-${projectId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "notes", filter: `organisation_id=eq.${organisationId}` }, refreshNotes)
+      .subscribe();
+    window.addEventListener("os-project-data-changed", refreshNotes);
+    return () => {
+      window.removeEventListener("os-project-data-changed", refreshNotes);
+      void supabase.removeChannel(channel);
+    };
   }, [projectId, organisationId, supabase]);
 
   // ==========================================================
@@ -3008,6 +3025,14 @@ export default function ProjectEngine() {
       );
 
       try {
+        const { data: projectFolder, error: folderError } = await supabase
+          .from("note_folders")
+          .select("id")
+          .eq("organisation_id", organisationId)
+          .eq("project_id", projectId)
+          .maybeSingle();
+        if (folderError) throw folderError;
+
         const {
           data,
           error,
@@ -3017,13 +3042,14 @@ export default function ProjectEngine() {
               "notes"
             )
             .insert({
+              ...(projectFolder?.id ? { folder_id: projectFolder.id } : {}),
               user_id:
                 currentUserId,
 
               organisation_id:
                 organisationId,
 
-              project:
+              project_id:
                 projectId,
 
               title:
@@ -3100,6 +3126,8 @@ export default function ProjectEngine() {
             "notes"
           )
           .delete()
+          .eq("organisation_id", organisationId)
+          .eq("project_id", projectId)
           .eq(
             "id",
             noteId
@@ -3187,6 +3215,17 @@ export default function ProjectEngine() {
           throw error;
         }
 
+        const { error: fileRecordError } = await supabase.from("files").insert({
+          organisation_id: organisationId,
+          project_id: projectId,
+          name: file.name,
+          url: path,
+        });
+        if (fileRecordError) {
+          console.error("Project file metadata could not be saved", fileRecordError);
+          toast.warning("File uploaded, but its database record could not be saved");
+        }
+
         const { data: signedData, error: signedError } = await supabase.storage
           .from("project-files")
           .createSignedUrl(path, 60 * 60);
@@ -3259,6 +3298,13 @@ export default function ProjectEngine() {
 
         return;
       }
+
+      const { error: fileRecordDeleteError } = await supabase.from("files")
+        .delete()
+        .eq("organisation_id", organisationId)
+        .eq("project_id", projectId)
+        .eq("url", file.path);
+      if (fileRecordDeleteError) console.warn("Unable to remove project file record", fileRecordDeleteError);
 
       setProjectFiles(
         (

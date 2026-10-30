@@ -659,14 +659,12 @@ export default function ProjectDirectory() {
                   `
                     id,
                     name,
-                    first_name,
-                    last_name,
                     email,
                     phone,
-                    company,
+                    company:company_name,
                     organisation_id,
                     customer_id,
-                    status
+                    created_at
                   `
                 )
                 .eq(

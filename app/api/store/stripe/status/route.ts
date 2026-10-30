@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { admin, authorisedUser, syncAccount } from "@/lib/store-stripe-connect";
+import { admin, authorisedUser, syncAccount } from "../../../../../lib/store-stripe-connect";
 export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   try {

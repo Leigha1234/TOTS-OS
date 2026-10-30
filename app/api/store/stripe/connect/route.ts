@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authorisedUser, baseUrl, signState } from "@/lib/store-stripe-connect";
+import { authorisedUser, baseUrl, signState } from "../../../../../lib/store-stripe-connect";
 export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {

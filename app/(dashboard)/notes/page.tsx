@@ -681,7 +681,7 @@ function normalizeAttachments(
    VAULT
 ============================================================ */
 
-function VaultContent() {
+function NotesContent() {
   const orgIdRef =
     useRef<
       string | null
@@ -1391,6 +1391,8 @@ function VaultContent() {
             data ||
               []
           );
+          // Folder creation for existing projects is handled by the SQL backfill.
+
         } catch (
           e
         ) {
@@ -2135,7 +2137,7 @@ function VaultContent() {
             );
 
           const uploadPath =
-            `${noteId}/${Date.now()}-${safeName}`;
+            `${noteId}/${crypto.randomUUID()}-${safeName}`;
 
           const {
             data,
@@ -3908,7 +3910,7 @@ function VaultContent() {
             );
 
           const uploadPath =
-            `${userId}/${Date.now()}-${safeName}`;
+            `${userId}/${crypto.randomUUID()}-${safeName}`;
 
           const {
             data,
@@ -4897,6 +4899,57 @@ function VaultContent() {
         notes,
       ]
     );
+
+  // Shared project tasks are read from the canonical tasks table, never copied to notes.
+  const [linkedProjectTasks, setLinkedProjectTasks] = useState<any[]>([]);
+  useEffect(() => {
+    const orgId = orgIdRef.current;
+    if (!orgId || !user?.id) return;
+    let mounted = true;
+    const load = async () => {
+      const { data, error } = await supabase.from("tasks")
+        .select("id,title,status,project_id,due_date,priority,organisation_id")
+        .eq("organisation_id", orgId)
+        .not("project_id", "is", null)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+      if (!error && mounted) setLinkedProjectTasks(data || []);
+      else if (error) console.warn("Unable to load linked project tasks", error);
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 30000);
+    return () => { mounted = false; window.clearInterval(timer); };
+  }, [user?.id]);
+
+  // Canonical project tasks: update the same row used by Projects.
+  const changeLinkedTaskStatus = async (taskId: string, status: string) => {
+    const orgId = orgIdRef.current;
+    if (!orgId) return;
+    const { data, error } = await supabase.from("tasks")
+      .update({ status }).eq("id", taskId).eq("organisation_id", orgId)
+      .select("id,title,status,project_id,due_date,priority,organisation_id").single();
+    if (error) { toast.error(error.message); return; }
+    setLinkedProjectTasks(previous => previous.map(task => task.id === taskId ? data : task));
+    window.dispatchEvent(new Event("os-project-data-changed"));
+  };
+
+  useEffect(() => {
+    if (!organisationId) return;
+    const refresh = async () => {
+      const { data } = await supabase.from("tasks")
+        .select("id,title,status,project_id,due_date,priority,organisation_id")
+        .eq("organisation_id", organisationId).not("project_id", "is", null).is("deleted_at", null)
+        .order("created_at", { ascending: false });
+      if (data) setLinkedProjectTasks(data);
+      void fetchFolders(organisationId);
+    };
+    const channel = supabase.channel(`vault-project-sync-${organisationId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `organisation_id=eq.${organisationId}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "note_folders", filter: `organisation_id=eq.${organisationId}` }, refresh)
+      .subscribe();
+    window.addEventListener("os-project-data-changed", refresh);
+    return () => { window.removeEventListener("os-project-data-changed", refresh); void supabase.removeChannel(channel); };
+  }, [organisationId, fetchFolders]);
 
   const taskNotes =
     filteredNotes.filter(
@@ -6257,6 +6310,36 @@ function VaultContent() {
               Tasks
             </div>
           </div>
+
+          {linkedProjectTasks.length > 0 && (
+            <div className="mb-6 rounded-2xl border border-stone-200 bg-white p-4 sm:p-6">
+              <h3 className="mb-3 text-sm font-bold text-stone-700">Tasks linked to projects</h3>
+              <p className="mb-4 text-xs text-stone-500">These are the same tasks used in Projects. Open a task in its project to edit it.</p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {linkedProjectTasks.map((task) => (
+                  <div key={task.id} className="rounded-xl border border-stone-200 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <select aria-label={`Status for ${task.title}`} value={task.status || "todo"}
+                        onChange={event => void changeLinkedTaskStatus(task.id, event.target.value)}
+                        className="rounded-lg border border-stone-200 bg-white p-1 text-xs">
+                        <option value="todo">To do</option>
+                        <option value="in_progress">In progress</option>
+                        <option value="done">Done</option>
+                      </select>
+                      <a href={`/projects/${task.project_id}`} className="text-xs underline">Open project</a>
+                    </div>
+                    <a href={`/projects/${task.project_id}`}
+                    className="rounded-xl border border-stone-200 p-3 transition hover:bg-stone-50">
+                    <div className="text-sm font-semibold text-stone-800">{task.title}</div>
+                    <div className="mt-2 text-xs text-stone-500">
+                      {task.status || "To do"}{task.due_date ? ` · Due ${task.due_date}` : ""}
+                    </div>
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <DndContext
             sensors={
@@ -9061,14 +9144,14 @@ const CommentBox = ({
    PAGE EXPORT
 ============================================================ */
 
-export default function VaultPage() {
+export default function NotesPage() {
   return (
     <Suspense
       fallback={
         <div />
       }
     >
-      <VaultContent />
+      <NotesContent />
     </Suspense>
   );
 }

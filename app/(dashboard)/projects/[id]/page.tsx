@@ -2196,61 +2196,25 @@ export default function ProjectEngine() {
                 []
               );
             } else {
-              const mapped =
-                (
-                  storageRows ||
-                  []
-                )
-                  .filter(
-                    (
-                      item
-                    ) =>
-                      item.name !==
-                      ".emptyFolderPlaceholder"
-                  )
-                  .map(
-                    (
-                      item
-                    ) => {
-                      const path =
-                        `${orgId}/${projectId}/${item.name}`;
-
-                      const {
-                        data:
-                          urlData,
-                      } =
-                        supabase.storage
-                          .from(
-                            "project-files"
-                          )
-                          .getPublicUrl(
-                            path
-                          );
-
-                      return {
-                        id:
-                          item.id ||
-                          path,
-
-                        name:
-                          item.name,
-
-                        path,
-
-                        publicUrl:
-                          urlData.publicUrl,
-
-                        created_at:
-                          item.created_at ||
-                          null,
-
-                        size:
-                          item.metadata
-                            ?.size ||
-                          null,
-                      };
-                    }
-                  );
+              const mapped = await Promise.all(
+                (storageRows || [])
+                  .filter((item) => item.name !== ".emptyFolderPlaceholder")
+                  .map(async (item) => {
+                    const path = `${orgId}/${projectId}/${item.name}`;
+                    const { data: signed, error: signError } = await supabase.storage
+                      .from("project-files")
+                      .createSignedUrl(path, 60 * 60);
+                    if (signError) console.warn("Could not sign project file", signError);
+                    return {
+                      id: item.id || path,
+                      name: item.name,
+                      path,
+                      publicUrl: signed?.signedUrl || null,
+                      created_at: item.created_at || null,
+                      size: item.metadata?.size || null,
+                    };
+                  })
+              );
 
               setProjectFiles(
                 mapped
@@ -2297,6 +2261,22 @@ export default function ProjectEngine() {
   }, [
     loadProjectData,
   ]);
+
+  // Refresh when tasks change in the Vault or another browser session.
+  useEffect(() => {
+    if (!projectId || !organisationId) return;
+    const refreshTasks = async () => {
+      const { data, error } = await supabase.from("tasks").select("*")
+        .eq("project_id", projectId).eq("organisation_id", organisationId)
+        .is("deleted_at", null).order("created_at", { ascending: false });
+      if (!error && data) setTasks(data);
+    };
+    const channel = supabase.channel(`project-task-sync-${projectId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` }, refreshTasks)
+      .subscribe();
+    window.addEventListener("os-project-data-changed", refreshTasks);
+    return () => { window.removeEventListener("os-project-data-changed", refreshTasks); void supabase.removeChannel(channel); };
+  }, [projectId, organisationId, supabase]);
 
   // ==========================================================
   // SMART ASSIGNEE
@@ -2765,6 +2745,7 @@ export default function ProjectEngine() {
     setTaskBusy(false);
     if(error){toast.error(error.message);return;}
     setTasks(previous=>[...previous,data]);
+    window.dispatchEvent(new Event("os-project-data-changed"));
     setTaskInput("");setTaskDueDate("");setTaskReminder("");setTaskPriority("normal");setTaskStatus("todo");
     toast.success("Task created");
   };
@@ -2776,6 +2757,7 @@ export default function ProjectEngine() {
       .select("*").single();
     if(error){toast.error(error.message);return;}
     setTasks(previous=>previous.map(t=>t.id===taskId?data:t));
+    window.dispatchEvent(new Event("os-project-data-changed"));
   };
 
   const addCustomTaskStatus = async () => {
@@ -3205,17 +3187,10 @@ export default function ProjectEngine() {
           throw error;
         }
 
-        const {
-          data:
-            publicData,
-        } =
-          supabase.storage
-            .from(
-              "project-files"
-            )
-            .getPublicUrl(
-              path
-            );
+        const { data: signedData, error: signedError } = await supabase.storage
+          .from("project-files")
+          .createSignedUrl(path, 60 * 60);
+        if (signedError) console.warn("Uploaded but could not sign file URL", signedError);
 
         setProjectFiles(
           (
@@ -3231,7 +3206,7 @@ export default function ProjectEngine() {
               path,
 
               publicUrl:
-                publicData.publicUrl,
+                signedData?.signedUrl || null,
 
               created_at:
                 new Date().toISOString(),

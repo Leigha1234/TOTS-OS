@@ -1352,6 +1352,28 @@ export default function ProjectDirectory() {
         throw insertError;
       }
 
+      // Give every new project a matching Vault folder.
+      // Folder creation is best-effort; a storage/RLS error must not undo the project.
+      const { data: existingFolder } = await supabase.from("note_folders")
+        .select("id")
+        .eq("organisation_id", organisationId)
+        .eq("project_id", inserted.id)
+        .maybeSingle();
+      if (!existingFolder) {
+        const { error: folderError } = await supabase.from("note_folders").insert({
+          organisation_id: organisationId,
+          created_by: currentUserId,
+          name: inserted.name,
+          project_id: inserted.id,
+          system_key: `project:${inserted.id}`,
+          visibility: "org",
+          is_system: false,
+          sort_order: 100,
+        });
+        if (folderError) console.warn("Project created, but Vault folder could not be created:", folderError);
+        else window.dispatchEvent(new Event("os-project-data-changed"));
+      }
+
       let selectedCustomer:
         Customer | null =
         null;

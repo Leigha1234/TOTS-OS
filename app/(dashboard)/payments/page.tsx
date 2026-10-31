@@ -16,6 +16,7 @@ import FinanceNotification from "./components/FinanceNotification";
 
 import FinanceOverview from "./components/FinanceOverview";
 import FinanceSales from "./components/FinanceSales";
+import InvoiceManagement from "./components/InvoiceManagement";
 import FinanceExpenses from "./components/FinanceExpenses";
 
 import InvoiceQuoteModal, {
@@ -303,6 +304,7 @@ const INITIAL_TAX_FORM:
 // ============================================================
 
 export default function PaymentsPage() {
+  const [showInvoiceManagement, setShowInvoiceManagement] = useState(false);
   // ==========================================================
   // SUPABASE
   // ==========================================================
@@ -3759,6 +3761,38 @@ export default function PaymentsPage() {
     );
   }
 
+  // Email an existing invoice. The server validates organisation membership.
+  const emailExistingInvoice = async (invoiceId: string) => {
+    const invoice = (invoices || []).find((row: any) => row.id === invoiceId);
+    if (!invoice) { notify("Invoice not found. Refresh and try again.", "error"); return; }
+    const customer = (finance.customers || []).find((row: any) => row.id === invoice.customerId);
+    const invoiceData = (invoice as any)?.data;
+    const suggestedEmail = String(customer?.email || invoiceData?.send_to_email || invoiceData?.customer_email || "");
+    const entered = window.prompt("Email invoice to:", suggestedEmail);
+    if (entered === null) return;
+    const recipientEmail = entered.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+      notify("Enter a valid recipient email address.", "error"); return;
+    }
+    if (!window.confirm(`Send this invoice to ${recipientEmail}?`)) return;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) { notify("Please sign in again before emailing invoices.", "error"); return; }
+      const response = await fetch("/api/send-invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ invoiceId, recipientEmail }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Unable to send invoice.");
+      notify(`Invoice emailed to ${recipientEmail}.`, "success");
+      await finance.refresh();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to email invoice.", "error");
+    }
+  };
+
   // ==========================================================
   // RENDER
   // ==========================================================
@@ -3777,6 +3811,7 @@ export default function PaymentsPage() {
         }
       />
 
+      {showInvoiceManagement && organisationId && <InvoiceManagement organisationId={organisationId} onChanged={finance.refresh} onClose={() => setShowInvoiceManagement(false)} />}
       <main className="mx-auto max-w-[1400px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
         <FinanceHeader
           loading={
@@ -3888,6 +3923,8 @@ export default function PaymentsPage() {
             {activeTab ===
               "sales" && (
               <FinanceSales
+                onEmailInvoice={emailExistingInvoice}
+                onManageInvoices={() => setShowInvoiceManagement(true)}
                 invoices={
                   invoices
                 }
@@ -3939,6 +3976,7 @@ export default function PaymentsPage() {
       ====================================================== */}
 
       <InvoiceQuoteModal
+        organisationId={organisationId}
         open={
           activeModal ===
           "invoiceQuote"

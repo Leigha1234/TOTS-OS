@@ -1249,9 +1249,7 @@ function getProductActionLabel(
       return "Request to order";
 
     case "service":
-      return product.purchase_type === "subscription"
-        ? "Choose monthly service"
-        : "Add service";
+      return "Add to basket";
 
     default:
       return "Add to basket";

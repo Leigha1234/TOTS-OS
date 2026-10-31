@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 
 import Sidebar from "@/app/components/Sidebar";
+import DashboardDraftSafety from "../components/DashboardDraftSafety";
 import { useActiveAgencyContext } from "@/lib/use-active-agency-context";
 import Footer from "@/app/components/Footer";
 import Clarity from "@/app/components/Clarity";
@@ -232,6 +233,7 @@ export default function DashboardLayout({
 }: DashboardLayoutProps) {
   return (
     <ClarityTourProvider>
+      <DashboardDraftSafety />
       <DashboardLayoutInner>
         {children}
       </DashboardLayoutInner>
@@ -261,6 +263,9 @@ function DashboardLayoutInner({
     accessLoading,
     setAccessLoading,
   ] = useState(true);
+
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [accessRetry, setAccessRetry] = useState(0);
 
   const [
     accessChecked,
@@ -588,12 +593,15 @@ function DashboardLayoutInner({
     () => {
       let cancelled =
         false;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
 
       async function loadAccess() {
         try {
           setAccessLoading(
             true,
           );
+          setAccessError(null);
 
           setAccessChecked(
             false,
@@ -613,8 +621,13 @@ function DashboardLayoutInner({
               {
                 method: "GET",
                 cache: "no-store",
+              signal: controller.signal,
               },
             );
+
+          if (!response.ok && response.status !== 401 && response.status !== 403) {
+            throw new Error(`Access check failed (${response.status})`);
+          }
 
           const data =
             (
@@ -641,8 +654,8 @@ function DashboardLayoutInner({
           }
 
           if (
-            !response.ok ||
-            data.allowed !== true
+            response.status === 403 ||
+            (response.ok && data.allowed === false)
           ) {
             console.warn(
               "Dashboard access denied:",
@@ -776,11 +789,10 @@ function DashboardLayoutInner({
           );
 
           if (!cancelled) {
-            router.replace(
-              "/access-ended",
-            );
+            setAccessError("We could not check your workspace access. Your session has not been signed out.");
           }
         } finally {
+          clearTimeout(timeout);
           if (!cancelled) {
             setAccessLoading(
               false,
@@ -793,9 +805,11 @@ function DashboardLayoutInner({
 
       return () => {
         cancelled = true;
+        controller.abort();
+        clearTimeout(timeout);
       };
     },
-    [router],
+    [router, accessRetry],
   );
 
   // ==========================================================
@@ -1079,6 +1093,18 @@ function DashboardLayoutInner({
   // ==========================================================
   // LOADING
   // ==========================================================
+
+  if (accessError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#fcfaf7] p-6">
+        <div className="max-w-md text-center">
+          <p className="text-base font-semibold text-stone-800">Workspace temporarily unavailable</p>
+          <p className="mt-3 text-sm text-stone-600">{accessError}</p>
+          <button type="button" className="mt-5 rounded-lg bg-[#829473] px-5 py-3 text-sm font-semibold text-white" onClick={() => setAccessRetry((n) => n + 1)}>Try again</button>
+        </div>
+      </div>
+    );
+  }
 
   if (
     accessLoading ||

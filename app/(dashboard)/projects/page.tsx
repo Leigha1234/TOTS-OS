@@ -10,6 +10,7 @@ import {
 import {
   supabase,
 } from "../../../lib/supabase";
+import { useFormDraft } from "../../hooks/useFormDraft";
 
 import {
   AlertTriangle,
@@ -332,6 +333,47 @@ export default function ProjectDirectory() {
       budget:
         "",
     });
+
+  // Drafts are scoped to the authenticated user and the project-create form.
+  const [draftUserId, setDraftUserId] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (active) setDraftUserId(data.user?.id ?? null);
+    });
+    return () => { active = false; };
+  }, []);
+
+  const projectDraft = useFormDraft({
+    key: draftUserId ? `${draftUserId}:project:new` : null,
+    value: form,
+    onRestore: setForm,
+    enabled: Boolean(draftUserId),
+  });
+
+  useEffect(() => {
+    if (!showModal) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      const dirty = Boolean(form.name.trim() || form.description.trim() || form.objective_summary.trim());
+      if (!dirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [showModal, form]);
+
+  const closeProjectModal = () => {
+    if (saving) return;
+    const hasChanges = Boolean(
+      form.name.trim() || form.client_key || form.objective_summary.trim() ||
+      form.description.trim() || form.start_date || form.due_date || form.budget
+    );
+    if (hasChanges && !window.confirm(
+      "Leave this form? Your draft will be kept so you can continue later."
+    )) return;
+    setShowModal(false);
+  };
 
   // =========================================================
   // RESET FORM
@@ -1471,6 +1513,7 @@ export default function ProjectDirectory() {
         ]
       );
 
+      projectDraft.clearDraft();
       resetForm();
 
       setShowModal(
@@ -2157,8 +2200,6 @@ export default function ProjectDirectory() {
             <button
               type="button"
               onClick={() => {
-                resetForm();
-
                 setShowModal(
                   true
                 );
@@ -2809,8 +2850,6 @@ export default function ProjectDirectory() {
                   <button
                     type="button"
                     onClick={() => {
-                      resetForm();
-
                       setShowModal(
                         true
                       );
@@ -2871,15 +2910,7 @@ export default function ProjectDirectory() {
 
                 backdrop-blur-md
               "
-              onClick={() => {
-                if (
-                  !saving
-                ) {
-                  setShowModal(
-                    false
-                  );
-                }
-              }}
+              onClick={closeProjectModal}
             />
 
             <motion.div
@@ -3010,11 +3041,7 @@ export default function ProjectDirectory() {
                     disabled={
                       saving
                     }
-                    onClick={() =>
-                      setShowModal(
-                        false
-                      )
-                    }
+                    onClick={closeProjectModal}
                     aria-label="Close new project modal"
                     className="
                       flex

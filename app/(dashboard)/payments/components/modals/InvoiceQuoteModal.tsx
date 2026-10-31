@@ -118,6 +118,7 @@ export type InvoiceQuoteFormData = {
 
 type InvoiceQuoteModalProps = {
   open: boolean;
+  organisationId?: string | null;
   submitting?: boolean;
 
   docType: InvoiceQuoteDocType;
@@ -190,6 +191,7 @@ function todayInputValue() {
 
 export default function InvoiceQuoteModal({
   open,
+  organisationId,
   submitting = false,
 
   docType,
@@ -219,6 +221,51 @@ export default function InvoiceQuoteModal({
   onPrint,
   onSend,
 }: InvoiceQuoteModalProps) {
+  // Reusable text snippets are local to this organisation and browser.
+  const [savedTerms, setSavedTerms] = useState<string[]>([]);
+  const [savedNotes, setSavedNotes] = useState<string[]>([]);
+  const snippetsKey = organisationId ? `orbi:invoice-snippets:${organisationId}` : null;
+
+  useEffect(() => {
+    if (!open || !snippetsKey) return;
+    try {
+      const stored = JSON.parse(localStorage.getItem(snippetsKey) || "{}");
+      setSavedTerms(Array.isArray(stored.terms) ? stored.terms.filter((x: unknown) => typeof x === "string") : []);
+      setSavedNotes(Array.isArray(stored.notes) ? stored.notes.filter((x: unknown) => typeof x === "string") : []);
+    } catch {
+      setSavedTerms([]);
+      setSavedNotes([]);
+    }
+  }, [open, snippetsKey]);
+
+  const saveSnippet = (kind: "terms" | "notes") => {
+    if (!snippetsKey) return;
+    const value = String(formData[kind] || "").trim();
+    if (!value) return;
+    const nextTerms = kind === "terms" ? Array.from(new Set([...savedTerms, value])) : savedTerms;
+    const nextNotes = kind === "notes" ? Array.from(new Set([...savedNotes, value])) : savedNotes;
+    try {
+      localStorage.setItem(snippetsKey, JSON.stringify({ terms: nextTerms, notes: nextNotes }));
+      setSavedTerms(nextTerms);
+      setSavedNotes(nextNotes);
+    } catch {
+      window.alert("Unable to save this template in your browser.");
+    }
+  };
+
+  const deleteSnippet = (kind: "terms" | "notes", value: string) => {
+    if (!snippetsKey) return;
+    const nextTerms = kind === "terms" ? savedTerms.filter((x) => x !== value) : savedTerms;
+    const nextNotes = kind === "notes" ? savedNotes.filter((x) => x !== value) : savedNotes;
+    try {
+      localStorage.setItem(snippetsKey, JSON.stringify({ terms: nextTerms, notes: nextNotes }));
+      setSavedTerms(nextTerms);
+      setSavedNotes(nextNotes);
+    } catch {
+      window.alert("Unable to update your templates.");
+    }
+  };
+
   // ==========================================================
   // LOCAL INPUT DRAFTS
   // ==========================================================
@@ -1551,6 +1598,14 @@ export default function InvoiceQuoteModal({
 
                         <div>
                           <label className={labelClass}>Terms</label>
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <select aria-label="Saved payment terms templates" defaultValue="" onChange={(event) => { if (event.target.value) updateForm({ terms: event.target.value }); event.target.value = ""; }} className={inputClass}>
+                              <option value="">Use saved payment terms...</option>
+                              {savedTerms.map((value, index) => <option key={index} value={value}>{value.slice(0, 75)}</option>)}
+                            </select>
+                            <button type="button" onClick={() => saveSnippet("terms")} disabled={!snippetsKey || !String(formData.terms || "").trim()} className="rounded-lg border border-stone-300 px-3 py-2 text-xs font-semibold disabled:opacity-40">Save as template</button>
+                          </div>
+                          {savedTerms.length > 0 && <div className="mb-2 flex flex-wrap gap-1">{savedTerms.map((value, index) => <button key={index} type="button" title={`Remove template: ${value}`} onClick={() => deleteSnippet("terms", value)} className="rounded border border-stone-200 px-2 py-1 text-[10px] text-stone-500">Remove: {value.slice(0, 24)} ×</button>)}</div>}
                           <textarea
                             rows={3}
                             value={formData.terms ?? ""}
@@ -1562,6 +1617,14 @@ export default function InvoiceQuoteModal({
 
                         <div>
                           <label className={labelClass}>Notes</label>
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <select aria-label="Saved note templates" defaultValue="" onChange={(event) => { if (event.target.value) updateForm({ notes: event.target.value }); event.target.value = ""; }} className={inputClass}>
+                              <option value="">Use saved note...</option>
+                              {savedNotes.map((value, index) => <option key={index} value={value}>{value.slice(0, 75)}</option>)}
+                            </select>
+                            <button type="button" onClick={() => saveSnippet("notes")} disabled={!snippetsKey || !String(formData.notes || "").trim()} className="rounded-lg border border-stone-300 px-3 py-2 text-xs font-semibold disabled:opacity-40">Save as template</button>
+                          </div>
+                          {savedNotes.length > 0 && <div className="mb-2 flex flex-wrap gap-1">{savedNotes.map((value, index) => <button key={index} type="button" title={`Remove template: ${value}`} onClick={() => deleteSnippet("notes", value)} className="rounded border border-stone-200 px-2 py-1 text-[10px] text-stone-500">Remove: {value.slice(0, 24)} ×</button>)}</div>}
                           <textarea
                             rows={3}
                             value={formData.notes ?? ""}

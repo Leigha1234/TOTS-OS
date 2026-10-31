@@ -1,88 +1,45 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
-interface CookieSetOptions {
-  domain?: string;
-  expires?: Date;
-  httpOnly?: boolean;
-  maxAge?: number;
-  path?: string;
-  sameSite?: 'strict' | 'lax' | 'none';
-  secure?: boolean;
-}
-
-interface CookieToSet {
-  name: string;
-  value: string;
-  options?: CookieSetOptions;
-}
-
-const PROTECTED_PATHS = ['/dashboard', '/settings', '/projects', '/hr', '/payments'];
-const PUBLIC_PATHS = ['/login', '/register', '/auth/callback', '/api/webhooks'];
+const protectedRoutes = ["/dashboard", "/settings", "/projects", "/hr", "/payments"];
+const matches = (pathname: string, route: string) => pathname === route || pathname.startsWith(`${route}/`);
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const pathname = request.nextUrl.pathname;
+  if (!protectedRoutes.some((route) => matches(pathname, route))) {
+    return NextResponse.next({ request });
+  }
 
-  const response: NextResponse = NextResponse.next({
-    request: { headers: request.headers },
-  });
-
-  const supabase: ReturnType<typeof createServerClient> = createServerClient(
+  let response = NextResponse.next({ request });
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: (): ReturnType<typeof request.cookies.getAll> => request.cookies.getAll(),
-        setAll(cookiesToSet: CookieToSet[]) {
-          cookiesToSet.forEach(({ name, value, options }: CookieToSet) => {
-            response.cookies.set({ name, value, ...options });
-          });
+        getAll() { return request.cookies.getAll(); },
+        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
         },
       },
-    }
+    },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const isPublic: boolean = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
-  const isProtected: boolean = PROTECTED_PATHS.some((p) => pathname.startsWith(p));
-
-  // -----------------------------
-  // Allow public routes without interference
-  // -----------------------------
-  if (isPublic) {
-    return response;
+  const { data, error } = await supabase.auth.getUser();
+  // Only a definitive missing user should redirect. Transient errors are
+  // handled by the page/API authorization layer, not by forced sign-out.
+  if (!data.user && !error) {
+    const redirect = NextResponse.redirect(new URL("/login", request.url));
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
   }
-
-  // -----------------------------
-  // If not authenticated, block protected routes
-  // -----------------------------
-  if (isProtected && !user) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  // -----------------------------
-  // If logged in, prevent access to login page
-  // -----------------------------
-  if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
-
-  // -----------------------------
-  // Security headers only
-  // -----------------------------
-  response.headers.set('x-tots-os-version', '7.1.0');
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   return response;
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|images/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };

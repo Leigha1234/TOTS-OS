@@ -62,6 +62,8 @@ type FinanceSalesProps = {
 
   metrics?: any;
 
+  onEmailInvoice?: (id: string) => void | Promise<void>;
+  onManageInvoices?: () => void;
   onCreateInvoice?: () => void;
   onNewInvoice?: () => void;
 
@@ -173,6 +175,8 @@ export default function FinanceSales({
   subscriptions = [],
   metrics = {},
 
+  onEmailInvoice,
+  onManageInvoices,
   onCreateInvoice,
   onNewInvoice,
 
@@ -991,6 +995,7 @@ export default function FinanceSales({
         subtitle="Monitor invoices, quotes, money owed and recurring revenue."
         action={
           <div className="flex flex-wrap gap-2">
+            {onManageInvoices && <button type="button" onClick={onManageInvoices} className="rounded-full border border-emerald-900 px-4 py-2 text-xs font-bold text-emerald-900 hover:bg-emerald-50">Manage invoice links & recurring</button>}
             {handleCreateInvoice && (
               <button
                 type="button"
@@ -1531,6 +1536,12 @@ export default function FinanceSales({
                                   />
                                 </button>
                               )}
+
+                            {entry.type === "Invoice" && onEmailInvoice && (
+                              <button type="button" onClick={(event) => { event.stopPropagation(); void onEmailInvoice(entry.id); }} title="Email invoice to client" className="rounded-full bg-emerald-50 p-2 text-emerald-700 hover:bg-emerald-100">
+                                <span className="text-xs font-bold">Email</span>
+                              </button>
+                            )}
 
                             {hasDeleteHandler && (
                               <button

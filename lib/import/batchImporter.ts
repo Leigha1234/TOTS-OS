@@ -104,24 +104,39 @@ function organisationPayload(source: Payload): Payload {
 function invoicePayload(row: ProcessedRow, orgId: string): Payload {
   const p = clean(row.payload as Payload);
   const raw = clean((row.rawPayload ?? {}) as Payload);
+  const sourceRows = Array.isArray(p.__source_rows) ? p.__source_rows as Payload[] : [raw];
+  const invoiceNumber = str(field(raw, ["Invoice Number", "Invoice No", "invoice_number"])) || str(p.invoice_number);
+  const originalTotal = number(field(raw, ["Total", "Invoice Total", "Grand Total"]));
+  const originalBalance = number(field(raw, ["Balance", "Balance Due", "Amount Due"]));
+  const amount = originalTotal ?? number(p.amount);
+  const balance = originalBalance ?? number(p.balance_due);
+  const paid = amount !== null && balance !== null && balance >= 0 && balance <= amount
+    ? Math.round((amount - balance) * 100) / 100 : number(p.amount_paid);
+  if (!invoiceNumber) throw new Error("Invoice number is missing; import stopped to avoid duplicates.");
+  if (amount === null) throw new Error(`Invoice ${invoiceNumber} has no valid total.`);
+  if (balance !== null && (balance < 0 || balance > amount)) throw new Error(`Invoice ${invoiceNumber} has an inconsistent balance.`);
+  const rawStatus = str(field(raw, ["Invoice Status", "Status"])) || str(p.status);
+  const status = /^(closed|paid)$/i.test(rawStatus) && balance === 0 ? "paid" :
+    /^(closed|paid)$/i.test(rawStatus) && balance !== 0 ? "Open" : rawStatus;
   const result: Payload = {
-    organisation_id: orgId,
-    invoice_number: p.invoice_number,
-    amount: number(p.amount), tax: number(p.tax), status: p.status,
-    due_date: p.due_date, link: p.link, type: p.type ?? "invoice",
-    doc_type: p.doc_type ?? "invoice", items: p.items,
+    organisation_id: orgId, invoice_number: invoiceNumber,
+    amount, tax: number(p.tax), status,
+    due_date: field(raw, ["Due Date"]) ?? p.due_date,
+    invoice_date: field(raw, ["Invoice Date"]) ?? p.invoice_date,
+    link: p.link, type: p.type ?? "invoice", doc_type: p.doc_type ?? "invoice",
     recurring: p.recurring, interval: p.interval, project_id: p.project_id,
-    invoice_date: p.invoice_date, amount_paid: number(p.amount_paid),
-    balance_due: number(p.balance_due), currency: p.currency,
-    source: p.source ?? "import_hub",
+    amount_paid: paid, balance_due: balance, currency: field(raw, ["Currency Code"]) ?? p.currency,
+    source: "import_hub",
     data: {
       ...(p.data && typeof p.data === "object" && !Array.isArray(p.data) ? p.data as Payload : {}),
-      source_record: raw,
+      zoho_invoice_id: field(raw, ["Invoice ID"]),
+      source_record: raw, source_rows: sourceRows,
       import_metadata: { source: "import_hub", target: "invoices", imported_at: new Date().toISOString() },
     },
   };
   return allow("invoices", result);
 }
+
 function genericPayload(row: ProcessedRow, orgId: string): Payload {
   const p = clean(row.payload as Payload);
   delete p.id;
@@ -288,10 +303,45 @@ async function existingInvoice(p: Payload, db: any, orgId: string): Promise<DBRe
   if (!keys.length || keys.some(k => !hasValue(p[k]))) return null;
   return singleMatch(await matches("invoices", Object.fromEntries(keys.map(k => [k, p[k]])), db, orgId), "invoice key");
 }
+async function matchInvoiceProject(row: ProcessedRow, db: any, orgId: string): Promise<string | null> {
+  const raw = row.rawPayload as Payload;
+  const name = str(field(raw, ["Project Name", "Project", "Project Title"]));
+  if (!name) return null;
+  const { data, error } = await db.from("projects").select("id,name")
+    .eq("organisation_id", orgId).ilike("name", name).limit(2);
+  if (error) throw error;
+  return singleMatch(data ?? [], "project name")?.id ?? null;
+}
+function sourceLine(row: Payload): { description: string; quantity: number; unit_price: number; line_total: number } | null {
+  const description = str(field(row, ["Item Desc", "Item Description", "Description", "Item Name"]));
+  const quantity = number(field(row, ["Quantity", "Item Quantity"])) ?? 1;
+  const unit_price = number(field(row, ["Item Price", "Rate", "Unit Price"]));
+  const line_total = number(field(row, ["Item Total", "Line Total"])) ?? (unit_price === null ? null : quantity * unit_price);
+  if (unit_price === null || line_total === null || quantity <= 0) return null;
+  return { description, quantity, unit_price, line_total };
+}
+async function saveInvoiceLines(invoice: DBRecord, sourceRows: Payload[], db: any, orgId: string): Promise<void> {
+  const lines = sourceRows.map(sourceLine).filter((x): x is NonNullable<typeof x> => x !== null);
+  if (!lines.length) return;
+  // Never fabricate missing line items or overwrite existing manually edited lines.
+  // An invoice may include tax/discounts: preserve all source rows in invoices.data regardless.
+  const { data: existing, error: readError } = await db.from("invoice_lines")
+    .select("id").eq("invoice_id", invoice.id).limit(1);
+  if (readError) throw readError;
+  if (existing?.length) return;
+  const inserts = lines.map(x => ({ invoice_id: invoice.id, organisation_id: orgId,
+    description: x.description, quantity: x.quantity, unit_price: x.unit_price }));
+  const { error } = await db.from("invoice_lines").insert(inserts);
+  if (error) throw error;
+}
 async function processInvoice(row: ProcessedRow, db: any, orgId: string, strategy: DuplicateResolutionStrategy): Promise<Action> {
   const p = invoicePayload(row, orgId);
-  const found = strategy === "create" ? null : await existingInvoice(p, db, orgId);
+  // Always check for an existing invoice, even in create mode: invoice numbers must not duplicate.
+  const found = await existingInvoice(p, db, orgId);
   if (found && strategy === "skip") return "skipped";
+  if (found && strategy === "create") throw new Error(`Invoice ${p.invoice_number} already exists. Use Update or Skip.`);
+  const sourceRows = Array.isArray((row.payload as Payload).__source_rows)
+    ? (row.payload as Payload).__source_rows as Payload[] : [row.rawPayload as Payload];
   const customerSource = invoiceCustomerPayload(row);
   let resolution: CustomerResolution | null = null;
   if (customerSource.name || customerSource.email || customerSource.phone) {
@@ -300,12 +350,23 @@ async function processInvoice(row: ProcessedRow, db: any, orgId: string, strateg
       { customer: await insert("customers", newCustomerPayload(customerSource, orgId), db), created: true };
     p.customer_id = resolution.customer.id;
   }
+  if (found?.customer_id && !p.customer_id) p.customer_id = found.customer_id;
+  if (found?.project_id) p.project_id = found.project_id;
+  else p.project_id = p.project_id ?? await matchInvoiceProject(row, db, orgId);
   try {
-    if (found) { await update("invoices", found, p, db, orgId); return "updated"; }
-    await insert("invoices", p, db);
+    if (found) {
+      // Do not overwrite unrelated/manual data or existing line-item metadata.
+      const oldData = found.data && typeof found.data === "object" ? found.data : {};
+      p.data = { ...oldData, ...(p.data as Payload) };
+      const saved = await update("invoices", found, p, db, orgId);
+      await saveInvoiceLines(saved, sourceRows, db, orgId);
+      return "updated";
+    }
+    const saved = await insert("invoices", p, db);
+    await saveInvoiceLines(saved, sourceRows, db, orgId);
     return "inserted";
   } catch (e) {
-    if (resolution?.created) console.warn("[TOTS IMPORT] Review possible unlinked invoice customer ID:", resolution.customer.id);
+    if (resolution?.created) console.warn("[ORBI IMPORT] Review possible unlinked invoice customer ID:", resolution.customer.id);
     throw e;
   }
 }
@@ -341,12 +402,37 @@ export async function processBatches(
   if (!rows.length) return result;
   if (!orgId) throw new Error("An active organisation is required before importing.");
   if (!["update", "skip", "create"].includes(strategy)) throw new Error("Unsupported duplicate strategy.");
+  // Zoho exports one row per invoice line. Consolidate before writing invoices.
+  const grouped: ProcessedRow[] = [];
+  const invoiceGroups = new Map<string, ProcessedRow>();
+  for (const row of rows) {
+    if (row.targetTable !== "invoices") { grouped.push(row); continue; }
+    const raw = row.rawPayload as Payload;
+    const id = str(field(raw, ["Invoice ID"])) ||
+      str(field(raw, ["Invoice Number", "Invoice No"])) || str(row.payload.invoice_number);
+    if (!id) { grouped.push(row); continue; }
+    const key = `${orgId}:${id}`;
+    const prior = invoiceGroups.get(key);
+    if (!prior) {
+      const first = { ...row, payload: { ...row.payload, __source_rows: [raw] } };
+      invoiceGroups.set(key, first); grouped.push(first);
+    } else {
+      (prior.payload.__source_rows as Payload[]).push(raw);
+      const a = number(field(prior.rawPayload as Payload, ["Total"]));
+      const b = number(field(raw, ["Total"]));
+      if (a !== null && b !== null && Math.abs(a - b) > 0.01)
+        prior.validationErrors.push("Conflicting invoice totals among rows; review source file.");
+    }
+  }
+  rows = grouped;
   const configured = Number(BATCH_CONFIG.DEFAULT_BATCH_SIZE);
   const batchSize = Math.min(100, Math.max(1, Number.isFinite(configured) ? configured : 50));
   const total = Math.ceil(rows.length / batchSize);
   for (let i = 0; i < total; i++) {
     for (const row of rows.slice(i * batchSize, (i + 1) * batchSize)) {
       try {
+        if (row.validationErrors.some(x => x.startsWith("Conflicting invoice totals")))
+          throw new Error("Conflicting invoice totals for grouped invoice.");
         const action = row.targetTable === "contacts"
           ? await processContact(row, db, orgId, strategy)
           : row.targetTable === "invoices"

@@ -604,23 +604,17 @@ export default function InvoiceQuoteModal({
   // FILTERED DATA
   // ==========================================================
 
-  const availableProjects =
-    useMemo(
-      () =>
-        formData.customerId
-          ? projects.filter(
-              (
-                project
-              ) =>
-                project.customer_id ===
-                formData.customerId
-            )
-          : [],
-      [
-        formData.customerId,
-        projects,
-      ]
-    );
+  // An invoice can be linked to an existing project, or have no project.
+  // Projects without a customer must still be selectable, and choosing a
+  // project must never create a new project record.
+  const availableProjects = useMemo(
+    () => projects.filter((project) =>
+      !formData.customerId ||
+      !project.customer_id ||
+      project.customer_id === formData.customerId
+    ),
+    [formData.customerId, projects]
+  );
 
   const availableContacts =
     useMemo(
@@ -1304,7 +1298,6 @@ export default function InvoiceQuoteModal({
                           <select
                             value={formData.projectId}
                             onChange={(event) => updateForm({ projectId: event.target.value })}
-                            disabled={!formData.customerId}
                             className={inputClass}
                           >
                             <option value="">No project</option>

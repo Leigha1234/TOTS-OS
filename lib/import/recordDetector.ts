@@ -203,19 +203,19 @@ function buildOrganisationPayload(row: RawRow): Payload {
 
 function buildInvoicePayload(row: RawRow, orgId: string | null): Payload {
   const payload: Payload = {};
-  addIfPresent(payload, "invoice_number", mapped(row, "invoice_number"));
-  const amount = parseAmount(mapped(row, "amount"));
+  addIfPresent(payload, "invoice_number", mapped(row, "invoice_number") ?? row["Invoice Number"]);
+  const amount = parseAmount(row["Total"] ?? mapped(row, "amount"));
   if (amount !== null) payload.amount = amount;
   addIfPresent(payload, "invoice_date", mapped(row, "invoice_date") ?? mapped(row, "date"));
   addIfPresent(payload, "due_date", mapped(row, "due_date"));
-  addIfPresent(payload, "status", mapped(row, "status"));
+  addIfPresent(payload, "status", row["Invoice Status"] ?? mapped(row, "status"));
   const tax = parseAmount(mapped(row, "tax"));
   if (tax !== null) payload.tax = tax;
   const amountPaid = parseAmount(mapped(row, "amount_paid"));
   if (amountPaid !== null) payload.amount_paid = amountPaid;
-  const balanceDue = parseAmount(mapped(row, "balance_due"));
+  const balanceDue = parseAmount(row["Balance"] ?? mapped(row, "balance_due"));
   if (balanceDue !== null) payload.balance_due = balanceDue;
-  addIfPresent(payload, "currency", mapped(row, "currency"));
+  addIfPresent(payload, "currency", row["Currency Code"] ?? mapped(row, "currency"));
   payload.type = "invoice";
   payload.doc_type = "invoice";
   payload.source = "import_hub";
@@ -241,7 +241,7 @@ function buildExpensePayload(row: RawRow, orgId: string | null): Payload {
   addIfPresent(payload, "date", mapped(row, "date"));
   addIfPresent(payload, "category", mapped(row, "category"));
   addIfPresent(payload, "description", mapped(row, "description"));
-  addIfPresent(payload, "currency", mapped(row, "currency"));
+  addIfPresent(payload, "currency", row["Currency Code"] ?? mapped(row, "currency"));
   const tax = parseAmount(mapped(row, "tax"));
   if (tax !== null) payload.tax = tax;
   addIfPresent(payload, "expense_number", mapped(row, "expense_number"));

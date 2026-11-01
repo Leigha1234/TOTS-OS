@@ -229,7 +229,7 @@ const FEATURES: Feature[] = [
 const PRICING: PricingPlan[] = [
   {
     name: "ORBI. Core",
-    price: 39,
+    price: 29,
     description:
       "Your central business workspace for the everyday running of your business.",
     features: [
@@ -242,7 +242,7 @@ const PRICING: PricingPlan[] = [
   },
   {
     name: "Clients & Projects",
-    price: 49,
+    price: 29,
     description:
       "Keep client work, projects, tasks, deadlines, files and delivery together.",
     features: [
@@ -255,7 +255,7 @@ const PRICING: PricingPlan[] = [
   },
   {
     name: "Finance",
-    price: 49,
+    price: 29,
     description:
       "Bring quotes, invoices, expenses and financial visibility into the same system as your work.",
     features: [
@@ -268,7 +268,7 @@ const PRICING: PricingPlan[] = [
   },
   {
     name: "Social Studio",
-    price: 49,
+    price: 29,
     description:
       "Plan, organise and publish social content without keeping marketing in another disconnected tool.",
     features: [
@@ -281,7 +281,7 @@ const PRICING: PricingPlan[] = [
   },
   {
     name: "Email Marketing",
-    price: 39,
+    price: 29,
     description:
       "Manage subscriber lists, campaigns and customer emails alongside the rest of your business.",
     features: [
@@ -294,9 +294,9 @@ const PRICING: PricingPlan[] = [
   },
   {
     name: "ORBI. Store",
-    price: 39,
+    price: 29,
     description:
-      "Sell products while keeping customers, orders and business activity connected to ORBI..",
+      "Sell products while keeping customers, orders and business activity connected to ORBI.",
     features: [
       "Products",
       "Orders",
@@ -307,7 +307,7 @@ const PRICING: PricingPlan[] = [
   },
   {
     name: "ORBI. Complete",
-    price: 199,
+    price: 139,
     featured: true,
     badge: "Everything included",
     description:
@@ -324,9 +324,21 @@ const PRICING: PricingPlan[] = [
   },
 ];
 
+const BUNDLE_LADDER = [
+  { label: "1 module", price: 29 },
+  { label: "2 modules", price: 55 },
+  { label: "3 modules", price: 79 },
+  { label: "4 modules", price: 99 },
+  { label: "5 modules", price: 119 },
+  { label: "Complete", price: 139, featured: true },
+];
+
+const COMPLETE_URL =
+  "/billing?source=find-your-setup&package=complete&modules=core%2CclientsProjects%2Cfinance%2Csocial%2Cemail%2Cstore&ai=starter";
+
 const FAQS: FAQ[] = [
   {
-    q: "What exactly is TOTS-OS?",
+    q: "What exactly is ORBI.?",
     a:
       "ORBI. is an all-in-one business operating system. It brings clients, projects, tasks, finances, calendar, notes, social content, email marketing, store activity and business visibility into one connected workspace.",
   },
@@ -338,12 +350,12 @@ const FAQS: FAQ[] = [
   {
     q: "How does the pricing work?",
     a:
-      "Choose one or two modules at their normal monthly price, get 10% off when you choose three or four modules, and 20% off when you choose five. If your setup reaches £199 per month, ORBI. Complete gives you all six main modules plus Clarity AI Starter for £199 per month.",
+      "Every module is £29 a month on its own. Add more and your fixed bundle price applies automatically: £55 for two modules, £79 for three, £99 for four and £119 for five. ORBI. Complete gives you all six modules plus Clarity AI Starter for £139 a month, and you can start with a 14-day free trial.",
   },
   {
     q: "What is Clarity AI?",
     a:
-      "Clarity AI is the intelligent assistant inside ORBI.. It is designed to help you make sense of the information already in your workspace, surface priorities and reduce the amount of manual thinking and searching involved in running the business.",
+      "Clarity AI is the intelligent assistant inside ORBI. It is designed to help you make sense of the information already in your workspace, surface priorities and reduce the amount of manual thinking and searching involved in running the business.",
   },
   {
     q: "Who is ORBI. for?",
@@ -479,11 +491,11 @@ const TOUR_STEPS: TourStep[] = [
   {
     key: "store",
     screen: "store",
-    eyebrow: "07 · TOTS Commerce",
+    eyebrow: "07 · ORBI. Store",
     title:
       "Your store, connected to your business.",
     text:
-      "Manage products, orders, stock, payments, discounts and your public storefront from one commerce workspace. The overview gives you live order, revenue and stock visibility while the store stays connected to the rest of ORBI..",
+      "Manage products, orders, stock, payments, discounts and your public storefront from one commerce workspace. The overview gives you live order, revenue and stock visibility while the store stays connected to the rest of ORBI.",
   },
   {
     key: "workspace",
@@ -2482,11 +2494,11 @@ function DemoStore() {
     <div className="app-page commerce-page">
       <div className="commerce-heading">
         <div>
-          <div className="app-kicker commerce-kicker"><span />TOTS Commerce</div>
+          <div className="app-kicker commerce-kicker"><span />ORBI. Store</div>
           <h2>Your store, connected to your business.</h2>
           <p>
             Manage products, orders, stock and your public storefront alongside
-            the rest of ORBI..
+            the rest of ORBI.
           </p>
         </div>
 
@@ -2515,7 +2527,7 @@ function DemoStore() {
       <div className="commerce-summary">
         <div className="commerce-summary-icon"><Sparkles size={16} /></div>
         <div>
-          <span>TOTS Commerce summary</span>
+          <span>ORBI. Store summary</span>
           <p>
             Your store currently has <strong>27 products</strong>,{" "}
             <strong>6 active orders</strong> and <strong>0 stock warnings</strong>.
@@ -2687,7 +2699,7 @@ function DemoWorkspace() {
 
         <div>
           <span className="green-label">
-            TOTS summary
+            ORBI. summary
           </span>
 
           <p>
@@ -2963,7 +2975,7 @@ function DemoCalendar() {
 
         <div>
           <span className="green-label">
-            TOTS schedule
+            ORBI. schedule
             summary
           </span>
 
@@ -4350,7 +4362,7 @@ const MANIFESTO =
 const LUX_STATS = [
   { value: "6", label: "Connected modules" },
   { value: "1", label: "Calm workspace" },
-  { value: "£199", label: "Maximum per month" },
+  { value: "£139", label: "All six modules, monthly" },
   { value: "2 min", label: "To build your setup" },
 ];
 
@@ -14088,7 +14100,7 @@ export default function TotsOSLanding() {
           .footer-bottom { flex-direction: column; align-items: flex-start; }
         }
 
-        /* ---------------- TOTS COMMERCE PUBLIC SECTION ---------------- */
+        /* ---------------- ORBI. STORE PUBLIC SECTION ---------------- */
         .shop-showcase {
           position: relative; overflow: hidden; border: 1px solid rgba(55,55,53,.11);
           border-radius: 34px; background: #FFFFFF; box-shadow: 0 28px 70px rgba(30,42,39,.07);
@@ -15651,6 +15663,63 @@ export default function TotsOSLanding() {
           .tots-root .gold-text { animation: none; }
         }
 
+
+        /* bundle price ladder */
+        .lux-ladder {
+          margin-top: 44px;
+          display: grid;
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+          gap: 12px;
+        }
+
+        .lux-ladder-step {
+          padding: 22px 12px 20px;
+          text-align: center;
+          border: 1px solid var(--border);
+          border-radius: 18px;
+          background: linear-gradient(165deg, rgba(255,255,255,0.055), rgba(255,255,255,0.012));
+          transition: border-color .4s var(--ease-lux), transform .4s var(--ease-lux);
+        }
+
+        .lux-ladder-step:hover { border-color: rgba(217,183,126,.4); transform: translateY(-3px); }
+
+        .lux-ladder-step span {
+          display: block;
+          color: var(--gold);
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: .16em;
+          text-transform: uppercase;
+        }
+
+        .lux-ladder-step strong {
+          display: block;
+          margin-top: 12px;
+          font-family: 'Fraunces', serif;
+          font-size: clamp(1.7rem, 3vw, 2.6rem);
+          font-weight: 400;
+          letter-spacing: -0.03em;
+          color: var(--charcoal);
+        }
+
+        .lux-ladder-step small { color: var(--muted); font-size: 11px; }
+
+        .lux-ladder-step.featured {
+          border-color: rgba(217,183,126,.55);
+          background: linear-gradient(165deg, rgba(217,183,126,.16), rgba(15,90,71,.3));
+          box-shadow: 0 0 60px rgba(217,183,126,.14);
+        }
+
+        .lux-ladder-step.featured strong {
+          background: linear-gradient(180deg, #F1DDB0, #B8925A);
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        @media (max-width: 860px) {
+          .lux-ladder { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
       `}</style>
 
       <ScrollProgress />
@@ -15926,7 +15995,7 @@ export default function TotsOSLanding() {
 
               <div>
                 <Check size={13} />
-                Never more than £199/month
+                All six modules for £139/month
               </div>
             </motion.div>
           </div>
@@ -15964,7 +16033,7 @@ export default function TotsOSLanding() {
 
                 <div className="setup-spotlight-copy">
                   <span className="setup-spotlight-kicker">
-                    Your ORBI.. Built around your business.
+                    Your ORBI. Built around your business.
                   </span>
 
                   <h2 id="setup-spotlight-title">
@@ -15981,7 +16050,7 @@ export default function TotsOSLanding() {
                     <span role="listitem"><Check size={13} /> Personalised module recommendation</span>
                     <span role="listitem"><Check size={13} /> Automatic bundle savings</span>
                     <span role="listitem"><Check size={13} /> Clarity AI recommendation</span>
-                    <span role="listitem"><Check size={13} /> £199/month maximum</span>
+                    <span role="listitem"><Check size={13} /> Complete from £139/month</span>
                   </div>
                 </div>
 
@@ -16487,7 +16556,7 @@ export default function TotsOSLanding() {
         </section>
 
         {/* ====================================================
-            TOTS COMMERCE
+            ORBI. STORE
         ==================================================== */}
 
         <section className="tots-section soft" id="shop">
@@ -16496,7 +16565,7 @@ export default function TotsOSLanding() {
               <div className="shop-showcase">
                 <div className="shop-showcase-grid">
                   <div className="shop-copy">
-                    <Eyebrow>TOTS Commerce</Eyebrow>
+                    <Eyebrow>ORBI. Store</Eyebrow>
 
                     <h2 className="section-title">
                       Your shop. Your brand.{" "}
@@ -16505,14 +16574,14 @@ export default function TotsOSLanding() {
 
                     <p>
                       Sell products or services through your own branded public
-                      storefront, while TOTS Commerce handles the operational side:
+                      storefront, while ORBI. Store handles the operational side:
                       products, orders, stock, payments, discounts and fulfilment.
                       It is built to sit alongside the rest of ORBI., so commerce
                       does not become another disconnected system to manage.
                     </p>
 
                     <div className="shop-price-line">
-                      <strong>£39</strong>
+                      <strong>£29</strong>
                       <span>/ month</span>
                     </div>
 
@@ -16536,17 +16605,17 @@ export default function TotsOSLanding() {
 
                     <div className="shop-actions">
                       <a href={SHOP_BUY_URL} className="button-primary button-large">
-                        Buy TOTS Commerce
+                        Buy ORBI. Store
                         <ArrowRight size={15} />
                       </a>
 
                       <span className="shop-note">
-                        Standalone commerce module · £39/month
+                        ORBI. Store module · £29/month
                       </span>
                     </div>
                   </div>
 
-                  <div className="shop-visual-stack" aria-label="TOTS Commerce preview">
+                  <div className="shop-visual-stack" aria-label="ORBI. Store preview">
                     <div className="shop-backend-card">
                       <div className="shop-browser-bar">
                         <span>ORBI.</span><span>Commerce backend</span>
@@ -16608,9 +16677,9 @@ export default function TotsOSLanding() {
               </h2>
 
               <p className="section-copy">
-                Start with one module or connect several parts of your business. Choose 3–4 modules
-                and get 10% off, choose 5 and get 20% off. If your setup reaches £199/month,
-                ORBI. Complete gives you all six main modules plus Clarity AI Starter for £199.
+                Start with one module or connect several parts of your business. Every module is £29/month
+                on its own, and your fixed bundle price applies automatically as you add more.
+                ORBI. Complete gives you all six modules plus Clarity AI Starter for £139/month.
               </p>
 
               <a href={SETUP_URL} className="pricing-trial-callout pricing-setup-callout">
@@ -16621,6 +16690,22 @@ export default function TotsOSLanding() {
                 </div>
                 <ArrowRight size={15} />
               </a>
+            </Reveal>
+
+            <Reveal>
+              <div className="lux-ladder" role="list" aria-label="Bundle pricing">
+                {BUNDLE_LADDER.map((tier) => (
+                  <div
+                    key={tier.label}
+                    role="listitem"
+                    className={`lux-ladder-step ${tier.featured ? "featured" : ""}`}
+                  >
+                    <span>{tier.label}</span>
+                    <strong>£{tier.price}</strong>
+                    <small>/month</small>
+                  </div>
+                ))}
+              </div>
             </Reveal>
 
             <div className="pricing-grid">
@@ -16713,7 +16798,7 @@ export default function TotsOSLanding() {
                       </div>
 
                       <a
-                        href={plan.featured ? `${BILLING_URL}?package=complete&modules=core,clientsProjects,finance,social,email,store&ai=starter&price=199` : SETUP_URL}
+                        href={plan.featured ? COMPLETE_URL : SETUP_URL}
                         className={
                           plan.featured
                             ? "button-primary button-large pricing-button"
@@ -16761,7 +16846,7 @@ export default function TotsOSLanding() {
                 a mum-and-daughter team,
                 two very different brains,
                 and the people behind The
-                Organised Types and ORBI..
+                Organised Types and ORBI.
               </p>
 
               <p className="section-copy">
@@ -17051,7 +17136,7 @@ export default function TotsOSLanding() {
 
                 <div className="final-trial-note">
                   <Check size={13} />
-                  Personalised recommendation · flexible modules · £199/month maximum
+                  Personalised recommendation · flexible modules · from £29/month
                 </div>
               </div>
             </Reveal>

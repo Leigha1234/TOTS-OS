@@ -202,7 +202,7 @@ export default function FinancePayroll({
             {onRunPayroll && (
               <button
                 onClick={onRunPayroll}
-                className="bg-[#a9b897] text-stone-900 px-5 py-2.5 rounded-full flex items-center gap-2 text-[8px] font-black uppercase tracking-widest hover:bg-stone-900 hover:text-white transition-all"
+                className="bg-[#0F3D32] text-[#1E2A27] px-5 py-2.5 rounded-full flex items-center gap-2 text-[11px] font-black uppercase tracking-widest hover:bg-[#0F3D32] hover:text-white transition-all"
               >
                 <WalletCards size={14} />
                 Run Payroll
@@ -212,7 +212,7 @@ export default function FinancePayroll({
             {onAddEmployee && (
               <button
                 onClick={onAddEmployee}
-                className="bg-stone-900 text-white px-5 py-2.5 rounded-full flex items-center gap-2 text-[8px] font-black uppercase tracking-widest hover:bg-[#a9b897] hover:text-stone-900 transition-all"
+                className="bg-[#0F3D32] text-white px-5 py-2.5 rounded-full flex items-center gap-2 text-[11px] font-black uppercase tracking-widest hover:bg-[#0F3D32] hover:text-[#1E2A27] transition-all"
               >
                 <UserPlus size={14} />
                 Add Employee
@@ -223,7 +223,7 @@ export default function FinancePayroll({
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-5 bg-[#faf9f6] rounded-2xl">
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-stone-400">
               Average Salary
             </p>
 
@@ -237,7 +237,7 @@ export default function FinancePayroll({
           </div>
 
           <div className="p-5 bg-[#faf9f6] rounded-2xl">
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-stone-400">
               Gross Recorded
             </p>
 
@@ -250,12 +250,12 @@ export default function FinancePayroll({
             </p>
           </div>
 
-          <div className="p-5 bg-stone-900 text-white rounded-2xl">
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+          <div className="p-5 bg-[#0F3D32] text-white rounded-2xl">
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-stone-400">
               Net Recorded
             </p>
 
-            <p className="text-2xl font-mono font-bold mt-3 text-[#a9b897]">
+            <p className="text-2xl font-mono font-bold mt-3 text-[#0F3D32]">
               £{formatMoney(metrics.netPaid)}
             </p>
 
@@ -305,12 +305,12 @@ export default function FinancePayroll({
                   }`}
                 >
                   <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-11 h-11 rounded-xl bg-stone-900 text-[#a9b897] flex items-center justify-center shrink-0">
+                    <div className="w-11 h-11 rounded-xl bg-[#0F3D32] text-[#0F3D32] flex items-center justify-center shrink-0">
                       <Users size={17} />
                     </div>
 
                     <div className="min-w-0">
-                      <p className="font-bold text-stone-900 truncate">
+                      <p className="font-bold text-[#1E2A27] truncate">
                         {employee.name}
                       </p>
 
@@ -322,11 +322,11 @@ export default function FinancePayroll({
 
                   <div className="flex flex-wrap items-center gap-5 md:justify-end">
                     <div>
-                      <p className="text-[8px] uppercase tracking-widest text-stone-400">
+                      <p className="text-[11px] uppercase tracking-widest text-stone-400">
                         Annual
                       </p>
 
-                      <p className="font-mono font-bold text-stone-900 mt-1">
+                      <p className="font-mono font-bold text-[#1E2A27] mt-1">
                         £
                         {formatMoney(
                           Number(employee.salary_gross || 0)
@@ -335,11 +335,11 @@ export default function FinancePayroll({
                     </div>
 
                     <div>
-                      <p className="text-[8px] uppercase tracking-widest text-stone-400">
+                      <p className="text-[11px] uppercase tracking-widest text-stone-400">
                         Monthly
                       </p>
 
-                      <p className="font-mono font-bold text-stone-900 mt-1">
+                      <p className="font-mono font-bold text-[#1E2A27] mt-1">
                         £
                         {formatMoney(
                           Number(employee.salary_gross || 0) /
@@ -349,7 +349,7 @@ export default function FinancePayroll({
                     </div>
 
                     <div>
-                      <p className="text-[8px] uppercase tracking-widest text-stone-400">
+                      <p className="text-[11px] uppercase tracking-widest text-stone-400">
                         Latest Payroll
                       </p>
 
@@ -411,7 +411,7 @@ export default function FinancePayroll({
                   ].map((heading) => (
                     <th
                       key={heading}
-                      className="px-5 py-4 text-[8px] font-black uppercase tracking-[0.3em] text-stone-400"
+                      className="px-5 py-4 text-[11px] font-black uppercase tracking-[0.3em] text-stone-400"
                     >
                       {heading}
                     </th>
@@ -439,12 +439,12 @@ export default function FinancePayroll({
                       }`}
                     >
                       <td className="px-5 py-5">
-                        <p className="font-bold text-stone-900">
+                        <p className="font-bold text-[#1E2A27]">
                           {employee?.name ||
                             "Unknown employee"}
                         </p>
 
-                        <p className="text-[8px] uppercase tracking-widest text-stone-400 mt-1">
+                        <p className="text-[11px] uppercase tracking-widest text-stone-400 mt-1">
                           {employee?.role ||
                             payslip.employee_id.slice(
                               0,

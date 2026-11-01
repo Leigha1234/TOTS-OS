@@ -3798,7 +3798,7 @@ export default function PaymentsPage() {
   // ==========================================================
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900">
+    <div className="min-h-screen bg-[#FAF9F6] text-[#1E2A27]">
       <FinanceNotification
         visible={
           notification.visible
@@ -3812,7 +3812,7 @@ export default function PaymentsPage() {
       />
 
       {showInvoiceManagement && organisationId && <InvoiceManagement organisationId={organisationId} onChanged={finance.refresh} onClose={() => setShowInvoiceManagement(false)} />}
-      <main className="mx-auto max-w-[1400px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-[1550px] space-y-6 px-4 py-6 sm:px-7 lg:px-10 lg:py-9">
         <FinanceHeader
           loading={
             loading
@@ -3843,7 +3843,7 @@ export default function PaymentsPage() {
 
         {loading ? (
           <div className="flex min-h-[400px] items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-[#a9b897]" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-[#0F3D32]" />
           </div>
         ) : (
           <>

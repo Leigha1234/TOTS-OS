@@ -53,7 +53,7 @@ export default function GlobalOrganisationSwitcher({ compact = false }: { compac
 
   const active = contexts.find(o => o.id === selected);
   return (
-    <div className="rounded-xl border border-[#A9B897]/70 bg-[#FAF8F5] p-2 text-[#4f4a46]">
+    <div className="rounded-xl border border-white/15 bg-white/10 p-2 text-white">
       {compact ? (
         <button type="button" onClick={() => void refresh()} title={`Organisation: ${active?.name || "Loading"}`}
           className="flex w-full justify-center p-1"><Building2 size={19} /></button>
@@ -74,14 +74,14 @@ export default function GlobalOrganisationSwitcher({ compact = false }: { compac
                 localStorage.setItem(ACTIVE_ORGANISATION_KEY, next);
                 window.dispatchEvent(new CustomEvent("tots:organisation-changed", { detail: { organisationId: next } }));
               }}
-              className="w-full appearance-none rounded-lg border border-stone-200 bg-white py-2 pl-2 pr-7 text-xs font-medium">
+              className="w-full appearance-none rounded-lg border border-white/20 bg-white py-2 pl-2 pr-7 text-xs font-medium text-[#1E2A27]">
               {!contexts.length && <option value="">{loading ? "Loading..." : "No organisations"}</option>}
               {contexts.map(o => <option key={o.id} value={o.id}>{o.name}{o.kind === "delegated" ? " (client)" : ""}</option>)}
             </select>
             <ChevronDown size={12} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2" />
           </div>
-          <p className="mt-1 text-[10px] text-stone-500">{active?.kind === "delegated" ? "Client access" : "Your workspace"} · Agency access</p>
-          {error && <p role="alert" className="mt-1 text-[10px] text-red-700">{error}</p>}
+          <p className="mt-1 text-[10px] text-white/70">{active?.kind === "delegated" ? "Client access" : "Your workspace"} · Agency access</p>
+          {error && <p role="alert" className="mt-1 text-[10px] text-red-100">{error}</p>}
         </>
       )}
     </div>

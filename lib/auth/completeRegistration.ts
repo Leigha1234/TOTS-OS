@@ -732,7 +732,7 @@ async function sendNewSignupNotification({
   const displayTier =
     billingPackage ===
     "complete"
-      ? "TOTS-OS Complete"
+      ? "ORBI. Complete"
       : billingModel ===
         "modular"
         ? "Custom modular setup"
@@ -763,11 +763,11 @@ async function sendNewSignupNotification({
     formatSignupDate();
 
   const subject =
-    `🎉 New TOTS-OS signup — ${displayBusiness}`;
+    `🎉 New ORBI. signup — ${displayBusiness}`;
 
   const text =
     [
-      "New TOTS-OS signup",
+      "New ORBI. signup",
       "",
       `Name: ${displayName}`,
       `Email: ${email}`,
@@ -797,7 +797,7 @@ async function sendNewSignupNotification({
         "Not supplied"
       }`,
       "",
-      "TOTS-OS",
+      "ORBI.",
       `User ID: ${userId}`,
       `Organisation ID: ${organisationId}`,
       `Registration ID: ${registrationId}`,
@@ -860,7 +860,7 @@ async function sendNewSignupNotification({
                     color:#a9b897;
                   "
                 >
-                  TOTS-OS
+                  ORBI.
                 </div>
 
                 <h1
@@ -880,7 +880,7 @@ async function sendNewSignupNotification({
                     line-height:1.6;
                   "
                 >
-                  A new business has joined TOTS-OS.
+                  A new business has joined ORBI..
                 </p>
               </div>
 
@@ -1306,7 +1306,7 @@ async function sendNewSignupNotification({
                   font-size:11px;
                 "
               >
-                Automatic notification from TOTS-OS
+                Automatic notification from ORBI.
               </div>
             </div>
           </div>
@@ -2464,7 +2464,7 @@ export async function completeRegistration(
   }
 
   // ==========================================================
-  // MAIN TOTS-OS SUBSCRIPTION
+  // MAIN ORBI. SUBSCRIPTION
   // ==========================================================
 
   const {

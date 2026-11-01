@@ -128,10 +128,10 @@ function normaliseMobileNav(
 const defaultSettings:
   SettingsState = {
   brandColor:
-    null,
+    "#0F3D32",
 
   secondaryColor:
-    null,
+    "#082C24",
 
   fontFamily:
     null,

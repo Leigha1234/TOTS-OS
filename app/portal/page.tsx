@@ -88,7 +88,7 @@ export default function OperationalPulse() {
 
         {/* HEADER */}
         <header className="space-y-4">
-          <div className="flex items-center gap-3 text-[#a9b897]">
+          <div className="flex items-center gap-3 text-[#0F3D32]">
             <Zap size={16} fill="currentColor" />
             <span className="text-[10px] font-black uppercase tracking-[0.5em]">
               System Node Active
@@ -106,7 +106,7 @@ export default function OperationalPulse() {
               label: "LOGGED TODAY",
               val: `${todayHours} HRS`,
               sub: "TIME ALLOCATION",
-              color: "text-[#a9b897]",
+              color: "text-[#0F3D32]",
             },
             {
               label: "ACTIVE DEPLOYMENTS",
@@ -118,7 +118,7 @@ export default function OperationalPulse() {
               label: "EFFICIENCY INDEX",
               val: todayHours >= 7 ? "OPTIMAL" : "BUILDING",
               sub: "CAPACITY MONITOR",
-              color: "text-[#a9b897]",
+              color: "text-[#0F3D32]",
             },
           ].map((stat, i) => (
             <div
@@ -131,7 +131,7 @@ export default function OperationalPulse() {
                 </p>
                 <Activity
                   size={20}
-                  className="text-stone-200 group-hover:text-[#a9b897] transition-colors"
+                  className="text-stone-200 group-hover:text-[#0F3D32] transition-colors"
                 />
               </div>
 
@@ -140,7 +140,7 @@ export default function OperationalPulse() {
               </h2>
 
               <div className="inline-flex items-center gap-3 px-4 py-2 bg-stone-50 rounded-full w-fit border border-stone-100">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#a9b897] animate-pulse" />
+                <div className="w-1.5 h-1.5 rounded-full bg-[#0F3D32] animate-pulse" />
                 <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">
                   {stat.sub}
                 </span>
@@ -156,13 +156,13 @@ export default function OperationalPulse() {
           <div className="lg:col-span-3 bg-white border border-stone-100 rounded-[4rem] overflow-hidden flex flex-col shadow-sm">
             <div className="p-10 border-b border-stone-50 flex justify-between items-center">
               <div className="flex items-center gap-4">
-                <Target size={20} className="text-[#a9b897]" />
+                <Target size={20} className="text-[#0F3D32]" />
                 <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-stone-900">
                   Mission Priorities
                 </h2>
               </div>
 
-              <span className="text-[9px] font-black uppercase bg-[#a9b897]/10 text-[#a9b897] px-4 py-2 rounded-full tracking-widest">
+              <span className="text-[9px] font-black uppercase bg-[#0F3D32]/10 text-[#0F3D32] px-4 py-2 rounded-full tracking-widest">
                 {todoList.length} QUEUED
               </span>
             </div>
@@ -177,7 +177,7 @@ export default function OperationalPulse() {
                     className="flex items-center gap-6 p-8 bg-stone-50/50 hover:bg-white hover:shadow-lg rounded-3xl cursor-pointer border border-transparent hover:border-stone-100 transition-all group"
                   >
                     <Circle
-                      className="text-stone-300 group-hover:text-[#a9b897] transition-colors"
+                      className="text-stone-300 group-hover:text-[#0F3D32] transition-colors"
                       size={24}
                     />
 
@@ -185,7 +185,7 @@ export default function OperationalPulse() {
                       <span className="text-lg font-bold uppercase tracking-tight text-stone-800 group-hover:text-stone-900">
                         {task.title}
                       </span>
-                      <span className="text-[10px] text-[#a9b897] font-black uppercase tracking-widest">
+                      <span className="text-[10px] text-[#0F3D32] font-black uppercase tracking-widest">
                         {task.projects?.name || "TACTICAL ASSET"}
                       </span>
                     </div>
@@ -195,7 +195,7 @@ export default function OperationalPulse() {
                 <div className="p-20 text-center space-y-4">
                   <CheckCircle2
                     size={48}
-                    className="mx-auto text-[#a9b897] opacity-20"
+                    className="mx-auto text-[#0F3D32] opacity-20"
                   />
                 </div>
               )}
@@ -205,7 +205,7 @@ export default function OperationalPulse() {
           {/* MOTIVATION PANEL */}
           <div className="lg:col-span-2 bg-stone-900 p-12 rounded-[4rem] flex flex-col justify-center items-center text-center space-y-8 shadow-2xl relative overflow-hidden">
             <div className="relative z-10">
-              <p className="text-[#a9b897] text-[10px] font-black uppercase tracking-[0.5em] mb-6">
+              <p className="text-[#0F3D32] text-[10px] font-black uppercase tracking-[0.5em] mb-6">
                 Strategic Directive
               </p>
               <p className="text-3xl md:text-4xl font-serif italic text-stone-200 leading-tight tracking-tight">
@@ -213,7 +213,7 @@ export default function OperationalPulse() {
               </p>
             </div>
 
-            <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-[#a9b897] blur-[120px] opacity-20" />
+            <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-[#0F3D32] blur-[120px] opacity-20" />
           </div>
 
         </div>

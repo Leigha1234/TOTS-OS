@@ -40,6 +40,7 @@ import {
 
 import Sidebar from "@/app/components/Sidebar";
 import DashboardDraftSafety from "../components/DashboardDraftSafety";
+import OrbiRebrandWelcome from "../components/OrbiRebrandWelcome";
 import { useActiveAgencyContext } from "@/lib/use-active-agency-context";
 import Footer from "@/app/components/Footer";
 import Clarity from "@/app/components/Clarity";
@@ -51,7 +52,7 @@ import {
 
 import {
   ClarityTourProvider,
-} from "./claritytour/ClarityTourProvider";
+} from "../(dashboard)/claritytour/ClarityTourProvider";
 
 import ClarityTourOverlay from "./claritytour/ClarityTourOverlay";
 
@@ -317,14 +318,14 @@ function DashboardLayoutInner({
   //
   // IMPORTANT:
   // SettingsState does not expose a nested `settings` property.
-  // We therefore use the TOTS-OS brand sage directly here.
+  // Keep the platform navigation on the fixed ORBI. brand colour.
   //
   // If/when SettingsContext exposes a typed brandColor property,
   // this can be wired back into the organisation branding.
   // ==========================================================
 
   const brandColor =
-    "#a9b897";
+    "#0F3D32";
 
   // ==========================================================
   // ADMIN
@@ -433,7 +434,7 @@ function DashboardLayoutInner({
         },
         {
           href: "/tots-admin",
-          label: "TOTS Admin",
+          label: "ORBI. Admin",
           icon: ShieldCheck,
           adminOnly: true,
         },
@@ -572,12 +573,12 @@ function DashboardLayoutInner({
       },
 
       {
-        title: "TOTS Platform",
+        title: "ORBI. Platform",
 
         links: [
           {
             href: "/tots-admin",
-            label: "TOTS Admin",
+            label: "ORBI. Admin",
             icon: ShieldCheck,
             adminOnly: true,
           },
@@ -1096,11 +1097,11 @@ function DashboardLayoutInner({
 
   if (accessError) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#fcfaf7] p-6">
+      <div className="flex min-h-screen items-center justify-center bg-[#FAFAF8] p-6">
         <div className="max-w-md text-center">
           <p className="text-base font-semibold text-stone-800">Workspace temporarily unavailable</p>
           <p className="mt-3 text-sm text-stone-600">{accessError}</p>
-          <button type="button" className="mt-5 rounded-lg bg-[#829473] px-5 py-3 text-sm font-semibold text-white" onClick={() => setAccessRetry((n) => n + 1)}>Try again</button>
+          <button type="button" className="mt-5 rounded-lg bg-[#0F3D32] px-5 py-3 text-sm font-semibold text-white" onClick={() => setAccessRetry((n) => n + 1)}>Try again</button>
         </div>
       </div>
     );
@@ -1111,9 +1112,9 @@ function DashboardLayoutInner({
     !accessChecked
   ) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#fcfaf7]">
+      <div className="flex h-screen w-full items-center justify-center bg-[#FAFAF8]">
         <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-[#829473]" />
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-[#0F3D32]" />
 
           <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
             Loading your workspace
@@ -1150,9 +1151,9 @@ function DashboardLayoutInner({
 
   if (!routeAllowed) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#fcfaf7]">
+      <div className="flex h-screen w-full items-center justify-center bg-[#FAFAF8]">
         <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-[#829473]" />
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-[#0F3D32]" />
 
           <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
             Opening membership options
@@ -1173,13 +1174,15 @@ function DashboardLayoutInner({
         h-screen
         w-full
         overflow-hidden
-        bg-[#fcfaf7]
+        bg-[#FAFAF8]
       "
       style={{
         fontFamily:
           `'${fontFamily || "Inter"}', sans-serif`,
       }}
     >
+      <OrbiRebrandWelcome userId={currentUserId} />
+
       {/* ======================================================
           DESKTOP SIDEBAR
       ====================================================== */}
@@ -1265,7 +1268,7 @@ function DashboardLayoutInner({
             <div className="mx-auto max-w-xl rounded-2xl border border-stone-200 bg-white p-8">
               <h1 className="text-xl font-semibold text-stone-900">Client module not available</h1>
               <p className="mt-3 text-sm text-stone-600">This module is not enabled for the selected client. Switch to your own organisation, or open an authorised client module.</p>
-              <Link className="mt-5 inline-block rounded-lg bg-[#A9B897] px-4 py-2 text-sm font-semibold text-stone-900" href="/agency">Agency Workspace</Link>
+              <Link className="mt-5 inline-block rounded-lg bg-[#0F3D32] px-4 py-2 text-sm font-semibold text-stone-900" href="/agency">Agency Workspace</Link>
             </div>
           ) : children}
 
@@ -1293,7 +1296,7 @@ function DashboardLayoutInner({
               rounded-[1.35rem]
               border
               border-stone-200
-              bg-stone-50/95
+              bg-white/95
               p-1.5
               shadow-[0_12px_35px_rgba(28,25,23,0.10)]
               backdrop-blur-xl
@@ -1348,7 +1351,7 @@ function DashboardLayoutInner({
                 ${
                   isMoreActive
                     ? "text-white shadow-sm"
-                    : "text-stone-500 hover:bg-stone-100"
+                    : "text-stone-600 hover:bg-stone-100 hover:text-[#0F3D32]"
                 }
               `}
               aria-label="Open navigation"
@@ -1441,7 +1444,7 @@ function DashboardLayoutInner({
                 }}
                 role="dialog"
                 aria-modal="true"
-                aria-label="TOTS-OS navigation"
+                aria-label="ORBI. navigation"
                 className="
                   fixed
                   bottom-0
@@ -1453,8 +1456,8 @@ function DashboardLayoutInner({
                   w-[min(86vw,340px)]
                   flex-col
                   border-r
-                  border-stone-200
-                  bg-stone-50
+                  border-white/10
+                  bg-[#0F3D32]
                   pt-[env(safe-area-inset-top)]
                   shadow-[20px_0_60px_rgba(28,25,23,0.16)]
                   md:hidden
@@ -1472,7 +1475,7 @@ function DashboardLayoutInner({
                     items-center
                     justify-between
                     border-b
-                    border-stone-200/70
+                    border-white/15
                     px-4
                   "
                 >
@@ -1502,12 +1505,12 @@ function DashboardLayoutInner({
                         bg-white
                         shadow-sm
                         ring-1
-                        ring-stone-200/70
+                        ring-white/15
                       "
                     >
                       <Image
                         src="/icon.png"
-                        alt="TOTS-OS"
+                        alt="ORBI. app icon"
                         width={34}
                         height={34}
                         priority
@@ -1523,10 +1526,10 @@ function DashboardLayoutInner({
                           font-black
                           uppercase
                           tracking-[0.22em]
-                          text-stone-400
+                          text-white/60
                         "
                       >
-                        TOTS-OS
+                        ORBI.
                       </p>
 
                       <p
@@ -1535,7 +1538,7 @@ function DashboardLayoutInner({
                           truncate
                           text-sm
                           font-semibold
-                          text-stone-800
+                          text-white
                         "
                       >
                         Your workspace
@@ -1558,10 +1561,10 @@ function DashboardLayoutInner({
                       items-center
                       justify-center
                       rounded-xl
-                      text-stone-400
+                      text-white/80
                       transition
-                      hover:bg-white
-                      hover:text-stone-900
+                      hover:bg-white/10
+                      hover:text-white
                       hover:shadow-sm
                       active:scale-95
                     "
@@ -1611,7 +1614,7 @@ function DashboardLayoutInner({
                                 font-semibold
                                 uppercase
                                 tracking-[0.16em]
-                                text-stone-400
+                                text-white/60
                               "
                             >
                               {
@@ -1675,7 +1678,7 @@ function DashboardLayoutInner({
                                       ${
                                         active
                                           ? "text-white shadow-sm"
-                                          : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+                                          : "text-white/85 hover:bg-white/10 hover:text-white"
                                       }
                                     `}
                                   >
@@ -1693,7 +1696,7 @@ function DashboardLayoutInner({
                                         ${
                                           active
                                             ? "bg-white/15"
-                                            : "bg-white text-stone-500 shadow-sm ring-1 ring-stone-200/70 group-hover:text-stone-800"
+                                            : "bg-white/10 text-white/80 shadow-sm ring-1 ring-white/10 group-hover:text-white"
                                         }
                                       `}
                                     >
@@ -1745,8 +1748,8 @@ function DashboardLayoutInner({
                   className="
                     shrink-0
                     border-t
-                    border-stone-200
-                    bg-stone-50
+                    border-white/15
+                    bg-[#0F3D32]
                     px-3
                     pb-[calc(0.75rem+env(safe-area-inset-bottom))]
                     pt-3
@@ -1760,8 +1763,8 @@ function DashboardLayoutInner({
                       justify-between
                       rounded-xl
                       border
-                      border-stone-200
-                      bg-white
+                      border-white/15
+                      bg-white/10
                       px-3
                       py-2
                       shadow-sm
@@ -1774,7 +1777,7 @@ function DashboardLayoutInner({
                           font-black
                           uppercase
                           tracking-[0.16em]
-                          text-stone-400
+                          text-white/60
                         "
                       >
                         Workspace
@@ -1786,7 +1789,7 @@ function DashboardLayoutInner({
                           truncate
                           text-[11px]
                           font-semibold
-                          text-stone-700
+                          text-white
                         "
                       >
                         {billingMode ===
@@ -1800,7 +1803,7 @@ function DashboardLayoutInner({
                           : billingMode ===
                               "legacy"
                             ? "Full platform access"
-                            : "TOTS-OS"}
+                            : "ORBI."}
                       </p>
                     </div>
 
@@ -1813,7 +1816,7 @@ function DashboardLayoutInner({
                         items-center
                         justify-center
                         rounded-full
-                        bg-stone-50
+                        bg-white/10
                       "
                     >
                       <NotificationBell />
@@ -1856,7 +1859,7 @@ function DashboardLayoutInner({
                           "/settings",
                         )
                           ? "text-white shadow-sm"
-                          : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+                          : "text-white/85 hover:bg-white/10 hover:text-white"
                       }
                     `}
                   >
@@ -1928,7 +1931,7 @@ function MobileNavItem({
         ${
           isActive
             ? "text-white shadow-sm"
-            : "text-stone-500 hover:bg-stone-100"
+            : "text-stone-600 hover:bg-stone-100 hover:text-[#0F3D32]"
         }
       `}
     >

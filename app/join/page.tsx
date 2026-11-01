@@ -108,8 +108,8 @@ async function verifyInvite() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="animate-spin text-[#A3B18A]" size={32} />
+      <div className="min-h-screen bg-[#F7EFE6] flex flex-col items-center justify-center gap-4">
+        <Loader2 className="animate-spin text-[#0F3D32]" size={32} />
         <p className="font-black uppercase tracking-[0.4em] text-stone-300 text-[10px]">Verifying Invitation</p>
       </div>
     );
@@ -117,20 +117,20 @@ async function verifyInvite() {
 
   if (!inviteData) {
     return (
-      <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-[#F7EFE6] flex items-center justify-center p-6 text-center">
         <div className="space-y-4">
           <h1 className="text-4xl font-serif italic">Access Denied</h1>
           <p className="text-stone-400 text-sm">This invitation link is no longer active.</p>
-          <button onClick={() => router.push('/login')} className="text-[#A3B18A] font-black uppercase tracking-widest text-[10px]">Return to Login</button>
+          <button onClick={() => router.push('/login')} className="text-[#0F3D32] font-black uppercase tracking-widest text-[10px]">Return to Login</button>
         </div>
       </div>
     );
   }
 
-  const brandColor = inviteData.settings?.brand_color || "#A3B18A";
+  const brandColor = inviteData.settings?.brand_color || "#0F3D32";
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center p-4 md:p-8">
+    <div className="min-h-screen bg-[#F7EFE6] flex items-center justify-center p-4 md:p-8">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -167,7 +167,7 @@ async function verifyInvite() {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Jane Doe" 
-                    className="w-full p-5 bg-[#faf9f6] border border-stone-100 rounded-2xl text-xs font-bold outline-none focus:border-stone-900 transition-all"
+                    className="w-full p-5 bg-[#F7EFE6] border border-stone-100 rounded-2xl text-xs font-bold outline-none focus:border-stone-900 transition-all"
                   />
                 </div>
               </div>
@@ -195,7 +195,7 @@ async function verifyInvite() {
                     required 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full p-5 bg-[#faf9f6] border border-stone-100 rounded-2xl text-xs font-bold outline-none focus:border-stone-900 transition-all"
+                    className="w-full p-5 bg-[#F7EFE6] border border-stone-100 rounded-2xl text-xs font-bold outline-none focus:border-stone-900 transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -205,7 +205,7 @@ async function verifyInvite() {
                     required 
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full p-5 bg-[#faf9f6] border border-stone-100 rounded-2xl text-xs font-bold outline-none focus:border-stone-900 transition-all"
+                    className="w-full p-5 bg-[#F7EFE6] border border-stone-100 rounded-2xl text-xs font-bold outline-none focus:border-stone-900 transition-all"
                   />
                 </div>
               </div>
@@ -241,7 +241,7 @@ async function verifyInvite() {
 export default function JoinPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center">
+      <div className="min-h-screen bg-[#F7EFE6] flex items-center justify-center">
         <Loader2 className="animate-spin text-stone-200" size={32} />
       </div>
     }>

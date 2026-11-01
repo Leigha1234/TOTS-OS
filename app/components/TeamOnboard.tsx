@@ -18,7 +18,7 @@ export function TeamOnboard() {
   return (
     <div className="bg-white border border-stone-200 p-10 rounded-[3.5rem] space-y-8">
       <div className="flex items-center gap-3 text-stone-800">
-        <UserPlus size={18} className="text-[#a9b897]" />
+        <UserPlus size={18} className="text-[#0F3D32]" />
         <h4 className="text-xl font-serif italic tracking-tight">Onboard New Team Member</h4>
       </div>
 
@@ -30,7 +30,7 @@ export function TeamOnboard() {
           <input
             value={empName}
             onChange={(e) => setEmpName(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
+            className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#0F3D32]/5 outline-none font-medium text-stone-800"
           />
         </div>
 
@@ -39,7 +39,7 @@ export function TeamOnboard() {
           <input
             value={empRole}
             onChange={(e) => setEmpRole(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
+            className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#0F3D32]/5 outline-none font-medium text-stone-800"
           />
         </div>
 
@@ -49,7 +49,7 @@ export function TeamOnboard() {
             placeholder="Bank name and account information"
             value={bankDetails}
             onChange={(e) => setBankDetails(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
+            className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#0F3D32]/5 outline-none font-medium text-stone-800"
           />
         </div>
 
@@ -59,7 +59,7 @@ export function TeamOnboard() {
             placeholder="Name and number"
             value={nextOfKin}
             onChange={(e) => setNextOfKin(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#a9b897]/5 outline-none font-medium text-stone-800"
+            className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm focus:ring-4 ring-[#0F3D32]/5 outline-none font-medium text-stone-800"
           />
         </div>
 
@@ -69,7 +69,7 @@ export function TeamOnboard() {
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm text-stone-800 focus:ring-4 ring-[#a9b897]/5 outline-none font-medium"
+            className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm text-stone-800 focus:ring-4 ring-[#0F3D32]/5 outline-none font-medium"
           />
         </div>
 
@@ -79,14 +79,14 @@ export function TeamOnboard() {
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm text-stone-800 focus:ring-4 ring-[#a9b897]/5 outline-none font-medium"
+            className="w-full bg-stone-50 border border-stone-100 rounded-2xl p-5 text-sm text-stone-800 focus:ring-4 ring-[#0F3D32]/5 outline-none font-medium"
           />
         </div>
       </div>
 
       <button
         onClick={handleSubmit}
-        className="w-full py-4 bg-[#a9b897]/20 border border-[#a9b897]/30 text-stone-900 rounded-2xl text-xs uppercase font-bold hover:bg-[#a9b897]/30 cursor-pointer flex items-center justify-center gap-2"
+        className="w-full py-4 bg-[#0F3D32]/20 border border-[#0F3D32]/30 text-stone-900 rounded-2xl text-xs uppercase font-bold hover:bg-[#0F3D32]/30 cursor-pointer flex items-center justify-center gap-2"
       >
         <Briefcase size={14} /> Submit to Team Matrix
       </button>

@@ -20,7 +20,7 @@ const STEPS = [
   {
     title: "The Treasury Bridge",
     description: "Formal records live here. When you 'Commit' an intent in the ledger, it synchronizes to Treasury without a refresh.",
-    icon: <Target className="text-[#a9b897]" />,
+    icon: <Target className="text-[#0F3D32]" />,
     target: "treasury-node",
   },
   {
@@ -75,7 +75,7 @@ export default function SystemNavigator() {
       {!isOpen && (
         <button 
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-8 right-8 z-50 bg-stone-900 text-[#a9b897] p-4 rounded-2xl shadow-2xl hover:scale-110 active:scale-95 transition-all flex items-center gap-3 group border border-white/5"
+          className="fixed bottom-8 right-8 z-50 bg-stone-900 text-[#0F3D32] p-4 rounded-2xl shadow-2xl hover:scale-110 active:scale-95 transition-all flex items-center gap-3 group border border-white/5"
         >
           <BookOpen size={20} />
           <span className="text-[10px] font-black uppercase tracking-widest hidden group-hover:block transition-all">
@@ -98,7 +98,7 @@ export default function SystemNavigator() {
                 {STEPS.map((_, i) => (
                   <div 
                     key={i} 
-                    className={`h-full transition-all duration-700 ease-out ${i <= currentStep ? 'bg-[#a9b897]' : 'bg-transparent'}`}
+                    className={`h-full transition-all duration-700 ease-out ${i <= currentStep ? 'bg-[#0F3D32]' : 'bg-transparent'}`}
                     style={{ width: `${100 / STEPS.length}%` }}
                   />
                 ))}
@@ -115,7 +115,7 @@ export default function SystemNavigator() {
                 </div>
 
                 <div className="space-y-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">
+                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#0F3D32]">
                     Module {currentStep + 1} // {STEPS.length}
                   </p>
                   <h2 className="text-4xl font-serif italic text-stone-800 leading-tight tracking-tighter">

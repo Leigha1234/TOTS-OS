@@ -68,7 +68,7 @@ const permMap = perms?.reduce((acc: Record<string, boolean>, p: Permission) => (
     fetchData();
   }, [params.id]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#A3B18A]" size={48} /></div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#0F3D32]" size={48} /></div>;
 
   return (
     <div className="min-h-screen bg-[#faf9f6] p-12 text-stone-900 max-w-4xl mx-auto">
@@ -78,19 +78,19 @@ const permMap = perms?.reduce((acc: Record<string, boolean>, p: Permission) => (
 
       <header className="mb-12">
         <div className="flex items-center gap-6 mb-4">
-          <div className="w-20 h-20 rounded-[2.5rem] bg-stone-900 text-[#A3B18A] flex items-center justify-center text-3xl font-serif italic">
+          <div className="w-20 h-20 rounded-[2.5rem] bg-stone-900 text-[#0F3D32] flex items-center justify-center text-3xl font-serif italic">
             {member?.full_name?.charAt(0) || "U"}
           </div>
           <div>
             <h1 className="text-4xl font-serif italic">{member?.full_name}</h1>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#A3B18A]">{member?.email}</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0F3D32]">{member?.email}</p>
           </div>
         </div>
       </header>
 
       <section className="bg-white border border-stone-100 rounded-[2.5rem] p-8 shadow-sm">
         <div className="flex items-center gap-3 mb-8 border-b border-stone-50 pb-6">
-          <Shield className="text-[#A3B18A]" size={20} />
+          <Shield className="text-[#0F3D32]" size={20} />
           <h2 className="text-xl font-serif italic">Access Permissions</h2>
         </div>
 
@@ -98,7 +98,7 @@ const permMap = perms?.reduce((acc: Record<string, boolean>, p: Permission) => (
           {MODULE_PAGES.map((modulePage) => (
             <div key={modulePage.slug} className="flex items-center justify-between p-6 bg-[#faf9f6] rounded-2xl border border-stone-50 hover:border-stone-100 transition-all">
               <div className="flex items-center gap-4">
-                <div className="w-2 h-2 rounded-full bg-[#A3B18A]" />
+                <div className="w-2 h-2 rounded-full bg-[#0F3D32]" />
                 <span className="text-[10px] font-black uppercase tracking-widest">{modulePage.label}</span>
               </div>
               <AdminPermissionToggle 

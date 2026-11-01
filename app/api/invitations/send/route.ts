@@ -1104,7 +1104,7 @@ export async function POST(
                     font-weight:700;
                     letter-spacing:2px;
                     text-transform:uppercase;
-                    color:#a9b897;
+                    color:#0F3D32;
                     margin-bottom:26px;
                   "
                 >
@@ -1436,7 +1436,7 @@ export async function POST(
                     font-weight:700;
                     letter-spacing:2px;
                     text-transform:uppercase;
-                    color:#a9b897;
+                    color:#0F3D32;
                     margin-bottom:26px;
                   "
                 >

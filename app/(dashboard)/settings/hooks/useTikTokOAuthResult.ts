@@ -66,7 +66,7 @@ const TIKTOK_ERROR_MESSAGES:
     "TikTok is not configured correctly.",
 
   authentication:
-    "Your TOTS-OS session could not be verified. Please sign in and try again.",
+    "Your ORBI. session could not be verified. Please sign in and try again.",
 
   state_mismatch:
     "TikTok security validation failed. Please reconnect your account.",

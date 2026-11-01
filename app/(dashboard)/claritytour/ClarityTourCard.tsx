@@ -40,7 +40,7 @@ export default function ClarityTourCard({
       <div className="border-b border-stone-100 bg-[#faf9f6] px-6 py-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[8px] font-black uppercase tracking-[0.35em] text-[#8fa07d]">
+            <p className="text-[8px] font-black uppercase tracking-[0.35em] text-[#0F3D32]">
               Clarity Tour
             </p>
 
@@ -71,7 +71,7 @@ export default function ClarityTourCard({
 
         <div className="mt-7 h-1 overflow-hidden rounded-full bg-stone-100">
           <div
-            className="h-full rounded-full bg-[#a9b897] transition-all duration-500"
+            className="h-full rounded-full bg-[#0F3D32] transition-all duration-500"
             style={{
               width: `${Math.max(
                 4,
@@ -105,7 +105,7 @@ export default function ClarityTourCard({
             <button
               type="button"
               onClick={onNext}
-              className="flex h-11 items-center gap-2 rounded-full bg-stone-900 px-5 text-[9px] font-black uppercase tracking-[0.18em] text-white transition hover:bg-[#a9b897] hover:text-stone-900"
+              className="flex h-11 items-center gap-2 rounded-full bg-[#0F3D32] px-5 text-[9px] font-black uppercase tracking-[0.18em] text-white transition hover:bg-[#082C24] hover:text-white"
             >
               {isLastStep
                 ? "Finish"

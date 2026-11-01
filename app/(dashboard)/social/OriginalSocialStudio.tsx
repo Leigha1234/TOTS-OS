@@ -3014,7 +3014,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
             0
         ) {
           throw new Error(
-            "TOTS-OS could not read the selected media. Try adding an image or a different video."
+            "ORBI. could not read the selected media. Try adding an image or a different video."
           );
         }
 
@@ -5343,7 +5343,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
           });
 
           toast.error(
-            "Your post was saved, but TOTS-OS could not confirm publishing. Check the result panel below."
+            "Your post was saved, but ORBI. could not confirm publishing. Check the result panel below."
           );
 
           await syncPosts(
@@ -6112,7 +6112,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
           !finalPost
         ) {
           throw new Error(
-            "TOTS-OS could not confirm the publishing result."
+            "ORBI. could not confirm the publishing result."
           );
         }
 
@@ -6223,7 +6223,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
     ) => {
       if (
         !window.confirm(
-          "Delete this post? This removes it from the TOTS-OS planner."
+          "Delete this post? This removes it from the ORBI. planner."
         )
       ) {
         return;
@@ -6515,17 +6515,28 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
   // ==========================================================
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900">
+    <div className="orbi-social min-h-screen bg-[#FAF9F6] text-[#1E2A27]">
+      <style jsx global>{`
+        .orbi-social { color: #1e2a27; }
+        .orbi-social main > section:not(:first-child),
+        .orbi-social main > div > section { border-color: #e5eae5; }
+        .orbi-social input:focus-visible, .orbi-social textarea:focus-visible,
+        .orbi-social select:focus-visible, .orbi-social button:focus-visible {
+          outline: 2px solid #39806b; outline-offset: 2px;
+        }
+        .orbi-social button { transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease; }
+      `}</style>
+
 
       {/* ======================================================
           HEADER
       ====================================================== */}
 
-      <header className="sticky top-0 z-50 border-b border-stone-200/70 bg-[#faf9f6]/95 px-4 py-4 backdrop-blur-xl md:px-8">
+      <header className="sticky top-0 z-50 border-b border-[#E5EAE5] bg-[#FAF9F6]/95 px-4 py-5 backdrop-blur-xl md:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
           <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-stone-900 text-[#a9b897]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0F3D32] text-white shadow-lg shadow-emerald-950/15">
               <Layers
                 size={
                   18
@@ -6534,17 +6545,18 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
             </div>
 
             <div>
-              <p className="text-[8px] font-black uppercase tracking-[0.35em] text-[#8fa07d]">
-                TOTS-OS
+              <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-[#487668]">
+                ORBI.
               </p>
 
-              <h1 className="font-serif text-2xl italic">
+              <h1 className="font-serif text-3xl font-semibold tracking-tight text-[#0F3D32] md:text-4xl">
                 Social Studio
               </h1>
+              <p className="mt-1 text-xs font-medium text-[#63756D]">Create, plan and publish — all in your orbit.</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-stone-200 bg-white p-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-[#E5EAE5] bg-white p-1.5 shadow-sm">
 
             <button
               type="button"
@@ -6556,7 +6568,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
               className={`rounded-xl px-5 py-3 text-[9px] font-black uppercase tracking-wider transition ${
                 viewMode ===
                 "create"
-                  ? "bg-stone-900 text-[#a9b897]"
+                  ? "bg-[#0F3D32] text-white shadow-sm"
                   : "text-stone-400 hover:text-stone-700"
               }`}
             >
@@ -6573,7 +6585,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
               className={`flex items-center gap-2 rounded-xl px-5 py-3 text-[9px] font-black uppercase tracking-wider transition ${
                 viewMode ===
                 "ideas"
-                  ? "bg-stone-900 text-[#a9b897]"
+                  ? "bg-[#0F3D32] text-white shadow-sm"
                   : "text-stone-400 hover:text-stone-700"
               }`}
             >
@@ -6596,7 +6608,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
               className={`rounded-xl px-5 py-3 text-[9px] font-black uppercase tracking-wider transition ${
                 viewMode ===
                 "planner"
-                  ? "bg-stone-900 text-[#a9b897]"
+                  ? "bg-[#0F3D32] text-white shadow-sm"
                   : "text-stone-400 hover:text-stone-700"
               }`}
             >
@@ -6611,7 +6623,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                   className={`h-2 w-2 rounded-full ${
                     status ===
                     "Ready"
-                      ? "bg-[#a9b897]"
+                      ? "bg-[#0F3D32]"
                       : status ===
                           "Not authenticated"
                         ? "bg-red-400"
@@ -6658,7 +6670,22 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
           MAIN
       ====================================================== */}
 
-      <main className="mx-auto max-w-7xl p-4 md:p-8 lg:p-10">
+      <main className="mx-auto max-w-[1480px] p-4 md:p-8 lg:p-10">
+        <section className="relative mb-8 overflow-hidden rounded-[28px] bg-[#0F3D32] px-6 py-7 text-white shadow-xl shadow-emerald-950/10 md:px-10 md:py-9">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-28 h-72 w-72 rounded-full border border-white/10" />
+          <div aria-hidden="true" className="pointer-events-none absolute -right-4 -top-16 h-52 w-52 rounded-full border border-white/10" />
+          <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-end">
+            <div>
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.28em] text-[#B9D4C7]">ORBI. / MARKETING WORKSPACE</p>
+              <h2 className="max-w-xl font-serif text-3xl leading-tight md:text-5xl">Your next big idea starts here.</h2>
+              <p className="mt-3 max-w-lg text-sm leading-6 text-[#D7E6DF]">A dedicated space to shape your content, schedule campaigns and manage your social presence.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setViewMode("create")} className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-xs font-bold text-[#0F3D32] transition hover:bg-[#F1F5EF]"><Plus size={16} /> Create a post</button>
+              <button type="button" onClick={() => setViewMode("planner")} className="inline-flex items-center gap-2 rounded-xl border border-white/30 px-5 py-3 text-xs font-bold text-white transition hover:bg-white/10"><CalendarDays size={16} /> Content planner</button>
+            </div>
+          </div>
+        </section>
 
         {/* ====================================================
             LATEST RESULT
@@ -6891,7 +6918,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                   <p className="mt-4 max-w-xl text-sm leading-relaxed text-stone-500">
                     {isEditingScheduledPost
                       ? "Update your content, media, platforms or scheduled time. Your existing scheduled post will be updated rather than duplicated."
-                      : "Choose exactly where your post should go. TOTS-OS will track each platform separately so you can see exactly what succeeded and what failed."}
+                      : "Choose exactly where your post should go. ORBI. will track each platform separately so you can see exactly what succeeded and what failed."}
                   </p>
                 </div>
 
@@ -6909,7 +6936,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                         void generateBusinessIdeas();
                       }
                     }}
-                    className="flex items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-6 py-4 text-[10px] font-black uppercase tracking-wider text-stone-900"
+                    className="flex items-center justify-center gap-3 rounded-2xl bg-[#0F3D32] px-6 py-4 text-[10px] font-black uppercase tracking-wider text-stone-900"
                   >
                     <Wand2
                       size={
@@ -6978,7 +7005,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                   )}
 
                   {selectedConcept && (
-                    <div className="rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-5">
+                    <div className="rounded-2xl border border-[#0F3D32]/30 bg-[#0F3D32]/10 p-5">
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#71805f]">
@@ -7122,7 +7149,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                                 className={`group relative overflow-hidden rounded-[1.5rem] border bg-stone-100 ${
                                   index ===
                                   0
-                                    ? "border-[#a9b897]"
+                                    ? "border-[#0F3D32]"
                                     : "border-stone-200"
                                 } ${
                                   mediaItems.length ===
@@ -7256,7 +7283,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
 
                         {mediaItems.length <
                           MAX_MEDIA_ITEMS && (
-                          <label className="flex cursor-pointer items-center justify-center gap-3 rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-5 py-4 text-[9px] font-black uppercase tracking-wider text-stone-500 transition hover:border-[#a9b897] hover:bg-[#f7f9f2] hover:text-[#71805f]">
+                          <label className="flex cursor-pointer items-center justify-center gap-3 rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-5 py-4 text-[9px] font-black uppercase tracking-wider text-stone-500 transition hover:border-[#0F3D32] hover:bg-[#f7f9f2] hover:text-[#71805f]">
                             <Plus
                               size={
                                 14
@@ -7282,7 +7309,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
 
                         {mediaItems.length >
                           1 && (
-                          <div className="flex items-start gap-3 rounded-2xl border border-[#a9b897]/20 bg-[#a9b897]/10 p-4">
+                          <div className="flex items-start gap-3 rounded-2xl border border-[#0F3D32]/20 bg-[#0F3D32]/10 p-4">
                             <Layers
                               size={
                                 14
@@ -7371,7 +7398,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                         />
 
                         <p className="text-[9px] leading-4 text-stone-400">
-                          Add an image or video and TOTS-OS can write the caption and hashtags from the media.
+                          Add an image or video and ORBI. can write the caption and hashtags from the media.
                         </p>
                       </div>
                     )}
@@ -7394,7 +7421,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                         )
                       }
                       placeholder="What do you want to say?"
-                      className="min-h-[220px] w-full resize-y rounded-[2rem] border border-stone-200 bg-[#faf9f6] p-6 text-base leading-8 outline-none transition focus:border-[#a9b897] disabled:opacity-60"
+                      className="min-h-[220px] w-full resize-y rounded-[2rem] border border-stone-200 bg-[#faf9f6] p-6 text-base leading-8 outline-none transition focus:border-[#0F3D32] disabled:opacity-60"
                     />
                   </div>
 
@@ -7429,7 +7456,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                         )
                       }
                       placeholder="#smallbusiness #marketing"
-                      className="w-full rounded-2xl border border-stone-200 bg-[#faf9f6] p-4 text-sm outline-none focus:border-[#a9b897] disabled:opacity-60"
+                      className="w-full rounded-2xl border border-stone-200 bg-[#faf9f6] p-4 text-sm outline-none focus:border-[#0F3D32] disabled:opacity-60"
                     />
                   </div>
 
@@ -7548,7 +7575,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                               }
                               className={`relative flex w-full items-center justify-between overflow-hidden rounded-2xl border p-4 text-left transition ${
                                 selected
-                                  ? "border-[#a9b897] bg-[#a9b897]/10"
+                                  ? "border-[#0F3D32] bg-[#0F3D32]/10"
                                   : connected
                                     ? "border-stone-100 bg-stone-50 hover:border-stone-200"
                                     : "border-stone-100 bg-stone-50 opacity-55"
@@ -7558,7 +7585,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                                 <div
                                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
                                     selected
-                                      ? "bg-[#a9b897] text-white"
+                                      ? "bg-[#0F3D32] text-white"
                                       : "bg-white text-stone-500"
                                   }`}
                                 >
@@ -7631,7 +7658,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                               </div>
 
                               {selected ? (
-                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#a9b897] text-white">
+                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0F3D32] text-white">
                                   <Check
                                     size={
                                       12
@@ -7649,7 +7676,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
 
                     {platforms.length >
                       0 && (
-                      <div className="mt-4 rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-4">
+                      <div className="mt-4 rounded-2xl border border-[#0F3D32]/30 bg-[#0F3D32]/10 p-4">
                         <p className="text-[8px] font-black uppercase tracking-[0.18em] text-[#71805f]">
                           {isEditingScheduledPost
                             ? "Scheduled for"
@@ -7940,7 +7967,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                                       })
                                     )
                                   }
-                                  className="h-4 w-4 accent-[#a9b897]"
+                                  className="h-4 w-4 accent-[#0F3D32]"
                                 />
 
                                 <span className="text-[10px] font-bold text-stone-600">
@@ -7984,7 +8011,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                                           })
                                         )
                                       }
-                                      className="h-4 w-4 accent-[#a9b897]"
+                                      className="h-4 w-4 accent-[#0F3D32]"
                                     />
 
                                     <span className="text-[10px] font-bold text-stone-600">
@@ -8026,7 +8053,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                                           })
                                         )
                                       }
-                                      className="h-4 w-4 accent-[#a9b897]"
+                                      className="h-4 w-4 accent-[#0F3D32]"
                                     />
 
                                     <span className="text-[10px] font-bold text-stone-600">
@@ -8099,7 +8126,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                                     })
                                   );
                                 }}
-                                className="mt-1 h-4 w-4 accent-[#a9b897]"
+                                className="mt-1 h-4 w-4 accent-[#0F3D32]"
                               />
                             </label>
 
@@ -8132,7 +8159,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                                         })
                                       )
                                     }
-                                    className="mt-0.5 h-4 w-4 accent-[#a9b897]"
+                                    className="mt-0.5 h-4 w-4 accent-[#0F3D32]"
                                   />
 
                                   <span>
@@ -8182,7 +8209,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                                         })
                                       );
                                     }}
-                                    className="mt-0.5 h-4 w-4 accent-[#a9b897]"
+                                    className="mt-0.5 h-4 w-4 accent-[#0F3D32]"
                                   />
 
                                   <span>
@@ -8259,11 +8286,11 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                                   })
                                 )
                               }
-                              className="mt-1 h-4 w-4 accent-[#a9b897]"
+                              className="mt-1 h-4 w-4 accent-[#0F3D32]"
                             />
                           </label>
 
-                          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-4">
+                          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#0F3D32]/30 bg-[#0F3D32]/10 p-4">
                             <input
                               type="checkbox"
                               checked={
@@ -8288,7 +8315,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                                   })
                                 )
                               }
-                              className="mt-0.5 h-4 w-4 accent-[#a9b897]"
+                              className="mt-0.5 h-4 w-4 accent-[#0F3D32]"
                             />
 
                             <span className="text-[9px] leading-5 text-stone-600">
@@ -8478,7 +8505,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                             true,
                         })
                       }
-                      className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#a9b897] px-6 py-5 text-[10px] font-black uppercase tracking-widest text-stone-900 shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#0F3D32] px-6 py-5 text-[10px] font-black uppercase tracking-widest text-stone-900 shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {isPosting ? (
                         <Loader2
@@ -8533,8 +8560,8 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                     }}
                     className={`flex w-full items-center justify-center gap-3 rounded-2xl px-6 py-5 text-[10px] font-black uppercase tracking-widest shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 ${
                       isEditingScheduledPost
-                        ? "bg-[#a9b897] text-stone-900"
-                        : "bg-stone-900 text-[#a9b897]"
+                        ? "bg-[#0F3D32] text-stone-900"
+                        : "bg-[#0F3D32] text-white shadow-sm"
                     }`}
                   >
                     {isPosting ? (
@@ -8635,7 +8662,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                   </h2>
 
                   <p className="mt-4 max-w-xl text-sm leading-7 text-stone-500">
-                    TOTS-OS uses what it already knows about your business
+                    ORBI. uses what it already knows about your business
                     to give you practical content starting points.
                   </p>
                 </div>
@@ -8648,7 +8675,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                   onClick={() =>
                     void generateBusinessIdeas()
                   }
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#a9b897] px-5 py-3.5 text-[9px] font-black uppercase tracking-[0.18em] text-stone-900 transition hover:bg-[#b8caa4] disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#0F3D32] px-5 py-3.5 text-[9px] font-black uppercase tracking-[0.18em] text-stone-900 transition hover:bg-[#b8caa4] disabled:opacity-50"
                 >
                   {generatingIdeas ? (
                     <Loader2
@@ -8691,7 +8718,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                   onClick={() =>
                     void generateBusinessIdeas()
                   }
-                  className="flex w-full flex-col items-center justify-center rounded-[2rem] border border-dashed border-stone-200 bg-white p-12 text-center transition hover:border-[#a9b897] hover:bg-[#f7f9f2]"
+                  className="flex w-full flex-col items-center justify-center rounded-[2rem] border border-dashed border-stone-200 bg-white p-12 text-center transition hover:border-[#0F3D32] hover:bg-[#f7f9f2]"
                 >
                   <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#edf3e7] text-[#7f8d69]">
                     <Lightbulb
@@ -8798,7 +8825,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                               concept
                             )
                           }
-                          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 py-3 text-[8px] font-black uppercase tracking-wider text-[#a9b897] transition hover:bg-stone-800"
+                          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 py-3 text-[8px] font-black uppercase tracking-wider text-[#0F3D32] transition hover:bg-stone-800"
                         >
                           <Wand2
                             size={
@@ -9368,7 +9395,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                     "create"
                   );
                 }}
-                className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-stone-900 py-5 text-[9px] font-black uppercase tracking-wider text-[#a9b897]"
+                className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-stone-900 py-5 text-[9px] font-black uppercase tracking-wider text-[#0F3D32]"
               >
                 <Plus
                   size={
@@ -9766,7 +9793,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                         previewPost
                       )
                     }
-                    className="flex items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-6 py-3 text-[9px] font-black uppercase tracking-wider text-stone-600 transition hover:border-[#a9b897] hover:text-[#71805f]"
+                    className="flex items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-6 py-3 text-[9px] font-black uppercase tracking-wider text-stone-600 transition hover:border-[#0F3D32] hover:text-[#71805f]"
                   >
                     <Pencil
                       size={
@@ -9791,7 +9818,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                         previewPost.id
                       )
                     }
-                    className="flex items-center justify-center gap-2 rounded-xl bg-[#a9b897] px-6 py-3 text-[9px] font-black uppercase tracking-wider text-stone-900 disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 rounded-xl bg-[#0F3D32] px-6 py-3 text-[9px] font-black uppercase tracking-wider text-white disabled:opacity-50"
                   >
                     {retryingPostId ===
                     previewPost.id ? (

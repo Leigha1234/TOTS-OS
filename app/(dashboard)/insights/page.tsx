@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
+import DetailedReports from './DetailedReports';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { BarChart3, RefreshCw, AlertCircle, TrendingUp, ShoppingBag, ReceiptText, FolderKanban, CalendarDays, CheckSquare, Users, Repeat, Loader2 } from 'lucide-react';
@@ -16,16 +17,17 @@ type Report = {
 const money=(v:number)=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(v||0);
 const shortDate=(v:string)=>v?new Date(v).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—';
 function Card({label,value,detail,href,icon:Icon}:{label:string;value:string|number;detail?:string;href?:string;icon?:React.ElementType}){
- const content=<div className="h-full rounded-2xl border border-stone-200 bg-white p-5 transition hover:border-[#A9B897] hover:shadow-sm"><div className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wider text-stone-500"><span>{label}</span>{Icon&&<Icon size={17}/>}</div><div className="mt-3 text-2xl font-bold text-[#4f4a46]">{value}</div>{detail&&<p className="mt-2 text-xs leading-5 text-stone-500">{detail}</p>}</div>;
+ const content=<div className="h-full rounded-2xl border border-stone-200 bg-white p-5 transition hover:border-[#0F3D32] hover:shadow-sm"><div className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wider text-stone-500"><span>{label}</span>{Icon&&<Icon size={17}/>}</div><div className="mt-3 text-2xl font-bold text-[#4f4a46]">{value}</div>{detail&&<p className="mt-2 text-xs leading-5 text-stone-500">{detail}</p>}</div>;
  return href?<Link href={href}>{content}</Link>:content;
 }
 function Panel({title,children}:{title:string;children:React.ReactNode}){return <section className="rounded-2xl border border-stone-200 bg-white p-5"><h2 className="mb-4 text-lg font-bold text-[#4f4a46]">{title}</h2>{children}</section>}
 function Empty({children}:{children:React.ReactNode}){return <p className="rounded-xl bg-stone-50 p-5 text-sm text-stone-500">{children}</p>}
 function Trend({points}:{points:{date:string;revenue:number}[]}){
  const max=Math.max(1,...points.map(p=>p.revenue));
- return <div><div className="flex h-40 items-end gap-[2px] overflow-hidden rounded-lg bg-[#FAF8F5] p-3" role="img" aria-label="Daily store revenue bar chart">{points.map(p=><div key={p.date} title={`${shortDate(p.date)}: ${money(p.revenue)}`} className="min-w-0 flex-1 rounded-t bg-[#A9B897]" style={{height:`${Math.max(p.revenue>0?3:0,p.revenue/max*100)}%`}} />)}</div><div className="mt-2 flex justify-between text-xs text-stone-500"><span>{points.length?shortDate(points[0].date):''}</span><span>{points.length?shortDate(points[points.length-1].date):''}</span></div></div>;
+ return <div><div className="flex h-40 items-end gap-[2px] overflow-hidden rounded-lg bg-[#FAF8F5] p-3" role="img" aria-label="Daily store revenue bar chart">{points.map(p=><div key={p.date} title={`${shortDate(p.date)}: ${money(p.revenue)}`} className="min-w-0 flex-1 rounded-t bg-[#0F3D32]" style={{height:`${Math.max(p.revenue>0?3:0,p.revenue/max*100)}%`}} />)}</div><div className="mt-2 flex justify-between text-xs text-stone-500"><span>{points.length?shortDate(points[0].date):''}</span><span>{points.length?shortDate(points[points.length-1].date):''}</span></div></div>;
 }
 export default function InsightsPage(){
+ const [view,setView]=useState<'insights'|'reports'>('insights');
  const [days,setDays]=useState(30);const [report,setReport]=useState<Report|null>(null);const [loading,setLoading]=useState(true);const [error,setError]=useState('');
  const load=useCallback(async()=>{setLoading(true);setError('');try{
   const {data:{session},error:authError}=await supabase.auth.getSession();if(authError||!session)throw new Error('Please sign in again.');
@@ -35,7 +37,17 @@ export default function InsightsPage(){
  }catch(e){setReport(null);setError(e instanceof Error?e.message:'Unable to load insights');}finally{setLoading(false)}},[days]);
  useEffect(()=>{void load()},[load]);
  const has=(module:string)=>!report?.modules||report.modules.includes(module);
- return <main className="mx-auto max-w-7xl space-y-6 p-4 pb-20 md:p-8">
+ return <div className="min-h-screen bg-[#FAF9F6] text-[#1E2A27]">
+ <div className="mx-auto max-w-7xl px-4 pt-7 md:px-8">
+   <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-[#0F3D32] p-5 text-white sm:p-7">
+     <div><p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#C9D8CD]">ORBI. / Intelligence</p><h1 className="mt-1 font-serif text-3xl sm:text-4xl">Business insights</h1><p className="mt-2 text-sm text-[#D8E4DC]">One destination for business performance and detailed reports.</p></div>
+     <div className="flex gap-2 rounded-xl bg-white/10 p-1" role="tablist" aria-label="Insights views">
+       <button type="button" role="tab" aria-selected={view==='insights'} onClick={()=>setView('insights')} className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${view==='insights'?'bg-white text-[#0F3D32]':'text-white hover:bg-white/10'}`}>Live insights</button>
+       <button type="button" role="tab" aria-selected={view==='reports'} onClick={()=>setView('reports')} className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${view==='reports'?'bg-white text-[#0F3D32]':'text-white hover:bg-white/10'}`}>Detailed reports</button>
+     </div>
+   </div>
+ </div>
+ {view==='reports' ? <DetailedReports/> : <main className="mx-auto max-w-7xl space-y-6 p-4 pb-20 md:p-8">
  <header className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="flex items-center gap-2 text-3xl font-bold text-[#4f4a46]"><BarChart3/> Insights</h1><p className="mt-1 text-sm text-stone-500">Your business, all in one picture.</p>{report?.organisation?.name&&<span className="mt-2 inline-block rounded-full bg-[#EAF0E4] px-3 py-1 text-xs font-semibold text-[#607754]">{report.organisation.name}</span>}</div><div className="flex items-center gap-2"><select aria-label="Reporting period" value={days} onChange={e=>setDays(Number(e.target.value))} className="rounded-xl border border-stone-200 bg-white p-3 text-sm"><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option><option value={365}>Last 365 days</option></select><button onClick={()=>void load()} disabled={loading} aria-label="Refresh" className="rounded-xl border border-stone-200 bg-white p-3"><RefreshCw size={17} className={loading?'animate-spin':''}/></button></div></header>
  {error&&<div className="flex gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><AlertCircle size={18}/>{error}</div>}
  {loading&&!report&&<div className="flex items-center gap-3 rounded-2xl bg-white p-8 text-stone-500"><Loader2 className="animate-spin"/>Loading business insights…</div>}
@@ -60,7 +72,8 @@ export default function InsightsPage(){
  </div>
  {!!report.warnings?.length&&<div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><strong>Some data sources could not be loaded.</strong><p className="mt-1">Check the server logs and reporting table configuration before treating missing values as zero.</p></div>}
  <div className="rounded-2xl bg-[#FAF8F5] p-5"><h2 className="font-semibold">About these figures</h2><ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-stone-600">{report.notes.map(x=><li key={x}>{x}</li>)}</ul></div>
- <p className="text-xs text-stone-500">Reporting period: {shortDate(report.period.from)} – {shortDate(report.period.to)} · TOTS-OS Insights</p>
+ <p className="text-xs text-stone-500">Reporting period: {shortDate(report.period.from)} – {shortDate(report.period.to)} · ORBI. Insights</p>
  </>}
- </main>;
+ </main>}
+ </div>;
 }

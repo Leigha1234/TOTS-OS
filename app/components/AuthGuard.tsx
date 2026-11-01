@@ -74,7 +74,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col items-center gap-3">
           <div className="w-6 h-6 border-2 border-stone-300 border-t-stone-800 animate-spin rounded-full" />
           <p className="text-sm font-medium text-stone-600 animate-pulse">
-            Authenticating TOTS OS...
+            Authenticating ORBI....
           </p>
         </div>
       </div>

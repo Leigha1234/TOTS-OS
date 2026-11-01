@@ -1068,7 +1068,7 @@ export default function ClarityTourOverlay() {
                 fixed
                 rounded-[1.6rem]
                 border
-                border-[#a9b897]/90
+                border-[#0F3D32]/90
               "
               style={{
                 top:
@@ -1229,7 +1229,7 @@ export default function ClarityTourOverlay() {
                   h-44
                   w-44
                   rounded-full
-                  bg-[#a9b897]/20
+                  bg-[#0F3D32]/20
                   blur-[55px]
                 "
               />
@@ -1282,8 +1282,8 @@ export default function ClarityTourOverlay() {
                       justify-center
                       rounded-xl
                       border
-                      border-[#a9b897]/20
-                      bg-[#a9b897]/10
+                      border-[#0F3D32]/20
+                      bg-[#0F3D32]/10
                     "
                   >
                     <Sparkles
@@ -1303,7 +1303,7 @@ export default function ClarityTourOverlay() {
                         font-black
                         uppercase
                         tracking-[0.34em]
-                        text-[#a9b897]
+                        text-[#0F3D32]
                       "
                     >
                       Clarity
@@ -1317,7 +1317,7 @@ export default function ClarityTourOverlay() {
                         text-white/35
                       "
                     >
-                      Your TOTS-OS guide
+                      Your ORBI. guide
                     </p>
                   </div>
                 </div>
@@ -1530,8 +1530,8 @@ export default function ClarityTourOverlay() {
                         gap-2
                         rounded-xl
                         border
-                        border-[#a9b897]/10
-                        bg-[#a9b897]/[0.06]
+                        border-[#0F3D32]/10
+                        bg-[#0F3D32]/[0.06]
                         px-3.5
                         py-3
                       "
@@ -1552,7 +1552,7 @@ export default function ClarityTourOverlay() {
                             w-full
                             animate-ping
                             rounded-full
-                            bg-[#a9b897]
+                            bg-[#0F3D32]
                             opacity-50
                           "
                         />
@@ -1564,7 +1564,7 @@ export default function ClarityTourOverlay() {
                             h-2
                             w-2
                             rounded-full
-                            bg-[#a9b897]
+                            bg-[#0F3D32]
                           "
                         />
                       </span>

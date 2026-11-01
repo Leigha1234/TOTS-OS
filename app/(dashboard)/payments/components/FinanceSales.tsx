@@ -1002,7 +1002,7 @@ export default function FinanceSales({
                 onClick={
                   handleCreateInvoice
                 }
-                className="flex items-center gap-2 rounded-full bg-stone-900 px-5 py-2.5 text-[8px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#a9b897] hover:text-stone-900"
+                className="flex items-center gap-2 rounded-full bg-[#0F3D32] px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#0F3D32] hover:text-[#1E2A27]"
               >
                 <Plus
                   size={14}
@@ -1017,7 +1017,7 @@ export default function FinanceSales({
                 onClick={
                   handleCreateQuote
                 }
-                className="flex items-center gap-2 rounded-full border border-stone-200 bg-white px-5 py-2.5 text-[8px] font-black uppercase tracking-widest text-stone-700 transition-all hover:bg-stone-900 hover:text-white"
+                className="flex items-center gap-2 rounded-full border border-stone-200 bg-white px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-stone-700 transition-all hover:bg-[#0F3D32] hover:text-white"
               >
                 <FileText
                   size={14}
@@ -1030,7 +1030,7 @@ export default function FinanceSales({
       >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="rounded-2xl bg-[#faf9f6] p-5">
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-stone-400">
               Pending
               Documents
             </p>
@@ -1052,7 +1052,7 @@ export default function FinanceSales({
           </div>
 
           <div className="rounded-2xl bg-[#faf9f6] p-5">
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-stone-400">
               Active
               Recurring
             </p>
@@ -1071,13 +1071,13 @@ export default function FinanceSales({
             </p>
           </div>
 
-          <div className="rounded-2xl bg-stone-900 p-5 text-white">
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+          <div className="rounded-2xl bg-[#0F3D32] p-5 text-white">
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-stone-400">
               Monthly
               Recurring
             </p>
 
-            <p className="mt-3 font-mono text-3xl font-bold text-[#a9b897]">
+            <p className="mt-3 font-mono text-3xl font-bold text-[#0F3D32]">
               £
               {formatMoney(
                 salesSignals.recurringMonthlyValue
@@ -1108,7 +1108,7 @@ export default function FinanceSales({
               onClick={
                 handleRecurring
               }
-              className="flex items-center gap-2 rounded-full bg-stone-900 px-5 py-2.5 text-[8px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#a9b897] hover:text-stone-900"
+              className="flex items-center gap-2 rounded-full bg-[#0F3D32] px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#0F3D32] hover:text-[#1E2A27]"
             >
               <Repeat
                 size={14}
@@ -1153,7 +1153,7 @@ export default function FinanceSales({
                   className="flex flex-col justify-between gap-4 rounded-2xl bg-[#faf9f6] p-4 sm:flex-row sm:items-center"
                 >
                   <div className="min-w-0">
-                    <p className="truncate font-bold text-stone-900">
+                    <p className="truncate font-bold text-[#1E2A27]">
                       {subscription.client_name ||
                         "Unnamed client"}
                     </p>
@@ -1169,7 +1169,7 @@ export default function FinanceSales({
                   </div>
 
                   <div className="flex shrink-0 items-center gap-3">
-                    <span className="font-mono font-bold text-stone-900">
+                    <span className="font-mono font-bold text-[#1E2A27]">
                       £
                       {formatMoney(
                         Number(
@@ -1189,7 +1189,7 @@ export default function FinanceSales({
                       disabled={
                         !handleToggleRecurring
                       }
-                      className={`rounded-full border px-3 py-1.5 text-[8px] font-black uppercase tracking-widest transition-all disabled:cursor-default ${
+                      className={`rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-widest transition-all disabled:cursor-default ${
                         subscription.active
                           ? "border-green-100 bg-green-50 text-green-600"
                           : "border-stone-200 bg-stone-100 text-stone-400"
@@ -1211,8 +1211,8 @@ export default function FinanceSales({
           TRANSACTIONS
       ================================================== */}
 
-      <section className="overflow-hidden rounded-[2.5rem] border border-stone-100 bg-white shadow-sm">
-        <div className="border-b border-stone-100 p-6 sm:p-8">
+      <section className="overflow-hidden rounded-[2.5rem] border border-[#E6ECE7] bg-white shadow-sm">
+        <div className="border-b border-[#E6ECE7] p-6 sm:p-8">
           <div className="flex flex-col justify-between gap-6 xl:flex-row xl:items-center">
             <div>
               <h3 className="font-serif text-3xl italic tracking-tighter sm:text-4xl">
@@ -1233,7 +1233,7 @@ export default function FinanceSales({
             <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
               <div className="relative flex-1 xl:w-64">
                 <Search
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-[#a9b897]"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-[#0F3D32]"
                   size={14}
                 />
 
@@ -1251,7 +1251,7 @@ export default function FinanceSales({
                     )
                   }
                   placeholder="Search transactions..."
-                  className="w-full rounded-full border border-stone-100 bg-[#faf9f6] py-3 pl-10 pr-4 text-xs outline-none transition-all focus:border-stone-900 focus:bg-white"
+                  className="w-full rounded-full border border-[#E6ECE7] bg-[#faf9f6] py-3 pl-10 pr-4 text-xs outline-none transition-all focus:border-stone-900 focus:bg-white"
                 />
               </div>
 
@@ -1272,7 +1272,7 @@ export default function FinanceSales({
                         | "quote"
                     )
                   }
-                  className="rounded-full border border-stone-100 bg-[#faf9f6] px-4 py-3 text-[9px] font-black uppercase tracking-widest outline-none"
+                  className="rounded-full border border-[#E6ECE7] bg-[#faf9f6] px-4 py-3 text-[9px] font-black uppercase tracking-widest outline-none"
                 >
                   <option value="all">
                     All Types
@@ -1300,7 +1300,7 @@ export default function FinanceSales({
                         .value
                     )
                   }
-                  className="rounded-full border border-stone-100 bg-[#faf9f6] px-4 py-3 text-[9px] font-black uppercase tracking-widest outline-none"
+                  className="rounded-full border border-[#E6ECE7] bg-[#faf9f6] px-4 py-3 text-[9px] font-black uppercase tracking-widest outline-none"
                 >
                   <option value="all">
                     All Status
@@ -1326,7 +1326,7 @@ export default function FinanceSales({
                   )}
                 </select>
 
-                <div className="flex items-center justify-center rounded-full bg-stone-900 p-3 text-[#a9b897]">
+                <div className="flex items-center justify-center rounded-full bg-[#0F3D32] p-3 text-[#0F3D32]">
                   <Filter
                     size={15}
                   />
@@ -1356,7 +1356,7 @@ export default function FinanceSales({
                       key={
                         heading
                       }
-                      className="px-6 py-4 text-[8px] font-black uppercase tracking-[0.3em] text-stone-400"
+                      className="px-6 py-4 text-[11px] font-black uppercase tracking-[0.3em] text-stone-400"
                     >
                       {
                         heading
@@ -1446,7 +1446,7 @@ export default function FinanceSales({
                         className="group cursor-pointer transition-colors hover:bg-[#faf9f6]/80"
                       >
                         <td className="px-6 py-5">
-                          <span className="font-mono text-[9px] font-black text-[#a9b897]">
+                          <span className="font-mono text-[9px] font-black text-[#0F3D32]">
                             {entry.type ===
                             "Invoice"
                               ? "INV"
@@ -1462,7 +1462,7 @@ export default function FinanceSales({
                         </td>
 
                         <td className="px-6 py-5">
-                          <p className="font-bold text-stone-900">
+                          <p className="font-bold text-[#1E2A27]">
                             {
                               entry.client
                             }
@@ -1501,7 +1501,7 @@ export default function FinanceSales({
                         </td>
 
                         <td className="px-6 py-5">
-                          <span className="font-mono font-bold text-stone-900">
+                          <span className="font-mono font-bold text-[#1E2A27]">
                             £
                             {formatMoney(
                               entry.amount

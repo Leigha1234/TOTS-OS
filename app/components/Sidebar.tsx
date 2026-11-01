@@ -152,7 +152,7 @@ export default function Sidebar() {
     ModuleKey[]
   >([]);
 
-  const [localColor, setLocalColor] = useState("#a9b897");
+  const [localColor, setLocalColor] = useState("#0F3D32");
 
   // ==========================================================
   // ADMIN ACCESS
@@ -252,7 +252,7 @@ export default function Sidebar() {
     },
     {
       href: "/tots-admin",
-      label: "TOTS Admin",
+      label: "Platform Admin",
       icon: ShieldCheck,
       adminOnly: true,
     },
@@ -538,8 +538,7 @@ export default function Sidebar() {
   // BRAND COLOUR
   // ==========================================================
 
-  const activeColor =
-    context?.settings?.brandColor || localColor;
+  void localColor;
 
   // ==========================================================
   // LINK ACCESS
@@ -698,11 +697,11 @@ export default function Sidebar() {
       ],
     },
     {
-      title: "TOTS Platform",
+      title: "ORBI. Platform",
       links: [
         {
           href: "/tots-admin",
-          label: "TOTS Admin",
+          label: "Platform Admin",
           icon: ShieldCheck,
           adminOnly: true,
         },
@@ -738,8 +737,8 @@ export default function Sidebar() {
         h-[100dvh]
         flex-col
         border-r
-        border-stone-200
-        bg-stone-50
+        border-white/10
+        bg-[#0F3D32]
         transition-all
         duration-300
         ${
@@ -775,46 +774,35 @@ export default function Sidebar() {
             href="/dashboard"
             className="flex min-w-0 items-center gap-3"
           >
-            <Image
-              src="/icon.png"
-              alt="TOTS-OS"
-              width={isCompact ? 42 : 52}
-              height={isCompact ? 42 : 52}
-              priority
-              className="shrink-0 object-contain"
-            />
-
-            <div className="min-w-0">
-              <p className="truncate text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">
-                TOTS-OS
-              </p>
+            <div className={`flex shrink-0 items-center justify-center rounded-xl bg-white shadow-sm ${isCompact ? "h-11 w-11 p-2" : "h-12 w-12 p-2.5"}`}>
+              <Image
+                src="/icons/orbi-sidebar.png"
+                alt="ORBI. orbital logo"
+                width={40}
+                height={40}
+                priority
+                className="h-full w-full object-contain"
+              />
             </div>
+            <span className="truncate text-[11px] font-bold uppercase tracking-[0.22em] text-white">
+              ORBI.
+            </span>
           </Link>
         ) : (
           <Link
             href="/dashboard"
             className="flex items-center justify-center"
           >
-            <Image
-              src="/icon.png"
-              alt="TOTS-OS"
-              width={
-                isMobile
-                  ? 27
-                  : isCompact
-                    ? 28
-                    : 34
-              }
-              height={
-                isMobile
-                  ? 27
-                  : isCompact
-                    ? 28
-                    : 34
-              }
-              priority
-              className="object-contain"
-            />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white p-2 shadow-sm">
+              <Image
+                src="/icons/orbi-sidebar.png"
+                alt="ORBI. orbital logo"
+                width={36}
+                height={36}
+                priority
+                className="h-full w-full object-contain"
+              />
+            </div>
           </Link>
         )}
 
@@ -831,11 +819,10 @@ export default function Sidebar() {
               items-center
               justify-center
               rounded-xl
-              text-stone-400
+              text-white/80
               transition
-              hover:bg-white
-              hover:text-stone-800
-              hover:shadow-sm
+              hover:bg-white/10
+              hover:text-white
             "
           >
             <PanelLeftClose
@@ -868,11 +855,10 @@ export default function Sidebar() {
               items-center
               justify-center
               rounded-xl
-              text-stone-400
+              text-white/80
               transition
-              hover:bg-white
-              hover:text-stone-800
-              hover:shadow-sm
+              hover:bg-white/10
+              hover:text-white
             "
           >
             <PanelLeftOpen
@@ -902,7 +888,7 @@ export default function Sidebar() {
           <div className="flex h-32 items-center justify-center">
             <Loader2
               size={20}
-              className="animate-spin text-stone-400"
+              className="animate-spin text-white/70"
             />
           </div>
         ) : signedIn ? (
@@ -934,7 +920,7 @@ export default function Sidebar() {
                         px-3
                         font-semibold
                         uppercase
-                        text-stone-400
+                        text-white/60
                         ${
                           isCompact
                             ? "mb-1 text-[9px] tracking-[0.14em]"
@@ -969,7 +955,7 @@ export default function Sidebar() {
                           }
                           style={{
                             backgroundColor: active
-                              ? activeColor
+                              ? "rgba(255, 255, 255, 0.16)"
                               : "transparent",
                           }}
                           className={`
@@ -992,7 +978,7 @@ export default function Sidebar() {
                             ${
                               active
                                 ? "text-white shadow-sm"
-                                : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+                                : "text-white/85 hover:bg-white/10 hover:text-white"
                             }
                           `}
                         >
@@ -1026,9 +1012,9 @@ export default function Sidebar() {
                   className={`
                     rounded-xl
                     border
-                    border-stone-200
-                    bg-white
-                    text-stone-500
+                    border-white/15
+                    bg-white/10
+                    text-white/80
                     ${
                       collapsed
                         ? "flex justify-center p-2"
@@ -1043,7 +1029,7 @@ export default function Sidebar() {
 
                   {!collapsed && (
                     <div className="mt-2">
-                      <p className="text-[10px] font-bold text-stone-700">
+                      <p className="text-[10px] font-bold text-white">
                         Modules unavailable
                       </p>
 
@@ -1089,7 +1075,7 @@ export default function Sidebar() {
               }
               style={{
                 backgroundColor: isActive("/settings")
-                  ? activeColor
+                  ? "rgba(255, 255, 255, 0.16)"
                   : "transparent",
               }}
               className={`
@@ -1110,7 +1096,7 @@ export default function Sidebar() {
                 ${
                   isActive("/settings")
                     ? "text-white"
-                    : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+                    : "text-white/85 hover:bg-white/10 hover:text-white"
                 }
               `}
             >
@@ -1138,7 +1124,7 @@ export default function Sidebar() {
           className={`
             shrink-0
             border-t
-            border-stone-200
+            border-white/10
             ${
               isCompact
                 ? "p-2"
@@ -1160,10 +1146,10 @@ export default function Sidebar() {
               w-full
               items-center
               font-medium
-              text-stone-500
+              text-white/85
               transition
-              hover:bg-red-50
-              hover:text-red-600
+              hover:bg-white/10
+              hover:text-white
               ${
                 isCompact
                   ? "rounded-lg px-2.5 py-2 text-[12px]"

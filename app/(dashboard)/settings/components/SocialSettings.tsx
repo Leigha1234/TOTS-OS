@@ -329,7 +329,7 @@ export default function SocialSettings({
 
         <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-500">
           Connect the social accounts you want to manage and
-          publish through TOTS-OS.
+          publish through ORBI..
         </p>
       </div>
 
@@ -345,7 +345,7 @@ export default function SocialSettings({
             </p>
 
             <p className="mt-2 text-xs leading-5 text-stone-500">
-              This shows what TOTS-OS currently sees in your
+              This shows what ORBI. currently sees in your
               connected social account records.
             </p>
           </div>
@@ -572,7 +572,7 @@ export default function SocialSettings({
           </h3>
 
           <p className="mt-2 text-xs leading-5 text-stone-500">
-            Connect, reconnect or remove the accounts TOTS-OS can
+            Connect, reconnect or remove the accounts ORBI. can
             use for Facebook, Instagram, LinkedIn and TikTok.
           </p>
         </div>

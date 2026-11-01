@@ -16,7 +16,7 @@ type ThemeContextType = {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [brandColor, setBrandColorState] = useState("#a9b897");
+  const [brandColor, setBrandColorState] = useState("#0F3D32");
   const [secondaryColor, setSecondaryColorState] = useState("#e5e7eb");
   const [selectedFont, setSelectedFontState] = useState("Inter");
   const [isDarkMode, setIsDarkModeState] = useState(false);

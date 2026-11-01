@@ -497,7 +497,7 @@ function getInviteErrorMessage(
         "Permission denied",
 
       message:
-        "TOTS-OS could not update the organisation or project because your account does not currently have permission.",
+        "ORBI. could not update the organisation or project because your account does not currently have permission.",
     };
   }
 
@@ -4474,7 +4474,7 @@ export default function ProjectEngine() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-stone-50">
         <div className="text-center">
-          <Loader2 className="mx-auto animate-spin text-[#a9b897]" />
+          <Loader2 className="mx-auto animate-spin text-[#0F3D32]" />
 
           <p className="mt-4 text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">
             Loading Project
@@ -4580,12 +4580,12 @@ export default function ProjectEngine() {
   // ==========================================================
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-stone-50 pb-24 selection:bg-[#a9b897] selection:text-white">
+    <div className="min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-24 selection:bg-[#0F3D32] selection:text-white">
       {/* ======================================================
           TOP NAV
       ====================================================== */}
 
-      <nav className="sticky top-0 z-40 border-b border-stone-200 bg-white/90 backdrop-blur-md">
+      <nav className="sticky top-0 z-40 border-b border-[#DDE8E0] bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link
             href="/projects"
@@ -4608,7 +4608,7 @@ export default function ProjectEngine() {
             <div
               className={`h-2 w-2 rounded-full ${
                 projectHealthy
-                  ? "bg-[#a9b897]"
+                  ? "bg-[#0F3D32]"
                   : "bg-amber-400"
               }`}
             />
@@ -4626,13 +4626,13 @@ export default function ProjectEngine() {
           HEADER
       ====================================================== */}
 
-      <header className="mx-auto max-w-[1400px] px-4 pb-7 pt-10 sm:px-6 lg:px-8 lg:pt-14">
+      <header className="mx-auto max-w-[1400px] rounded-b-[2rem] bg-[#0F3D32] px-6 pb-10 pt-10 text-[#F7EFE6] shadow-xl sm:px-8 lg:px-12 lg:pt-14">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-3">
               {customer && (
                 <>
-                  <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                  <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-[#C4D9CD]">
                     <UserRound
                       size={
                         12
@@ -4650,7 +4650,7 @@ export default function ProjectEngine() {
                 </>
               )}
 
-              <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-stone-400">
+              <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-[#C4D9CD]">
                 <Hash
                   size={
                     12
@@ -4662,14 +4662,14 @@ export default function ProjectEngine() {
               </div>
             </div>
 
-            <h1 className="max-w-4xl break-words font-serif text-5xl italic leading-none tracking-tight text-stone-800 sm:text-6xl lg:text-8xl">
+            <h1 className="max-w-4xl break-words font-serif text-5xl italic leading-none tracking-tight text-[#F7EFE6] sm:text-6xl lg:text-8xl">
               {
                 project.name
               }
             </h1>
 
             {project.objective_summary && (
-              <p className="mt-5 max-w-2xl text-sm leading-6 text-stone-500">
+              <p className="mt-5 max-w-2xl text-sm leading-6 text-[#E1EBE5]">
                 {
                   project.objective_summary
                 }
@@ -4780,7 +4780,7 @@ export default function ProjectEngine() {
             >
               <Panel>
                 <div className="flex items-start gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#a9b897]/10 text-[#829473]">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0F3D32]/10 text-[#829473]">
                     <Sparkles
                       size={
                         18
@@ -4831,7 +4831,7 @@ export default function ProjectEngine() {
 
                 <div className="h-3 overflow-hidden rounded-full bg-stone-100">
                   <div
-                    className="h-full rounded-full bg-[#a9b897]"
+                    className="h-full rounded-full bg-[#0F3D32]"
                     style={{
                       width:
                         `${progress}%`,
@@ -6431,7 +6431,7 @@ export default function ProjectEngine() {
             }
 
             .input:focus {
-              border-color: #a9b897;
+              border-color: #0F3D32;
             }
           `,
         }}
@@ -6595,7 +6595,7 @@ function FinanceButton({
       onClick={
         onClick
       }
-      className="rounded-xl bg-stone-900 px-4 py-3 text-[8px] font-black uppercase tracking-wider text-white hover:bg-[#a9b897]"
+      className="rounded-xl bg-stone-900 px-4 py-3 text-[8px] font-black uppercase tracking-wider text-white hover:bg-[#0F3D32]"
     >
       {label}
     </button>

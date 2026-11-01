@@ -277,7 +277,7 @@ export default function FinanceTax({
                   </div>
 
                   <div className="min-w-0">
-                    <p className="font-bold text-stone-900">
+                    <p className="font-bold text-[#1E2A27]">
                       VAT liability outstanding
                     </p>
 
@@ -292,7 +292,7 @@ export default function FinanceTax({
                   <button
                     type="button"
                     onClick={handleVat}
-                    className="shrink-0 rounded-full bg-stone-900 px-4 py-2 text-[8px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#a9b897] hover:text-stone-900"
+                    className="shrink-0 rounded-full bg-[#0F3D32] px-4 py-2 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#0F3D32] hover:text-[#1E2A27]"
                   >
                     File VAT
                   </button>
@@ -308,7 +308,7 @@ export default function FinanceTax({
                   </div>
 
                   <div className="min-w-0">
-                    <p className="font-bold text-stone-900">
+                    <p className="font-bold text-[#1E2A27]">
                       Tax provision required
                     </p>
 
@@ -323,7 +323,7 @@ export default function FinanceTax({
                   <button
                     type="button"
                     onClick={handleTax}
-                    className="shrink-0 rounded-full bg-stone-900 px-4 py-2 text-[8px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#a9b897] hover:text-stone-900"
+                    className="shrink-0 rounded-full bg-[#0F3D32] px-4 py-2 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#0F3D32] hover:text-[#1E2A27]"
                   >
                     File Return
                   </button>
@@ -346,7 +346,7 @@ export default function FinanceTax({
             <button
               type="button"
               onClick={handleVat}
-              className="flex items-center gap-2 rounded-full bg-stone-900 px-5 py-2.5 text-[8px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#a9b897] hover:text-stone-900"
+              className="flex items-center gap-2 rounded-full bg-[#0F3D32] px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#0F3D32] hover:text-[#1E2A27]"
             >
               <ShieldCheck size={14} />
               File VAT Return
@@ -377,7 +377,7 @@ export default function FinanceTax({
                 className="flex flex-col justify-between gap-4 rounded-2xl bg-[#faf9f6] p-4 sm:flex-row sm:items-center"
               >
                 <div className="min-w-0">
-                  <p className="truncate font-bold text-stone-900">
+                  <p className="truncate font-bold text-[#1E2A27]">
                     {record?.description || "VAT Return"}
                   </p>
 
@@ -395,7 +395,7 @@ export default function FinanceTax({
                     status={record?.status || "draft"}
                   />
 
-                  <span className="font-mono font-bold text-stone-900">
+                  <span className="font-mono font-bold text-[#1E2A27]">
                     £{formatMoney(Number(record?.amount ?? 0))}
                   </span>
 
@@ -403,7 +403,7 @@ export default function FinanceTax({
                     <button
                       type="button"
                       onClick={() => onDeleteVat(record.id)}
-                      className="rounded-full px-3 py-1.5 text-[8px] font-black uppercase tracking-widest text-red-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      className="rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-red-400 transition-colors hover:bg-red-50 hover:text-red-600"
                     >
                       Delete
                     </button>
@@ -427,7 +427,7 @@ export default function FinanceTax({
             <button
               type="button"
               onClick={handleTax}
-              className="flex items-center gap-2 rounded-full bg-stone-900 px-5 py-2.5 text-[8px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#a9b897] hover:text-stone-900"
+              className="flex items-center gap-2 rounded-full bg-[#0F3D32] px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#0F3D32] hover:text-[#1E2A27]"
             >
               <ClipboardCheck size={14} />
               File Return
@@ -458,7 +458,7 @@ export default function FinanceTax({
                 className="flex flex-col justify-between gap-4 rounded-2xl bg-[#faf9f6] p-4 sm:flex-row sm:items-center"
               >
                 <div className="min-w-0">
-                  <p className="truncate font-bold text-stone-900">
+                  <p className="truncate font-bold text-[#1E2A27]">
                     {record?.description || "Tax Return"}
                   </p>
 
@@ -476,7 +476,7 @@ export default function FinanceTax({
                     status={record?.status || "draft"}
                   />
 
-                  <span className="font-mono font-bold text-stone-900">
+                  <span className="font-mono font-bold text-[#1E2A27]">
                     £{formatMoney(Number(record?.amount ?? 0))}
                   </span>
 
@@ -484,7 +484,7 @@ export default function FinanceTax({
                     <button
                       type="button"
                       onClick={() => onDeleteTax(record.id)}
-                      className="rounded-full px-3 py-1.5 text-[8px] font-black uppercase tracking-widest text-red-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      className="rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-red-400 transition-colors hover:bg-red-50 hover:text-red-600"
                     >
                       Delete
                     </button>
@@ -495,11 +495,11 @@ export default function FinanceTax({
           </div>
         )}
 
-        <div className="mt-6 rounded-2xl border border-stone-100 bg-stone-50 p-4">
+        <div className="mt-6 rounded-2xl border border-[#E6ECE7] bg-stone-50 p-4">
           <div className="flex items-start gap-3">
             <CheckCircle2
               size={16}
-              className="mt-0.5 shrink-0 text-[#a9b897]"
+              className="mt-0.5 shrink-0 text-[#0F3D32]"
             />
 
             <p className="text-[10px] leading-relaxed text-stone-500">

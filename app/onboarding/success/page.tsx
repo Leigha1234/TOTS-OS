@@ -76,7 +76,7 @@ function SuccessHandler() {
     message,
     setMessage,
   ] = useState(
-    "Creating your TOTS-OS workspace..."
+    "Creating your ORBI. workspace..."
   );
 
   useEffect(() => {
@@ -176,7 +176,7 @@ function SuccessHandler() {
             );
 
             setMessage(
-              "Creating your TOTS-OS workspace..."
+              "Creating your ORBI. workspace..."
             );
           }
 
@@ -241,7 +241,7 @@ function SuccessHandler() {
             );
 
             setMessage(
-              "Signing you into TOTS-OS..."
+              "Signing you into ORBI...."
             );
           }
 
@@ -434,7 +434,7 @@ function SuccessHandler() {
       {/* EYEBROW */}
 
       <p className="mt-7 text-[9px] font-black uppercase tracking-[0.22em] text-[#829473]">
-        TOTS-OS
+        ORBI.
       </p>
 
       {/* TITLE */}

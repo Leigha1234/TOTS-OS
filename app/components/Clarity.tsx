@@ -1243,7 +1243,7 @@ export default function Clarity() {
                   border-stone-100
 
                   bg-gradient-to-b
-                  from-[#fdfbf8]
+                  from-[#FAFAF8]
                   to-white
 
                   px-4
@@ -1285,7 +1285,7 @@ export default function Clarity() {
 
                         bg-stone-900
 
-                        text-[#a9b897]
+                        text-[#0F3D32]
 
                         shadow-sm
 
@@ -1315,7 +1315,7 @@ export default function Clarity() {
                           border-2
                           border-white
 
-                          bg-[#a9b897]
+                          bg-[#0F3D32]
                         "
                       />
                     </div>
@@ -1331,7 +1331,7 @@ export default function Clarity() {
                           text-[#829473]
                         "
                       >
-                        TOTS-OS
+                        ORBI.
                       </p>
 
                       <h2
@@ -1555,9 +1555,9 @@ export default function Clarity() {
                       rounded-xl
 
                       border
-                      border-[#a9b897]/40
+                      border-[#0F3D32]/40
 
-                      bg-[#a9b897]/10
+                      bg-[#0F3D32]/10
 
                       px-2
 
@@ -1568,7 +1568,7 @@ export default function Clarity() {
 
                       transition
 
-                      hover:bg-[#a9b897]/20
+                      hover:bg-[#0F3D32]/20
                     "
                   >
                     <Compass
@@ -1579,7 +1579,7 @@ export default function Clarity() {
 
                     {currentStepId
                       ? "Continue Tour"
-                      : "Tour TOTS-OS"}
+                      : "Tour ORBI."}
                   </button>
                 </div>
               </div>
@@ -1787,9 +1787,9 @@ export default function Clarity() {
                         rounded-[1.5rem]
 
                         border
-                        border-[#a9b897]/30
+                        border-[#0F3D32]/30
 
-                        bg-[#a9b897]/10
+                        bg-[#0F3D32]/10
 
                         p-4
                       "
@@ -1817,7 +1817,7 @@ export default function Clarity() {
 
                             bg-stone-900
 
-                            text-[#a9b897]
+                            text-[#0F3D32]
                           "
                         >
                           <Sparkles
@@ -1882,7 +1882,7 @@ export default function Clarity() {
                               space-y-2
 
                               border-t
-                              border-[#a9b897]/25
+                              border-[#0F3D32]/25
 
                               pt-3
                             "
@@ -2086,7 +2086,7 @@ export default function Clarity() {
 
                               transition
 
-                              hover:border-[#a9b897]
+                              hover:border-[#0F3D32]
                               hover:text-stone-800
                             "
                           >
@@ -2204,7 +2204,7 @@ export default function Clarity() {
 
                                   bg-stone-900
 
-                                  text-[#a9b897]
+                                  text-[#0F3D32]
                                 "
                               >
                                 <Sparkles
@@ -2330,7 +2330,7 @@ export default function Clarity() {
 
                               bg-stone-900
 
-                              text-[#a9b897]
+                              text-[#0F3D32]
                             "
                           >
                             <motion.div
@@ -2611,7 +2611,7 @@ export default function Clarity() {
 
                       transition
 
-                      hover:bg-[#a9b897]
+                      hover:bg-[#0F3D32]
                       hover:text-stone-900
 
                       disabled:cursor-not-allowed
@@ -2647,7 +2647,7 @@ export default function Clarity() {
 
                       rounded-full
 
-                      bg-[#a9b897]
+                      bg-[#0F3D32]
                     "
                   />
 
@@ -2663,7 +2663,7 @@ export default function Clarity() {
                       text-stone-300
                     "
                   >
-                    Clarity uses information available in your TOTS-OS workspace
+                    Clarity uses information available in your ORBI. workspace
                   </p>
                 </div>
               </div>

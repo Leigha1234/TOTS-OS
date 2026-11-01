@@ -66,13 +66,13 @@ export default function SocialPage() {
     };
   }, [refresh]);
 
-  if (loading) return <div className="p-8">Checking organisation access…</div>;
-  if (error) return <div role="alert" className="p-8 text-red-700">{error}</div>;
-  if (!context) return <div className="p-8">No authorised organisation found.</div>;
+  if (loading) return <div className="flex min-h-[55vh] items-center justify-center bg-[#FAF9F6] p-8"><div className="rounded-3xl border border-[#E5EAE5] bg-white px-10 py-8 text-center shadow-sm"><div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-[#D7E6DF] border-t-[#0F3D32]" /><p className="font-serif text-xl text-[#0F3D32]">Preparing your Social Studio</p><p className="mt-2 text-sm text-[#63756D]">Checking organisation access…</p></div></div>;
+  if (error) return <div role="alert" className="m-8 rounded-2xl border border-red-200 bg-red-50 p-8 text-red-700">{error}</div>;
+  if (!context) return <div className="m-8 rounded-2xl border border-[#E5EAE5] bg-white p-8 text-[#0F3D32]">No authorised organisation found.</div>;
 
   if (context.kind === "delegated") {
     if (context.permissions?.social?.view !== true) {
-      return <div role="alert" className="p-8">Social Studio access has not been granted for {context.name}.</div>;
+      return <div role="alert" className="m-8 rounded-2xl border border-[#E5EAE5] bg-white p-8 text-[#0F3D32]">Social Studio access has not been granted for {context.name}.</div>;
     }
     return <OriginalSocialStudio key={context.id} selectedOrganisationId={context.id} />;
   }

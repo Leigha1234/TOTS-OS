@@ -218,11 +218,11 @@ const WEEK_DAYS: WeekDay[] = [
 const EVENT_COLORS = [
   {
     id: "sage",
-    label: "Sage",
-    dot: "#829473",
-    background: "#E4EADF",
-    text: "#4F6147",
-    border: "#A9B897",
+    label: "Emerald",
+    dot: "#0F3D32",
+    background: "#E5F0EC",
+    text: "#0F3D32",
+    border: "#0F3D32",
   },
 
   {
@@ -3962,7 +3962,7 @@ export default function CalendarPage() {
   // ==========================================================
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] pb-24 text-stone-900">
+    <div className="min-h-screen bg-[#F8F9F6] pb-24 text-[#20332D]">
       {/* ERROR */}
 
       {error && (
@@ -3975,64 +3975,33 @@ export default function CalendarPage() {
           HEADER
       ====================================================== */}
 
-      <header className="mx-auto max-w-[1400px] px-4 pb-6 pt-8 sm:px-6 lg:px-8 lg:pt-12">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="mb-3 text-[9px] font-black uppercase tracking-[0.25em] text-[#829473]">
-              Your time
-            </p>
-
-            <h1 className="text-5xl font-serif italic leading-none tracking-tight text-stone-800 sm:text-6xl lg:text-8xl">
-              Bookings & Schedule
-            </h1>
-
-            <p className="mt-5 max-w-2xl text-sm leading-6 text-stone-500">
-              Manage your schedule,
-              availability and the way
-              customers book time with your
-              business.
-            </p>
+      <header className="relative overflow-hidden bg-[#103F33] text-[#FAF7EF]">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-40 h-[440px] w-[440px] rounded-full border border-white/10" />
+        <div aria-hidden="true" className="pointer-events-none absolute -right-2 -top-24 h-[320px] w-[320px] rounded-full border border-white/10" />
+        <div aria-hidden="true" className="pointer-events-none absolute right-16 top-4 h-[160px] w-[160px] rounded-full border border-white/10" />
+        <div className="relative mx-auto max-w-[1500px] px-5 pb-10 pt-9 sm:px-8 lg:px-10 lg:pb-12 lg:pt-12">
+          <div className="mb-7 flex flex-wrap items-center gap-2 text-[11px] font-semibold tracking-[0.12em] text-[#C5D9CE]">
+            <span>ORBI.</span><ChevronRight size={13} aria-hidden="true" /><span className="text-white">Calendar & bookings</span>
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                void syncCalendar()
-              }
-              className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500"
-            >
-              <RefreshCw
-                size={13}
-                className={
-                  isLoading
-                    ? "animate-spin"
-                    : ""
-                }
-              />
-
-              Refresh
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab(
-                  "Calendar"
-                );
-
-                openCreateEvent(
-                  new Date()
-                );
-              }}
-              className="flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white transition hover:bg-[#a9b897]"
-            >
-              <Plus
-                size={14}
-              />
-
-              Add Event
-            </button>
+          <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.26em] text-[#C2D6C9]">Your business, in sync</p>
+              <h1 className="font-serif text-5xl leading-[1.05] tracking-tight text-[#FFF9F0] sm:text-6xl lg:text-[76px]">Your time. <span className="italic text-[#C6D9C8]">Beautifully organised.</span></h1>
+              <p className="mt-5 max-w-xl text-sm leading-7 text-[#E0E9E1] sm:text-base">One place for appointments, events, availability and customer bookings — so nothing gets missed.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" onClick={() => void syncCalendar()} disabled={isLoading} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-60">
+                <RefreshCw size={16} aria-hidden="true" className={isLoading ? "animate-spin" : ""} />Refresh
+              </button>
+              <button type="button" onClick={() => { setActiveTab("Calendar"); openCreateEvent(new Date()); }} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#FFF9F0] px-6 py-3 text-sm font-bold text-[#103F33] shadow-lg shadow-black/10 transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                <Plus size={17} aria-hidden="true" />New event
+              </button>
+            </div>
+          </div>
+          <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-white/20 pt-5 text-xs text-[#D8E5D9]">
+            <span className="inline-flex items-center gap-2"><CalendarDays size={15} aria-hidden="true" />{format(new Date(), "EEEE, d MMMM yyyy")}</span>
+            <span className="inline-flex items-center gap-2"><Clock size={15} aria-hidden="true" />{todayEvents.length} scheduled today</span>
+            <span className="inline-flex items-center gap-2"><Sparkles size={15} aria-hidden="true" />{upcomingEvents.length} upcoming</span>
           </div>
         </div>
       </header>
@@ -4041,9 +4010,9 @@ export default function CalendarPage() {
           NAV
       ====================================================== */}
 
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1500px] px-5 pt-6 sm:px-8 lg:px-10">
         <div className="no-scrollbar overflow-x-auto">
-          <div className="flex min-w-max gap-1 rounded-2xl border border-stone-200 bg-white p-1.5">
+          <div className="flex min-w-max gap-1 rounded-2xl border border-[#E2EAE3] bg-white p-2 shadow-[0_6px_28px_rgba(16,63,51,0.05)]">
             {tabs.map(
               (
                 tab
@@ -4066,10 +4035,10 @@ export default function CalendarPage() {
                         tab.label
                       )
                     }
-                    className={`flex items-center gap-2 rounded-xl px-4 py-3 text-[9px] font-black uppercase tracking-[0.13em] transition ${
+                    className={`flex items-center gap-2 min-h-11 rounded-xl px-5 py-3 text-xs font-bold tracking-[0.02em] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#103F33] transition ${
                       active
-                        ? "bg-stone-900 text-white"
-                        : "text-stone-400 hover:bg-stone-50 hover:text-stone-700"
+                        ? "bg-[#103F33] text-white shadow-sm"
+                        : "text-[#53675C] hover:bg-[#EEF3EE] hover:text-[#103F33]"
                     }`}
                   >
                     <Icon
@@ -4091,7 +4060,7 @@ export default function CalendarPage() {
           CONTENT
       ====================================================== */}
 
-      <main className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-[1500px] px-5 py-8 sm:px-8 lg:px-10">
         {/* ====================================================
             OVERVIEW
         ==================================================== */}
@@ -4101,17 +4070,17 @@ export default function CalendarPage() {
           <div className="space-y-6">
             {/* SUMMARY */}
 
-            <div className="rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8">
+            <div className="rounded-[1.75rem] border border-[#E1EAE2] bg-white shadow-[0_8px_36px_rgba(16,63,51,0.045)] p-6 md:p-8">
               <div className="flex items-start gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#a9b897]/10 text-[#829473]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0F3D32]/10 text-[#446D59]">
                   <Sparkles
                     size={18}
                   />
                 </div>
 
                 <div>
-                  <p className="mb-2 text-[9px] font-black uppercase tracking-[0.24em] text-[#829473]">
-                    TOTS Schedule Summary
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.24em] text-[#446D59]">
+                    ORBI. Schedule Intelligence
                   </p>
 
                   <p className="max-w-4xl text-lg leading-8 text-stone-700">
@@ -4198,14 +4167,14 @@ export default function CalendarPage() {
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
               {/* TODAY */}
 
-              <div className="rounded-[2rem] border border-stone-200 bg-white p-6 lg:col-span-7">
+              <div className="rounded-[1.75rem] border border-[#E1EAE2] bg-white shadow-[0_8px_36px_rgba(16,63,51,0.045)] p-6 lg:col-span-7">
                 <div className="mb-6 flex items-center justify-between">
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">
                       Today
                     </p>
 
-                    <h2 className="mt-1 text-2xl font-serif italic text-stone-800">
+                    <h2 className="mt-1 text-2xl font-serif text-[#183E31]">
                       {format(
                         new Date(),
                         "EEEE d MMMM"
@@ -4220,7 +4189,7 @@ export default function CalendarPage() {
                         "Calendar"
                       )
                     }
-                    className="text-[8px] font-black uppercase tracking-[0.14em] text-stone-400 hover:text-[#829473]"
+                    className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#60746A] hover:text-[#446D59]"
                   >
                     Open Calendar
                   </button>
@@ -4229,13 +4198,13 @@ export default function CalendarPage() {
                 {todayEvents.length ===
                 0 ? (
                   <div className="rounded-2xl bg-stone-50 p-10 text-center">
-                    <Check className="mx-auto mb-3 text-[#a9b897]" />
+                    <Check className="mx-auto mb-3 text-[#0F3D32]" />
 
                     <p className="text-sm font-semibold text-stone-600">
                       Nothing scheduled
                     </p>
 
-                    <p className="mt-1 text-xs text-stone-400">
+                    <p className="mt-1 text-xs text-[#60746A]">
                       Your calendar is
                       clear today.
                     </p>
@@ -4267,14 +4236,14 @@ export default function CalendarPage() {
 
               {/* BOOKING CARD */}
 
-              <div className="rounded-[2rem] border border-stone-200 bg-white p-6 lg:col-span-5">
+              <div className="rounded-[1.75rem] border border-[#E1EAE2] bg-white shadow-[0_8px_36px_rgba(16,63,51,0.045)] p-6 lg:col-span-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">
                       Public Booking
                     </p>
 
-                    <h2 className="mt-1 text-2xl font-serif italic text-stone-800">
+                    <h2 className="mt-1 text-2xl font-serif text-[#183E31]">
                       {
                         bookingPage.title
                       }
@@ -4285,7 +4254,7 @@ export default function CalendarPage() {
                     className={`h-2.5 w-2.5 rounded-full ${
                       bookingPageExists &&
                       bookingPage.is_active
-                        ? "bg-[#a9b897]"
+                        ? "bg-[#0F3D32]"
                         : "bg-stone-300"
                     }`}
                   />
@@ -4326,7 +4295,7 @@ export default function CalendarPage() {
                         "Booking Page"
                       )
                     }
-                    className="rounded-xl bg-stone-900 px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
+                    className="rounded-xl bg-[#103F33] px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white"
                   >
                     Manage Booking Page
                   </button>
@@ -4338,7 +4307,7 @@ export default function CalendarPage() {
                         onClick={() =>
                           void copyBookingLink()
                         }
-                        className="flex items-center justify-center gap-2 rounded-xl border border-stone-200 px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500"
+                        className="flex items-center justify-center gap-2 rounded-xl border border-[#E1E8E1] px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-[#52665B]"
                       >
                         <Copy
                           size={12}
@@ -4355,20 +4324,20 @@ export default function CalendarPage() {
 
             {/* UPCOMING */}
 
-            <div className="rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8">
+            <div className="rounded-[1.75rem] border border-[#E1EAE2] bg-white shadow-[0_8px_36px_rgba(16,63,51,0.045)] p-6 md:p-8">
               <div className="mb-6">
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">
                   Coming Up
                 </p>
 
-                <h2 className="mt-1 text-2xl font-serif italic text-stone-800">
+                <h2 className="mt-1 text-2xl font-serif text-[#183E31]">
                   Upcoming schedule
                 </h2>
               </div>
 
               {upcomingEvents.length ===
               0 ? (
-                <div className="rounded-2xl border border-dashed border-stone-200 p-10 text-center text-sm text-stone-400">
+                <div className="rounded-2xl border border-dashed border-[#E1E8E1] p-10 text-center text-sm text-[#60746A]">
                   Nothing upcoming
                   yet.
                 </div>
@@ -4408,11 +4377,11 @@ export default function CalendarPage() {
           <div className="space-y-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">
                   Schedule
                 </p>
 
-                <h2 className="mt-1 text-4xl font-serif italic text-stone-800 sm:text-5xl">
+                <h2 className="mt-1 text-4xl font-serif text-[#183E31] sm:text-5xl">
                   {format(
                     currentMonth,
                     "MMMM yyyy"
@@ -4431,7 +4400,7 @@ export default function CalendarPage() {
                       )
                     )
                   }
-                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-stone-200 bg-white"
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#E1E8E1] bg-white"
                 >
                   <ChevronLeft
                     size={16}
@@ -4452,7 +4421,7 @@ export default function CalendarPage() {
                       now
                     );
                   }}
-                  className="rounded-xl border border-stone-200 bg-white px-4 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500"
+                  className="rounded-xl border border-[#E1E8E1] bg-white px-4 text-[11px] font-bold uppercase tracking-[0.14em] text-[#52665B]"
                 >
                   Today
                 </button>
@@ -4467,7 +4436,7 @@ export default function CalendarPage() {
                       )
                     )
                   }
-                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-stone-200 bg-white"
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#E1E8E1] bg-white"
                 >
                   <ChevronRight
                     size={16}
@@ -4477,11 +4446,11 @@ export default function CalendarPage() {
             </div>
 
             {isLoading ? (
-              <div className="flex min-h-[450px] items-center justify-center rounded-[2rem] border border-stone-200 bg-white">
-                <Loader2 className="animate-spin text-[#a9b897]" />
+              <div className="flex min-h-[450px] items-center justify-center rounded-[1.75rem] border border-[#E1EAE2] bg-white shadow-[0_8px_36px_rgba(16,63,51,0.045)]">
+                <Loader2 className="animate-spin text-[#0F3D32]" />
               </div>
             ) : (
-              <div className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white">
+              <div className="overflow-hidden rounded-[1.75rem] border border-[#E1EAE2] bg-white shadow-[0_8px_36px_rgba(16,63,51,0.045)]">
                 {/* DAYS */}
 
                 <div className="grid grid-cols-7 border-b border-stone-100 bg-stone-50">
@@ -4501,7 +4470,7 @@ export default function CalendarPage() {
                         key={
                           day
                         }
-                        className="py-4 text-center text-[8px] font-black uppercase tracking-[0.16em] text-stone-400"
+                        className="py-4 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-[#60746A]"
                       >
                         {
                           day
@@ -4560,7 +4529,7 @@ export default function CalendarPage() {
                               : "bg-white hover:bg-stone-50"
                           } ${
                             selected
-                              ? "bg-[#a9b897]/5"
+                              ? "bg-[#0F3D32]/5"
                               : ""
                           } ${
                             (index +
@@ -4574,7 +4543,7 @@ export default function CalendarPage() {
                           <div
                             className={`mb-2 flex h-7 w-7 items-center justify-center rounded-lg text-[10px] font-bold ${
                               today
-                                ? "bg-stone-900 text-white"
+                                ? "bg-[#103F33] text-white"
                                 : ""
                             }`}
                           >
@@ -4620,7 +4589,7 @@ export default function CalendarPage() {
                                       className={`flex cursor-pointer items-center gap-1.5 truncate rounded-lg border-l-[3px] px-2 py-1.5 text-[7px] font-bold shadow-sm transition hover:brightness-[0.97] ${
                                         event.sourceType ===
                                         "task"
-                                          ? "border-[#829473] bg-[#dfe8da] text-[#53644b]"
+                                          ? "border-[#0F3D32] bg-[#0F3D32] text-white"
                                           : event.sourceType ===
                                               "note"
                                             ? "border-amber-400 bg-amber-100 text-amber-800"
@@ -4675,7 +4644,7 @@ export default function CalendarPage() {
 
                             {dayEvents.length >
                               4 && (
-                              <p className="px-1 text-[7px] font-semibold text-stone-400">
+                              <p className="px-1 text-[7px] font-semibold text-[#60746A]">
                                 +
                                 {dayEvents.length -
                                   4}{" "}
@@ -4702,20 +4671,20 @@ export default function CalendarPage() {
           <div className="space-y-6">
             {isBookingLoading ? (
               <div className="flex min-h-[400px] items-center justify-center">
-                <Loader2 className="animate-spin text-[#a9b897]" />
+                <Loader2 className="animate-spin text-[#0F3D32]" />
               </div>
             ) : (
               <>
-                <div className="rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8">
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                <div className="rounded-[1.75rem] border border-[#E1EAE2] bg-white shadow-[0_8px_36px_rgba(16,63,51,0.045)] p-6 md:p-8">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">
                     Public Booking
                   </p>
 
-                  <h2 className="mt-1 text-3xl font-serif italic text-stone-800">
+                  <h2 className="mt-1 text-3xl font-serif text-[#183E31]">
                     Let customers book you
                   </h2>
 
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-500">
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52665B]">
                     Create a simple public
                     booking page without
                     giving customers access
@@ -4891,12 +4860,12 @@ export default function CalendarPage() {
 
                 {/* LOCATION */}
 
-                <div className="rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8">
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                <div className="rounded-[1.75rem] border border-[#E1EAE2] bg-white shadow-[0_8px_36px_rgba(16,63,51,0.045)] p-6 md:p-8">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">
                     Meeting Location
                   </p>
 
-                  <h2 className="mt-1 text-2xl font-serif italic text-stone-800">
+                  <h2 className="mt-1 text-2xl font-serif text-[#183E31]">
                     Where will you meet?
                   </h2>
 
@@ -5058,8 +5027,8 @@ export default function CalendarPage() {
 
                 {/* RULES */}
 
-                <div className="rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8">
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                <div className="rounded-[1.75rem] border border-[#E1EAE2] bg-white shadow-[0_8px_36px_rgba(16,63,51,0.045)] p-6 md:p-8">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">
                     Booking Rules
                   </p>
 
@@ -5268,14 +5237,14 @@ export default function CalendarPage() {
 
                 {/* LIVE */}
 
-                <div className="rounded-[2rem] border border-stone-200 bg-white p-6">
+                <div className="rounded-[1.75rem] border border-[#E1EAE2] bg-white shadow-[0_8px_36px_rgba(16,63,51,0.045)] p-6">
                   <div className="flex items-center justify-between gap-5">
                     <div>
                       <p className="text-sm font-semibold text-stone-700">
                         Accept public bookings
                       </p>
 
-                      <p className="mt-1 text-xs text-stone-400">
+                      <p className="mt-1 text-xs text-[#60746A]">
                         Disable this without
                         deleting your booking
                         page.
@@ -5298,7 +5267,7 @@ export default function CalendarPage() {
                       }
                       className={`relative h-8 w-14 rounded-full transition ${
                         bookingPage.is_active
-                          ? "bg-stone-900"
+                          ? "bg-[#103F33]"
                           : "bg-stone-200"
                       }`}
                     >
@@ -5329,7 +5298,7 @@ export default function CalendarPage() {
                   onClick={() =>
                     void saveBookingPage()
                   }
-                  className="w-full rounded-2xl bg-stone-900 py-5 text-[9px] font-black uppercase tracking-[0.2em] text-white transition hover:bg-[#a9b897] disabled:opacity-50"
+                  className="w-full rounded-2xl bg-[#103F33] py-5 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition hover:bg-[#0F3D32] disabled:opacity-50"
                 >
                   {isBookingSaving
                     ? "Saving..."
@@ -5342,8 +5311,8 @@ export default function CalendarPage() {
 
                 {bookingPageExists &&
                   bookingLink && (
-                    <div className="rounded-[2rem] border border-stone-200 bg-white p-6">
-                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                    <div className="rounded-[1.75rem] border border-[#E1EAE2] bg-white shadow-[0_8px_36px_rgba(16,63,51,0.045)] p-6">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">
                         Your Link
                       </p>
 
@@ -5361,7 +5330,7 @@ export default function CalendarPage() {
                           onClick={() =>
                             void copyBookingLink()
                           }
-                          className="flex items-center justify-center gap-2 rounded-xl border border-stone-200 px-5 text-[8px] font-black uppercase tracking-[0.12em] text-stone-500"
+                          className="flex items-center justify-center gap-2 rounded-xl border border-[#E1E8E1] px-5 text-[11px] font-bold uppercase tracking-[0.12em] text-[#52665B]"
                         >
                           <Copy
                             size={12}
@@ -5378,7 +5347,7 @@ export default function CalendarPage() {
                           }
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.12em] text-white"
+                          className="flex items-center justify-center gap-2 rounded-xl bg-[#103F33] px-5 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-white"
                         >
                           Open
 
@@ -5401,18 +5370,18 @@ export default function CalendarPage() {
         {activeTab ===
           "Availability" && (
           <div className="space-y-6">
-            <div className="rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8">
+            <div className="rounded-[1.75rem] border border-[#E1EAE2] bg-white shadow-[0_8px_36px_rgba(16,63,51,0.045)] p-6 md:p-8">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">
                     Availability
                   </p>
 
-                  <h2 className="mt-1 text-3xl font-serif italic text-stone-800">
+                  <h2 className="mt-1 text-3xl font-serif text-[#183E31]">
                     When can people book you?
                   </h2>
 
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-stone-500">
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-[#52665B]">
                     These hours control your
                     public booking
                     availability. Times are
@@ -5427,7 +5396,7 @@ export default function CalendarPage() {
                     onClick={
                       restoreWeekdays
                     }
-                    className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-[8px] font-black uppercase tracking-[0.12em] text-stone-500"
+                    className="rounded-xl border border-[#E1E8E1] bg-stone-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#52665B]"
                   >
                     Mon–Fri 9–5
                   </button>
@@ -5437,7 +5406,7 @@ export default function CalendarPage() {
                     onClick={
                       clearAvailability
                     }
-                    className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400"
+                    className="rounded-xl border border-[#E1E8E1] bg-white px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#60746A]"
                   >
                     Clear
                   </button>
@@ -5467,8 +5436,8 @@ export default function CalendarPage() {
                       }
                       className={`rounded-[1.7rem] border p-5 ${
                         enabled
-                          ? "border-[#a9b897]/40 bg-white"
-                          : "border-stone-200 bg-stone-50"
+                          ? "border-[#0F3D32]/40 bg-white"
+                          : "border-[#E1E8E1] bg-stone-50"
                       }`}
                     >
                       <div className="flex flex-col gap-5 md:flex-row md:items-start">
@@ -5482,7 +5451,7 @@ export default function CalendarPage() {
                             }
                             className={`relative h-7 w-12 rounded-full ${
                               enabled
-                                ? "bg-stone-900"
+                                ? "bg-[#103F33]"
                                 : "bg-stone-200"
                             }`}
                           >
@@ -5502,7 +5471,7 @@ export default function CalendarPage() {
                               }
                             </p>
 
-                            <p className="text-[8px] uppercase tracking-[0.12em] text-stone-400">
+                            <p className="text-[8px] uppercase tracking-[0.12em] text-[#60746A]">
                               {enabled
                                 ? "Available"
                                 : "Unavailable"}
@@ -5519,7 +5488,7 @@ export default function CalendarPage() {
                                   day.key
                                 )
                               }
-                              className="w-full rounded-xl border border-dashed border-stone-200 py-4 text-xs text-stone-400"
+                              className="w-full rounded-xl border border-dashed border-[#E1E8E1] py-4 text-xs text-[#60746A]"
                             >
                               + Add availability
                             </button>
@@ -5588,7 +5557,7 @@ export default function CalendarPage() {
                                           )}
                                         </select>
 
-                                        <span className="text-[8px] font-black uppercase text-stone-300">
+                                        <span className="text-[11px] font-bold uppercase text-stone-300">
                                           to
                                         </span>
 
@@ -5639,7 +5608,7 @@ export default function CalendarPage() {
                                             index
                                           )
                                         }
-                                        className="flex h-11 w-11 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-400 hover:text-red-500"
+                                        className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#E1E8E1] bg-white text-[#60746A] hover:text-red-500"
                                       >
                                         <Minus
                                           size={14}
@@ -5658,7 +5627,7 @@ export default function CalendarPage() {
                                       day.key
                                     )
                                   }
-                                  className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3 text-[8px] font-black uppercase tracking-[0.12em] text-[#829473]"
+                                  className="flex items-center gap-2 rounded-xl border border-[#E1E8E1] bg-white px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#446D59]"
                                 >
                                   <Plus
                                     size={12}
@@ -5683,7 +5652,7 @@ export default function CalendarPage() {
                                         day.key
                                       )
                                     }
-                                    className="flex items-center gap-2 rounded-xl px-4 py-3 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400"
+                                    className="flex items-center gap-2 rounded-xl px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#60746A]"
                                   >
                                     <Copy
                                       size={12}
@@ -5719,7 +5688,7 @@ export default function CalendarPage() {
               onClick={() =>
                 void saveBookingPage()
               }
-              className="w-full rounded-2xl bg-stone-900 py-5 text-[9px] font-black uppercase tracking-[0.18em] text-white transition hover:bg-[#a9b897]"
+              className="w-full rounded-2xl bg-[#103F33] py-5 text-[11px] font-bold uppercase tracking-[0.18em] text-white transition hover:bg-[#0F3D32]"
             >
               {isBookingSaving
                 ? "Saving..."
@@ -5756,7 +5725,7 @@ export default function CalendarPage() {
                   false
                 )
               }
-              className="absolute inset-0 bg-stone-900/30 backdrop-blur-sm"
+              className="absolute inset-0 bg-[#103F33]/30 backdrop-blur-sm"
             />
 
             <motion.div
@@ -5794,11 +5763,11 @@ export default function CalendarPage() {
             >
               <div className="mb-7 flex items-start justify-between">
                 <div>
-                  <p className="mb-2 text-[8px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">
                     Schedule
                   </p>
 
-                  <h2 className="text-3xl font-serif italic text-stone-800">
+                  <h2 className="text-3xl font-serif text-[#183E31]">
                     {viewMode ===
                     "CREATE"
                       ? "New Event"
@@ -5812,7 +5781,7 @@ export default function CalendarPage() {
                   {selectedEvent?.isRecurringOccurrence &&
                     viewMode ===
                       "VIEW" && (
-                      <p className="mt-2 text-[9px] font-black uppercase tracking-[0.13em] text-[#829473]">
+                      <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.13em] text-[#446D59]">
                         ↻ Repeating{" "}
                         {
                           selectedEvent.repeat
@@ -5866,7 +5835,7 @@ export default function CalendarPage() {
                     }
                   >
                     <div className="flex items-center justify-between gap-4">
-                      <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-500">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#52665B]">
                         When
                       </p>
 
@@ -5900,7 +5869,7 @@ export default function CalendarPage() {
 
                     {selectedEvent?.endAt &&
                       !selectedEvent.is_all_day && (
-                        <p className="mt-1 text-xs text-stone-500">
+                        <p className="mt-1 text-xs text-[#52665B]">
                           Until{" "}
                           {format(
                             selectedEvent.endAt,
@@ -5916,7 +5885,7 @@ export default function CalendarPage() {
                         selectedEvent.startAt,
                         selectedEvent.endAt
                       ) && (
-                        <p className="mt-1 text-xs text-stone-500">
+                        <p className="mt-1 text-xs text-[#52665B]">
                           Through{" "}
                           {format(
                             selectedEvent.endAt,
@@ -5931,8 +5900,8 @@ export default function CalendarPage() {
                   {selectedEvent?.repeat &&
                     selectedEvent.repeat !==
                       "none" && (
-                      <div className="rounded-2xl border border-[#a9b897]/20 bg-[#a9b897]/5 p-5">
-                        <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#829473]">
+                      <div className="rounded-2xl border border-[#0F3D32]/20 bg-[#0F3D32]/5 p-5">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#446D59]">
                           Repeats
                         </p>
 
@@ -5946,7 +5915,7 @@ export default function CalendarPage() {
                               : "Every month"}
                         </p>
 
-                        <p className="mt-1 text-xs leading-5 text-stone-400">
+                        <p className="mt-1 text-xs leading-5 text-[#60746A]">
                           This is part of a
                           repeating event
                           series. Editing or
@@ -5960,7 +5929,7 @@ export default function CalendarPage() {
 
                   {selectedEvent?.description && (
                     <div className="rounded-2xl bg-stone-50 p-5">
-                      <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#60746A]">
                         Notes
                       </p>
 
@@ -5981,7 +5950,7 @@ export default function CalendarPage() {
                       }
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-between rounded-2xl border border-stone-200 p-5 text-sm font-semibold text-stone-700"
+                      className="flex items-center justify-between rounded-2xl border border-[#E1E8E1] p-5 text-sm font-semibold text-stone-700"
                     >
                       <span className="flex items-center gap-2">
                         <Video
@@ -6001,8 +5970,8 @@ export default function CalendarPage() {
                     selectedEvent
                   ) ? (
                     <div className="space-y-2">
-                      <div className="rounded-2xl border border-[#a9b897]/30 bg-[#a9b897]/10 p-4">
-                        <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#829473]">
+                      <div className="rounded-2xl border border-[#0F3D32]/30 bg-[#0F3D32]/10 p-4">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#446D59]">
                           Customer booking
                         </p>
 
@@ -6012,7 +5981,7 @@ export default function CalendarPage() {
                           )?.name}
                         </p>
 
-                        <p className="mt-1 text-xs text-stone-500">
+                        <p className="mt-1 text-xs text-[#52665B]">
                           {getBookingCustomer(
                             selectedEvent
                           )?.email}
@@ -6025,7 +5994,7 @@ export default function CalendarPage() {
                           onClick={
                             startEditEntry
                           }
-                          className="rounded-xl bg-stone-900 py-4 text-[8px] font-black uppercase tracking-[0.14em] text-white"
+                          className="rounded-xl bg-[#103F33] py-4 text-[11px] font-bold uppercase tracking-[0.14em] text-white"
                         >
                           Edit
                         </button>
@@ -6038,7 +6007,7 @@ export default function CalendarPage() {
                           disabled={
                             isCancellingBooking
                           }
-                          className="rounded-xl bg-red-50 py-4 text-[8px] font-black uppercase tracking-[0.14em] text-red-500 disabled:opacity-50"
+                          className="rounded-xl bg-red-50 py-4 text-[11px] font-bold uppercase tracking-[0.14em] text-red-500 disabled:opacity-50"
                         >
                           {isCancellingBooking
                             ? "Cancelling..."
@@ -6046,7 +6015,7 @@ export default function CalendarPage() {
                         </button>
                       </div>
 
-                      <p className="text-center text-[10px] leading-4 text-stone-400">
+                      <p className="text-center text-[10px] leading-4 text-[#60746A]">
                         Cancelling removes the meeting from your calendar, frees the time slot and emails the customer.
                       </p>
                     </div>
@@ -6057,7 +6026,7 @@ export default function CalendarPage() {
                         onClick={
                           startEditEntry
                         }
-                        className="rounded-xl bg-stone-900 py-4 text-[8px] font-black uppercase tracking-[0.14em] text-white"
+                        className="rounded-xl bg-[#103F33] py-4 text-[11px] font-bold uppercase tracking-[0.14em] text-white"
                       >
                         {selectedEvent?.isRecurringOccurrence
                           ? "Edit Series"
@@ -6072,7 +6041,7 @@ export default function CalendarPage() {
                         disabled={
                           isDeleting
                         }
-                        className="rounded-xl bg-red-50 py-4 text-[8px] font-black uppercase tracking-[0.14em] text-red-500"
+                        className="rounded-xl bg-red-50 py-4 text-[11px] font-bold uppercase tracking-[0.14em] text-red-500"
                       >
                         {isDeleting
                           ? "Deleting..."
@@ -6161,7 +6130,7 @@ export default function CalendarPage() {
                               />
 
                               <span
-                                className="truncate text-[8px] font-black uppercase tracking-[0.08em]"
+                                className="truncate text-[11px] font-bold uppercase tracking-[0.08em]"
                                 style={{
                                   color:
                                     active
@@ -6184,14 +6153,14 @@ export default function CalendarPage() {
                       ALL DAY
                   ================================================= */}
 
-                  <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                  <div className="rounded-2xl border border-[#E1E8E1] bg-stone-50 p-4">
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="text-sm font-semibold text-stone-700">
                           All day
                         </p>
 
-                        <p className="mt-1 text-[10px] text-stone-400">
+                        <p className="mt-1 text-[10px] text-[#60746A]">
                           Show this event
                           without a specific
                           time.
@@ -6440,19 +6409,19 @@ export default function CalendarPage() {
 
                   {formRepeat !==
                     "none" && (
-                    <div className="rounded-xl border border-[#a9b897]/20 bg-[#a9b897]/5 px-4 py-3">
+                    <div className="rounded-xl border border-[#0F3D32]/20 bg-[#0F3D32]/5 px-4 py-3">
                       <div className="flex items-start gap-3">
                         <RefreshCw
                           size={13}
-                          className="mt-0.5 shrink-0 text-[#829473]"
+                          className="mt-0.5 shrink-0 text-[#446D59]"
                         />
 
                         <div>
-                          <p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#829473]">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-[#446D59]">
                             Repeating Event
                           </p>
 
-                          <p className="mt-1 text-xs leading-5 text-stone-500">
+                          <p className="mt-1 text-xs leading-5 text-[#52665B]">
                             {formRepeat ===
                             "daily"
                               ? "This event will appear on every day in your calendar."
@@ -6637,7 +6606,7 @@ export default function CalendarPage() {
                     onClick={() =>
                       fileInputRef.current?.click()
                     }
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-stone-200 bg-stone-50 p-4 text-xs text-stone-500"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#E1E8E1] bg-stone-50 p-4 text-xs text-[#52665B]"
                   >
                     <Paperclip
                       size={14}
@@ -6657,7 +6626,7 @@ export default function CalendarPage() {
                     disabled={
                       isSubmitting
                     }
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-5 text-[8px] font-black uppercase tracking-[0.18em] text-white transition hover:bg-[#a9b897] disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#103F33] py-5 text-[11px] font-bold uppercase tracking-[0.18em] text-white transition hover:bg-[#0F3D32] disabled:opacity-50"
                   >
                     {isSubmitting ? (
                       <Loader2
@@ -6714,7 +6683,7 @@ export default function CalendarPage() {
         }
 
         .form-input:focus {
-          border-color: #a9b897;
+          border-color: #0F3D32;
           background: white;
           box-shadow:
             0 0 0 3px
@@ -6757,7 +6726,7 @@ function FormField({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+      <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.15em] text-[#60746A]">
         {label}
       </label>
 
@@ -6783,17 +6752,17 @@ function StatCard({
   label: string;
 }) {
   return (
-    <div className="rounded-[1.7rem] border border-stone-200 bg-white p-5">
+    <div className="rounded-[1.7rem] border border-[#E1E8E1] bg-white p-5">
       <Icon
         size={18}
         className="mb-6 text-stone-300"
       />
 
-      <p className="text-3xl font-serif italic text-stone-800">
+      <p className="text-3xl font-serif text-[#183E31]">
         {value}
       </p>
 
-      <p className="mt-1 text-[8px] font-black uppercase tracking-[0.16em] text-stone-400">
+      <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[#60746A]">
         {label}
       </p>
     </div>
@@ -6813,7 +6782,7 @@ function BookingDetail({
 }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-stone-100 pb-4 last:border-0 last:pb-0">
-      <span className="text-xs text-stone-400">
+      <span className="text-xs text-[#60746A]">
         {label}
       </span>
 
@@ -6871,7 +6840,7 @@ function ScheduleRow({
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
             event.sourceType ===
             "task"
-              ? "bg-[#a9b897]/20 text-[#829473]"
+              ? "bg-[#0F3D32]/20 text-[#446D59]"
               : event.sourceType ===
                   "note"
                 ? "bg-amber-100 text-amber-700"

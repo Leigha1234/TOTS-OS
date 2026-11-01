@@ -264,7 +264,7 @@ export async function GET(
           favicon_url: firstString(settings.favicon_url),
           hero_image_url: firstString(settings.hero_image_url),
 
-          accent_colour: firstString(settings.accent_colour) || "#A9B897",
+          accent_colour: firstString(settings.accent_colour) || "#0F3D32",
           background_colour:
             firstString(settings.background_colour) || "#FAF8F5",
           text_colour: firstString(settings.text_colour) || "#1c1917",

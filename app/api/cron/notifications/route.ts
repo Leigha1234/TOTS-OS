@@ -205,8 +205,8 @@ async function sendTaskEmail({ supabase, input, notificationId }: {
     const { data, error } = await resend.emails.send({
       from: fromEmail,
       to: profile.email,
-      subject: `TOTS-OS | ${input.title}`,
-      html: `<div style="background:#f7f6f2;padding:32px 16px;font-family:Arial,sans-serif;color:#292524"><div style="max-width:560px;margin:auto;background:#fff;border-radius:18px;padding:32px"><p style="font-size:12px;letter-spacing:2px;color:#829473;font-weight:bold">TOTS-OS</p><h1 style="font-size:26px">${escapeTaskHtml(input.title)}</h1><p style="font-size:15px;line-height:1.7">${escapeTaskHtml(input.message)}</p><p style="font-size:12px;color:#78716c">Sign in to TOTS-OS to view your tasks.</p></div></div>`,
+      subject: `ORBI. | ${input.title}`,
+      html: `<div style="background:#f7f6f2;padding:32px 16px;font-family:Arial,sans-serif;color:#292524"><div style="max-width:560px;margin:auto;background:#fff;border-radius:18px;padding:32px"><p style="font-size:12px;letter-spacing:2px;color:#829473;font-weight:bold">ORBI.</p><h1 style="font-size:26px">${escapeTaskHtml(input.title)}</h1><p style="font-size:15px;line-height:1.7">${escapeTaskHtml(input.message)}</p><p style="font-size:12px;color:#78716c">Sign in to ORBI. to view your tasks.</p></div></div>`,
     });
     if (error) throw new Error(error.message || "Resend failed");
     await supabase.from("notification_deliveries")
@@ -595,7 +595,7 @@ function formatMoney(
 // A missing optional table should NOT kill the notification
 // worker.
 //
-// This lets you progressively connect more TOTS-OS modules.
+// This lets you progressively connect more ORBI. modules.
 // ============================================================
 
 async function fetchTableRows(

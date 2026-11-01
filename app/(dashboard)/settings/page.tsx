@@ -48,6 +48,10 @@ import {
   StickyNote,
   Users,
   WalletCards,
+  ChevronRight,
+  Sparkles,
+  LockKeyhole,
+  Palette,
   type LucideIcon,
 } from "lucide-react";
 
@@ -199,6 +203,13 @@ const MOBILE_NAV_OPTIONS:
     description:
       "Notes and business ideas",
     icon: StickyNote,
+  },
+
+  {
+    href: "/settings/team",
+    label: "Team",
+    description: "Members, access and permissions",
+    icon: Users,
   },
 
   {
@@ -601,7 +612,7 @@ function SettingsInner() {
       setInstallPrompt(null);
       setAppInstalled(true);
       setShowAppleInstallHelp(false);
-      toast.success("TOTS-OS has been added to your device");
+      toast.success("ORBI. has been added to your device");
     };
 
     window.addEventListener(
@@ -630,7 +641,7 @@ function SettingsInner() {
   const installTotsOs =
     useCallback(async () => {
       if (appInstalled) {
-        toast.success("TOTS-OS is already installed on this device");
+        toast.success("ORBI. is already installed on this device");
         return;
       }
 
@@ -649,7 +660,7 @@ function SettingsInner() {
           );
 
           toast.error(
-            "TOTS-OS could not open the install prompt on this device."
+            "ORBI. could not open the install prompt on this device."
           );
         }
 
@@ -1385,6 +1396,11 @@ function SettingsInner() {
           );
 
           await enablePushNotifications();
+          if (Notification.permission !== "granted") {
+            setNotificationPermission(Notification.permission);
+            toast("Notifications aren’t enabled yet. You can allow them in your browser settings whenever you’re ready.");
+            return;
+          }
 
           await refreshNotificationStatus();
 
@@ -1406,10 +1422,10 @@ function SettingsInner() {
         } catch (
           error
         ) {
-          console.error(
-            "[TOTS PUSH] Enable failed:",
-            error
-          );
+          // Permission refusal is expected and should not trigger a Next.js error overlay.
+          if (Notification.permission === "granted") {
+            console.warn("[ORBI PUSH] Enable failed:", error);
+          }
 
           await refreshNotificationStatus();
 
@@ -1428,7 +1444,7 @@ function SettingsInner() {
             error instanceof
               Error
               ? error.message
-              : "Push notifications could not be enabled."
+              : "Notifications aren’t enabled yet. You can allow them in your browser settings whenever you’re ready."
           );
         } finally {
           setNotificationLoading(
@@ -2272,6 +2288,39 @@ function SettingsInner() {
         }
       />
 
+      {/* ORBI. workspace settings — premium overview and navigation */}
+      <section className="relative mb-7 overflow-hidden rounded-[2rem] bg-[#0F3D32] px-6 py-8 text-[#F7EFE6] shadow-[0_22px_60px_rgba(15,61,50,0.16)] sm:px-9 sm:py-10">
+        <div className="pointer-events-none absolute -right-20 -top-40 h-80 w-80 rounded-full border border-white/10" />
+        <div className="pointer-events-none absolute -right-8 -top-24 h-64 w-64 rounded-full border border-white/10" />
+        <div className="relative flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="mb-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.24em] text-[#C4D8CB]"><Sparkles size={14} /> ORBI. / Workspace control</div>
+            <h1 className="font-serif text-4xl leading-tight sm:text-5xl">Your workspace. <span className="italic text-[#D6E5D8]">Your way.</span></h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-[#DCE7DF]">Everything you need to manage your account, your team, your preferences and the way you work — all in one place.</p>
+          </div>
+          <button type="button" onClick={() => router.push("/settings/team")} className="group inline-flex shrink-0 items-center justify-center gap-3 rounded-2xl bg-[#F7EFE6] px-5 py-4 text-sm font-bold text-[#0F3D32] shadow-lg transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            <Users size={18} /> Manage your team <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" />
+          </button>
+        </div>
+      </section>
+
+      <nav aria-label="Settings sections" className="mb-7 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        {([
+          { id: "orbi-profile", label: "My profile", detail: "Personal details", icon: Users },
+          { id: "orbi-team", label: "Team & access", detail: "Members and roles", icon: ShieldCheck },
+          { id: "orbi-import", label: "Import data", detail: "Bring your data", icon: FileUp },
+          { id: "orbi-mobile", label: "Mobile & app", detail: "App preferences", icon: Smartphone },
+          { id: "orbi-alerts", label: "Notifications", detail: "Stay informed", icon: Bell },
+          { id: "orbi-security", label: "Security", detail: "Protect your account", icon: LockKeyhole },
+        ] as const).map((item) => {
+          const Icon = item.icon;
+          return <button key={item.id} type="button" onClick={() => item.id === "orbi-team" ? router.push("/settings/team") : document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth", block: "start" })} className="group flex min-w-0 items-start gap-3 rounded-[1.25rem] border border-[#E7E9E5] bg-white p-4 text-left shadow-[0_4px_16px_rgba(15,61,50,0.035)] transition hover:-translate-y-0.5 hover:border-[#B5CDC0] hover:shadow-[0_12px_28px_rgba(15,61,50,0.09)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0F3D32]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E9F0EA] text-[#0F3D32]"><Icon size={19} /></span>
+            <span className="min-w-0"><span className="block text-xs font-bold text-[#183B30]">{item.label}</span><span className="mt-1 block text-[10px] leading-4 text-[#64746B]">{item.detail}</span></span>
+          </button>;
+        })}
+      </nav>
+
       <main className="min-h-[500px]">
         <AnimatePresence
           mode="wait"
@@ -2292,8 +2341,8 @@ function SettingsInner() {
             }}
             className="space-y-12"
           >
-            <section className="space-y-10 rounded-[2rem] border border-stone-200 bg-white/90 p-4 shadow-[0_10px_40px_rgba(0,0,0,0.04)] backdrop-blur sm:p-6 lg:space-y-16 lg:rounded-[4rem] lg:p-8">
-              <ProfileSettings
+            <section className="space-y-10 rounded-[1.75rem] border border-[#E5EAE6] bg-white p-5 shadow-[0_12px_48px_rgba(15,61,50,0.055)] sm:p-7 lg:space-y-14 lg:p-10">
+              <div id="orbi-profile" className="scroll-mt-8"><ProfileSettings
                 displayName={
                   displayName
                 }
@@ -2320,11 +2369,26 @@ function SettingsInner() {
                 }
               />
 
+              </div>
+
+              {/* ==================================================
+                  TEAM MANAGEMENT
+              ================================================== */}
+              <div id="orbi-team" className="scroll-mt-8 border-t border-[#E5EAE6] pt-10">
+                <div className="flex flex-col gap-6 overflow-hidden rounded-[1.5rem] border border-[#D7E5DC] bg-[#F2F7F3] p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#0F3D32] text-white"><Users size={24}/></div>
+                    <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#47705B]">People & permissions</p><h2 className="mt-2 font-serif text-3xl text-[#0F3D32]">Better together.</h2><p className="mt-2 max-w-xl text-sm leading-6 text-[#52665A]">Invite teammates, manage access and roles, and keep your organisation working together. All team management happens in one dedicated space.</p></div>
+                  </div>
+                  <button type="button" onClick={() => router.push("/settings/team")} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0F3D32] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#185B49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F3D32]">Open Team Management <ArrowRight size={17}/></button>
+                </div>
+              </div>
+
               {/* ==================================================
                   IMPORT HUB
               ================================================== */}
 
-              <div className="border-t border-stone-100 pt-10">
+              <div id="orbi-import" className="scroll-mt-8 border-t border-[#E5EAE6] pt-10">
                 <div className="mb-6">
                   <div className="flex items-center gap-2">
                     <FileUp
@@ -2338,7 +2402,7 @@ function SettingsInner() {
                   </div>
 
                   <h2 className="mt-2 font-serif text-2xl italic text-stone-900">
-                    Bring your business into TOTS-OS
+                    Bring your business into ORBI.
                   </h2>
 
                   <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-500">
@@ -2346,7 +2410,7 @@ function SettingsInner() {
                     customers or business data
                     somewhere else? Use the Import
                     Hub to bring your existing
-                    information into TOTS-OS without
+                    information into ORBI. without
                     starting again from scratch.
                   </p>
                 </div>
@@ -2364,7 +2428,7 @@ function SettingsInner() {
 
                   <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-start gap-4">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.2rem] bg-stone-900 text-[#a9b897] shadow-sm transition duration-300 group-hover:scale-[1.03]">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.2rem] bg-[#0F3D32] text-white shadow-sm transition duration-300 group-hover:scale-[1.03]">
                         <FileUp
                           size={21}
                           strokeWidth={
@@ -2386,7 +2450,7 @@ function SettingsInner() {
 
                         <p className="mt-2 max-w-xl text-[10px] leading-5 text-stone-500">
                           Import existing business
-                          data into TOTS-OS from one
+                          data into ORBI. from one
                           central place. Ideal when
                           moving from another CRM,
                           mailing platform, booking
@@ -2414,7 +2478,7 @@ function SettingsInner() {
                     </div>
 
                     <div className="flex shrink-0 items-center gap-3 self-stretch sm:self-auto">
-                      <div className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 text-[8px] font-black uppercase tracking-[0.12em] text-white transition duration-300 group-hover:bg-[#a9b897] group-hover:text-stone-900 sm:w-auto">
+                      <div className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 text-[8px] font-black uppercase tracking-[0.12em] text-white transition duration-300 group-hover:bg-[#0F3D32] group-hover:text-stone-900 sm:w-auto">
                         Open Import Hub
 
                         <ArrowRight
@@ -2465,17 +2529,17 @@ function SettingsInner() {
               </div>
 
               {/* ==================================================
-                  INSTALL TOTS-OS
+                  INSTALL ORBI.
               ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
                 <div className="overflow-hidden rounded-[2rem] border border-stone-200 bg-stone-900 text-white shadow-[0_18px_55px_rgba(0,0,0,0.10)]">
                   <div className="relative p-5 sm:p-6">
-                    <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-[#a9b897]/20 blur-3xl" />
+                    <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-[#0F3D32]/20 blur-3xl" />
 
                     <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                       <div className="flex min-w-0 items-start gap-4">
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.25rem] bg-[#a9b897] text-stone-900 shadow-sm">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.25rem] bg-[#0F3D32] text-white shadow-sm">
                           <Smartphone
                             size={23}
                             strokeWidth={1.8}
@@ -2485,7 +2549,7 @@ function SettingsInner() {
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#cbd6c1]">
-                              TOTS-OS mobile app
+                              ORBI. mobile app
                             </p>
 
                             {appInstalled && (
@@ -2497,11 +2561,11 @@ function SettingsInner() {
                           </div>
 
                           <h2 className="mt-2 font-serif text-2xl italic text-white">
-                            Use TOTS-OS like an app
+                            Use ORBI. like an app
                           </h2>
 
                           <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-300">
-                            Add TOTS-OS to your Home Screen for a cleaner,
+                            Add ORBI. to your Home Screen for a cleaner,
                             app-style experience with its own icon, quicker
                             access and no need to search for it in your browser.
                           </p>
@@ -2512,7 +2576,7 @@ function SettingsInner() {
                         type="button"
                         onClick={() => void installTotsOs()}
                         disabled={appInstalled}
-                        className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#a9b897] px-5 text-[9px] font-black uppercase tracking-[0.12em] text-stone-900 transition hover:bg-[#b8c6a9] disabled:cursor-default disabled:bg-white/10 disabled:text-stone-400"
+                        className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#0F3D32] px-5 text-[9px] font-black uppercase tracking-[0.12em] text-stone-900 transition hover:bg-[#b8c6a9] disabled:cursor-default disabled:bg-white/10 disabled:text-stone-400"
                       >
                         {appInstalled ? (
                           <CheckCircle2 size={14} />
@@ -2550,7 +2614,7 @@ function SettingsInner() {
 
                         <div className="min-w-0">
                           <p className="text-[10px] font-bold text-white">
-                            Add TOTS-OS on iPhone or iPad
+                            Add ORBI. on iPhone or iPad
                           </p>
 
                           <p className="mt-1.5 text-[10px] leading-5 text-stone-300">
@@ -2571,7 +2635,7 @@ function SettingsInner() {
                   MOBILE NAVIGATION
               ================================================== */}
 
-              <div className="border-t border-stone-100 pt-10">
+              <div id="orbi-mobile" className="scroll-mt-8 border-t border-[#E5EAE6] pt-10">
                 <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <div className="flex items-center gap-2">
@@ -2594,7 +2658,7 @@ function SettingsInner() {
                       They&apos;ll appear in your bottom
                       navigation bar on mobile. The fourth
                       button is always More, so the rest of
-                      TOTS-OS stays available.
+                      ORBI. stays available.
                     </p>
                   </div>
 
@@ -2619,7 +2683,7 @@ function SettingsInner() {
                       onClick={() =>
                         void saveMobileNavigation()
                       }
-                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 text-[8px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 text-[8px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#0F3D32] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {mobileNavSaving ? (
                         <Loader2
@@ -2730,7 +2794,7 @@ function SettingsInner() {
                       )
                     )}
 
-                    <div className="flex h-[58px] min-w-0 flex-col items-center justify-center gap-1 rounded-[1.2rem] bg-[#a9b897] text-white">
+                    <div className="flex h-[58px] min-w-0 flex-col items-center justify-center gap-1 rounded-[1.2rem] bg-[#0F3D32] text-white">
                       <SettingsIcon
                         size={20}
                         strokeWidth={
@@ -2782,7 +2846,7 @@ function SettingsInner() {
                                 }
                                 className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white p-3"
                               >
-                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-stone-900 text-[#a9b897]">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-stone-900 text-[#0F3D32]">
                                   <span className="text-[9px] font-black">
                                     {index +
                                       1}
@@ -2902,7 +2966,7 @@ function SettingsInner() {
 
                             ${
                               selected
-                                ? "border-[#a9b897] bg-[#f4f7f0] shadow-sm"
+                                ? "border-[#0F3D32] bg-[#f4f7f0] shadow-sm"
                                 : "border-stone-200 bg-white hover:border-stone-300"
                             }
                           `}
@@ -2919,7 +2983,7 @@ function SettingsInner() {
 
                               ${
                                 selected
-                                  ? "bg-[#a9b897] text-white"
+                                  ? "bg-[#0F3D32] text-white"
                                   : "bg-stone-100 text-stone-400"
                               }
                             `}
@@ -2960,7 +3024,7 @@ function SettingsInner() {
                   NOTIFICATIONS
               ================================================== */}
 
-              <div className="border-t border-stone-100 pt-10">
+              <div id="orbi-alerts" className="scroll-mt-8 border-t border-[#E5EAE6] pt-10">
                 <div className="mb-6">
                   <p className="text-[9px] font-black uppercase tracking-[0.22em] text-stone-400">
                     Notifications
@@ -2972,7 +3036,7 @@ function SettingsInner() {
 
                   <p className="mt-2 max-w-2xl text-xs leading-5 text-stone-500">
                     Receive push notifications for important
-                    TOTS-OS activity — even when the app is
+                    ORBI. activity — even when the app is
                     closed.
                   </p>
                 </div>
@@ -3069,15 +3133,15 @@ function SettingsInner() {
 
                         <p className="mt-2 max-w-xl text-xs leading-5 text-stone-500">
                           {notificationFullyEnabled
-                            ? "This device is registered for TOTS-OS push notifications. Alerts can be delivered even when TOTS-OS is closed."
+                            ? "This device is registered for ORBI. push notifications. Alerts can be delivered even when ORBI. is closed."
                             : notificationPermission ===
                                 "denied"
-                              ? "Your browser or device is blocking TOTS-OS notifications. Change notification permissions in your browser or device settings before trying again."
+                              ? "Your browser or device is blocking ORBI. notifications. Change notification permissions in your browser or device settings before trying again."
                               : notificationPermission ===
                                     "granted" &&
                                   !pushSubscribed
                                 ? "Permission is allowed, but this device has not finished registering for push notifications."
-                                : "Turn push notifications on so TOTS-OS can alert you about important business activity."}
+                                : "Turn push notifications on so ORBI. can alert you about important business activity."}
                         </p>
                       </div>
                     </div>
@@ -3094,7 +3158,7 @@ function SettingsInner() {
                             !notificationSupported ||
                             !pushSupported
                           }
-                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 text-[9px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 text-[9px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#0F3D32] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {notificationLoading ? (
                             <Loader2
@@ -3208,7 +3272,7 @@ function SettingsInner() {
                       </p>
 
                       <h3 className="mt-2 text-sm font-bold text-stone-800">
-                        What should TOTS-OS notify you about?
+                        What should ORBI. notify you about?
                       </h3>
 
                       <p className="mt-2 max-w-xl text-[10px] leading-5 text-stone-500">
@@ -3242,7 +3306,7 @@ function SettingsInner() {
                         onClick={() =>
                           void saveNotificationPreferences()
                         }
-                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#a9b897] px-4 text-[8px] font-black uppercase tracking-[0.12em] text-stone-900 transition hover:bg-[#b6c5a5] disabled:opacity-50"
+                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#0F3D32] px-4 text-[8px] font-black uppercase tracking-[0.12em] text-stone-900 transition hover:bg-[#b6c5a5] disabled:opacity-50"
                       >
                         {notificationPreferencesSaving ? (
                           <Loader2
@@ -3394,13 +3458,13 @@ function SettingsInner() {
                   />
 
                   <p className="text-[10px] leading-5 text-stone-500">
-                    On iPhone and iPad, open TOTS-OS in Safari,
+                    On iPhone and iPad, open ORBI. in Safari,
                     choose
                     <span className="font-bold text-stone-700">
                       {" "}
                       Add to Home Screen
                     </span>
-                    , open the installed TOTS-OS app, sign in,
+                    , open the installed ORBI. app, sign in,
                     then enable notifications from this page.
                   </p>
                 </div>
@@ -3419,7 +3483,7 @@ function SettingsInner() {
                       This browser does not currently expose all
                       of the APIs required for web push. On
                       iPhone, make sure you are using the
-                      installed Home Screen version of TOTS-OS
+                      installed Home Screen version of ORBI.
                       rather than a normal Safari tab.
                     </p>
                   </div>
@@ -3448,7 +3512,7 @@ function SettingsInner() {
                   PASSWORD
               ================================================== */}
 
-              <div className="border-t border-stone-100 pt-10">
+              <div id="orbi-security" className="scroll-mt-8 border-t border-[#E5EAE6] pt-10">
                 <PasswordSection />
               </div>
             </section>
@@ -3494,7 +3558,7 @@ function AppInstallBenefit({
     <div className="flex items-center gap-2 text-[8px] font-bold text-stone-300">
       <Check
         size={11}
-        className="shrink-0 text-[#a9b897]"
+        className="shrink-0 text-[#0F3D32]"
       />
 
       <span>{children}</span>
@@ -3545,7 +3609,7 @@ function ToggleSwitch({
 
         ${
           enabled
-            ? "bg-[#a9b897]"
+            ? "bg-[#0F3D32]"
             : "bg-stone-200"
         }
       `}

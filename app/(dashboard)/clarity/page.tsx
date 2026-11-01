@@ -14,7 +14,7 @@ export default function ClarityPage() {
     {
       role: "assistant",
       content:
-        "Welcome to Clarity. Your TOTS-OS business intelligence assistant. Ask questions about your operations, sales, projects, or workflows.",
+        "Welcome to Clarity. Your ORBI. business intelligence assistant. Ask questions about your operations, sales, projects, or workflows.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -38,7 +38,7 @@ export default function ClarityPage() {
       setMessages(data.messages || [
         {
           role: "assistant",
-          content: "Welcome to Clarity. Your TOTS-OS business intelligence assistant. Ask questions about your operations, sales, projects, or workflows.",
+          content: "Welcome to Clarity. Your ORBI. business intelligence assistant. Ask questions about your operations, sales, projects, or workflows.",
         },
       ]);
     } catch (error) {
@@ -76,7 +76,7 @@ export default function ClarityPage() {
       {
         role: "assistant",
         content:
-          "Welcome to Clarity. Your TOTS-OS business intelligence assistant. Ask questions about your operations, sales, projects, or workflows.",
+          "Welcome to Clarity. Your ORBI. business intelligence assistant. Ask questions about your operations, sales, projects, or workflows.",
       },
     ]);
     setShowPrompts(true);
@@ -258,7 +258,7 @@ export default function ClarityPage() {
                 ))}
             </div>
             <div className="mt-auto pt-3 border-t border-stone-200 text-[10px] text-stone-400">
-              Clarity AI • TOTS-OS
+              Clarity AI • ORBI.
             </div>
           </div>
 

@@ -61,7 +61,7 @@ export default function SetPassword() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-stone-50 p-6">
       <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-stone-100 w-full max-w-md text-center">
-        <h1 className="text-3xl font-serif italic mb-2 tracking-tight">TOTS OS</h1>
+        <h1 className="text-3xl font-serif italic mb-2 tracking-tight">ORBI.</h1>
         <p className="text-stone-400 text-[10px] uppercase tracking-[0.2em] mb-8">
           Secure Your Account
         </p>

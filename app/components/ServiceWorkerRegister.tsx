@@ -27,14 +27,14 @@ export default function ServiceWorkerRegister() {
                 );
 
             console.log(
-              "[TOTS-OS PWA] Service worker registered:",
+              "[ORBI. PWA] Service worker registered:",
               registration.scope
             );
           } catch (
             error
           ) {
             console.error(
-              "[TOTS-OS PWA] Service worker registration failed:",
+              "[ORBI. PWA] Service worker registration failed:",
               error
             );
           }

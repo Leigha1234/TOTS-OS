@@ -77,7 +77,7 @@ const MODULE_BUNDLE_PRICES: Record<number, number> = {
    3 modules  £79
    4 modules  £99
    5 modules  £119
-   6 modules  TOTS-OS Complete £139
+   6 modules  ORBI. Complete £139
 
    CLARITY AI
 
@@ -245,7 +245,7 @@ const MODULE_INFO: Record<
   core: {
     key: "core",
 
-    title: "TOTS-OS Core",
+    title: "ORBI. Core",
 
     shortTitle: "Core",
 
@@ -327,7 +327,7 @@ const MODULE_INFO: Record<
     key: "store",
 
     title:
-      "TOTS-OS Store",
+      "ORBI. Store",
 
     shortTitle: "Store",
 
@@ -1324,7 +1324,7 @@ const QUESTIONS: Question[] = [
       "Your priority",
 
     question:
-      "If TOTS-OS could improve one thing first, what would make the biggest difference?",
+      "If ORBI. could improve one thing first, what would make the biggest difference?",
 
     helper:
       "Choose the outcome that would feel most valuable right now.",
@@ -1774,7 +1774,7 @@ function calculateBundle(
         "Complete fixed price",
 
       bundleName:
-        "TOTS-OS Complete",
+        "ORBI. Complete",
 
       isComplete:
         true,
@@ -1848,7 +1848,7 @@ function calculateBundle(
             MODULE_INFO[
               cleanModules[0]
             ]?.shortTitle ??
-            "TOTS-OS"
+            "ORBI."
           } setup`
         : `${moduleCount}-module setup`,
 
@@ -1875,7 +1875,7 @@ function getSetupProfile(
         "Your business would benefit from the full setup.",
 
       description:
-        "Your answers point to value across all six main TOTS-OS modules, so Complete gives you the full connected workspace plus Clarity AI Starter for one fixed £139 monthly price.",
+        "Your answers point to value across all six main ORBI. modules, so Complete gives you the full connected workspace plus Clarity AI Starter for one fixed £139 monthly price.",
     };
   }
 
@@ -1917,7 +1917,7 @@ function getSetupProfile(
       "Your business has a lot of moving parts.",
 
     description:
-      "Your answers point to value across most of TOTS-OS, so a broader connected workspace is likely to give you the clearest operational view.",
+      "Your answers point to value across most of ORBI., so a broader connected workspace is likely to give you the clearest operational view.",
   };
 }
 
@@ -2042,7 +2042,7 @@ function Logo() {
     <a
       href={HOME_URL}
       className="brand"
-      aria-label="TOTS-OS home"
+      aria-label="ORBI. home"
     >
       <img
         src={LOGO_SRC}
@@ -2052,7 +2052,7 @@ function Logo() {
       />
 
       <span className="brand-word">
-        TOTS-OS
+        ORBI.
       </span>
     </a>
   );
@@ -2451,84 +2451,84 @@ export default function FindYourSetupPage() {
       <style jsx global>{`
         :root {
           --cream:
-            #faf8f5;
+            #FAFAF8;
 
           --cream-deep:
-            #f1ede7;
+            #E5E7E4;
 
           --white:
-            #fffefd;
+            #FFFFFF;
 
           --charcoal:
-            #4f4a46;
+            #1E2A27;
 
           --charcoal-dark:
-            #393532;
+            #082C24;
 
           --charcoal-soft:
-            #5e5955;
+            #66716D;
 
           --muted:
-            #68635f;
+            #66716D;
 
           --tan:
-            #c69d69;
+            #0F3D32;
 
           --tan-dark:
-            #946f44;
+            #082C24;
 
           --tan-soft:
-            #f3e8da;
+            #E6EEEA;
 
           --sage:
-            #a9b897;
+            #0F3D32;
 
           --sage-dark:
-            #738463;
+            #082C24;
 
           --sage-light:
-            #f0f4ec;
+            #E6EEEA;
 
           --sage-strong:
-            #657756;
+            #0F3D32;
 
           --danger:
             #8b4d48;
 
           --border:
             rgba(
-              79,
-              74,
-              70,
+              30,
+              42,
+              39,
               0.12
             );
 
           --border-strong:
             rgba(
-              79,
-              74,
-              70,
+              30,
+              42,
+              39,
               0.22
             );
 
           --focus:
-            #4f4a46;
+            #0F3D32;
 
           --shadow:
             0 26px 80px
             rgba(
-              79,
-              74,
-              70,
+              8,
+              44,
+              36,
               0.075
             );
 
           --shadow-soft:
             0 12px 34px
             rgba(
-              79,
-              74,
-              70,
+              8,
+              44,
+              36,
               0.05
             );
         }
@@ -5729,7 +5729,7 @@ export default function FindYourSetupPage() {
           />
 
           <span>
-            Back to TOTS-OS
+            Back to ORBI.
           </span>
         </a>
       </header>
@@ -5754,7 +5754,7 @@ export default function FindYourSetupPage() {
                     />
 
                     Build your
-                    TOTS-OS
+                    ORBI.
                   </div>
 
                   <h1 className="intro-title">
@@ -5772,7 +5772,7 @@ export default function FindYourSetupPage() {
                     how your
                     business works.
                     We'll recommend
-                    the TOTS-OS
+                    the ORBI.
                     modules that
                     would make the
                     biggest
@@ -5806,7 +5806,7 @@ export default function FindYourSetupPage() {
                       className="secondary-button"
                     >
                       Explore
-                      TOTS-OS
+                      ORBI.
                     </a>
                   </div>
 
@@ -6190,7 +6190,7 @@ export default function FindYourSetupPage() {
                       {step ===
                       QUESTIONS.length -
                         1
-                        ? "Build my TOTS-OS"
+                        ? "Build my ORBI."
                         : "Continue"}
 
                       {step ===
@@ -6231,7 +6231,7 @@ export default function FindYourSetupPage() {
                   />
 
                   Your recommended
-                  TOTS-OS setup is
+                  ORBI. setup is
                   ready
                 </div>
 
@@ -6524,7 +6524,7 @@ export default function FindYourSetupPage() {
 
                   <p className="package-copy">
                     {bundle.isComplete
-                      ? "Your answers recommend all six main modules, so TOTS-OS Complete gives you the full workspace plus Clarity AI Starter for one fixed £139 monthly price."
+                      ? "Your answers recommend all six main modules, so ORBI. Complete gives you the full workspace plus Clarity AI Starter for one fixed £139 monthly price."
                       : bundle.moduleCount ===
                           5
                         ? "Your five-module bundle is £119/month, applied automatically."
@@ -6643,7 +6643,7 @@ export default function FindYourSetupPage() {
                       means Complete.
                     </strong>{" "}
 
-                    Your answers recommend all six main TOTS-OS modules. Complete gives you the full workspace plus Clarity AI Starter for £139/month.
+                    Your answers recommend all six main ORBI. modules. Complete gives you the full workspace plus Clarity AI Starter for £139/month.
                   </div>
                 </div>
               )}
@@ -6677,7 +6677,7 @@ export default function FindYourSetupPage() {
 
                   <p className="ai-copy">
                     {bundle.isComplete
-                      ? "Every TOTS-OS Complete workspace includes Clarity AI Starter as standard."
+                      ? "Every ORBI. Complete workspace includes Clarity AI Starter as standard."
                       : displayedAi.description}
 
                   </p>
@@ -6848,7 +6848,7 @@ export default function FindYourSetupPage() {
                   />
 
                   Explore
-                  TOTS-OS
+                  ORBI.
                 </a>
               </div>
 

@@ -64,7 +64,7 @@ const SENDER_EMAIL =
   "hello@tots-os.co.uk";
 
 const DEFAULT_FROM_NAME =
-  "TOTS-OS";
+  "ORBI.";
 
 // ============================================================
 // HELPERS
@@ -832,7 +832,7 @@ export async function POST(
                               #dfe6da;
                           "
                         >
-                          TOTS-OS
+                          ORBI.
                         </p>
 
                         <p
@@ -857,7 +857,7 @@ export async function POST(
                               #d3cfcb;
                           "
                         >
-                          by The Organised Types
+                          by ORBI.
                         </p>
 
                       </td>
@@ -942,7 +942,7 @@ export async function POST(
                               #4f4a46;
                           "
                         >
-                          TOTS-OS
+                          ORBI.
                         </p>
 
                         <p
@@ -1102,7 +1102,7 @@ export async function POST(
     } =
       await resend.emails.send({
         // ------------------------------------------------------
-        // Sender always uses the verified TOTS-OS email.
+        // Sender always uses the verified ORBI. email.
         // Only the display name changes.
         // ------------------------------------------------------
 

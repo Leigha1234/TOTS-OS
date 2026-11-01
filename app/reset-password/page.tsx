@@ -88,7 +88,7 @@ export default function ResetPasswordPage() {
         </h1>
 
         <p className="text-sm text-stone-500 mb-8">
-          Create your password to finish setting up your TOTS-OS account.
+          Create your password to finish setting up your ORBI. account.
         </p>
 
         {error && (
@@ -109,7 +109,7 @@ export default function ResetPasswordPage() {
             placeholder="New password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-xl border border-stone-200 px-4 py-3 outline-none focus:ring-2 focus:ring-[#a9b897]"
+            className="w-full rounded-xl border border-stone-200 px-4 py-3 outline-none focus:ring-2 focus:ring-[#0F3D32]"
           />
 
           <input
@@ -117,13 +117,13 @@ export default function ResetPasswordPage() {
             placeholder="Confirm password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full rounded-xl border border-stone-200 px-4 py-3 outline-none focus:ring-2 focus:ring-[#a9b897]"
+            className="w-full rounded-xl border border-stone-200 px-4 py-3 outline-none focus:ring-2 focus:ring-[#0F3D32]"
           />
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-[#a9b897] py-3 text-sm font-black uppercase tracking-widest text-white disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full rounded-xl bg-[#0F3D32] py-3 text-sm font-black uppercase tracking-widest text-white disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? (
               <Loader2 className="animate-spin" size={18} />

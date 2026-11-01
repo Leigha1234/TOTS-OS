@@ -170,7 +170,7 @@ function LoginForm() {
 
   if (isRedirecting) {
     return (
-      <div className="flex flex-col items-center gap-4 text-[#a9b897]">
+      <div className="flex flex-col items-center gap-4 text-[#0F3D32]">
         <Loader2 className="animate-spin" size={40} />
         <p className="text-[10px] font-black uppercase tracking-[0.4em]">Redirecting to Workspace...</p>
       </div>
@@ -191,10 +191,10 @@ function LoginForm() {
             ? "Your payment was successful. Your workspace has been created. Sign in with the details you used during registration."
             : isRegister
               ? "Create your account, then choose your subscription on the next screen."
-              : "Sign in to access your TOTS-OS workspace."}
+              : "Sign in to ORBI. Everything in your orbit."}
         </p>
         <div className="flex items-center justify-center gap-2">
-          <ShieldCheck size={12} className="text-[#a9b897]" />
+          <ShieldCheck size={12} className="text-[#0F3D32]" />
           <p className="text-[9px] uppercase tracking-[0.2em] text-stone-400 font-black">
             {inviteId ? "Joining Team Workspace" : "Secure Business Login"}
           </p>
@@ -211,7 +211,7 @@ function LoginForm() {
                 placeholder="Your full name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus:border-[#a9b897] outline-none text-xs font-bold transition-all"
+                className="w-full p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus:border-[#0F3D32] outline-none text-xs font-bold transition-all"
                 required
               />
             </div>
@@ -223,7 +223,7 @@ function LoginForm() {
                 placeholder="Your business or organisation"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
-                className="w-full p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus:border-[#a9b897] outline-none text-xs font-bold transition-all"
+                className="w-full p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus:border-[#0F3D32] outline-none text-xs font-bold transition-all"
                 required
               />
             </div>
@@ -235,14 +235,14 @@ function LoginForm() {
                 placeholder="Founder, Manager, Director..."
                 value={jobTitle}
                 onChange={(e) => setJobTitle(e.target.value)}
-                className="w-full p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus:border-[#a9b897] outline-none text-xs font-bold transition-all"
+                className="w-full p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus:border-[#0F3D32] outline-none text-xs font-bold transition-all"
               />
             </div>
           </>
         )}
 
         {registered && (
-          <div className="rounded-2xl bg-[#a9b897]/10 border border-[#a9b897]/20 p-4 text-center">
+          <div className="rounded-2xl bg-[#0F3D32]/10 border border-[#0F3D32]/20 p-4 text-center">
             <p className="text-[10px] uppercase tracking-widest font-black text-stone-600">
               Registration complete. Your account is ready. Sign in using the email and password you created during checkout.
             </p>
@@ -251,7 +251,7 @@ function LoginForm() {
 
         <div className="space-y-2">
           <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest ml-1">Business Email</label>
-          <div className="flex items-center gap-3 p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus-within:border-[#a9b897] transition-all">
+          <div className="flex items-center gap-3 p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus-within:border-[#0F3D32] transition-all">
             <Mail size={16} className="text-stone-300" />
             <input
               type="email"
@@ -266,7 +266,7 @@ function LoginForm() {
 
         <div className="space-y-2">
           <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest ml-1">Password</label>
-          <div className="flex items-center gap-3 p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus-within:border-[#a9b897] transition-all">
+          <div className="flex items-center gap-3 p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus-within:border-[#0F3D32] transition-all">
             <Fingerprint size={16} className="text-stone-300" />
             <input
               type={showPassword ? "text" : "password"}
@@ -306,7 +306,7 @@ function LoginForm() {
         {isRegister && (
           <div className="space-y-2">
             <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest ml-1">Confirm Password</label>
-            <div className="flex items-center gap-3 p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus-within:border-[#a9b897] transition-all">
+            <div className="flex items-center gap-3 p-5 bg-stone-50/50 rounded-2xl border border-stone-100 focus-within:border-[#0F3D32] transition-all">
               <Fingerprint size={16} className="text-stone-300" />
               <input
                 type={showConfirmPassword ? "text" : "password"}
@@ -339,7 +339,7 @@ function LoginForm() {
         )}
 
         {resetSent && (
-          <p className="text-[9px] uppercase tracking-widest text-[#a9b897] mt-2">
+          <p className="text-[9px] uppercase tracking-widest text-[#0F3D32] mt-2">
             Reset link sent — check your email
           </p>
         )}
@@ -348,7 +348,7 @@ function LoginForm() {
       <button
         type="submit"
         disabled={authLoading}
-        className="w-full py-6 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] bg-stone-900 hover:bg-black transition-all flex items-center justify-center gap-3 shadow-xl active:scale-[0.98]"
+        className="w-full py-6 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] bg-[#0F3D32] hover:bg-[#082C24] transition-all flex items-center justify-center gap-3 shadow-xl active:scale-[0.98]"
       >
         {authLoading ? (
           <Loader2 className="animate-spin" size={18} />
@@ -378,7 +378,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#fcfaf7] p-6 bg-gradient-to-br from-[#fcfaf7] via-[#f8f5ef] to-[#f2eee7]">
+    <div className="min-h-screen flex items-center justify-center bg-[#F7EFE6] p-6 bg-gradient-to-br from-[#F7EFE6] via-[#F9F5EF] to-[#EDE6DC]">
       <Suspense fallback={
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="animate-spin text-stone-200" size={48} />

@@ -88,7 +88,7 @@ export default function NotificationsPage() {
         {/* HEADER */}
         <header className="flex justify-between items-end">
           <div className="space-y-2">
-            <div className="flex items-center gap-3 text-[#a9b897]">
+            <div className="flex items-center gap-3 text-[#0F3D32]">
               <Bell size={20} />
               <span className="text-[10px] font-black uppercase tracking-[0.3em]">System Pulse</span>
             </div>
@@ -125,7 +125,7 @@ export default function NotificationsPage() {
                 >
                   <div className="flex items-start gap-6">
                     {/* Status Icon */}
-                    <div className={`mt-1 p-3 rounded-2xl ${n.read ? 'bg-stone-50 text-stone-300' : 'bg-[#a9b897]/10 text-[#a9b897]'}`}>
+                    <div className={`mt-1 p-3 rounded-2xl ${n.read ? 'bg-stone-50 text-stone-300' : 'bg-[#0F3D32]/10 text-[#0F3D32]'}`}>
                       {n.read ? <CheckCircle2 size={18} /> : <Zap size={18} className="animate-pulse" />}
                     </div>
 
@@ -142,7 +142,7 @@ export default function NotificationsPage() {
                         {!n.read && (
                           <button 
                             onClick={() => markAsRead(n.id)}
-                            className="text-[9px] font-black uppercase tracking-widest text-[#a9b897] hover:underline"
+                            className="text-[9px] font-black uppercase tracking-widest text-[#0F3D32] hover:underline"
                           >
                             Acknowledge
                           </button>

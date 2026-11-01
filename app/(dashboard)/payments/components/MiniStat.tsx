@@ -37,7 +37,7 @@ export default function MiniStat({
       className={`
         relative
         overflow-hidden
-        rounded-[2rem]
+        rounded-[24px]
         border
         p-5
         sm:p-6
@@ -45,8 +45,8 @@ export default function MiniStat({
         duration-300
         ${
           dark
-            ? "bg-stone-900 border-stone-900 text-white shadow-xl"
-            : "bg-white border-stone-100 text-stone-900 shadow-sm"
+            ? "bg-[#0F3D32] border-stone-900 text-white shadow-xl"
+            : "bg-white border-[#E6ECE7] text-[#1E2A27] shadow-sm"
         }
         ${className}
       `}
@@ -55,7 +55,7 @@ export default function MiniStat({
       <div className="flex items-start justify-between gap-4">
         <p
           className={`
-            text-[8px]
+            text-[11px]
             font-black
             uppercase
             tracking-[0.3em]
@@ -81,8 +81,8 @@ export default function MiniStat({
               rounded-xl
               ${
                 dark
-                  ? "bg-white/5 text-[#a9b897]"
-                  : "bg-[#faf9f6] text-[#a9b897]"
+                  ? "bg-white/5 text-[#0F3D32]"
+                  : "bg-[#faf9f6] text-[#0F3D32]"
               }
             `}
           >
@@ -103,10 +103,10 @@ export default function MiniStat({
             break-words
             ${
               highlight
-                ? "text-[#a9b897]"
+                ? "text-[#0F3D32]"
                 : dark
                   ? "text-white"
-                  : "text-stone-900"
+                  : "text-[#1E2A27]"
             }
           `}
         >
@@ -126,7 +126,7 @@ export default function MiniStat({
             ${
               dark
                 ? "border-white/10"
-                : "border-stone-100"
+                : "border-[#E6ECE7]"
             }
           `}
         >
@@ -156,7 +156,7 @@ export default function MiniStat({
             h-24
             w-24
             rounded-full
-            bg-[#a9b897]/10
+            bg-[#0F3D32]/10
             pointer-events-none
           "
         />

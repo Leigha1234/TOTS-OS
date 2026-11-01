@@ -79,7 +79,7 @@ export default function VatModal({
           >
             <div className="mb-7 flex items-start justify-between gap-4">
               <div>
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 text-[#a9b897]">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 text-[#0F3D32]">
                   <Landmark size={17} />
                 </div>
 
@@ -109,7 +109,7 @@ export default function VatModal({
                 Estimated VAT Position
               </p>
 
-              <p className="mt-2 font-mono text-2xl text-[#a9b897]">
+              <p className="mt-2 font-mono text-2xl text-[#0F3D32]">
                 £
                 {Number(
                   estimatedAmount || 0
@@ -186,7 +186,7 @@ export default function VatModal({
 
                 <p className="text-[10px] leading-relaxed text-stone-500">
                   Saving this record updates
-                  your TOTS-OS finance ledger.
+                  your ORBI. finance ledger.
                   It should only be described as
                   submitted to HMRC when an
                   actual HMRC submission has
@@ -199,7 +199,7 @@ export default function VatModal({
               type="button"
               onClick={onSubmit}
               disabled={!canSubmit}
-              className="mt-6 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-6 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#0F3D32] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? (
                 <Loader2

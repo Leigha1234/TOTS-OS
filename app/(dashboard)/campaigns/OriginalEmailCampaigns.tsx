@@ -1034,7 +1034,7 @@ function buildCampaignHtml({
             letter-spacing:0.2em;
           "
         >
-          Powered by TOTS-OS
+          Powered by ORBI.
         </p>
       </div>
     </div>
@@ -1389,9 +1389,9 @@ function StepBar({
                   <span
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black transition ${
                       active
-                        ? "bg-stone-900 text-[#a9b897]"
+                        ? "bg-stone-900 text-[#0F3D32]"
                         : complete
-                          ? "bg-[#a9b897] text-stone-900"
+                          ? "bg-[#0F3D32] text-stone-900"
                           : "bg-stone-100 text-stone-400"
                     }`}
                   >
@@ -5674,7 +5674,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                         }
                         className={`group flex items-center justify-between rounded-[1.75rem] border p-6 text-left transition ${
                           selected
-                            ? "border-[#a9b897] bg-[#a9b897]/10 shadow-sm"
+                            ? "border-[#0F3D32] bg-[#0F3D32]/10 shadow-sm"
                             : "border-stone-200 bg-white hover:border-stone-400"
                         }`}
                       >
@@ -5682,7 +5682,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                           <div
                             className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
                               selected
-                                ? "bg-[#a9b897] text-stone-900"
+                                ? "bg-[#0F3D32] text-stone-900"
                                 : "bg-stone-100 text-stone-500"
                             }`}
                           >
@@ -5760,7 +5760,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                         true
                       )
                     }
-                    className="mt-6 rounded-xl bg-stone-900 px-6 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+                    className="mt-6 rounded-xl bg-stone-900 px-6 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-[#0F3D32]"
                   >
                     Create
                     audience
@@ -6831,7 +6831,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                       onClick={() =>
                         void scheduleCampaign()
                       }
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#a9b897] px-5 py-4 text-[10px] font-black uppercase tracking-[0.14em] text-stone-900 disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F3D32] px-5 py-4 text-[10px] font-black uppercase tracking-[0.14em] text-stone-900 disabled:opacity-50"
                     >
                       {savingCampaign ? (
                         <Loader2
@@ -6860,7 +6860,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                       onClick={() =>
                         void saveAndSendNow()
                       }
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-4 text-[10px] font-black uppercase tracking-[0.14em] text-[#a9b897] disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-4 text-[10px] font-black uppercase tracking-[0.14em] text-[#0F3D32] disabled:opacity-50"
                     >
                       {savingCampaign ? (
                         <Loader2
@@ -6954,7 +6954,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                 onClick={
                   goNext
                 }
-                className="flex items-center gap-2 rounded-xl bg-stone-900 px-6 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+                className="flex items-center gap-2 rounded-xl bg-stone-900 px-6 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#0F3D32]"
               >
                 Continue
                 <ArrowRight
@@ -7364,7 +7364,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                   onClick={() =>
                     void createList()
                   }
-                  className="mt-4 w-full rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase text-[#a9b897]"
+                  className="mt-4 w-full rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase text-[#0F3D32]"
                 >
                   Create
                   audience
@@ -7454,7 +7454,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                     true
                   );
                 }}
-                className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+                className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#0F3D32]"
               >
                 <Plus
                   size={13}
@@ -7689,7 +7689,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                               }
                               className={`flex cursor-pointer items-center gap-4 rounded-xl border p-4 ${
                                 selected
-                                  ? "border-[#a9b897] bg-[#a9b897]/10"
+                                  ? "border-[#0F3D32] bg-[#0F3D32]/10"
                                   : "border-stone-100 bg-stone-50"
                               }`}
                             >
@@ -7760,7 +7760,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                     onClick={() =>
                       void saveSubscribers()
                     }
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#0F3D32]"
                   >
                     {savingSubscribers ? (
                       <Loader2
@@ -8076,7 +8076,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                       selectedCampaign.id
                     )
                   }
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#0F3D32]"
                 >
                   <Send
                     size={
@@ -8141,7 +8141,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
             onClick={
               openNewCampaign
             }
-            className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-6 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-[#a9b897] shadow-lg"
+            className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-6 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-[#0F3D32] shadow-lg"
           >
             <Plus
               size={14}
@@ -8298,7 +8298,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                   className={`rounded-xl px-4 py-2 text-[8px] font-black uppercase tracking-[0.12em] transition ${
                     campaignFilter ===
                     value
-                      ? "bg-stone-900 text-[#a9b897]"
+                      ? "bg-stone-900 text-[#0F3D32]"
                       : "border border-stone-200 bg-white text-stone-500 hover:border-stone-400"
                   }`}
                 >
@@ -8360,7 +8360,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
 
               <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-stone-400">
                 {campaigns.length === 0
-                  ? "Create your first email, choose your audience and send it from TOTS-OS."
+                  ? "Create your first email, choose your audience and send it from ORBI.."
                   : "Try changing your search or campaign filter."}
               </p>
 
@@ -8368,7 +8368,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                 onClick={
                   openNewCampaign
                 }
-                className="mt-6 rounded-xl bg-stone-900 px-6 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+                className="mt-6 rounded-xl bg-stone-900 px-6 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#0F3D32]"
               >
                 Create
                 campaign
@@ -8565,7 +8565,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                   className="flex items-center justify-between rounded-[1.5rem] border border-stone-200 bg-white p-5 text-left transition hover:border-stone-400"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#a9b897]/15 text-[#71805f]">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0F3D32]/15 text-[#71805f]">
                       <Hash
                         size={
                           15
@@ -8688,7 +8688,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                 onClick={() =>
                   void createList()
                 }
-                className="mt-4 w-full rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#a9b897]"
+                className="mt-4 w-full rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#0F3D32]"
               >
                 Create
                 audience

@@ -79,7 +79,7 @@ export default function PayrollPage() {
         {/* HEADER & ANALYTICS */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
           <div className="space-y-4">
-            <div className="flex items-center gap-3 text-[#a9b897]">
+            <div className="flex items-center gap-3 text-[#0F3D32]">
               <Users size={20} />
               <span className="text-[10px] font-black uppercase tracking-[0.3em]">Personnel Liquidity</span>
             </div>
@@ -96,7 +96,7 @@ export default function PayrollPage() {
               </p>
             </div>
             <div className="h-10 w-[1px] bg-stone-100" />
-            <TrendingUp className="text-[#a9b897]" size={24} />
+            <TrendingUp className="text-[#0F3D32]" size={24} />
           </div>
         </header>
 
@@ -109,7 +109,7 @@ export default function PayrollPage() {
                 placeholder="Employee Name"
                 value={form.employee}
                 onChange={(e) => setForm({ ...form, employee: e.target.value })}
-                className="w-full bg-stone-50 p-5 rounded-2xl border-none outline-none focus:ring-2 ring-[#a9b897]/30 transition-all font-serif italic"
+                className="w-full bg-stone-50 p-5 rounded-2xl border-none outline-none focus:ring-2 ring-[#0F3D32]/30 transition-all font-serif italic"
               />
             </div>
             <div className="relative group">
@@ -119,7 +119,7 @@ export default function PayrollPage() {
                 placeholder="Salary"
                 value={form.salary}
                 onChange={(e) => setForm({ ...form, salary: e.target.value })}
-                className="w-full bg-stone-50 p-5 pl-10 rounded-2xl border-none outline-none focus:ring-2 ring-[#a9b897]/30 transition-all font-mono"
+                className="w-full bg-stone-50 p-5 pl-10 rounded-2xl border-none outline-none focus:ring-2 ring-[#0F3D32]/30 transition-all font-mono"
               />
             </div>
             <div className="relative">
@@ -129,12 +129,12 @@ export default function PayrollPage() {
                 placeholder="Bonus"
                 value={form.bonus}
                 onChange={(e) => setForm({ ...form, bonus: e.target.value })}
-                className="w-full bg-stone-50 p-5 pl-10 rounded-2xl border-none outline-none focus:ring-2 ring-[#a9b897]/30 transition-all font-mono"
+                className="w-full bg-stone-50 p-5 pl-10 rounded-2xl border-none outline-none focus:ring-2 ring-[#0F3D32]/30 transition-all font-mono"
               />
             </div>
             <button
               onClick={add}
-              className="bg-stone-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#a9b897] transition-all flex items-center justify-center gap-2 group"
+              className="bg-stone-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#0F3D32] transition-all flex items-center justify-center gap-2 group"
             >
               Commit <ArrowUpRight size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </button>
@@ -156,7 +156,7 @@ export default function PayrollPage() {
                 }`}
               >
                 <div className="flex items-center gap-6">
-                  <div className={`p-4 rounded-2xl ${r.status === 'paid' ? 'bg-stone-100 text-stone-400' : 'bg-[#a9b897]/10 text-[#a9b897]'}`}>
+                  <div className={`p-4 rounded-2xl ${r.status === 'paid' ? 'bg-stone-100 text-stone-400' : 'bg-[#0F3D32]/10 text-[#0F3D32]'}`}>
                     <CreditCard size={20} />
                   </div>
                   <div>
@@ -183,7 +183,7 @@ export default function PayrollPage() {
                     Mark Paid
                   </button>
                 ) : (
-                  <div className="flex items-center gap-2 text-[#a9b897] px-6">
+                  <div className="flex items-center gap-2 text-[#0F3D32] px-6">
                     <CheckCircle2 size={18} />
                     <span className="text-[10px] font-black uppercase tracking-widest">Settled</span>
                   </div>

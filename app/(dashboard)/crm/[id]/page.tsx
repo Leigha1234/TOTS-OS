@@ -551,42 +551,42 @@ const EMAIL_TEMPLATES: Record<EmailTemplateKey, EmailTemplate> = {
   },
   "trial-ending": {
     label: "Trial ending",
-    subject: "Your TOTS-OS access is ending soon",
+    subject: "Your ORBI. access is ending soon",
     title: "Keep everything you've set up",
-    preview: "A quick heads-up before your TOTS-OS access ends.",
+    preview: "A quick heads-up before your ORBI. access ends.",
     body:
-      "Hi,\n\nYour current TOTS-OS access is due to finish soon.\n\nIf you'd like to keep your workspace, data and everything you've already set up, you can continue onto a paid plan without having to start again.\n\nIf you're unsure which option makes the most sense for your business, just reply and we'll happily help.",
-    ctaLabel: "Continue with TOTS-OS",
+      "Hi,\n\nYour current ORBI. access is due to finish soon.\n\nIf you'd like to keep your workspace, data and everything you've already set up, you can continue onto a paid plan without having to start again.\n\nIf you're unsure which option makes the most sense for your business, just reply and we'll happily help.",
+    ctaLabel: "Continue with ORBI.",
     ctaUrl: "https://tots-os.co.uk",
   },
   welcome: {
     label: "Welcome",
-    subject: "Welcome to TOTS-OS",
+    subject: "Welcome to ORBI.",
     title: "You're in.",
-    preview: "Your TOTS-OS workspace is ready.",
+    preview: "Your ORBI. workspace is ready.",
     body:
-      "Hi,\n\nWelcome to TOTS-OS. Your workspace is ready for you to start bringing your clients, projects, tasks, finances and day-to-day business admin into one place.\n\nIf you need a hand getting set up, just reply to this email.",
-    ctaLabel: "Open TOTS-OS",
+      "Hi,\n\nWelcome to ORBI.. Your workspace is ready for you to start bringing your clients, projects, tasks, finances and day-to-day business admin into one place.\n\nIf you need a hand getting set up, just reply to this email.",
+    ctaLabel: "Open ORBI.",
     ctaUrl: "https://tots-os.co.uk",
   },
   "payment-required": {
     label: "Payment required",
-    subject: "Action needed on your TOTS-OS account",
+    subject: "Action needed on your ORBI. account",
     title: "Your account needs attention",
-    preview: "Please update your billing to keep your TOTS-OS access active.",
+    preview: "Please update your billing to keep your ORBI. access active.",
     body:
-      "Hi,\n\nWe need you to update the billing on your TOTS-OS account to keep your access active.\n\nOnce that's sorted, your existing workspace and data will remain available as normal.\n\nIf you think you've received this by mistake, just reply and we'll check it for you.",
+      "Hi,\n\nWe need you to update the billing on your ORBI. account to keep your access active.\n\nOnce that's sorted, your existing workspace and data will remain available as normal.\n\nIf you think you've received this by mistake, just reply and we'll check it for you.",
     ctaLabel: "Update billing",
     ctaUrl: "https://tots-os.co.uk",
   },
   "feature-announcement": {
     label: "Feature announcement",
-    subject: "New in TOTS-OS",
+    subject: "New in ORBI.",
     title: "Something new has landed",
-    preview: "Take a look at the latest TOTS-OS update.",
+    preview: "Take a look at the latest ORBI. update.",
     body:
-      "Hi,\n\nWe've added something new to TOTS-OS and wanted you to be one of the first to know.\n\nAdd the feature details here, explain what it changes, and tell the client exactly where they can find it.\n\nAs always, reply if you'd like any help using it.",
-    ctaLabel: "Open TOTS-OS",
+      "Hi,\n\nWe've added something new to ORBI. and wanted you to be one of the first to know.\n\nAdd the feature details here, explain what it changes, and tell the client exactly where they can find it.\n\nAs always, reply if you'd like any help using it.",
+    ctaLabel: "Open ORBI.",
     ctaUrl: "https://tots-os.co.uk",
   },
   "client-follow-up": {
@@ -4868,10 +4868,10 @@ export default function AccountProfilePage() {
         <div className="text-center">
           <Loader2
             size={26}
-            className="mx-auto animate-spin text-[#829473]"
+            className="mx-auto animate-spin text-[#0F6A52]"
           />
 
-          <p className="mt-4 text-[8px] font-black uppercase tracking-[0.2em] text-stone-300">
+          <p className="mt-4 text-[11px] font-black uppercase tracking-[0.2em] text-stone-300">
             Opening customer
           </p>
         </div>
@@ -4994,8 +4994,8 @@ export default function AccountProfilePage() {
   // ==========================================================
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#f7f5f2] pb-32 text-stone-900">
-      <div className="mx-auto max-w-[1320px] px-4 pb-8 pt-8 sm:px-6 lg:px-8 lg:pt-12">
+    <main className="orbi-client-page min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-32 text-[#1E2A27]">
+      <div className="mx-auto max-w-[1480px] px-4 pb-8 pt-8 sm:px-6 lg:px-10 lg:pt-10">
 
         {/* ====================================================
             TOP BAR
@@ -5004,7 +5004,7 @@ export default function AccountProfilePage() {
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <Link
             href="/crm"
-            className="inline-flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.16em] text-stone-400 no-underline transition hover:text-stone-700"
+            className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#466358] no-underline transition hover:text-stone-700"
           >
             <ArrowLeft
               size={12}
@@ -5023,7 +5023,7 @@ export default function AccountProfilePage() {
                 true
               )
             }
-            className="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.14em] text-stone-500 disabled:opacity-40"
+            className="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-stone-500 disabled:opacity-40"
           >
             {refreshing
               ? "Refreshing..."
@@ -5035,12 +5035,12 @@ export default function AccountProfilePage() {
             HERO
         ==================================================== */}
 
-        <section className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm">
+        <section className="orbi-client-hero overflow-hidden rounded-[2rem] border border-[#17483d] bg-[#0F3D32] shadow-[0_22px_65px_-38px_rgba(15,61,50,.65)]">
           <div className="p-6 sm:p-8 lg:p-10">
             <div className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
 
               <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.5rem] bg-[#a9b897] text-xl font-black text-white shadow-sm">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.5rem] border border-white/25 bg-white/15 text-2xl font-semibold text-white shadow-sm">
                   {getInitials(
                     customer.name ||
                       customer.company
@@ -5049,7 +5049,7 @@ export default function AccountProfilePage() {
 
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-[#a9b897]/15 px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-[#829473]">
+                    <span className="rounded-full bg-[#0F3D32]/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-[#0F6A52]">
                       {
                         stageLabel
                       }
@@ -5057,7 +5057,7 @@ export default function AccountProfilePage() {
 
                     {source ===
                       "Store" && (
-                      <span className="flex items-center gap-1.5 rounded-full bg-stone-900 px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-white">
+                      <span className="flex items-center gap-1.5 rounded-full bg-stone-900 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-white">
                         <ShoppingBag
                           size={9}
                         />
@@ -5067,27 +5067,27 @@ export default function AccountProfilePage() {
                     )}
 
                     {linkedContact && (
-                      <span className="rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+                      <span className="rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-stone-400">
                         Contact linked
                       </span>
                     )}
                   </div>
 
-                  <h1 className="mt-4 break-words font-serif text-4xl italic leading-none tracking-tight text-stone-900 sm:text-5xl lg:text-6xl">
+                  <h1 className="mt-4 break-words font-serif text-4xl leading-none tracking-tight text-[#FFF9EF] sm:text-5xl lg:text-6xl">
                     {
                       displayName
                     }
                   </h1>
 
                   {personName && (
-                    <p className="mt-2 text-sm font-semibold text-stone-600">
+                    <p className="mt-2 text-sm font-medium text-[#E5EDE6]">
                       {
                         personName
                       }
                     </p>
                   )}
 
-                  <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-[10px] text-stone-400">
+                  <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-[#E5EDE6]">
                     {customer.email && (
                       <span className="flex items-center gap-1.5">
                         <Mail
@@ -5129,7 +5129,7 @@ export default function AccountProfilePage() {
                       true
                     );
                   }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#a9b897] px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#0F3D32] px-5 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-white"
                 >
                   <Mail
                     size={12}
@@ -5145,7 +5145,7 @@ export default function AccountProfilePage() {
                       "tasks"
                     )
                   }
-                  className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-600"
+                  className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-5 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-stone-600"
                 >
                   <Check
                     size={12}
@@ -5165,7 +5165,7 @@ export default function AccountProfilePage() {
                       true
                     );
                   }}
-                  className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-stone-600"
+                  className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-5 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-stone-600"
                 >
                   <Pencil
                     size={12}
@@ -5182,7 +5182,7 @@ export default function AccountProfilePage() {
                   onClick={() =>
                     void handleDeleteCustomer()
                   }
-                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-red-500 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-red-500 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {isDeleting ? (
                     <Loader2
@@ -5205,7 +5205,7 @@ export default function AccountProfilePage() {
 
           {/* MINI STATS */}
 
-          <div className="grid border-t border-stone-100 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="orbi-client-stats grid border-t border-white/20 bg-[#082C24]/45 sm:grid-cols-2 lg:grid-cols-4">
             <HeroStat
               label="Active projects"
               value={String(
@@ -5240,8 +5240,8 @@ export default function AccountProfilePage() {
             TABS
         ==================================================== */}
 
-        <div className="no-scrollbar mt-5 overflow-x-auto">
-          <div className="flex min-w-max gap-1 rounded-2xl border border-stone-200 bg-white p-1.5 shadow-sm">
+        <div className="no-scrollbar orbi-client-tabs mt-6 overflow-x-auto">
+          <div className="flex min-w-max gap-1 rounded-2xl border border-[#e3e9e2] bg-white p-1.5 shadow-[0_8px_25px_-18px_rgba(15,61,50,.3)]">
             {tabs.map(
               (
                 tab
@@ -5256,10 +5256,10 @@ export default function AccountProfilePage() {
                       tab
                     )
                   }
-                  className={`rounded-xl px-4 py-3 text-[8px] font-black uppercase tracking-[0.14em] transition ${
+                  className={`rounded-xl px-4 py-3 text-[11px] font-bold uppercase tracking-[0.1em] transition ${
                     activeTab ===
                     tab
-                      ? "bg-stone-900 text-white"
+                      ? "bg-[#0F3D32] text-white shadow-sm"
                       : "text-stone-400 hover:bg-stone-50 hover:text-stone-700"
                   }`}
                 >
@@ -5281,15 +5281,15 @@ export default function AccountProfilePage() {
           <div className="mt-6 space-y-6">
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex items-start gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#a9b897]/15 text-[#829473]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0F3D32]/15 text-[#0F6A52]">
                   <Sparkles
                     size={17}
                   />
                 </div>
 
                 <div>
-                  <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#829473]">
-                    TOTS Client Summary
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#0F6A52]">
+                    ORBI. · Client intelligence
                   </p>
 
                   <p className="mt-3 max-w-4xl text-lg leading-8 text-stone-700">
@@ -5334,7 +5334,7 @@ export default function AccountProfilePage() {
                           "projects"
                         )
                       }
-                      className="text-xs font-semibold text-[#829473]"
+                      className="text-xs font-semibold text-[#0F6A52]"
                     >
                       View all
                     </button>
@@ -5353,7 +5353,7 @@ export default function AccountProfilePage() {
                       action={
                         <Link
                           href="/projects"
-                          className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-[#829473] no-underline"
+                          className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-[#0F6A52] no-underline"
                         >
                           Open projects
 
@@ -5396,7 +5396,7 @@ export default function AccountProfilePage() {
 
                               <ArrowUpRight
                                 size={14}
-                                className="text-stone-300 transition group-hover:text-[#829473]"
+                                className="text-stone-300 transition group-hover:text-[#0F6A52]"
                               />
                             </Link>
                           )
@@ -5456,7 +5456,7 @@ export default function AccountProfilePage() {
                       "money"
                     )
                   }
-                  className="mt-6 text-xs font-semibold text-[#829473]"
+                  className="mt-6 text-xs font-semibold text-[#0F6A52]"
                 >
                   View financial activity →
                 </button>
@@ -5468,7 +5468,7 @@ export default function AccountProfilePage() {
               <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#0F6A52]">
                       TOTS Commerce
                     </p>
 
@@ -5484,7 +5484,7 @@ export default function AccountProfilePage() {
                       )}
                     </p>
 
-                    <p className="mt-1 text-[8px] font-black uppercase tracking-[0.13em] text-stone-400">
+                    <p className="mt-1 text-[11px] font-black uppercase tracking-[0.13em] text-stone-400">
                       Paid store value
                     </p>
                   </div>
@@ -5546,7 +5546,7 @@ export default function AccountProfilePage() {
           <section className="mt-6 rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#0F6A52]">
                   Client projects
                 </p>
 
@@ -5564,7 +5564,7 @@ export default function AccountProfilePage() {
 
               <Link
                 href="/projects"
-                className="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-3 text-[8px] font-black uppercase tracking-[0.13em] text-white no-underline"
+                className="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-3 text-[11px] font-black uppercase tracking-[0.13em] text-white no-underline"
               >
                 <Plus
                   size={12}
@@ -5578,7 +5578,7 @@ export default function AccountProfilePage() {
               {clientDataLoading ? (
                 <Loader2
                   size={20}
-                  className="animate-spin text-[#829473]"
+                  className="animate-spin text-[#0F6A52]"
                 />
               ) : clientProjects.length ===
                 0 ? (
@@ -5600,7 +5600,7 @@ export default function AccountProfilePage() {
                           project.id
                         }
                         href={`/projects/${project.id}`}
-                        className="group rounded-2xl border border-stone-100 bg-stone-50 p-5 no-underline transition hover:border-[#a9b897] hover:bg-white"
+                        className="group rounded-2xl border border-stone-100 bg-stone-50 p-5 no-underline transition hover:border-[#0F3D32] hover:bg-white"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div>
@@ -5610,7 +5610,7 @@ export default function AccountProfilePage() {
                               }
                             </p>
 
-                            <p className="mt-2 text-[8px] font-black uppercase tracking-[0.13em] text-stone-400">
+                            <p className="mt-2 text-[11px] font-black uppercase tracking-[0.13em] text-stone-400">
                               {project.status ||
                                 "In progress"}
                             </p>
@@ -5618,7 +5618,7 @@ export default function AccountProfilePage() {
 
                           <ArrowUpRight
                             size={15}
-                            className="text-stone-300 group-hover:text-[#829473]"
+                            className="text-stone-300 group-hover:text-[#0F6A52]"
                           />
                         </div>
 
@@ -5727,7 +5727,7 @@ export default function AccountProfilePage() {
 
                 <Link
                   href="/payments"
-                  className="text-xs font-semibold text-[#829473] no-underline"
+                  className="text-xs font-semibold text-[#0F6A52] no-underline"
                 >
                   Open Finance →
                 </Link>
@@ -5891,7 +5891,7 @@ export default function AccountProfilePage() {
                     creatingTask ||
                     !newTask.title.trim()
                   }
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#a9b897] px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white disabled:opacity-40"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#0F3D32] px-5 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-white disabled:opacity-40"
                 >
                   {creatingTask ? (
                     <Loader2
@@ -5954,7 +5954,7 @@ export default function AccountProfilePage() {
                                 }
                                 className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 transition ${
                                   done
-                                    ? "border-[#a9b897] bg-[#a9b897] text-white"
+                                    ? "border-[#0F3D32] bg-[#0F3D32] text-white"
                                     : "border-stone-200 bg-white text-transparent"
                                 }`}
                               >
@@ -5987,7 +5987,7 @@ export default function AccountProfilePage() {
                                 {task.project_id && (
                                   <Link
                                     href={`/projects/${task.project_id}`}
-                                    className="mt-3 inline-flex rounded-full bg-[#a9b897]/15 px-3 py-1 text-[9px] font-semibold text-stone-600 no-underline"
+                                    className="mt-3 inline-flex rounded-full bg-[#0F3D32]/15 px-3 py-1 text-[9px] font-semibold text-stone-600 no-underline"
                                   >
                                     {projectMap[
                                       task.project_id
@@ -6062,7 +6062,7 @@ export default function AccountProfilePage() {
                                     task.id
                                   )
                                 }
-                                className="rounded-lg bg-[#a9b897] px-3 py-2 text-white disabled:opacity-30"
+                                className="rounded-lg bg-[#0F3D32] px-3 py-2 text-white disabled:opacity-30"
                               >
                                 <Send
                                   size={13}
@@ -6089,7 +6089,7 @@ export default function AccountProfilePage() {
                                       }
                                       className="rounded-xl border border-stone-100 bg-white p-3"
                                     >
-                                      <p className="text-[8px] uppercase tracking-[0.1em] text-stone-400">
+                                      <p className="text-[11px] uppercase tracking-[0.1em] text-stone-400">
                                         {comment.created_at
                                           ? new Date(
                                               comment.created_at
@@ -6143,7 +6143,7 @@ export default function AccountProfilePage() {
               <aside className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+                    <p className="text-[11px] font-black uppercase tracking-[0.15em] text-stone-400">
                       Email
                     </p>
 
@@ -6176,7 +6176,7 @@ export default function AccountProfilePage() {
 
                     resetNewEmail();
                   }}
-                  className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 p-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
+                  className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-stone-900 p-3 text-[11px] font-black uppercase tracking-[0.14em] text-white"
                 >
                   <Plus
                     size={12}
@@ -6217,7 +6217,7 @@ export default function AccountProfilePage() {
                           className={`block w-full rounded-xl p-3 text-left transition ${
                             activeThread?.id ===
                             thread.id
-                              ? "bg-[#a9b897] text-white"
+                              ? "bg-[#0F3D32] text-white"
                               : "bg-stone-50 hover:bg-stone-100"
                           }`}
                         >
@@ -6274,7 +6274,7 @@ export default function AccountProfilePage() {
                           !current
                       )
                     }
-                    className="rounded-xl bg-[#a9b897] px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] text-white disabled:opacity-40"
+                    className="rounded-xl bg-[#0F3D32] px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.13em] text-white disabled:opacity-40"
                   >
                     {showComposer
                       ? "Hide composer"
@@ -6291,7 +6291,7 @@ export default function AccountProfilePage() {
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 bg-white px-4 py-3">
                       <div>
-                        <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+                        <p className="text-[11px] font-black uppercase tracking-[0.15em] text-stone-400">
                           Email builder
                         </p>
                         <p className="mt-1 text-xs text-stone-500">
@@ -6302,7 +6302,7 @@ export default function AccountProfilePage() {
                       <button
                         type="button"
                         onClick={() => setShowEmailPreview((current) => !current)}
-                        className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-[8px] font-black uppercase tracking-[0.12em] text-stone-600 hover:bg-stone-50"
+                        className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-stone-600 hover:bg-stone-50"
                       >
                         <Eye size={12} />
                         {showEmailPreview ? "Edit email" : "Preview"}
@@ -6345,7 +6345,7 @@ export default function AccountProfilePage() {
                             </div>
                             {newEmail.ctaLabel.trim() && newEmail.ctaUrl.trim() && (
                               <div className="mt-6">
-                                <span className="inline-flex rounded-xl bg-[#a9b897] px-5 py-3 text-xs font-bold text-white">
+                                <span className="inline-flex rounded-xl bg-[#0F3D32] px-5 py-3 text-xs font-bold text-white">
                                   {newEmail.ctaLabel}
                                 </span>
                               </div>
@@ -6385,8 +6385,8 @@ export default function AccountProfilePage() {
                       </div>
                     ) : (
                       <div className="space-y-5 p-4 sm:p-5">
-                        <div className="rounded-2xl border border-[#a9b897]/40 bg-[#a9b897]/5 p-4">
-                          <label className="mb-1.5 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.12em] text-stone-500">
+                        <div className="rounded-2xl border border-[#0F3D32]/40 bg-[#0F3D32]/5 p-4">
+                          <label className="mb-1.5 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-stone-500">
                             <Sparkles size={11} /> Email template
                           </label>
                           <select
@@ -6411,12 +6411,12 @@ export default function AccountProfilePage() {
 
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="sm:col-span-2">
-                            <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
+                            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.12em] text-stone-400">
                               From name
                             </label>
                             <input
                               className="tots-input bg-white"
-                              placeholder="e.g. Leigha at The Organised Types"
+                              placeholder="e.g. Leigha at ORBI."
                               value={newEmail.fromName}
                               onChange={(event) =>
                                 setNewEmail((previous) => ({
@@ -6426,7 +6426,7 @@ export default function AccountProfilePage() {
                               }
                             />
 
-                            <div className="mt-3 rounded-xl border border-[#a9b897]/40 bg-[#a9b897]/10 px-4 py-3">
+                            <div className="mt-3 rounded-xl border border-[#0F3D32]/40 bg-[#0F3D32]/10 px-4 py-3">
                               <p className="text-[11px] font-semibold leading-5 text-stone-700">
                                 This email will be sent from{" "}
                                 <span className="font-black">
@@ -6447,7 +6447,7 @@ export default function AccountProfilePage() {
                           </div>
 
                           <div className="sm:col-span-2">
-                            <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
+                            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.12em] text-stone-400">
                               Reply-to email
                             </label>
                             <input
@@ -6468,13 +6468,13 @@ export default function AccountProfilePage() {
                           </div>
 
                           <div className="sm:col-span-2">
-                            <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
+                            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.12em] text-stone-400">
                               To
                             </label>
                             <input className="tots-input bg-stone-100" value={customer.email || ""} disabled />
                           </div>
                           <div>
-                            <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">CC</label>
+                            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.12em] text-stone-400">CC</label>
                             <input
                               className="tots-input bg-white"
                               placeholder="name@company.com"
@@ -6483,7 +6483,7 @@ export default function AccountProfilePage() {
                             />
                           </div>
                           <div>
-                            <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">BCC</label>
+                            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.12em] text-stone-400">BCC</label>
                             <input
                               className="tots-input bg-white"
                               placeholder="name@company.com"
@@ -6495,7 +6495,7 @@ export default function AccountProfilePage() {
 
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="sm:col-span-2">
-                            <label className="mb-1.5 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
+                            <label className="mb-1.5 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-stone-400">
                               <Mail size={11} /> Subject
                             </label>
                             <input
@@ -6506,7 +6506,7 @@ export default function AccountProfilePage() {
                             />
                           </div>
                           <div>
-                            <label className="mb-1.5 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
+                            <label className="mb-1.5 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-stone-400">
                               <Heading2 size={11} /> Email title
                             </label>
                             <input
@@ -6517,7 +6517,7 @@ export default function AccountProfilePage() {
                             />
                           </div>
                           <div>
-                            <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">Preview text</label>
+                            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.12em] text-stone-400">Preview text</label>
                             <input
                               className="tots-input bg-white"
                               placeholder="Short inbox preview / preheader"
@@ -6530,7 +6530,7 @@ export default function AccountProfilePage() {
                         </div>
 
                         <div>
-                          <label className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">Message</label>
+                          <label className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.12em] text-stone-400">Message</label>
                           <textarea
                             className="tots-input min-h-[190px] resize-y bg-white"
                             placeholder="Write your message..."
@@ -6547,7 +6547,7 @@ export default function AccountProfilePage() {
                           <div className="grid gap-3 sm:grid-cols-2">
                             <input
                               className="tots-input bg-stone-50"
-                              placeholder="Button label e.g. Continue with TOTS-OS"
+                              placeholder="Button label e.g. Continue with ORBI."
                               value={newEmail.ctaLabel}
                               onChange={(event) => setNewEmail((previous) => ({ ...previous, ctaLabel: event.target.value }))}
                             />
@@ -6577,7 +6577,7 @@ export default function AccountProfilePage() {
                                   ],
                                 }))
                               }
-                              className="flex items-center gap-1 rounded-lg bg-stone-100 px-2.5 py-2 text-[8px] font-black uppercase tracking-[0.1em] text-stone-600"
+                              className="flex items-center gap-1 rounded-lg bg-stone-100 px-2.5 py-2 text-[11px] font-black uppercase tracking-[0.1em] text-stone-600"
                             >
                               <Plus size={11} /> Add link
                             </button>
@@ -6640,7 +6640,7 @@ export default function AccountProfilePage() {
                             <p className="text-[9px] font-black uppercase tracking-[0.12em] text-stone-500">Attachments</p>
                           </div>
 
-                          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-stone-300 bg-stone-50 px-4 py-4 text-xs text-stone-500 hover:border-[#a9b897] hover:bg-[#a9b897]/5">
+                          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-stone-300 bg-stone-50 px-4 py-4 text-xs text-stone-500 hover:border-[#0F3D32] hover:bg-[#0F3D32]/5">
                             <Paperclip size={14} />
                             Add files
                             <input
@@ -6664,6 +6664,8 @@ export default function AccountProfilePage() {
                                   </div>
                                   <button
                                     type="button"
+                                    aria-label={`Remove attachment ${file.name}`}
+                                    title={`Remove ${file.name}`}
                                     onClick={() =>
                                       setNewEmail((previous) => ({
                                         ...previous,
@@ -6691,7 +6693,7 @@ export default function AccountProfilePage() {
                         <button
                           type="button"
                           onClick={resetNewEmail}
-                          className="rounded-xl border border-stone-200 px-4 py-3 text-[8px] font-black uppercase tracking-[0.12em] text-stone-500"
+                          className="rounded-xl border border-stone-200 px-4 py-3 text-[11px] font-black uppercase tracking-[0.12em] text-stone-500"
                         >
                           Clear
                         </button>
@@ -6703,7 +6705,7 @@ export default function AccountProfilePage() {
                             !newEmail.subject.trim() ||
                             !newEmail.body.trim()
                           }
-                          className="flex min-w-[150px] items-center justify-center gap-2 rounded-xl bg-[#a9b897] px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white disabled:opacity-40"
+                          className="flex min-w-[150px] items-center justify-center gap-2 rounded-xl bg-[#0F3D32] px-5 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-white disabled:opacity-40"
                         >
                           {emailSaving ? (
                             <>
@@ -6747,12 +6749,12 @@ export default function AccountProfilePage() {
                           className={`rounded-2xl border p-4 ${
                             message.direction ===
                             "outbound"
-                              ? "border-[#a9b897]/20 bg-[#a9b897]/10"
+                              ? "border-[#0F3D32]/20 bg-[#0F3D32]/10"
                               : "border-stone-200 bg-stone-50"
                           }`}
                         >
                           <div className="mb-2 flex items-center justify-between gap-4">
-                            <span className="text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
+                            <span className="text-[11px] font-black uppercase tracking-[0.12em] text-stone-400">
                               {message.direction ===
                               "outbound"
                                 ? "Sent"
@@ -6858,7 +6860,7 @@ export default function AccountProfilePage() {
                           "General",
                       });
                     }}
-                    className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] text-stone-500"
+                    className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.13em] text-stone-500"
                   >
                     <X
                       size={11}
@@ -6875,7 +6877,7 @@ export default function AccountProfilePage() {
                     onClick={() =>
                       void handleUpdate()
                     }
-                    className="inline-flex items-center gap-2 rounded-xl bg-[#a9b897] px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] text-white disabled:opacity-40"
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#0F3D32] px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.13em] text-white disabled:opacity-40"
                   >
                     {isSaving ? (
                       <Loader2
@@ -6902,7 +6904,7 @@ export default function AccountProfilePage() {
                         true
                       )
                     }
-                    className="inline-flex items-center gap-2 rounded-xl bg-[#a9b897] px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] text-white"
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#0F3D32] px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.13em] text-white"
                   >
                     <Pencil
                       size={11}
@@ -6919,7 +6921,7 @@ export default function AccountProfilePage() {
                     onClick={() =>
                       void handleDeleteCustomer()
                     }
-                    className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] text-red-500 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.13em] text-red-500 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {isDeleting ? (
                       <Loader2
@@ -7149,7 +7151,7 @@ export default function AccountProfilePage() {
                       </FormField>
 
                       <div>
-                        <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
+                        <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.14em] text-stone-400">
                           Relationship
                         </label>
 
@@ -7195,7 +7197,7 @@ export default function AccountProfilePage() {
                       </div>
 
                       <div>
-                        <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
+                        <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.14em] text-stone-400">
                           Status
                         </label>
 
@@ -7437,7 +7439,7 @@ export default function AccountProfilePage() {
                         key={
                           tag
                         }
-                        className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-2 text-[8px] font-black uppercase tracking-[0.12em] text-stone-500"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-stone-500"
                       >
                         <Tag
                           size={9}
@@ -7458,7 +7460,7 @@ export default function AccountProfilePage() {
             <section className="rounded-[2rem] border border-red-100 bg-red-50/40 p-6 shadow-sm sm:p-8">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-[8px] font-black uppercase tracking-[0.2em] text-red-400">
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-red-400">
                     Danger zone
                   </p>
 
@@ -7479,7 +7481,7 @@ export default function AccountProfilePage() {
                   onClick={() =>
                     void handleDeleteCustomer()
                   }
-                  className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 text-[8px] font-black uppercase tracking-[0.14em] text-red-500 transition hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 text-[11px] font-black uppercase tracking-[0.14em] text-red-500 transition hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {isDeleting ? (
                     <Loader2
@@ -7511,7 +7513,7 @@ export default function AccountProfilePage() {
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#829473]">
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#0F6A52]">
                     Customer health
                   </p>
 
@@ -7537,7 +7539,7 @@ export default function AccountProfilePage() {
 
               <div className="mt-6 h-2 overflow-hidden rounded-full bg-stone-100">
                 <div
-                  className="h-full rounded-full bg-[#a9b897] transition-all"
+                  className="h-full rounded-full bg-[#0F3D32] transition-all"
                   style={{
                     width:
                       `${healthScore}%`,
@@ -7586,7 +7588,7 @@ export default function AccountProfilePage() {
                     !linkedContact ||
                     !timelineEntry.trim()
                   }
-                  className="rounded-xl bg-[#a9b897] px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] text-white disabled:opacity-30"
+                  className="rounded-xl bg-[#0F3D32] px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.13em] text-white disabled:opacity-30"
                 >
                   Add to timeline
                 </button>
@@ -7618,7 +7620,7 @@ export default function AccountProfilePage() {
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="min-w-0">
-                            <p className="text-[8px] font-black uppercase tracking-[0.13em] text-[#829473]">
+                            <p className="text-[11px] font-black uppercase tracking-[0.13em] text-[#0F6A52]">
                               {
                                 event.type
                               }
@@ -7655,14 +7657,14 @@ export default function AccountProfilePage() {
 
             <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a9b897]/15 text-[#829473]">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0F3D32]/15 text-[#0F6A52]">
                   <FileText
                     size={15}
                   />
                 </div>
 
                 <div>
-                  <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#829473]">
+                  <p className="text-[11px] font-black uppercase tracking-[0.15em] text-[#0F6A52]">
                     Notes
                   </p>
 
@@ -7738,7 +7740,7 @@ export default function AccountProfilePage() {
                   disabled={
                     !noteForm.content.trim()
                   }
-                  className="rounded-xl bg-[#a9b897] px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] text-white disabled:opacity-30"
+                  className="rounded-xl bg-[#0F3D32] px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.13em] text-white disabled:opacity-30"
                 >
                   Add note
                 </button>
@@ -7758,7 +7760,7 @@ export default function AccountProfilePage() {
                         className="rounded-xl bg-stone-50 p-4"
                       >
                         <div className="flex items-center justify-between gap-4">
-                          <p className="text-[8px] font-black uppercase tracking-[0.12em] text-[#829473]">
+                          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#0F6A52]">
                             {note.type ||
                               "note"}
                           </p>
@@ -7812,7 +7814,7 @@ function HeroStat({
         }
       </p>
 
-      <p className="mt-2 text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+      <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-stone-400">
         {
           label
         }
@@ -7843,7 +7845,7 @@ function ClientStatCard({
         }
       </p>
 
-      <p className="mt-2 text-[7px] font-black uppercase tracking-[0.14em] text-stone-400">
+      <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-stone-400">
         {
           label
         }
@@ -7916,7 +7918,7 @@ function ClientFinanceList({
     <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a9b897]/15 text-[#829473]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0F3D32]/15 text-[#0F6A52]">
             <Icon
               size={14}
             />
@@ -7963,7 +7965,7 @@ function ClientFinanceList({
                       )}
                     </p>
 
-                    <p className="mt-1 text-[8px] font-black uppercase tracking-[0.12em] text-stone-400">
+                    <p className="mt-1 text-[11px] font-black uppercase tracking-[0.12em] text-stone-400">
                       {record.status ||
                         "Draft"}
                     </p>
@@ -8033,7 +8035,7 @@ function InfoCard({
 }) {
   return (
     <div className="rounded-xl bg-stone-50 p-4">
-      <p className="text-[8px] font-black uppercase tracking-[0.13em] text-stone-400">
+      <p className="text-[11px] font-black uppercase tracking-[0.13em] text-stone-400">
         {
           label
         }
@@ -8069,7 +8071,7 @@ function SectionHeading({
   return (
     <div className="flex items-end justify-between gap-4">
       <div>
-        <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#829473]">
+        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#0F6A52]">
           {
             kicker
           }
@@ -8160,7 +8162,7 @@ function FormField({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
+      <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.14em] text-stone-400">
         {
           label
         }
@@ -8196,6 +8198,59 @@ function PageStyles() {
           serif;
       }
 
+      .orbi-client-page { font-feature-settings: "ss01" on; }
+      .orbi-client-page section.bg-white,
+      .orbi-client-page aside.bg-white {
+        border-color: #e4e9e4;
+        box-shadow: 0 8px 32px -25px rgba(15, 61, 50, 0.3);
+      }
+      .orbi-client-page section.bg-white:hover,
+      .orbi-client-page aside.bg-white:hover {
+        box-shadow: 0 15px 40px -28px rgba(15, 61, 50, 0.36);
+      }
+      /* Accessible interactive controls: clear targets, contrast and keyboard focus. */
+      .orbi-client-page button,
+      .orbi-client-page [role="button"] {
+        min-height: 44px;
+        min-width: 44px;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+      .orbi-client-page button:disabled {
+        cursor: not-allowed;
+        opacity: .55;
+      }
+      .orbi-client-page button:focus-visible,
+      .orbi-client-page a:focus-visible,
+      .orbi-client-page input:focus-visible,
+      .orbi-client-page textarea:focus-visible,
+      .orbi-client-page select:focus-visible,
+      .orbi-client-page [role="tab"]:focus-visible {
+        outline: 3px solid #9ebbaa;
+        outline-offset: 3px;
+      }
+      .orbi-client-page button.text-stone-400:not(:disabled) { color: #52625b; }
+      .orbi-client-page button.text-stone-500:not(:disabled) { color: #41524a; }
+      .orbi-client-page button.text-red-500:not(:disabled) { color: #a52a38; }
+      .orbi-client-page [aria-selected="true"] { font-weight: 700; }
+      @media (prefers-reduced-motion: reduce) {
+        .orbi-client-page *, .orbi-client-page *::before, .orbi-client-page *::after {
+          scroll-behavior: auto !important;
+          animation-duration: .01ms !important;
+          transition-duration: .01ms !important;
+        }
+      }
+      .orbi-client-hero .text-stone-400,
+      .orbi-client-hero .text-stone-600 { color: #e4eae2; }
+      .orbi-client-hero .orbi-client-stats * { color: #fff9ef; }
+      .orbi-client-hero .orbi-client-stats > * + * { border-color: rgba(255,255,255,.15); }
+      .orbi-client-hero button.bg-white { background: #fff9ef; color: #0f3d32; }
+      .orbi-client-hero button.bg-stone-50 { background: rgba(255,255,255,.12); color: #fff9ef; border-color: rgba(255,255,255,.25); }
+      .orbi-client-hero button.bg-\[\#0F3D32\] { background: #fff9ef; color: #0f3d32; }
+      @media (prefers-reduced-motion: no-preference) {
+        .orbi-client-page button, .orbi-client-page a { transition: background-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease; }
+      }
+
       .no-scrollbar::-webkit-scrollbar {
         display: none;
       }
@@ -8229,7 +8284,7 @@ function PageStyles() {
       }
 
       .tots-input:focus {
-        border-color: #a9b897;
+        border-color: #0F3D32;
         background: #ffffff;
         box-shadow:
           0 0 0 3px

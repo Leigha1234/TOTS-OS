@@ -156,7 +156,7 @@ export default function TimesheetsPage() {
         {notification.visible && (
           <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} 
             className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] bg-stone-900 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-3">
-            <Zap size={12} className="text-[#a9b897]" />
+            <Zap size={12} className="text-[#0F3D32]" />
             <p className="text-[8px] font-black uppercase tracking-[0.3em]">{notification.msg}</p>
           </motion.div>
         )}
@@ -167,10 +167,10 @@ export default function TimesheetsPage() {
         {/* CLARITY TIMESHEET INTELLIGENCE */}
         <div className="bg-stone-900 text-white rounded-[2.5rem] p-6 mb-6 relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#a9b897]">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#0F3D32]">
               Clarity Labour Intelligence
             </h3>
-            <Cpu size={14} className="text-[#a9b897]" />
+            <Cpu size={14} className="text-[#0F3D32]" />
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[10px] font-mono">
@@ -190,8 +190,8 @@ export default function TimesheetsPage() {
         <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 border-b border-stone-100 pb-8">
           <div className="space-y-4 text-left">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-stone-900 text-[#a9b897] rounded-xl shadow-lg"><Timer size={18} /></div>
-              <p className="text-[7px] font-mono tracking-widest text-[#a9b897] uppercase">Fiscal Governance Active</p>
+              <div className="p-3 bg-stone-900 text-[#0F3D32] rounded-xl shadow-lg"><Timer size={18} /></div>
+              <p className="text-[7px] font-mono tracking-widest text-[#0F3D32] uppercase">Fiscal Governance Active</p>
             </div>
             <h1 className="text-6xl font-serif italic tracking-tighter leading-none">Timesheets</h1>
           </div>
@@ -242,20 +242,20 @@ export default function TimesheetsPage() {
                   </div>
                 ))}
               </div>
-              <button onClick={commitLaborLog} className="xl:col-span-1 h-[46px] bg-stone-900 text-[#a9b897] rounded-xl flex items-center justify-center hover:bg-stone-800 transition-all">
+              <button onClick={commitLaborLog} className="xl:col-span-1 h-[46px] bg-stone-900 text-[#0F3D32] rounded-xl flex items-center justify-center hover:bg-stone-800 transition-all">
                 <Plus size={20} />
               </button>
             </div>
           </section>
 
           <section className="space-y-4">
-            {isLoading ? <div className="text-center py-20"><Loader2 className="animate-spin inline text-[#a9b897]" /></div> : (
+            {isLoading ? <div className="text-center py-20"><Loader2 className="animate-spin inline text-[#0F3D32]" /></div> : (
               timesheetList.map((t) => (
                 <div key={t.id} className="bg-white border border-stone-100 p-5 rounded-[2rem] flex items-center justify-between shadow-sm">
                   <div className="flex gap-6 items-center">
                     <div className="p-4 bg-stone-50 rounded-xl"><Briefcase size={20} className="text-stone-400" /></div>
                     <div>
-                      <p className="text-[9px] font-black uppercase text-[#a9b897]">{t.client}</p>
+                      <p className="text-[9px] font-black uppercase text-[#0F3D32]">{t.client}</p>
                       <h4 className="text-xl font-serif italic tracking-tighter">{t.task}</h4>
                     </div>
                   </div>

@@ -31,6 +31,17 @@ import {
   Plus,
   Sparkles,
   X,
+  Users,
+  Layers3,
+  ReceiptText,
+  Megaphone,
+  ArrowUpRight,
+  Activity,
+  CalendarDays,
+  Wallet,
+  Scale,
+  UploadCloud,
+  ChevronRight,
 } from "lucide-react";
 
 // ==================================================
@@ -2976,12 +2987,12 @@ function DashboardContent() {
   ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#faf9f6] p-6">
-        <div className="w-full max-w-md rounded-[2rem] border border-stone-200 bg-white p-8 text-center">
+        <div className="w-full max-w-md rounded-[2rem] border border-[#E6EAE5] bg-white shadow-[0_8px_28px_rgba(15,61,50,0.035)] p-8 text-center">
           <h1 className="font-serif text-3xl italic">
             Authentication required
           </h1>
 
-          <p className="mt-3 text-xs text-stone-400">
+          <p className="mt-3 text-xs text-stone-500">
             Your verification link has expired or is no longer valid.
           </p>
 
@@ -3012,7 +3023,7 @@ function DashboardContent() {
       <div className="flex min-h-screen items-center justify-center bg-[#faf9f6]">
         <Loader2
           size={24}
-          className="animate-spin text-[#A3B18A]"
+          className="animate-spin text-[#0F3D32]"
         />
       </div>
     );
@@ -3028,7 +3039,7 @@ function DashboardContent() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#faf9f6] p-6">
         <div className="w-full max-w-lg rounded-[2rem] border border-red-100 bg-white p-8 text-center shadow-sm">
-          <p className="text-[8px] font-black uppercase tracking-[0.2em] text-red-400">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-400">
             Dashboard Error
           </p>
 
@@ -3410,7 +3421,7 @@ function DashboardContent() {
   // ==================================================
 
   return (
-    <div className="mx-auto min-h-screen max-w-[1500px] bg-[#faf9f6] p-4 font-sans text-stone-900 sm:p-6 lg:p-8">
+    <div className="mx-auto min-h-screen max-w-[1700px] bg-[#FAF9F6] p-4 font-sans text-[#1E2A27] sm:p-7 lg:p-9">
 
       <button
         type="button"
@@ -3422,7 +3433,7 @@ function DashboardContent() {
               !current
           )
         }
-        className="fixed right-6 top-6 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-stone-900 text-white shadow-xl transition hover:scale-105"
+        className="fixed right-6 top-6 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-[#0F3D32] text-white shadow-xl transition hover:scale-105"
         aria-label="Open Clarity"
       >
         <Sparkles
@@ -3431,7 +3442,7 @@ function DashboardContent() {
 
         {clarityNotifications.length >
           0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#A3B18A] px-1 text-[7px] font-black text-white">
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#0F3D32] px-1 text-[10px] font-black text-white">
             {
               clarityNotifications.length
             }
@@ -3440,13 +3451,13 @@ function DashboardContent() {
       </button>
 
       {showClarityWidget && (
-        <div className="fixed right-4 top-20 z-50 flex max-h-[calc(100vh-100px)] w-[calc(100vw-2rem)] max-w-[390px] flex-col overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-2xl sm:right-6">
+        <div className="fixed right-4 top-20 z-50 flex max-h-[calc(100vh-100px)] w-[calc(100vw-2rem)] max-w-[390px] flex-col overflow-hidden rounded-[2rem] border border-[#E6EAE5] bg-white shadow-[0_8px_28px_rgba(15,61,50,0.035)] shadow-2xl sm:right-6">
 
           <div className="flex items-center justify-between border-b border-stone-100 p-5">
 
             <div className="flex items-center gap-3">
 
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900 text-[#A3B18A]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900 text-[#0F3D32]">
                 <Sparkles
                   size={14}
                 />
@@ -3457,7 +3468,7 @@ function DashboardContent() {
                   Clarity
                 </p>
 
-                <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#67786E]">
                   Business Intelligence
                 </p>
               </div>
@@ -3470,7 +3481,7 @@ function DashboardContent() {
                   false
                 )
               }
-              className="rounded-full p-2 text-stone-400 hover:bg-stone-100"
+              className="rounded-full p-2 text-stone-500 hover:bg-stone-100"
               aria-label="Close Clarity"
             >
               <X
@@ -3488,7 +3499,7 @@ function DashboardContent() {
                 onClick={() =>
                   void startNewClarityChat()
                 }
-                className="rounded-xl border border-stone-200 px-3 py-2.5 text-[8px] font-black uppercase tracking-widest"
+                className="rounded-xl border border-stone-200 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest"
               >
                 New Chat
               </button>
@@ -3498,7 +3509,7 @@ function DashboardContent() {
                 onClick={
                   handleClarityBrief
                 }
-                className="rounded-xl bg-[#A3B18A]/10 px-3 py-2.5 text-[8px] font-black uppercase tracking-widest text-stone-700"
+                className="rounded-xl bg-[#0F3D32]/10 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-stone-700"
               >
                 Daily Brief
               </button>
@@ -3508,7 +3519,7 @@ function DashboardContent() {
               0 && (
               <div className="mt-4">
 
-                <p className="mb-2 text-[7px] font-black uppercase tracking-widest text-stone-300">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#67786E]">
                   Recent chats
                 </p>
 
@@ -3545,7 +3556,7 @@ function DashboardContent() {
                           className={`w-full truncate rounded-xl p-2.5 text-left text-[9px] font-bold ${
                             clarityChatId ===
                             chat.id
-                              ? "bg-[#A3B18A]/10 text-stone-800"
+                              ? "bg-[#0F3D32]/10 text-stone-800"
                               : "bg-[#faf9f6] text-stone-600"
                           }`}
                         >
@@ -3587,7 +3598,7 @@ function DashboardContent() {
                 }}
                 rows={3}
                 placeholder="Ask Clarity about your business..."
-                className="w-full resize-none bg-transparent p-2 text-xs outline-none placeholder:text-stone-300"
+                className="w-full resize-none bg-transparent p-2 text-xs outline-none placeholder:text-stone-500"
               />
 
               <button
@@ -3599,7 +3610,7 @@ function DashboardContent() {
                   clarityStreaming ||
                   !clarityCommand.trim()
                 }
-                className="w-full rounded-xl bg-stone-900 py-2.5 text-[8px] font-black uppercase tracking-widest text-white disabled:opacity-40"
+                className="w-full rounded-xl bg-stone-900 py-2.5 text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-40"
               >
                 {clarityStreaming
                   ? "Analysing..."
@@ -3624,7 +3635,7 @@ function DashboardContent() {
                         key={
                           item
                         }
-                        className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#A3B18A]"
+                        className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#0F3D32]"
                         style={{
                           animationDelay:
                             `${
@@ -3637,7 +3648,7 @@ function DashboardContent() {
                   )}
                 </div>
 
-                <span className="text-[9px] text-stone-400">
+                <span className="text-[9px] text-stone-500">
                   Clarity is thinking
                 </span>
               </div>
@@ -3664,7 +3675,7 @@ function DashboardContent() {
                         className={
                           message.role ===
                           "user"
-                            ? "ml-auto max-w-[88%] rounded-2xl bg-stone-900 p-3 text-[10px] leading-relaxed text-white"
+                            ? "ml-auto max-w-[88%] rounded-2xl bg-[#0F3D32] p-3 text-[10px] leading-relaxed text-white"
                             : "max-w-[92%] rounded-2xl border border-stone-200 p-3 text-[10px] leading-relaxed text-stone-600"
                         }
                       >
@@ -3695,7 +3706,7 @@ function DashboardContent() {
                   "/clarity"
                 )
               }
-              className="mt-4 w-full rounded-xl bg-[#A3B18A] py-3 text-[8px] font-black uppercase tracking-widest text-white"
+              className="mt-4 w-full rounded-xl bg-[#0F3D32] py-3 text-[10px] font-black uppercase tracking-widest text-white"
             >
               Open Full Clarity
             </button>
@@ -3704,7 +3715,7 @@ function DashboardContent() {
       )}
 
       {showBriefModal && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-stone-900/40 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#082C24]/50 p-4 backdrop-blur-sm">
 
           <div className="relative max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl sm:p-6">
 
@@ -3715,7 +3726,7 @@ function DashboardContent() {
                   false
                 )
               }
-              className="absolute right-5 top-5 rounded-full p-2 text-stone-400 hover:bg-stone-100"
+              className="absolute right-5 top-5 rounded-full p-2 text-stone-500 hover:bg-stone-100"
               aria-label="Close daily brief"
             >
               <X
@@ -3723,7 +3734,7 @@ function DashboardContent() {
               />
             </button>
 
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#A3B18A]">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#0F3D32]">
               Clarity
             </p>
 
@@ -3731,11 +3742,11 @@ function DashboardContent() {
               Today&apos;s brief
             </h2>
 
-            <div className="mt-4 rounded-2xl border border-[#A3B18A]/20 bg-[#f7f8f3] p-4">
-              <p className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400">
+            <div className="mt-4 rounded-2xl border border-[#0F3D32]/20 bg-[#f7f8f3] p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-500">
                 Daily affirmation
               </p>
-              <p className="mt-2 font-serif text-xl italic leading-snug text-stone-900">
+              <p className="mt-2 font-serif text-xl tracking-tight leading-snug text-stone-900">
                 “{dailyAffirmation}”
               </p>
             </div>
@@ -3748,176 +3759,83 @@ function DashboardContent() {
         </div>
       )}
 
-      <header className="mb-4 flex flex-col justify-between gap-4 lg:mb-5 lg:flex-row lg:items-end lg:gap-5">
-
+      {/* ORBI. command centre — all figures come from the existing live dashboard state. */}
+      <header className="mb-7 flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
         <div>
-
-          <div className="flex items-center gap-2">
-
-            <span className="h-2 w-2 rounded-full bg-[#A3B18A]" />
-
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
-              {formatDashboardDate(
-                currentTime
-              )}
-            </p>
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#63756C]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#0F3D32]" />
+            {formatDashboardDate(currentTime)}
           </div>
-
-          <h1 className="mt-3 font-serif text-4xl italic tracking-tight sm:text-5xl">
-            {
-              greetingText
-            }
-
-            <span className="text-[#A3B18A]">
-              .
-            </span>
+          <h1 className="mt-3 font-serif text-[clamp(2.25rem,4vw,3.65rem)] leading-[1.08] tracking-[-0.035em] text-[#142C25]">
+            {greetingText}<span className="text-[#699382]">.</span>
           </h1>
-
-          <p className="mt-2 text-xs text-stone-400">
-            Here&apos;s everything happening across your business.
-          </p>
+          <p className="mt-2 text-sm text-[#65736B]">Your business, beautifully in sync. Here&apos;s what matters today.</p>
         </div>
-
-        <button
-          type="button"
-          onClick={() =>
-            setShowClarityWidget(
-              true
-            )
-          }
-          className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-[#A3B18A]"
-        >
-
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#A3B18A]/10 text-[#8b9c74]">
-            <Sparkles
-              size={14}
-            />
-          </div>
-
-          <div>
-
-            <p className="text-[7px] font-black uppercase tracking-widest text-stone-400">
-              Clarity says
-            </p>
-
-            <p className="mt-0.5 text-[10px] font-bold text-stone-700">
-              {riskLevel ===
-              "low"
-                ? "Everything looks steady"
-                : riskLevel ===
-                    "medium"
-                  ? "A few areas need attention"
-                  : "Your workload needs attention"}
-            </p>
-          </div>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => router.push("/crm")} className="inline-flex items-center gap-2 rounded-xl border border-[#E0E7E0] bg-white px-4 py-3 text-xs font-semibold text-[#193D30] shadow-sm transition hover:border-[#8CB6A2] hover:bg-[#F4F8F4]"><Users size={16} /> New contact</button>
+          <button type="button" onClick={() => router.push("/projects")} className="inline-flex items-center gap-2 rounded-xl border border-[#E0E7E0] bg-white px-4 py-3 text-xs font-semibold text-[#193D30] shadow-sm transition hover:border-[#8CB6A2] hover:bg-[#F4F8F4]"><Layers3 size={16} /> Projects</button>
+          <button type="button" onClick={() => router.push("/notes")} className="inline-flex items-center gap-2 rounded-xl bg-[#0F3D32] px-5 py-3 text-xs font-bold text-white shadow-[0_10px_24px_rgba(15,61,50,.18)] transition hover:bg-[#082C24]"><Plus size={17} /> Create task</button>
+        </div>
       </header>
 
-      <section className="mb-4 grid grid-cols-2 gap-3 lg:mb-5 lg:grid-cols-6">
-
+      <section aria-label="Key business metrics" className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          {
-            label:
-              "Health",
-
-            value:
-              `${healthScore}%`,
-          },
-
-          {
-            label:
-              "Open Tasks",
-
-            value:
-              openTasks.length,
-          },
-
-          {
-            label:
-              "Projects",
-
-            value:
-              stats.activeProjects,
-          },
-
-          {
-            label:
-              "Today",
-
-            value:
-              todayEvents.length,
-          },
-
-          {
-            label:
-              "Invoices Due",
-
-            value:
-              stats.invoicesDue,
-          },
-
-          {
-            label:
-              "Revenue",
-
-            value:
-              `£${formatCurrency(
-                stats.currentRevenue
-              )}`,
-          },
-        ].map(
-          (
-            item
-          ) => (
-            <div
-              key={
-                item.label
-              }
-              className="rounded-2xl border border-stone-200 bg-white p-3.5"
-            >
-
-              <p className="text-[7px] font-black uppercase tracking-widest text-stone-400">
-                {
-                  item.label
-                }
-              </p>
-
-              <p className="mt-2 font-serif text-2xl italic text-stone-900">
-                {
-                  item.value
-                }
-              </p>
+          { label: "Revenue", value: `£${formatCurrency(stats.currentRevenue)}`, detail: "Recorded revenue", icon: Wallet, route: "/payments", dark: true },
+          { label: "Invoices due", value: stats.invoicesDue, detail: "Awaiting payment", icon: ReceiptText, route: "/payments", dark: false },
+          { label: "Active projects", value: stats.activeProjects, detail: "Work in progress", icon: Layers3, route: "/projects", dark: false },
+          { label: "Open tasks", value: openTasks.length, detail: "Across your workspace", icon: Check, route: "/notes", dark: false },
+        ].map((metric) => (
+          <button key={metric.label} type="button" onClick={() => router.push(metric.route)} className={`group relative min-h-[164px] overflow-hidden rounded-[1.45rem] border p-5 text-left transition duration-200 hover:-translate-y-1 hover:shadow-xl ${metric.dark ? "border-[#0F3D32] bg-[#0F3D32] text-white shadow-[0_12px_28px_rgba(15,61,50,.14)]" : "border-[#E5EAE4] bg-white text-[#183A2F] shadow-[0_6px_20px_rgba(15,61,50,.035)]"}`}>
+            <div className="flex items-start justify-between gap-2">
+              <span className={`text-[11px] font-semibold tracking-wide ${metric.dark ? "text-[#D9E9E0]" : "text-[#67776E]"}`}>{metric.label}</span>
+              <span className={`rounded-xl p-2.5 ${metric.dark ? "bg-white/10 text-white" : "bg-[#EDF4EE] text-[#0F3D32]"}`}><metric.icon size={18} strokeWidth={1.8}/></span>
             </div>
-          )
-        )}
+            <div className="mt-3 font-serif text-[clamp(2rem,3vw,2.7rem)] leading-none tracking-tight">{metric.value}</div>
+            <div className={`mt-4 flex items-center justify-between text-[11px] ${metric.dark ? "text-[#D9E9E0]" : "text-[#77867D]"}`}><span>{metric.detail}</span><ArrowUpRight size={16} className="transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" /></div>
+            <div className={`pointer-events-none absolute -bottom-12 -right-8 h-32 w-32 rounded-full blur-2xl ${metric.dark ? "bg-[#6BA58A]/20" : "bg-[#D7E8DC]/35"}`} />
+          </button>
+        ))}
+      </section>
+
+      <section aria-label="Quick workspace actions" className="mb-6 flex flex-wrap items-center gap-2 rounded-[1.35rem] border border-[#E5EAE4] bg-white p-3 shadow-[0_6px_20px_rgba(15,61,50,.03)]">
+        <span className="mr-2 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#718078]">Quick access</span>
+        {[
+          { label: "CRM", icon: Users, route: "/crm" },
+          { label: "Calendar", icon: CalendarDays, route: "/calendar" },
+          { label: "Finances", icon: Wallet, route: "/payments" },
+          { label: "Marketing", icon: Megaphone, route: "/campaigns" },
+          { label: "Store", icon: Briefcase, route: "/store" },
+          { label: "Clarity AI", icon: Sparkles, route: "/clarity" },
+        ].map((action) => <button key={action.label} type="button" onClick={() => router.push(action.route)} className="inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold text-[#315245] transition hover:bg-[#EEF5EF]"><action.icon size={16} strokeWidth={1.8}/>{action.label}<ChevronRight size={12} className="opacity-40" /></button>)}
+        <div className="ml-auto flex items-center gap-2 rounded-xl bg-[#EDF4EE] px-3 py-2 text-[11px] font-semibold text-[#0F3D32]"><Activity size={15}/> Health {healthScore}% <span className="text-[#779B87]">·</span> {todayEvents.length} today</div>
       </section>
 
       <section className="mb-4 grid grid-cols-1 gap-3 lg:mb-5 lg:grid-cols-12 lg:gap-4">
 
-        <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 lg:col-span-5 lg:p-5">
+        <div className="relative overflow-hidden rounded-[1.6rem] bg-[linear-gradient(135deg,#082C24_0%,#0F3D32_68%,#1B5A48_100%)] p-5 text-white shadow-[0_16px_40px_rgba(15,61,50,0.16)] lg:col-span-5 lg:p-6">
 
           <div className="flex items-center justify-between gap-4">
 
             <div>
 
-              <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#A3B18A]">
-                Focus
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#0F3D32]">
+                <span className="inline-flex items-center gap-2"><Sparkles size={14}/> Clarity AI · Daily focus</span>
               </p>
 
-              <h2 className="mt-1 font-serif text-2xl italic">
+              <h2 className="mt-1 font-serif text-2xl tracking-tight">
                 Today&apos;s priorities
               </h2>
             </div>
 
             <span
-              className={`rounded-full px-3 py-1.5 text-[8px] font-black uppercase tracking-widest ${
+              className={`rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ${
                 riskLevel ===
                 "high"
                   ? "bg-red-50 text-red-500"
                   : riskLevel ===
                       "medium"
                     ? "bg-amber-50 text-amber-600"
-                    : "bg-[#A3B18A]/10 text-[#7f9069]"
+                    : "bg-[#0F3D32]/10 text-[#0F3D32]"
               }`}
             >
               {
@@ -3927,7 +3845,7 @@ function DashboardContent() {
             </span>
           </div>
 
-          <p className="mt-3 text-[11px] leading-relaxed text-stone-400">
+          <p className="mt-3 text-sm leading-relaxed text-[#E4F0E9]">
             {
               aiSummary
             }
@@ -3949,15 +3867,15 @@ function DashboardContent() {
                   ) => (
                     <div
                       key={`${action}-${index}`}
-                      className="flex items-center gap-3 rounded-xl bg-[#faf9f6] p-3"
+                      className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm"
                     >
 
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stone-900 text-[8px] font-black text-white">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#E9F2EB] text-[10px] font-black text-[#0F3D32]">
                         {index +
                           1}
                       </span>
 
-                      <p className="text-[10px] font-semibold text-stone-700">
+                      <p className="text-xs font-medium text-white">
                         {
                           action
                         }
@@ -3966,7 +3884,7 @@ function DashboardContent() {
                   )
                 )
             ) : (
-              <p className="rounded-xl bg-[#faf9f6] p-4 text-[10px] text-stone-400">
+              <p className="rounded-xl bg-white/10 p-4 text-xs text-white/80">
                 No urgent priorities detected.
               </p>
             )}
@@ -3977,21 +3895,21 @@ function DashboardContent() {
             onClick={
               handleClarityBrief
             }
-            className="mt-4 text-[8px] font-black uppercase tracking-widest text-stone-400 transition hover:text-stone-900"
+            className="mt-5 inline-flex items-center rounded-xl bg-[#F7EFE6] px-4 py-3 text-[11px] font-bold tracking-wide text-[#0F3D32] transition hover:bg-white"
           >
             View Clarity Brief →
           </button>
         </div>
 
-        <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 lg:col-span-4 lg:p-5">
+        <div className="rounded-[1.6rem] border border-[#E3EAE3] bg-white shadow-[0_10px_32px_rgba(15,61,50,0.045)] p-4 lg:col-span-4 lg:p-5">
 
           <div className="flex items-center justify-between">
 
-            <h2 className="flex items-center gap-2 font-serif text-2xl italic">
+            <h2 className="flex items-center gap-2 font-serif text-2xl tracking-tight">
 
               <Clock
                 size={15}
-                className="text-[#A3B18A]"
+                className="text-[#0F3D32]"
               />
 
               Coming up
@@ -4004,7 +3922,7 @@ function DashboardContent() {
                   "/calendar"
                 )
               }
-              className="text-[7px] font-black uppercase tracking-widest text-stone-400 transition hover:text-stone-900"
+              className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#67786E] transition hover:text-stone-900"
             >
               Calendar
             </button>
@@ -4034,7 +3952,7 @@ function DashboardContent() {
 
                     <div className="min-w-[65px] text-center">
 
-                      <p className="text-[8px] font-black uppercase text-[#8b9c74]">
+                      <p className="text-[10px] font-black uppercase text-[#0F3D32]">
                         {event.startAt?.toLocaleDateString(
                           "en-GB",
                           {
@@ -4062,7 +3980,7 @@ function DashboardContent() {
 
                     <div className="h-7 w-px bg-stone-200" />
 
-                    <p className="min-w-0 truncate text-[10px] font-bold text-stone-700">
+                    <p className="min-w-0 truncate text-xs font-semibold text-[#294237]">
                       {
                         event.title
                       }
@@ -4073,7 +3991,7 @@ function DashboardContent() {
             ) : (
               <div className="rounded-xl bg-[#faf9f6] p-6 text-center">
 
-                <p className="text-[10px] text-stone-400">
+                <p className="text-xs text-[#66756D]">
                   Nothing coming up.
                 </p>
               </div>
@@ -4081,13 +3999,13 @@ function DashboardContent() {
           </div>
         </div>
 
-        <div className="rounded-[1.6rem] bg-stone-900 p-4 text-white lg:col-span-3 lg:p-5">
+        <div className="rounded-[1.6rem] bg-[#0F3D32] p-5 text-white shadow-[0_14px_36px_rgba(15,61,50,0.18)] lg:col-span-3 lg:p-6">
 
-          <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#A3B18A]">
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#0F3D32]">
             Snapshot
           </p>
 
-          <h2 className="mt-1 font-serif text-2xl italic">
+          <h2 className="mt-1 font-serif text-2xl tracking-tight">
             Business now
           </h2>
 
@@ -4095,11 +4013,11 @@ function DashboardContent() {
 
             <div>
 
-              <p className="text-[7px] font-black uppercase tracking-widest text-stone-500">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#B9D2C4]">
                 Paid Revenue
               </p>
 
-              <p className="mt-1 font-serif text-2xl italic">
+              <p className="mt-1 font-serif text-2xl tracking-tight">
                 £
                 {formatCurrency(
                   stats.currentRevenue
@@ -4113,7 +4031,7 @@ function DashboardContent() {
 
               <div>
 
-                <p className="text-[7px] font-black uppercase tracking-widest text-stone-500">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#B9D2C4]">
                   Team
                 </p>
 
@@ -4126,7 +4044,7 @@ function DashboardContent() {
 
               <div>
 
-                <p className="text-[7px] font-black uppercase tracking-widest text-stone-500">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#B9D2C4]">
                   Emails
                 </p>
 
@@ -4139,7 +4057,7 @@ function DashboardContent() {
 
               <div>
 
-                <p className="text-[7px] font-black uppercase tracking-widest text-stone-500">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#B9D2C4]">
                   Projects
                 </p>
 
@@ -4152,7 +4070,7 @@ function DashboardContent() {
 
               <div>
 
-                <p className="text-[7px] font-black uppercase tracking-widest text-stone-500">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#B9D2C4]">
                   Events
                 </p>
 
@@ -4167,17 +4085,17 @@ function DashboardContent() {
         </div>
       </section>
 
-      <section className="mb-4 rounded-[1.6rem] border border-stone-200 bg-white p-4 lg:mb-5 lg:p-5">
+      <section className="mb-4 rounded-[1.6rem] border border-[#E3EAE3] bg-white shadow-[0_10px_32px_rgba(15,61,50,0.045)] p-4 lg:mb-5 lg:p-5">
 
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
 
           <div>
 
-            <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#A3B18A]">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#0F3D32]">
               Work Queue
             </p>
 
-            <h2 className="mt-1 font-serif text-2xl italic">
+            <h2 className="mt-1 font-serif text-2xl tracking-tight">
               Priority tasks
             </h2>
           </div>
@@ -4207,7 +4125,7 @@ function DashboardContent() {
                 }
               }}
               placeholder="Add task..."
-              className="w-full rounded-xl border border-stone-200 bg-[#faf9f6] px-3 py-2.5 text-[10px] outline-none transition focus:border-[#A3B18A] sm:w-52"
+              className="w-full rounded-xl border border-stone-200 bg-[#faf9f6] px-3 py-2.5 text-[10px] outline-none transition focus:border-[#0F3D32] sm:w-52"
             />
 
             <button
@@ -4218,7 +4136,7 @@ function DashboardContent() {
               disabled={
                 !taskInput.trim()
               }
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-900 text-white transition hover:bg-[#A3B18A] disabled:opacity-40"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0F3D32] text-white transition hover:bg-[#0F3D32] disabled:opacity-40"
               aria-label="Add task"
             >
               <Plus
@@ -4251,7 +4169,7 @@ function DashboardContent() {
                         todo.completed
                       )
                     }
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-stone-300 bg-white transition hover:border-[#A3B18A]"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-stone-300 bg-white transition hover:border-[#0F3D32]"
                     aria-label={`Complete ${todo.text}`}
                   >
                     {todo.completed && (
@@ -4261,7 +4179,7 @@ function DashboardContent() {
                     )}
                   </button>
 
-                  <p className="min-w-0 flex-1 truncate text-[10px] font-bold text-stone-700">
+                  <p className="min-w-0 flex-1 truncate text-xs font-semibold text-[#294237]">
                     {
                       todo.text
                     }
@@ -4271,7 +4189,7 @@ function DashboardContent() {
                     todo
                   ) ===
                     "HIGH" && (
-                    <span className="rounded-full bg-red-50 px-2 py-1 text-[6px] font-black text-red-500">
+                    <span className="rounded-full bg-red-50 px-2 py-1 text-[9px] font-black text-red-500">
                       HIGH
                     </span>
                   )}
@@ -4281,7 +4199,7 @@ function DashboardContent() {
           ) : (
             <div className="col-span-full rounded-xl bg-[#faf9f6] p-5 text-center">
 
-              <p className="text-[10px] text-stone-400">
+              <p className="text-xs text-[#66756D]">
                 You&apos;re all caught up.
               </p>
             </div>
@@ -4297,7 +4215,7 @@ function DashboardContent() {
                 "/notes"
               )
             }
-            className="mt-4 text-[8px] font-black uppercase tracking-widest text-stone-400 transition hover:text-stone-900"
+            className="mt-4 text-[11px] font-bold uppercase tracking-[0.12em] text-[#67786E] transition hover:text-stone-900"
           >
             View all{" "}
             {
@@ -4310,15 +4228,15 @@ function DashboardContent() {
 
       <section className="grid grid-cols-1 gap-3 lg:grid-cols-3 lg:gap-4">
 
-        <div className="rounded-[1.6rem] border border-stone-200 bg-white p-4 lg:p-5">
+        <div className="rounded-[1.6rem] border border-[#E3EAE3] bg-white shadow-[0_10px_32px_rgba(15,61,50,0.045)] p-4 lg:p-5">
 
           <div className="flex items-center justify-between">
 
-            <h2 className="flex items-center gap-2 font-serif text-xl italic">
+            <h2 className="flex items-center gap-2 font-serif text-xl tracking-tight">
 
               <Briefcase
                 size={14}
-                className="text-[#A3B18A]"
+                className="text-[#0F3D32]"
               />
 
               Projects
@@ -4331,7 +4249,7 @@ function DashboardContent() {
                   "/projects"
                 )
               }
-              className="text-[7px] font-black uppercase tracking-widest text-stone-400 transition hover:text-stone-900"
+              className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#67786E] transition hover:text-stone-900"
             >
               View all
             </button>
@@ -4360,12 +4278,12 @@ function DashboardContent() {
 
                     <div className="min-w-0">
 
-                      <p className="truncate text-[10px] font-bold text-stone-700">
+                      <p className="truncate text-xs font-semibold text-[#294237]">
                         {project.name ||
                           "Project"}
                       </p>
 
-                      <p className="mt-1 text-[7px] font-black uppercase tracking-widest text-stone-400">
+                      <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-[#67786E]">
                         {project.status ||
                           "Active"}
                       </p>
@@ -4383,7 +4301,7 @@ function DashboardContent() {
                             ""
                         ).toLowerCase() ===
                           "stable"
-                          ? "bg-[#A3B18A]"
+                          ? "bg-[#0F3D32]"
                           : "bg-stone-300"
                       }`}
                     />
@@ -4391,7 +4309,7 @@ function DashboardContent() {
                 )
               )
             ) : (
-              <p className="rounded-xl bg-[#faf9f6] p-5 text-center text-[10px] text-stone-400">
+              <p className="rounded-xl bg-[#faf9f6] p-5 text-center text-xs text-[#66756D]">
                 No active projects.
               </p>
             )}
@@ -4404,7 +4322,7 @@ function DashboardContent() {
                 "/projects"
               )
             }
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-stone-200 py-3 text-[8px] font-black uppercase tracking-widest text-stone-400 transition hover:border-[#A3B18A] hover:text-stone-700"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-stone-200 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#67786E] transition hover:border-[#0F3D32] hover:text-stone-700"
           >
             <Plus
               size={11}
@@ -4414,15 +4332,15 @@ function DashboardContent() {
           </button>
         </div>
 
-        <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
+        <div className="rounded-[2rem] border border-[#E6EAE5] bg-white shadow-[0_8px_28px_rgba(15,61,50,0.035)] p-5">
 
           <div className="flex items-center justify-between">
 
-            <h2 className="flex items-center gap-2 font-serif text-xl italic">
+            <h2 className="flex items-center gap-2 font-serif text-xl tracking-tight">
 
               <FileText
                 size={14}
-                className="text-[#A3B18A]"
+                className="text-[#0F3D32]"
               />
 
               Notes
@@ -4435,7 +4353,7 @@ function DashboardContent() {
                   "/notes"
                 )
               }
-              className="text-[7px] font-black uppercase tracking-widest text-stone-400 transition hover:text-stone-900"
+              className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#67786E] transition hover:text-stone-900"
             >
               View all
             </button>
@@ -4466,7 +4384,7 @@ function DashboardContent() {
                 }
               }}
               placeholder="Quick note..."
-              className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-[#faf9f6] px-3 py-2.5 text-[10px] outline-none transition focus:border-[#A3B18A]"
+              className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-[#faf9f6] px-3 py-2.5 text-[10px] outline-none transition focus:border-[#0F3D32]"
             />
 
             <button
@@ -4477,7 +4395,7 @@ function DashboardContent() {
               disabled={
                 !noteInput.trim()
               }
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 text-white transition hover:bg-[#A3B18A] disabled:opacity-40"
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0F3D32] text-white transition hover:bg-[#0F3D32] disabled:opacity-40"
               aria-label="Add note"
             >
               <Plus
@@ -4513,28 +4431,28 @@ function DashboardContent() {
                 )
               )
             ) : (
-              <p className="rounded-xl bg-[#faf9f6] p-5 text-center text-[10px] text-stone-400">
+              <p className="rounded-xl bg-[#faf9f6] p-5 text-center text-xs text-[#66756D]">
                 No notes yet.
               </p>
             )}
           </div>
         </div>
 
-        <div className="rounded-[2rem] border border-stone-200 bg-white p-5">
+        <div className="rounded-[2rem] border border-[#E6EAE5] bg-white shadow-[0_8px_28px_rgba(15,61,50,0.035)] p-5">
 
           <div className="flex items-center justify-between">
 
-            <h2 className="flex items-center gap-2 font-serif text-xl italic">
+            <h2 className="flex items-center gap-2 font-serif text-xl tracking-tight">
 
               <Mail
                 size={14}
-                className="text-[#A3B18A]"
+                className="text-[#0F3D32]"
               />
 
               Recent emails
             </h2>
 
-            <span className="text-[8px] font-black text-stone-400">
+            <span className="text-[10px] font-black text-stone-500">
               {
                 emails.length
               }
@@ -4571,16 +4489,16 @@ function DashboardContent() {
 
                       <div className="flex items-center justify-between gap-2">
 
-                        <p className="min-w-0 truncate text-[10px] font-bold text-stone-700">
+                        <p className="min-w-0 truncate text-xs font-semibold text-[#294237]">
                           {email.subject ||
                             "Email"}
                         </p>
 
                         <span
-                          className={`shrink-0 rounded-full px-2 py-1 text-[6px] font-black uppercase ${
+                          className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase ${
                             email.direction ===
                             "outbound"
-                              ? "bg-[#A3B18A]/10 text-[#7f9069]"
+                              ? "bg-[#0F3D32]/10 text-[#0F3D32]"
                               : "bg-stone-200 text-stone-500"
                           }`}
                         >
@@ -4591,7 +4509,7 @@ function DashboardContent() {
                         </span>
                       </div>
 
-                      <p className="mt-1 truncate text-[8px] text-stone-400">
+                      <p className="mt-1 truncate text-xs text-[#66756D]">
                         {email.created_at
                           ? new Date(
                               email.created_at
@@ -4613,7 +4531,7 @@ function DashboardContent() {
             ) : (
               <div className="rounded-xl bg-[#faf9f6] p-5 text-center">
 
-                <p className="text-[10px] text-stone-400">
+                <p className="text-xs text-[#66756D]">
                   No recent email activity.
                 </p>
               </div>
@@ -4624,15 +4542,15 @@ function DashboardContent() {
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 px-2 pb-4">
 
-        <p className="text-[7px] font-black uppercase tracking-[0.2em] text-stone-300">
-          TOTS-OS Business Overview
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-500">
+          ORBI. Business Overview
         </p>
 
         <div className="flex items-center gap-2">
 
-          <span className="h-1.5 w-1.5 rounded-full bg-[#A3B18A]" />
+          <span className="h-1.5 w-1.5 rounded-full bg-[#0F3D32]" />
 
-          <p className="text-[7px] font-black uppercase tracking-[0.2em] text-stone-300">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-500">
             Clarity monitoring active
           </p>
         </div>
@@ -4651,7 +4569,7 @@ export default function DashboardPage() {
       fallback={
         <div className="flex h-screen items-center justify-center bg-[#faf9f6]">
           <Loader2
-            className="animate-spin text-[#A3B18A]"
+            className="animate-spin text-[#0F3D32]"
             size={28}
           />
         </div>

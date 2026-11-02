@@ -389,9 +389,10 @@ export default function Clarity() {
           "/api/clarity/brief"
         );
 
-      if (
-        !response.ok
-      ) {
+      if (!response.ok) {
+        const failure = await response.json().catch(() => ({}));
+        console.error("Clarity CEO brief failed", failure);
+        setBrief({ summary: failure.error || "Unable to load the briefing. Please try again.", priorities: [] });
         return;
       }
 

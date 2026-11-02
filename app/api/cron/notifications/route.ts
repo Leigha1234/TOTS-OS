@@ -2472,8 +2472,7 @@ async function processShopOrders({
     await fetchFirstAvailableTable(
       supabase,
       [
-        "orders",
-        "shop_orders",
+        "store_orders",
       ]
     );
 

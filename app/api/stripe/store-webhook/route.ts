@@ -4,14 +4,14 @@ import Stripe from "stripe";
 import { Resend } from "resend";
 
 import {
-  syncStoreSubscription,
+  retrieveAndSyncStoreSubscription,
   syncStoreSubscriptionFromCheckout,
   syncStoreSubscriptionFromInvoice,
 } from "@/lib/storeSubscriptions";
 
 import {
   grantMtcPackCreditsSafely,
-  syncMtcMembershipsSafely,
+  syncMtcMemberships,
 } from "@/lib/integrations/mtc/mtc";
 
 export const dynamic = "force-dynamic";
@@ -2681,7 +2681,7 @@ async function completeStoreOrder({
       throw raffleError;
     }
 
-    await createOrderNotifications({
+    await notifyOrderSafely({
       order,
       customerName,
       customerEmail,
@@ -2761,7 +2761,7 @@ async function completeStoreOrder({
         customerEmail,
       });
 
-      await createOrderNotifications({
+      await notifyOrderSafely({
         order:
           latest,
 
@@ -2890,7 +2890,7 @@ async function completeStoreOrder({
     );
   }
 
-  await createOrderNotifications({
+  await notifyOrderSafely({
     order:
       updatedOrder,
 
@@ -3557,6 +3557,32 @@ async function handleRefundCreated({
   });
 }
 
+// Notifications are secondary to payment/access fulfilment. A notification
+// outage must not prevent course grants or the membership sync below.
+async function notifyOrderSafely(args: Parameters<typeof createOrderNotifications>[0]) {
+  try { await createOrderNotifications(args); }
+  catch (error) { console.error("[TOTS STORE] Order notification failed.", error); }
+}
+
+async function syncMtcStoreSubscription(
+  row: { id: string; organisation_id: string; product_id: string | null } | null,
+  trigger: string,
+) {
+  if (!row || row.organisation_id !== "2c96d537-2be4-4917-8982-e7491300f15f") return;
+  if (!row.product_id) throw new Error("MTC subscription has no mapped product.");
+  const { data: product, error } = await supabaseAdmin
+    .from("store_products")
+    .select("external_system, external_plan_code")
+    .eq("id", row.product_id)
+    .eq("organisation_id", row.organisation_id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!product) throw new Error("MTC subscription product was not found.");
+  if (product.external_system !== "mtc") return;
+  if (!product.external_plan_code) throw new Error("MTC product has no plan code.");
+  await syncMtcMemberships({ trigger, subscriptionId: row.id });
+}
+
 // ============================================================
 // SYNC CHECKOUT SUBSCRIPTION
 // ============================================================
@@ -3571,7 +3597,7 @@ async function syncCheckoutSubscriptionIfNeeded({
   if (
     session.mode !== "subscription"
   ) {
-    return false;
+    return null;
   }
 
   if (!eventStripeAccountId) {
@@ -3579,17 +3605,16 @@ async function syncCheckoutSubscriptionIfNeeded({
       `[TOTS STORE SUBSCRIPTIONS] Checkout ${session.id} is subscription mode but no connected Stripe account was supplied.`
     );
 
-    return false;
+    return null;
   }
 
-  await syncStoreSubscriptionFromCheckout({
+  return syncStoreSubscriptionFromCheckout({
     session,
 
     stripeAccountId:
       eventStripeAccountId,
   });
 
-  return true;
 }
 
 // ============================================================
@@ -3781,7 +3806,7 @@ export async function POST(
           });
 
         if (subscriptionSynced) {
-          await syncMtcMembershipsSafely(
+          await syncMtcStoreSubscription(subscriptionSynced,
             "membership_created"
           );
         }
@@ -3810,7 +3835,7 @@ export async function POST(
           });
 
         if (subscriptionSynced) {
-          await syncMtcMembershipsSafely(
+          await syncMtcStoreSubscription(subscriptionSynced,
             "payment_succeeded"
           );
         }
@@ -3844,7 +3869,7 @@ export async function POST(
           });
 
         if (subscriptionSynced) {
-          await syncMtcMembershipsSafely(
+          await syncMtcStoreSubscription(subscriptionSynced,
             "payment_failed"
           );
         }
@@ -3869,14 +3894,14 @@ export async function POST(
           break;
         }
 
-        await syncStoreSubscription({
-          subscription,
+        const savedSubscription = await retrieveAndSyncStoreSubscription({
+          stripeSubscriptionId: subscription.id,
 
           stripeAccountId:
             eventStripeAccountId,
         });
 
-        await syncMtcMembershipsSafely(
+        await syncMtcStoreSubscription(savedSubscription,
           "membership_created"
         );
 
@@ -3901,14 +3926,14 @@ export async function POST(
           break;
         }
 
-        await syncStoreSubscription({
-          subscription,
+        const savedSubscription = await retrieveAndSyncStoreSubscription({
+          stripeSubscriptionId: subscription.id,
 
           stripeAccountId:
             eventStripeAccountId,
         });
 
-        await syncMtcMembershipsSafely(
+        await syncMtcStoreSubscription(savedSubscription,
           "membership_updated"
         );
 
@@ -3932,14 +3957,14 @@ export async function POST(
           break;
         }
 
-        await syncStoreSubscription({
-          subscription,
+        const savedSubscription = await retrieveAndSyncStoreSubscription({
+          stripeSubscriptionId: subscription.id,
 
           stripeAccountId:
             eventStripeAccountId,
         });
 
-        await syncMtcMembershipsSafely(
+        await syncMtcStoreSubscription(savedSubscription,
           "membership_cancelled"
         );
 
@@ -3963,14 +3988,14 @@ export async function POST(
           break;
         }
 
-        await syncStoreSubscriptionFromInvoice({
+        const savedSubscription = await syncStoreSubscriptionFromInvoice({
           invoice,
 
           stripeAccountId:
             eventStripeAccountId,
         });
 
-        await syncMtcMembershipsSafely(
+        await syncMtcStoreSubscription(savedSubscription,
           "payment_succeeded"
         );
 
@@ -3994,14 +4019,14 @@ export async function POST(
           break;
         }
 
-        await syncStoreSubscriptionFromInvoice({
+        const savedSubscription = await syncStoreSubscriptionFromInvoice({
           invoice,
 
           stripeAccountId:
             eventStripeAccountId,
         });
 
-        await syncMtcMembershipsSafely(
+        await syncMtcStoreSubscription(savedSubscription,
           "payment_failed"
         );
 

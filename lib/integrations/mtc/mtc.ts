@@ -28,6 +28,7 @@ export type MtcMembershipSyncResult = {
 type SyncMtcMembershipsOptions = {
   trigger?: MtcSyncTrigger;
   suppressError?: boolean;
+  subscriptionId?: string;
 };
 
 function requireServerEnv(name: string): string {
@@ -37,7 +38,8 @@ function requireServerEnv(name: string): string {
 }
 
 function getMtcMembershipSyncUrl(): string {
-  return requireServerEnv("MTC_MEMBERSHIP_SYNC_URL");
+  return process.env.MTC_MEMBERSHIP_SYNC_URL?.trim()
+    || requireServerEnv("TOTS_MTC_MEMBERSHIP_SYNC_URL");
 }
 
 function getMtcIntegrationSecret(): string {
@@ -80,18 +82,14 @@ async function parseResponse(
   response: Response,
 ): Promise<{ payload: Record<string, unknown>; bodyPreview: string }> {
   const text = await response.text();
-  let payload: Record<string, unknown> = { success: response.ok };
-
-  if (text) {
-    try {
-      const parsed: unknown = JSON.parse(text);
-      payload = isObject(parsed)
-        ? parsed
-        : { success: response.ok, message: errorDetail(parsed) };
-    } catch {
-      payload = { success: response.ok, message: text };
-    }
+  // A redirect/login page or empty 200 response is not a successful sync.
+  let parsed: unknown;
+  try { parsed = JSON.parse(text); }
+  catch { throw new Error(`MTC returned a non-JSON response (HTTP ${response.status}).`); }
+  if (!isObject(parsed) || typeof parsed.success !== "boolean") {
+    throw new Error(`MTC returned an invalid integration response (HTTP ${response.status}).`);
   }
+  const payload = parsed;
 
   // Avoid logging HTML pages, credentials, or full upstream error responses.
   return { payload, bodyPreview: text.slice(0, 500) };
@@ -111,6 +109,7 @@ async function postToMtc(
     },
     body: JSON.stringify(body),
     cache: "no-store",
+    redirect: "error",
     signal: AbortSignal.timeout(20000),
   });
 }
@@ -118,7 +117,7 @@ async function postToMtc(
 export async function syncMtcMemberships(
   options: SyncMtcMembershipsOptions = {},
 ): Promise<MtcMembershipSyncResult> {
-  const { trigger = "membership_updated", suppressError = false } = options;
+  const { trigger = "membership_updated", suppressError = false, subscriptionId } = options;
 
   try {
     const url = getMtcMembershipSyncUrl();
@@ -126,7 +125,7 @@ export async function syncMtcMemberships(
 
     console.info("[MTC integration] Starting membership sync.", { trigger });
 
-    const response = await postToMtc(url, secret, { trigger });
+    const response = await postToMtc(url, secret, { trigger, ...(subscriptionId ? { subscriptionId } : {}) });
     const { payload } = await parseResponse(response);
 
     if (!response.ok && response.status !== 207) {
@@ -139,6 +138,14 @@ export async function syncMtcMemberships(
       throw new Error(
         responseError(response, payload, "MTC reported an unsuccessful membership sync."),
       );
+    }
+
+    if (subscriptionId && (
+      payload.success !== true || response.status === 207 ||
+      payload.total !== 1 || payload.syncedCount !== 1 ||
+      payload.unresolvedCount !== 0
+    )) {
+      throw new Error(`MTC did not confirm the requested membership ${subscriptionId}.`);
     }
 
     const result = payload as MtcMembershipSyncResult;
@@ -215,7 +222,7 @@ export async function grantMtcPackCreditsSafely(
     const response = await postToMtc(url, secret, { ...grant });
     const { payload } = await parseResponse(response);
 
-    if (!response.ok || payload.success === false) {
+    if (!response.ok || payload.success !== true) {
       const message = responseError(
         response,
         payload,

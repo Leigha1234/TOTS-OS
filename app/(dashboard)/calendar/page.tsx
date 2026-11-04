@@ -98,6 +98,9 @@ interface CalendarEvent {
     | "task"
     | "note";
 
+  calendarOrigin?: string;
+  sharedReadOnly?: boolean;
+
   seriesId?: string;
 
   isRecurringOccurrence?: boolean;
@@ -1282,6 +1285,10 @@ export default function CalendarPage() {
   const [eventInviteEmail, setEventInviteEmail] = useState("");
   const [eventInviteNotice, setEventInviteNotice] = useState(true);
   const [dayAgendaOpen, setDayAgendaOpen] = useState(false);
+  const [calendarFilter, setCalendarFilter] = useState("mine");
+  const [sharedCalendarNames, setSharedCalendarNames] = useState<string[]>([]);
+  const [sharedCalendarError, setSharedCalendarError] = useState("");
+
 
   const refreshSharing = useCallback(async () => {
     const { data, error } = await supabase.rpc("calendar_list_invitations");
@@ -1544,6 +1551,27 @@ export default function CalendarPage() {
             throw eventsResult.error;
           }
 
+          // Accepted cross-organisation shares are read through a security-definer RPC.
+          // The function returns only authorised events; no service key is used in the browser.
+          const { data: sharedRows, error: sharedError } = await supabase.rpc(
+            "calendar_get_shared_events"
+          );
+          if (sharedError) {
+            setSharedCalendarError(sharedError.message);
+          } else {
+            setSharedCalendarError("");
+          }
+          const sharedData = Array.isArray(sharedRows) ? sharedRows : [];
+          const sharedNames = Array.from(new Set(sharedData.map((row: any) =>
+            String(row.calendar_origin || "Shared calendar")
+          )));
+          setSharedCalendarNames(sharedNames);
+          const sharedEvents: CalendarEvent[] = sharedData.map((row: any) => ({
+            ...normaliseEvent(row),
+            calendarOrigin: String(row.calendar_origin || "Shared calendar"),
+            sharedReadOnly: true,
+          }));
+
           const normalisedEvents =
             (
               eventsResult.data ||
@@ -1786,6 +1814,7 @@ export default function CalendarPage() {
 
           const combined = [
             ...normalisedEvents,
+            ...sharedEvents,
             ...normalisedTasks,
             ...normalisedNotes,
           ].sort(
@@ -2030,16 +2059,23 @@ export default function CalendarPage() {
   // RECURRING MONTH EVENTS
   // ==========================================================
 
+  const filterOptions = ["mine", "all", ...sharedCalendarNames];
+  const visibleEvents = useMemo(() => events.filter((event) => {
+    if (calendarFilter === "all") return true;
+    if (calendarFilter === "mine") return !event.sharedReadOnly;
+    return event.sharedReadOnly && event.calendarOrigin === calendarFilter;
+  }), [events, calendarFilter]);
+
   const expandedCalendarEvents =
     useMemo(
       () =>
         expandRecurringEvents(
-          events,
+          visibleEvents,
           calendarRangeStart,
           calendarRangeEnd
         ),
       [
-        events,
+        visibleEvents,
         calendarRangeStart,
         calendarRangeEnd,
       ]
@@ -2083,12 +2119,12 @@ export default function CalendarPage() {
     useMemo(
       () =>
         expandRecurringEvents(
-          events,
+          visibleEvents,
           overviewRangeStart,
           overviewRangeEnd
         ),
       [
-        events,
+        visibleEvents,
         overviewRangeStart,
         overviewRangeEnd,
       ]
@@ -4748,7 +4784,26 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {activeTab === "Calendar" && (
+                {activeTab === "Calendar" && (
+          <div className="mb-4 rounded-2xl border border-stone-200 bg-white p-4">
+            <div className="flex flex-wrap items-center gap-2" aria-label="Filter calendars">
+              <span className="mr-2 text-xs font-semibold text-stone-600">View calendar:</span>
+              {filterOptions.map((option) => (
+                <button key={option} type="button"
+                  onClick={() => setCalendarFilter(option)}
+                  aria-pressed={calendarFilter === option}
+                  className={`rounded-full px-4 py-2 text-xs font-semibold transition ${calendarFilter === option ? "bg-stone-900 text-white" : "border border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100"}`}>
+                  {option === "mine" ? "My calendar" : option === "all" ? "View all" : option}
+                </button>
+              ))}
+              <button type="button" onClick={() => void syncCalendar()} className="ml-auto text-xs underline">Refresh calendars</button>
+            </div>
+            {sharedCalendarError && <p role="alert" className="mt-2 text-xs text-red-700">Shared calendars unavailable: {sharedCalendarError}</p>}
+            {!sharedCalendarError && sharedCalendarNames.length === 0 && <p className="mt-2 text-xs text-stone-500">Shared calendars appear here after their invitations are accepted and appointments are available.</p>}
+          </div>
+        )}
+
+{activeTab === "Calendar" && (
           <div className="mb-6 space-y-4 rounded-[2rem] border border-stone-200 bg-white p-6">
             <h3 className="text-xl font-serif italic">Share a single event</h3>
             <p className="text-sm text-stone-500">Choose one of your events and invite another TOTS-OS account to view it.</p>

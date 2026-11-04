@@ -1268,6 +1268,12 @@ export default function CalendarPage() {
       false
     );
 
+  // Sharing preferences are local UI drafts until the server-side
+  // invitation, authorization and notification endpoints are installed.
+  const [shareRecipientEmail, setShareRecipientEmail] = useState("");
+  const [shareCalendarEnabled, setShareCalendarEnabled] = useState(true);
+  const [shareEmailEnabled, setShareEmailEnabled] = useState(true);
+
   // ==========================================================
   // SITE ORIGIN
   // ==========================================================
@@ -5312,6 +5318,46 @@ export default function CalendarPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Shared calendar setup: requires server-side invitation and
+                    booking notification/synchronisation endpoints. */}
+                <section className="rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8" aria-labelledby="shared-calendar-heading">
+                  <div className="flex items-start gap-3">
+                    <Users className="mt-1 h-5 w-5 text-[#829473]" aria-hidden="true" />
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#829473]">Booking collaboration</p>
+                      <h3 id="shared-calendar-heading" className="mt-1 text-2xl font-serif italic text-stone-800">Shared calendar &amp; notifications</h3>
+                      <p className="mt-2 text-sm leading-6 text-stone-500">
+                        Share appointments from this booking page with another ORBI / TOTS-OS account.
+                        The original booking stays with this business; invited people can see its schedule.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-6 space-y-4">
+                    <label className="block text-xs font-bold text-stone-700" htmlFor="share-recipient-email">Invite an account by email</label>
+                    <input id="share-recipient-email" type="email" autoComplete="email"
+                      placeholder="theorganisedtypes@gmail.com" value={shareRecipientEmail}
+                      onChange={(event) => setShareRecipientEmail(event.target.value)}
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm text-stone-900" />
+                    <label className="flex items-center gap-3 text-sm text-stone-700">
+                      <input type="checkbox" checked={shareCalendarEnabled} onChange={(event) => setShareCalendarEnabled(event.target.checked)} />
+                      Show new, changed and cancelled appointments on the invited account's calendar
+                    </label>
+                    <label className="flex items-center gap-3 text-sm text-stone-700">
+                      <input type="checkbox" checked={shareEmailEnabled} onChange={(event) => setShareEmailEnabled(event.target.checked)} />
+                      Email the invited account when an appointment is booked, changed or cancelled
+                    </label>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-900" role="status">
+                      Setup required: sharing is not active yet. The secure invitation, recipient acceptance,
+                      cross-account calendar access and booking email delivery must be connected on the server.
+                      These controls are a preview and do not save or send invitations.
+                    </div>
+                    <button type="button" disabled aria-disabled="true"
+                      className="rounded-xl bg-stone-200 px-5 py-3 text-xs font-black uppercase tracking-widest text-stone-500 cursor-not-allowed">
+                      Invite account — coming soon
+                    </button>
+                  </div>
+                </section>
 
                 {bookingError && (
                   <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-xs text-red-600">

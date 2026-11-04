@@ -20,6 +20,7 @@ type ContactInput = {
   email?: unknown;
   name?: unknown;
   marketing_opt_in?: unknown;
+  trial_claimed_at?: unknown;
 };
 
 export async function POST(req: NextRequest) {
@@ -41,7 +42,19 @@ export async function POST(req: NextRequest) {
   // Explicitly opted-in contacts only. Never treat missing/null consent as true.
   if (payload.marketing_opt_in !== true) return json({ skipped: "no_marketing_permission" });
 
+  const trialClaimedAt = typeof payload.trial_claimed_at === 'string' && !Number.isNaN(Date.parse(payload.trial_claimed_at))
+    ? new Date(payload.trial_claimed_at).toISOString() : null;
+  if (!trialClaimedAt) return json({ error: 'Missing valid trial_claimed_at' }, 400);
   const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  async function recordTrial(contactId: string) {
+    const { error } = await db.from('mtc_trial_marketing_lifecycle').upsert({
+      organisation_id: org, mtc_user_id: userId, contact_id: contactId,
+      trial_started_at: trialClaimedAt,
+      // Never enable sending implicitly. This is a staging record only.
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'organisation_id,mtc_user_id' });
+    return error;
+  }
   // Mapping table makes repeated syncs idempotent without changing existing CRM contacts.
   const { data: mapped, error: mappingError } = await db.from("mtc_marketing_contact_links")
     .select("contact_id").eq("organisation_id", org).eq("mtc_user_id", userId).maybeSingle();
@@ -49,7 +62,9 @@ export async function POST(req: NextRequest) {
   if (mapped?.contact_id) {
     const { error } = await db.from("contacts").update({ name: name || null, email })
       .eq("id", mapped.contact_id).eq("organisation_id", org);
-    return error ? json({ error: "Contact update failed" }, 500) : json({ synced: true, action: "updated" });
+    if (error) return json({ error: 'Contact update failed' }, 500);
+    if (await recordTrial(mapped.contact_id)) return json({ error: 'Trial lifecycle save failed' }, 500);
+    return json({ synced: true, action: 'updated' });
   }
 
   // Avoid duplicating an existing contact with the same email in this organisation.
@@ -71,6 +86,7 @@ export async function POST(req: NextRequest) {
     organisation_id: org, mtc_user_id: userId, contact_id: contactId, last_synced_at: new Date().toISOString(),
   }, { onConflict: "organisation_id,mtc_user_id" });
   if (linkError) return json({ error: "Contact linked unsuccessfully; retry required" }, 500);
+  if (await recordTrial(contactId)) return json({ error: 'Trial lifecycle save failed' }, 500);
   // Intentionally does not add the contact to campaign_list_emails or send email.
   return json({ synced: true, action: existing?.length ? "linked_existing" : "created" });
 }

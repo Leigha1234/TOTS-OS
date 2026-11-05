@@ -327,7 +327,7 @@ export async function GET(req: NextRequest) {
       });
 
       const unsubscribeUrl =
-        `https://www.tots-os.co.uk/unsubscribe?token=${encodeURIComponent(token)}`;
+        `https://www.tots-os.co.uk/api/campaigns/unsubscribe?token=${encodeURIComponent(token)}`;
 
       const content = buildEmail(
         delivery.email_step,

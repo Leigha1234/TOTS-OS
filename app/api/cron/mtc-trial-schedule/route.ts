@@ -71,7 +71,9 @@ export async function GET(req: NextRequest) {
     for (const step of steps) {
       const scheduledAt = new Date(start + step.day * DAY);
       // Never queue past-due steps, even for a new trial.
-      if (scheduledAt.getTime() < now) continue;
+      // Allow the welcome email to be queued during the first 24 hours.
+// Other steps must not be scheduled retroactively.
+if (scheduledAt.getTime() < now && step.email_step !== 'welcome') continue;
       counts.steps_due++;
       if (!writeTest) continue;
       const { data: inserted, error: insertError } = await db.from('mtc_trial_email_deliveries')

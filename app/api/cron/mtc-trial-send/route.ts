@@ -53,11 +53,33 @@ export async function GET(req: NextRequest) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // Production sending is disabled until explicitly enabled.
+  // Fail closed: delivery requires an explicit global switch, an organisation
+  // enrolment switch, and an explicitly configured test recipient allowlist.
+  // This stage deliberately does NOT permit unrestricted production sending.
   const enabled = process.env.MTC_TRIAL_EMAIL_SENDING_ENABLED === "true";
+  const testEmails = new Set(
+    (process.env.MTC_TRIAL_TEST_RECIPIENTS ?? "")
+      .split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean)
+  );
 
-  // Even when enabled, only this address can receive emails initially.
-  const testEmail = "leigha0305@gmail.com";
+  const { data: settings, error: settingsError } = await db
+    .from("mtc_marketing_automation_settings")
+    .select("trial_enrolment_enabled,trial_enrolment_starts_at")
+    .eq("organisation_id", org)
+    .maybeSingle();
+
+  if (settingsError) {
+    return response({ error: "Automation settings query failed" }, 500);
+  }
+
+  const enrolmentStart = settings?.trial_enrolment_starts_at
+    ? Date.parse(settings.trial_enrolment_starts_at)
+    : NaN;
+  const orgEnabled = settings?.trial_enrolment_enabled === true
+    && Number.isFinite(enrolmentStart)
+    && enrolmentStart <= Date.now();
 
   const counts = {
     inspected: 0,
@@ -124,7 +146,7 @@ export async function GET(req: NextRequest) {
     const started = Date.parse(lifecycle.trial_started_at);
 
     // Never send this sequence to historical trials.
-    if (!Number.isFinite(started) || started < Date.now() - 14 * DAY) {
+    if (!Number.isFinite(started) || started < Date.now() - 14 * DAY || started < enrolmentStart) {
       counts.blocked++;
       continue;
     }
@@ -144,7 +166,7 @@ export async function GET(req: NextRequest) {
     const email = contact.email.trim().toLowerCase();
 
     // Test allowlist: no other recipient can be emailed.
-    if (email !== testEmail) {
+    if (!testEmails.has(email)) {
       counts.blocked++;
       continue;
     }
@@ -282,7 +304,9 @@ export async function GET(req: NextRequest) {
 
   return response({
     dry_run: !enabled,
-    recipient_scope: "single_test_email",
+    recipient_scope: "configured_test_allowlist_only",
+    organisation_enrolment_enabled: orgEnabled,
+    allowlist_configured: testEmails.size > 0,
     emails_sent: counts.sent,
     ...counts,
   });

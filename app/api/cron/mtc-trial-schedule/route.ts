@@ -42,7 +42,13 @@ export async function GET(req: NextRequest) {
   const db = createClient(dbUrl, dbKey, { auth: { persistSession: false, autoRefreshToken: false } });
   let query = db.from('mtc_trial_marketing_lifecycle')
     .select('mtc_user_id,trial_started_at,sending_enabled,status,paid_membership_confirmed')
-    .eq('organisation_id', org).order('trial_started_at', { ascending: false }).limit(100);
+    .eq('organisation_id', org)
+    .eq('status', 'staged')
+    .eq('sending_enabled', true)
+    .eq('paid_membership_confirmed', false)
+    .gte('trial_started_at', new Date(Date.now() - 14 * DAY).toISOString())
+    .order('trial_started_at', { ascending: false })
+    .limit(1000);
   if (writeTest) query = query.eq('mtc_user_id', testId);
   const { data, error } = await query;
   if (error) return respond({ error: 'Lifecycle query failed' }, 500);
@@ -53,7 +59,7 @@ export async function GET(req: NextRequest) {
     if (!row.sending_enabled || row.status !== 'staged' || row.paid_membership_confirmed) { counts.disabled++; continue; }
     const start = Date.parse(row.trial_started_at);
     // New trials only; no retroactive backlog. Existing contacts need separate campaign.
-    if (!Number.isFinite(start) || start < now - DAY || start > now + DAY) { counts.historical++; continue; }
+    if (!Number.isFinite(start) || start < now - 14 * DAY || start > now + DAY) { counts.historical++; continue; }
     let eligible = false;
     try {
       const res = await fetch(url.toString(), {

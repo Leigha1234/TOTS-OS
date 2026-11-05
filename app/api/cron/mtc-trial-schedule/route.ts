@@ -36,10 +36,21 @@ export async function GET(req: NextRequest) {
 
   const testId = process.env.MTC_TRIAL_SCHEDULE_TEST_USER_ID ?? '';
   const writeTest = process.env.MTC_TRIAL_SCHEDULE_WRITE_TEST === 'true';
+  const writeProduction = process.env.MTC_TRIAL_SCHEDULE_WRITE_PRODUCTION === 'true';
+  if (writeTest && writeProduction) return respond({ error: 'Conflicting schedule modes' }, 503);
   if (writeTest && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(testId)) {
     return respond({ error: 'A valid test user ID is required for writes' }, 503);
   }
   const db = createClient(dbUrl, dbKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  if (writeProduction) {
+    const { data: settings, error: settingsError } = await db
+      .from('mtc_marketing_automation_settings')
+      .select('trial_enrolment_enabled,trial_enrolment_starts_at')
+      .eq('organisation_id', org).maybeSingle();
+    if (settingsError || !settings?.trial_enrolment_enabled || !settings.trial_enrolment_starts_at) {
+      return respond({ error: 'Production enrolment not authorised by organisation settings' }, 403);
+    }
+  }
   let query = db.from('mtc_trial_marketing_lifecycle')
     .select('mtc_user_id,trial_started_at,sending_enabled,status,paid_membership_confirmed')
     .eq('organisation_id', org)
@@ -50,6 +61,12 @@ export async function GET(req: NextRequest) {
     .order('trial_started_at', { ascending: false })
     .limit(1000);
   if (writeTest) query = query.eq('mtc_user_id', testId);
+  if (writeProduction) {
+    const { data: settings } = await db.from('mtc_marketing_automation_settings')
+      .select('trial_enrolment_starts_at').eq('organisation_id', org).single();
+    if (!settings?.trial_enrolment_starts_at) return respond({ error: 'Missing enrolment start' }, 503);
+    query = query.gte('trial_started_at', settings.trial_enrolment_starts_at);
+  }
   const { data, error } = await query;
   if (error) return respond({ error: 'Lifecycle query failed' }, 500);
   const now = Date.now();
@@ -81,7 +98,7 @@ export async function GET(req: NextRequest) {
 // Other steps must not be scheduled retroactively.
 if (scheduledAt.getTime() < now && step.email_step !== 'welcome') continue;
       counts.steps_due++;
-      if (!writeTest) continue;
+      if (!writeTest && !writeProduction) continue;
       const { data: inserted, error: insertError } = await db.from('mtc_trial_email_deliveries')
         .upsert({ organisation_id: org, mtc_user_id: row.mtc_user_id, email_step: step.email_step, scheduled_at: scheduledAt.toISOString(), status: 'pending' }, {
           onConflict: 'organisation_id,mtc_user_id,email_step', ignoreDuplicates: true,
@@ -91,5 +108,5 @@ if (scheduledAt.getTime() < now && step.email_step !== 'welcome') continue;
       else counts.already_scheduled++;
     }
   }
-  return respond({ dry_run: !writeTest, emails_sent: 0, write_scope: writeTest ? 'single_test_user' : 'none', ...counts }, counts.failed ? 207 : 200);
+  return respond({ dry_run: !writeTest && !writeProduction, emails_sent: 0, write_scope: writeTest ? 'single_test_user' : writeProduction ? 'eligible_new_trials' : 'none', ...counts }, counts.failed ? 207 : 200);
 }

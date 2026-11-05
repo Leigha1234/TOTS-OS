@@ -50,9 +50,12 @@ export async function POST(req: NextRequest) {
     const { error } = await db.from('mtc_trial_marketing_lifecycle').upsert({
       organisation_id: org, mtc_user_id: userId, contact_id: contactId,
       trial_started_at: trialClaimedAt,
-      // Never enable sending implicitly. This is a staging record only.
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'organisation_id,mtc_user_id' });
+      // Preserve existing lifecycle records and their automation settings.
+      // Newly discovered trials remain disabled until explicitly activated.
+    }, {
+      onConflict: 'organisation_id,mtc_user_id',
+      ignoreDuplicates: true,
+    });
     return error;
   }
   // Mapping table makes repeated syncs idempotent without changing existing CRM contacts.

@@ -75,6 +75,7 @@ export async function GET(req: NextRequest) {
     .select("id,organisation_id,mtc_user_id,email_step,status,scheduled_at")
     .eq("organisation_id", org)
     .eq("status", "pending")
+    .gte("scheduled_at", new Date(Date.now() - DAY).toISOString())
     .lte("scheduled_at", new Date().toISOString())
     .order("scheduled_at", { ascending: true })
     .limit(50);

@@ -78,10 +78,6 @@ export async function POST(req: NextRequest) {
     return json({ error: "Invalid user ID or email" }, 400);
   }
 
-  if (payload.marketing_opt_in !== true) {
-    return json({ skipped: "no_marketing_permission" });
-  }
-
   const trialClaimedAt =
     typeof payload.trial_claimed_at === "string" &&
     Number.isFinite(Date.parse(payload.trial_claimed_at))
@@ -98,6 +94,66 @@ export async function POST(req: NextRequest) {
       autoRefreshToken: false,
     },
   });
+
+  // A withdrawal must also suppress an already-synced contact. Simply
+  // skipping this payload would leave an old ORBI marketing record active.
+  if (payload.marketing_opt_in !== true) {
+    try {
+      const { data: linked, error: linkError } = await db
+        .from("mtc_marketing_contact_links")
+        .select("contact_id")
+        .eq("organisation_id", org)
+        .eq("mtc_user_id", userId)
+        .maybeSingle();
+      if (linkError) throw linkError;
+
+      if (!linked?.contact_id) {
+        return json({ synced: false, skipped: "no_marketing_permission" });
+      }
+
+      const { data: contact, error: contactError } = await db
+        .from("contacts")
+        .select("email")
+        .eq("id", linked.contact_id)
+        .eq("organisation_id", org)
+        .maybeSingle();
+      if (contactError) throw contactError;
+
+      const emails = new Set<string>();
+      if (contact?.email && validEmail(contact.email.trim())) {
+        emails.add(contact.email.trim().toLowerCase());
+      }
+      if (email) emails.add(email);
+
+      // Fail closed: if suppression cannot be recorded, do not report success.
+      for (const suppressedEmail of emails) {
+        const { error: suppressionError } = await db
+          .from("campaign_unsubscribes")
+          .upsert(
+            {
+              organisation_id: org,
+              email: suppressedEmail,
+              source: "mtc_marketing_permission_withdrawn",
+              unsubscribed_at: new Date().toISOString(),
+            },
+            { onConflict: "organisation_id,email" }
+          );
+        if (suppressionError) throw suppressionError;
+      }
+
+      const { error: disableError } = await db
+        .from("mtc_trial_marketing_lifecycle")
+        .update({ sending_enabled: false, updated_at: new Date().toISOString() })
+        .eq("organisation_id", org)
+        .eq("mtc_user_id", userId);
+      if (disableError) throw disableError;
+
+      return json({ synced: true, action: "marketing_permission_withdrawn" });
+    } catch (error) {
+      console.error("MTC permission withdrawal sync failed:", error);
+      return json({ error: "Marketing suppression failed" }, 500);
+    }
+  }
 
   async function processTrial(contactId: string) {
     // Existing records must never be reactivated by a contact sync.

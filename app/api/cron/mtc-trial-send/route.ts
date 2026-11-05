@@ -86,6 +86,17 @@ export async function GET(req: NextRequest) {
   for (const delivery of deliveries ?? []) {
     counts.inspected++;
 
+    // Do not send emails more than 24 hours after their scheduled time.
+    const scheduledTime = Date.parse(delivery.scheduled_at);
+
+    if (
+      !Number.isFinite(scheduledTime) ||
+      scheduledTime < Date.now() - DAY
+    ) {
+      counts.not_due++;
+      continue;
+    }
+
     const { data: lifecycle, error: lifecycleError } = await db
       .from("mtc_trial_marketing_lifecycle")
       .select(

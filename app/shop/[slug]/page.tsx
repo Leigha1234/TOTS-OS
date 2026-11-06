@@ -5110,9 +5110,9 @@ export default function ShopFrontPage() {
                       <div className="absolute -right-12 -top-16 h-56 w-56 rounded-full border-[35px] border-[#F5E500]/15" aria-hidden="true" />
                       <div className="relative z-10 max-w-2xl">
                         <span className="inline-block rounded-full bg-[#F5E500] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-black">MTC Christmas 2026</span>
-                        <h2 className="mt-5 text-4xl font-black tracking-tight text-white sm:text-5xl">Give them something <span className="text-[#F5E500]">to train for.</span></h2>
-                        <p className="mt-4 max-w-xl text-base leading-7 text-stone-200">From their first HYROX session to a month of unlimited training. Real gifts, real progress.</p>
-                        <p className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#F5E500]"><MapPin size={16}/> Free collection from Moray Training Club</p>
+                        <h2 className="mt-5 text-4xl font-black tracking-tight sm:text-5xl" style={{ color: "#FFFFFF" }}>Give them something <span style={{ color: "#F5E500" }}>to train for.</span></h2>
+                        <p className="mt-4 max-w-xl text-base leading-7" style={{ color: "#F5F5F5" }}>From their first HYROX session to a month of unlimited training. Real gifts, real progress.</p>
+                        <p className="mt-5 inline-flex items-center gap-2 text-sm font-semibold" style={{ color: "#F5E500" }}><MapPin size={16}/> Free collection from Moray Training Club</p>
                       </div>
                     </div>
                     <div className="mb-6 flex flex-wrap items-center justify-between gap-3">

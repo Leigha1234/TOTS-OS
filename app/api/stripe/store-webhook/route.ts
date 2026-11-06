@@ -3759,6 +3759,47 @@ export async function POST(
       `account=${eventStripeAccountId || "platform"}`
   );
 
+  // Claim only after Stripe signature verification. Fail closed if tracking
+  // is unavailable: an untracked delivery must never execute side effects.
+  let webhookClaimToken: string | null = null;
+  try {
+    const { data, error } = await supabaseAdmin.rpc(
+      "claim_stripe_webhook_event",
+      {
+        p_event_id: event.id,
+        p_stripe_account_id: eventStripeAccountId,
+        p_event_type: event.type,
+      }
+    );
+    if (error) throw error;
+    const claim = Array.isArray(data) ? data[0] : null;
+    if (!claim) throw new Error("Webhook claim returned no result.");
+
+    if (claim.claim_status === "completed") {
+      return NextResponse.json(
+        { received: true, duplicate: true, eventId: event.id },
+        { status: 200, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    if (claim.claim_status === "busy") {
+      // Do not acknowledge another request's incomplete work.
+      return NextResponse.json(
+        { error: "Webhook event is already processing." },
+        { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "30" } }
+      );
+    }
+    if (claim.claim_status !== "claimed" || typeof claim.claim_token !== "string") {
+      throw new Error("Invalid webhook claim response.");
+    }
+    webhookClaimToken = claim.claim_token;
+  } catch (claimError) {
+    console.error("[TOTS STORE WEBHOOK] Claim failed:", claimError);
+    return NextResponse.json(
+      { error: "Could not claim Stripe webhook event." },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
   try {
     switch (
       event.type
@@ -4075,6 +4116,16 @@ export async function POST(
       }
     }
 
+    // Only acknowledge the event after all required side effects complete.
+    const { data: completed, error: completionError } = await supabaseAdmin.rpc(
+      "complete_stripe_webhook_event",
+      { p_event_id: event.id, p_claim_token: webhookClaimToken }
+    );
+    if (completionError) throw completionError;
+    if (completed !== true) {
+      throw new Error(`Webhook ${event.id} could not be marked completed.`);
+    }
+
     return NextResponse.json(
       {
         received:
@@ -4109,6 +4160,26 @@ export async function POST(
       `[TOTS STORE WEBHOOK] Processing failed for ${event.type} (${event.id}):`,
       error
     );
+
+    // Release only our own claim. Never mask the original processing error.
+    if (webhookClaimToken) {
+      try {
+        const { data: failed, error: failureError } = await supabaseAdmin.rpc(
+          "fail_stripe_webhook_event",
+          {
+            p_event_id: event.id,
+            p_claim_token: webhookClaimToken,
+            p_error: error instanceof Error ? error.message : "Unknown processing error.",
+          }
+        );
+        if (failureError) throw failureError;
+        if (failed !== true) {
+          console.warn("[TOTS STORE WEBHOOK] Claim no longer owned:", event.id);
+        }
+      } catch (trackingError) {
+        console.error("[TOTS STORE WEBHOOK] Failure tracking failed:", trackingError);
+      }
+    }
 
     return NextResponse.json(
       {

@@ -1333,7 +1333,8 @@ export default function ShopFrontPage() {
 
   const mtcView =
     requestedMtcView === "memberships" ||
-    requestedMtcView === "rooted"
+    requestedMtcView === "rooted" ||
+    requestedMtcView === "gifts"
       ? requestedMtcView
       : "hub";
 
@@ -1345,6 +1346,9 @@ export default function ShopFrontPage() {
 
   const mtcRootedStoreUrl =
     `${mtcStoreBaseUrl}?view=rooted`;
+
+  const mtcGiftsStoreUrl =
+    `${mtcStoreBaseUrl}?view=gifts`;
 
   const mtcReturnUrl = (() => {
     if (!isMTC || !requestedReturnTo) {
@@ -4265,6 +4269,15 @@ export default function ShopFrontPage() {
                   Memberships
                 </a>
                 <a
+                  href={mtcGiftsStoreUrl}
+                  aria-current={mtcView === "gifts" ? "page" : undefined}
+                  className={`rounded-full px-4 py-2 text-xs font-black no-underline ${
+                    mtcView === "gifts" ? "mtc-membership-active" : ""
+                  }`}
+                >
+                  Gift Vouchers
+                </a>
+                <a
                   href={mtcRootedStoreUrl}
                   aria-current={mtcView === "rooted" ? "page" : undefined}
                   className={`rounded-full px-4 py-2 text-xs font-black no-underline ${
@@ -4870,25 +4883,42 @@ export default function ShopFrontPage() {
       >
         <div className="mx-auto max-w-[1360px]">
 
+          {isMTC && mtcView !== "gifts" && (
+            <a href={mtcGiftsStoreUrl} className="mb-9 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-[#171717] px-6 py-6 text-white no-underline shadow-sm transition hover:border-amber-400 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300">Christmas at MTC</p>
+                <p className="mt-2 text-xl font-black sm:text-2xl">Give them something to train for.</p>
+                <p className="mt-1 text-sm text-stone-300">Gift vouchers from £25 · Collect at Moray Training Club</p>
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-2 text-sm font-bold text-amber-300">Explore gift vouchers <ArrowRight size={16}/></span>
+            </a>
+          )}
+
           <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
 
             <SectionHeading
               eyebrow={
-                membershipLayout
-                  ? "Memberships"
-                  : "Browse the store"
+                isMTC && mtcView === "gifts"
+                  ? "Christmas at MTC"
+                  : membershipLayout
+                    ? "Memberships"
+                    : "Browse the store"
               }
               title={
-                membershipLayout
-                  ? "Choose your membership."
-                  : isOrganisedTypes
+                isMTC && mtcView === "gifts"
+                  ? "Give the gift of training."
+                  : membershipLayout
+                    ? "Choose your membership."
+                    : isOrganisedTypes
                     ? "Choose the right support for your business."
                     : "Find what you need."
               }
               description={
-                membershipLayout
-                  ? "Pick the membership that best suits you. TOTS handles the membership setup and keeps your access connected."
-                  : isOrganisedTypes
+                isMTC && mtcView === "gifts"
+                  ? "From beginner courses to class packs and gift vouchers. Buy online and collect your physical voucher at Moray Training Club. Valid for six months from purchase; redeem with the team."
+                  : membershipLayout
+                    ? "Pick the membership that best suits you. TOTS handles the membership setup and keeps your access connected."
+                    : isOrganisedTypes
                     ? "Clear packages, straightforward pricing and support you can add as your business grows."
                     : "Browse everything available, or use the filters to narrow things down."
               }
@@ -5065,7 +5095,7 @@ export default function ShopFrontPage() {
           )}
 
           {visibleProducts.length >
-          0 ? (
+          0 || (isMTC && mtcView === "gifts") ? (
             membershipLayout ? (
               <>
                 {isMTC && mtcView === "hub" ? (
@@ -5074,6 +5104,33 @@ export default function ShopFrontPage() {
                     rootedUrl={mtcRootedStoreUrl}
                     appMembershipUrl={mtcReturnUrl}
                   />
+                ) : isMTC && mtcView === "gifts" ? (
+                  <div className="mt-10">
+                    <div className="mb-7 grid gap-3 rounded-2xl border border-stone-200 bg-white p-5 text-sm text-stone-700 sm:grid-cols-3">
+                      <div><strong className="block text-stone-950">1. Choose a gift</strong>Pick the experience or amount.</div>
+                      <div><strong className="block text-stone-950">2. Collect at MTC</strong>Physical vouchers, no postage.</div>
+                      <div><strong className="block text-stone-950">3. Gift & redeem</strong>Valid for six months from purchase.</div>
+                    </div>
+                    {products.some((product) => String(product.sku || "").toUpperCase().startsWith("MTC-GIFT-")) ? (
+                      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        {products.filter((product) => String(product.sku || "").toUpperCase().startsWith("MTC-GIFT-")).map((product) => (
+                          <ProductCard
+                            key={product.id}
+                            product={product}
+                            primary={primary}
+                            onAdd={() => addToCart(product)}
+                            onRequest={() => requestProduct(product)}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-stone-200 bg-white px-6 py-12 text-center">
+                        <p className="text-lg font-bold text-stone-900">Gift vouchers coming soon</p>
+                        <p className="mt-2 text-sm text-stone-500">Check back shortly for our Christmas gift vouchers.</p>
+                      </div>
+                    )}
+                    <p className="mt-6 text-xs text-stone-500">Collection from Moray Training Club only. Vouchers do not activate a membership at purchase; contact the team to redeem.</p>
+                  </div>
                 ) : isMTC && mtcView === "rooted" ? (
                   <RootedFundraiserSection
                     products={products.filter(
@@ -5124,7 +5181,7 @@ export default function ShopFrontPage() {
 
                       return (
                         isOffshoreMembership ||
-                        (productCategory !== "rooted cic" &&
+                        (!productSku.startsWith("mtc-gift-") && productCategory !== "rooted cic" &&
                           !productCategory.includes("legacy") &&
                           !productName.includes("legacy") &&
                           !productSlug.includes("legacy") &&

@@ -5,9 +5,9 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/campaigns",
-      "schedule": "0 9 * * *"
-    },
+  "path": "/api/cron/campaigns",
+  "schedule": "*/5 * * * *"
+},
     {
       "path": "/api/webhooks/gocardless/process",
       "schedule": "*/5 * * * *"

@@ -4886,9 +4886,9 @@ export default function ShopFrontPage() {
           {isMTC && mtcView !== "gifts" && (
             <a href={mtcGiftsStoreUrl} className="mb-9 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-[#171717] px-6 py-6 text-white no-underline shadow-sm transition hover:border-amber-400 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300">Christmas at MTC</p>
-                <p className="mt-2 text-xl font-black sm:text-2xl">Give them something to train for.</p>
-                <p className="mt-1 text-sm text-stone-300">Gift vouchers from £25 · Collect at Moray Training Club</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Christmas at MTC</p>
+                <p className="mt-2 text-xl font-bold text-white sm:text-2xl">Give them something to train for.</p>
+                <p className="mt-1 text-sm text-white">Gift vouchers from £25 · Collect at Moray Training Club</p>
               </div>
               <span className="inline-flex shrink-0 items-center gap-2 text-sm font-bold text-amber-300">Explore gift vouchers <ArrowRight size={16}/></span>
             </a>

@@ -5105,23 +5105,60 @@ export default function ShopFrontPage() {
                     appMembershipUrl={mtcReturnUrl}
                   />
                 ) : isMTC && mtcView === "gifts" ? (
-                  <div className="mt-10">
-                    <div className="mb-7 grid gap-3 rounded-2xl border border-stone-200 bg-white p-5 text-sm text-stone-700 sm:grid-cols-3">
-                      <div><strong className="block text-stone-950">1. Choose a gift</strong>Pick the experience or amount.</div>
-                      <div><strong className="block text-stone-950">2. Collect at MTC</strong>Physical vouchers, no postage.</div>
-                      <div><strong className="block text-stone-950">3. Gift & redeem</strong>Valid for six months from purchase.</div>
+                  <div className="mt-8">
+                    <div className="relative mb-8 overflow-hidden rounded-[24px] bg-[#111111] px-7 py-9 text-white sm:px-10 sm:py-11">
+                      <div className="absolute -right-12 -top-16 h-56 w-56 rounded-full border-[35px] border-[#F5E500]/15" aria-hidden="true" />
+                      <div className="relative z-10 max-w-2xl">
+                        <span className="inline-block rounded-full bg-[#F5E500] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-black">MTC Christmas 2026</span>
+                        <h2 className="mt-5 text-4xl font-black tracking-tight text-white sm:text-5xl">Give them something <span className="text-[#F5E500]">to train for.</span></h2>
+                        <p className="mt-4 max-w-xl text-base leading-7 text-stone-200">From their first HYROX session to a month of unlimited training. Real gifts, real progress.</p>
+                        <p className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#F5E500]"><MapPin size={16}/> Free collection from Moray Training Club</p>
+                      </div>
+                    </div>
+                    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-stone-500">Something for everyone</p>
+                        <h3 className="mt-1 text-2xl font-black tracking-tight text-[#161616]">Choose their gift</h3>
+                      </div>
+                      <span className="rounded-full border border-stone-200 bg-white px-4 py-2 text-xs font-semibold text-stone-700">Physical vouchers · No postage</span>
                     </div>
                     {products.some((product) => String(product.sku || "").toUpperCase().startsWith("MTC-GIFT-")) ? (
                       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                        {products.filter((product) => String(product.sku || "").toUpperCase().startsWith("MTC-GIFT-")).map((product) => (
-                          <ProductCard
-                            key={product.id}
-                            product={product}
-                            primary={primary}
-                            onAdd={() => addToCart(product)}
-                            onRequest={() => requestProduct(product)}
-                          />
-                        ))}
+                        {products.filter((product) => String(product.sku || "").toUpperCase().startsWith("MTC-GIFT-")).map((product) => {
+                          const sku = String(product.sku || "").toUpperCase();
+                          const giftTitle = sku.endsWith("HYROX") ? "Beginner HYROX" : sku.endsWith("CROSSFIT") ? "Beginner CrossFit" : sku.endsWith("UNLIMITED") ? "1 Month Unlimited" : sku.endsWith("10PACK") ? "10-Class Pack" : sku.endsWith("-25") ? "£25 Gift Voucher" : sku.endsWith("-50") ? "£50 Gift Voucher" : product.name;
+                          const giftSubtitle = sku.endsWith("HYROX") || sku.endsWith("CROSSFIT") ? "4-week beginner course" : sku.endsWith("UNLIMITED") ? "A full month of training" : sku.endsWith("10PACK") ? "Ten sessions, their choice" : "Let them choose their training";
+                          const unavailable = isOutOfStock(product);
+                          return (
+                            <article key={product.id} className="group flex flex-col overflow-hidden rounded-[22px] border border-[#e5e5e5] bg-white shadow-[0_5px_22px_rgba(0,0,0,0.035)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_14px_35px_rgba(0,0,0,0.09)]">
+                              <div className="relative overflow-hidden bg-[#F5E500] px-6 pb-7 pt-6 text-[#111111]">
+                                <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full border-[22px] border-black/10" aria-hidden="true" />
+                                <div className="relative flex items-center justify-between gap-2">
+                                  <span className="text-[10px] font-black uppercase tracking-[0.16em]">MTC / GIFT CARD</span>
+                                  <span className="rounded-full border border-black/20 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider">Christmas '26</span>
+                                </div>
+                                <div className="relative mt-8">
+                                  <p className="text-[11px] font-bold uppercase tracking-wider text-black/65">Give the gift of training</p>
+                                  <h4 className="mt-2 min-h-[64px] text-[26px] font-black leading-[1.12] tracking-tight text-[#111111]">{giftTitle}</h4>
+                                  <p className="mt-2 text-sm font-medium text-black/70">{giftSubtitle}</p>
+                                </div>
+                              </div>
+                              <div className="flex flex-1 flex-col px-6 pb-6 pt-5">
+                                <div className="flex items-end justify-between gap-3">
+                                  <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Gift voucher</p>
+                                    <p className="mt-1 text-3xl font-black tracking-tight text-[#111111]">{formatCurrency(product.price)}</p>
+                                  </div>
+                                  <span className="rounded-full bg-[#f5f5f5] px-3 py-1.5 text-[11px] font-semibold text-stone-700">Collect at MTC</span>
+                                </div>
+                                <p className="mt-4 flex items-center gap-2 text-xs text-stone-600"><MapPin size={14} className="shrink-0 text-[#111111]"/> Free collection · Valid for 6 months</p>
+                                <button type="button" onClick={() => addToCart(product)} disabled={unavailable} className="mt-5 flex w-full items-center justify-between rounded-xl bg-[#111111] px-5 py-4 text-xs font-extrabold uppercase tracking-wider text-white transition hover:bg-[#303030] disabled:cursor-not-allowed disabled:opacity-50">
+                                  <span>{unavailable ? "Unavailable" : "Add to basket"}</span><ArrowRight size={17}/>
+                                </button>
+                              </div>
+                            </article>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="rounded-2xl border border-stone-200 bg-white px-6 py-12 text-center">
@@ -5129,7 +5166,9 @@ export default function ShopFrontPage() {
                         <p className="mt-2 text-sm text-stone-500">Check back shortly for our Christmas gift vouchers.</p>
                       </div>
                     )}
-                    <p className="mt-6 text-xs text-stone-500">Collection from Moray Training Club only. Vouchers do not activate a membership at purchase; contact the team to redeem.</p>
+                    <div className="mt-7 rounded-2xl border border-stone-200 bg-white px-6 py-5 text-sm leading-6 text-stone-700">
+                      <strong className="text-[#111111]">How it works:</strong> Buy online, collect your physical voucher at Moray Training Club, and gift it to someone special. Vouchers are valid for six months from purchase. Memberships and classes are arranged when the voucher is redeemed, not when it is purchased.
+                    </div>
                   </div>
                 ) : isMTC && mtcView === "rooted" ? (
                   <RootedFundraiserSection

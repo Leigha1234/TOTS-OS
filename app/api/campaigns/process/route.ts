@@ -409,7 +409,8 @@ async function updateCampaignProgress(campaign: any) {
     const { error } = await supabaseAdmin
       .from("campaigns")
       .update({ status: "failed", sent_count: 0 })
-      .eq("id", campaign.id);
+      .eq("id", campaign.id)
+      .eq("status", "processing");
 
     if (error) throw new Error(error.message);
 
@@ -430,7 +431,8 @@ async function updateCampaignProgress(campaign: any) {
         sent_count: counts.sent,
         sent_at: campaign.sent_at || now,
       })
-      .eq("id", campaign.id);
+      .eq("id", campaign.id)
+      .eq("status", "processing");
 
     if (error) throw new Error(error.message);
 
@@ -447,7 +449,8 @@ async function updateCampaignProgress(campaign: any) {
     const { error } = await supabaseAdmin
       .from("campaigns")
       .update({ status: "failed", sent_count: counts.sent })
-      .eq("id", campaign.id);
+      .eq("id", campaign.id)
+      .eq("status", "processing");
 
     if (error) throw new Error(error.message);
 
@@ -463,7 +466,8 @@ async function updateCampaignProgress(campaign: any) {
   const { error } = await supabaseAdmin
     .from("campaigns")
     .update({ status: "processing", sent_count: counts.sent })
-    .eq("id", campaign.id);
+    .eq("id", campaign.id)
+    .eq("status", "processing");
 
   if (error) throw new Error(error.message);
 
@@ -516,6 +520,21 @@ async function processCampaign() {
 
   for (let index = 0; index < deliveries.length; index++) {
     const delivery = deliveries[index];
+
+    // Stop processing if the campaign has been cancelled.
+    const { data: currentCampaign, error: statusError } = await supabaseAdmin
+      .from("campaigns")
+      .select("status")
+      .eq("id", campaign.id)
+      .maybeSingle();
+
+    if (statusError) throw new Error(statusError.message);
+
+    if (currentCampaign?.status !== "processing") {
+      console.log(`Campaign ${campaign.id} stopped: status changed.`);
+      break;
+    }
+
     const { claimed, attempts } = await claimDelivery(delivery);
 
     if (!claimed) {
@@ -581,6 +600,20 @@ async function processCampaign() {
     const idempotencyKey = `campaign/${campaign.id}/delivery/${delivery.id}`;
 
     try {
+      // Final cancellation check immediately before contacting Resend.
+      const { data: latestCampaign, error: latestStatusError } = await supabaseAdmin
+        .from("campaigns")
+        .select("status")
+        .eq("id", campaign.id)
+        .maybeSingle();
+
+      if (latestStatusError) throw new Error(latestStatusError.message);
+
+      if (latestCampaign?.status !== "processing") {
+        console.log(`Campaign ${campaign.id} cancelled before send.`);
+        break;
+      }
+
       const { data, error } = await resend.emails.send(
         {
           from: sender!.from,

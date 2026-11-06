@@ -170,6 +170,34 @@ export async function POST(req: NextRequest) {
     }
 
     if (existingLifecycle) {
+      // Never re-enable a previously staged contact. Only mark a conversion
+      // when MTC explicitly confirms an active membership.
+      const eligibilityUrl = process.env.MTC_MARKETING_ELIGIBILITY_URL;
+      if (!eligibilityUrl) throw new Error("Missing MTC eligibility URL");
+      let membershipConfirmed = false;
+      try {
+        const result = await fetch(eligibilityUrl, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ mtc_user_id: userId }),
+          cache: "no-store",
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!result.ok) throw new Error("Eligibility service unavailable");
+        const eligibility = await result.json();
+        membershipConfirmed = eligibility?.active_membership === true;
+      } catch {
+        // Fail closed: do not claim successful membership reconciliation.
+        throw new Error("Membership reconciliation unavailable");
+      }
+      if (membershipConfirmed) {
+        const { error: conversionError } = await db
+          .from("mtc_trial_marketing_lifecycle")
+          .update({ paid_membership_confirmed: true, sending_enabled: false, status: "converted", updated_at: new Date().toISOString() })
+          .eq("organisation_id", org).eq("mtc_user_id", userId);
+        if (conversionError) throw new Error("Conversion update failed");
+        return "converted";
+      }
       return "existing_preserved";
     }
 

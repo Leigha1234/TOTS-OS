@@ -81,6 +81,11 @@ export async function GET(req: NextRequest) {
     && Number.isFinite(enrolmentStart)
     && enrolmentStart <= Date.now();
 
+  // The organisation switch must be an actual delivery gate, not just telemetry.
+  if (!orgEnabled) {
+    return response({ dry_run: true, organisation_enrolment_enabled: false, emails_sent: 0, blocked: "organisation_disabled" });
+  }
+
   const counts = {
     inspected: 0,
     disabled: 0,
@@ -230,6 +235,33 @@ export async function GET(req: NextRequest) {
     if (claimError || claimed !== true) continue;
 
     try {
+      // Revalidate immediately before contacting the email provider.
+      const [freshLifecycle, freshUnsubscribe] = await Promise.all([
+        db.from("mtc_trial_marketing_lifecycle")
+          .select("sending_enabled,status,paid_membership_confirmed")
+          .eq("organisation_id", org).eq("mtc_user_id", delivery.mtc_user_id).maybeSingle(),
+        db.from("campaign_unsubscribes").select("email")
+          .eq("organisation_id", org).ilike("email", email).limit(1),
+      ]);
+      if (freshLifecycle.error || freshUnsubscribe.error ||
+          !freshLifecycle.data?.sending_enabled ||
+          freshLifecycle.data.status !== "staged" ||
+          freshLifecycle.data.paid_membership_confirmed ||
+          (freshUnsubscribe.data?.length ?? 0) > 0) {
+        // Keep claimed record for review, rather than risk a duplicate send.
+        counts.suppressed++;
+        continue;
+      }
+      const freshEligibility = await fetch(eligibilityUrl, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${integrationSecret}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ mtc_user_id: delivery.mtc_user_id }),
+        cache: "no-store", signal: AbortSignal.timeout(8000),
+      });
+      if (!freshEligibility.ok || (await freshEligibility.json())?.eligible !== true) {
+        counts.blocked++;
+        continue;
+      }
       const resendKey = process.env.RESEND_API_KEY;
       const fromEmail = process.env.MTC_RESEND_FROM_EMAIL;
       const bookingUrl = process.env.MTC_BOOKING_URL;

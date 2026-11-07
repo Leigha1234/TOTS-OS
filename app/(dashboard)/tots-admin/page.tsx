@@ -189,6 +189,7 @@ type RevenueResponse = {
 
 type BillingCustomer = {
   subscriptionId: string;
+  category: "external" | "internal" | "test" | "review";
   customerId: string;
   customerName: string;
   email: string | null;
@@ -208,7 +209,7 @@ type BillingCustomer = {
 };
 type BillingResponse = {
   customers: BillingCustomer[];
-  summary: { activeSubscriptions: number; payingCustomers: number; mrrByCurrency: Record<string, number>; discrepancies: number };
+  summary: { activeSubscriptions: number; payingCustomers: number; mrrByCurrency: Record<string, number>; discrepancies: number; externalCustomers: number; externalSubscriptions: number; externalMrrByCurrency: Record<string, number>; actionableDiscrepancies: number; reviewSubscriptions: number; moduleCounts: Record<string, number> };
   complete: boolean;
   note: string;
 };
@@ -419,6 +420,8 @@ export default function TotsAdminPage() {
 
   const [billing, setBilling] = useState<BillingResponse | null>(null);
   const [billingError, setBillingError] = useState<string | null>(null);
+  const [billingFilter, setBillingFilter] = useState<"external" | "review" | "inactive" | "internal" | "all">("external");
+  const [billingSearch, setBillingSearch] = useState("");
 
   // ==========================================================
   // ACCESS TOKEN
@@ -945,12 +948,21 @@ export default function TotsAdminPage() {
           {billingError && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Stripe billing unavailable: {billingError}. Existing dashboard metrics are estimates, not verified payments.</p>}
           {billing && <>
             <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <MiniMetric label="Paying Stripe customers" value={String(billing.summary.payingCustomers)} />
-              <MiniMetric label="Active subscriptions" value={String(billing.summary.activeSubscriptions)} />
-              <MiniMetric label="Verified gross MRR (GBP)" value={formatMoney(billing.summary.mrrByCurrency.gbp || 0)} />
+              <MiniMetric label="External paying customers (provisional)" value={String(billing.summary.externalCustomers)} />
+              <MiniMetric label="External active subscriptions" value={String(billing.summary.externalSubscriptions)} />
+              <MiniMetric label="External gross MRR (GBP)" value={formatMoney(billing.summary.externalMrrByCurrency?.gbp || 0)} />
             </div>
+            <p className="mb-3 text-xs text-stone-500">All Stripe active subscriptions: {billing.summary.activeSubscriptions} · All-account gross MRR: {formatMoney(billing.summary.mrrByCurrency.gbp || 0)}. Internal, test and unverified accounts are not included in the external totals.</p>
             {!billing.complete && <p className="mb-3 text-sm text-amber-800">Stripe result limit reached: figures may be incomplete.</p>}
-            {billing.summary.discrepancies > 0 && <p className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{billing.summary.discrepancies} billing linkage/status discrepancy(s) to investigate. Stripe records have not been changed.</p>}
+            {(billing.summary.actionableDiscrepancies > 0 || billing.summary.reviewSubscriptions > 0) && <p className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{billing.summary.actionableDiscrepancies} active external billing issue(s); {billing.summary.reviewSubscriptions} active subscription(s) need customer classification. No Stripe records have been changed.</p>}
+            <div className="mb-4 rounded-xl border border-stone-100 bg-stone-50 p-3">
+              <div className="mb-2 text-xs font-bold uppercase tracking-wide text-stone-600">Modules sold to active external customers</div>
+              <div className="flex flex-wrap gap-2">{Object.entries(billing.summary.moduleCounts || {}).sort((a,b) => b[1]-a[1]).map(([key,count]) => <span key={key} className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-900">{key.replace(/[_-]/g," ")}: {count}</span>)}{!Object.keys(billing.summary.moduleCounts || {}).length && <span className="text-xs text-stone-500">No itemised module purchases among classified external active customers.</span>}</div>
+            </div>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              {([ ["external","Active external"],["review","Needs review"],["inactive","Paused / cancelled"],["internal","Internal / test"],["all","All subscriptions"] ] as const).map(([key,label]) => <button key={key} type="button" onClick={() => setBillingFilter(key)} className={`rounded-full border px-3 py-2 text-xs font-semibold ${billingFilter === key ? "border-emerald-900 bg-emerald-900 text-white" : "border-stone-200 bg-white text-stone-700"}`}>{label}</button>)}
+              <input aria-label="Search billing customers" placeholder="Search customer, organisation, module…" value={billingSearch} onChange={event => setBillingSearch(event.target.value)} className="min-w-[210px] flex-1 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm" />
+            </div>
             <div className="overflow-x-auto rounded-xl border border-stone-100">
               <table className="w-full min-w-[880px] text-left text-sm">
                 <thead className="bg-stone-50 text-xs uppercase tracking-wide text-stone-500"><tr>
@@ -958,8 +970,12 @@ export default function TotsAdminPage() {
                   <th className="px-4 py-3">Monthly</th><th className="px-4 py-3">Subscription / modules</th>
                   <th className="px-4 py-3">Next billing</th><th className="px-4 py-3">Sync</th>
                 </tr></thead>
-                <tbody>{billing.customers.map(row => <tr key={row.subscriptionId} className="border-t border-stone-100 align-top">
-                  <td className="px-4 py-3"><div className="font-semibold text-stone-900">{row.customerName}</div><div className="text-xs text-stone-500">{row.email || "No email"}</div><div className="mt-1 text-xs text-stone-600">{row.organisationName || "Not linked"}</div></td>
+                <tbody>{billing.customers.filter(row => {
+                  const matchFilter = billingFilter === "all" || (billingFilter === "external" && row.category === "external" && row.status === "active") || (billingFilter === "review" && row.category === "review" && row.status === "active") || (billingFilter === "inactive" && !["active", "trialing"].includes(row.status)) || (billingFilter === "internal" && ["internal", "test"].includes(row.category) && row.status === "active");
+                  const searchText = [row.customerName, row.email, row.organisationName, ...row.purchasedModules, ...row.products.map(p => p.name)].join(" ").toLowerCase();
+                  return matchFilter && searchText.includes(billingSearch.trim().toLowerCase());
+                }).map(row => <tr key={row.subscriptionId} className="border-t border-stone-100 align-top">
+                  <td className="px-4 py-3"><div className="font-semibold text-stone-900">{row.customerName}</div><div className="text-xs text-stone-500">{row.email || "No email"}</div><div className="mt-1 text-xs text-stone-600">{row.organisationName || "Not linked"}</div><div className="mt-1 text-[10px] uppercase tracking-wide text-stone-400">{row.category === "review" ? "Needs classification" : row.category}</div></td>
                   <td className="px-4 py-3 capitalize">{row.status.replaceAll("_", " ")}</td>
                   <td className="px-4 py-3 font-semibold">{new Intl.NumberFormat("en-GB", {style:"currency", currency: row.currency.toUpperCase()}).format(row.monthlyAmount)}<span className="block text-xs font-normal text-stone-500">Gross recurring</span></td>
                   <td className="px-4 py-3">{row.products.map((item, i) => <div key={i} className="font-medium">{item.name}{item.quantity > 1 ? ` ×${item.quantity}` : ""}</div>)}
@@ -974,7 +990,7 @@ export default function TotsAdminPage() {
               </table>
             </div>
             {billing.customers.length === 0 && <p className="mt-4 text-sm text-stone-500">No matching ORBI. subscriptions found in this Stripe account.</p>}
-            <p className="mt-3 text-xs text-stone-500">{billing.note} Existing estimated revenue cards below are separate from verified Stripe figures.</p>
+            <p className="mt-3 text-xs text-stone-500">{billing.note} The legacy estimated revenue cards below are not verified customer revenue.</p>
           </>}
         </section>
 

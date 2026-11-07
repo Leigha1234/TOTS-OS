@@ -58,7 +58,11 @@ export async function GET(req: Request) {
       process.env.STRIPE_PRICE_PROFESSIONAL,
       process.env.STRIPE_PRICE_ELITE,
     ].filter((v): v is string => Boolean(v)));
-    const rows: Array<Record<string, unknown>> = [];
+    // Explicit exclusions are optional, comma-separated Stripe customer IDs or organisation IDs.
+    // Do not infer that an unknown Stripe customer is a real external customer.
+    const excludedIds = new Set((process.env.ORBI_INTERNAL_STRIPE_CUSTOMER_IDS ?? "").split(",").map(normal).filter(Boolean));
+    const excludedOrgIds = new Set((process.env.ORBI_INTERNAL_ORGANISATION_IDS ?? "").split(",").map(normal).filter(Boolean));
+    const rows: Array<Record<string, any>> = [];
     const productNames = new Map<string, string>();
     let cursor: string | undefined;
     let pages = 0;
@@ -119,11 +123,24 @@ export async function GET(req: Request) {
         const organisationStatus = normal(org?.subscription_status);
         const mismatch = !org ? "Stripe subscription not linked to an organisation" :
           billable && ["free", "trial", "trialing", "canceled", "cancelled"].includes(organisationStatus) ? "Stripe/Supabase status mismatch" : null;
+        const email = customer && !customer.deleted ? customer.email : null;
+        const customerName = customer && !customer.deleted ? customer.name || customer.email || "Unknown customer" : "Unknown customer";
+        const isInternal = excludedIds.has(normal(customerId)) || (org && excludedOrgIds.has(normal(org.id))) ||
+          /(?:the organised types|moray training club|^rooted$)/i.test(string(org?.name)) ||
+          /(?:the organised types|moray training club)/i.test(string(customerName)) ||
+          /(?:theorganisedtypes|moraytrainingclub)/i.test(string(email));
+        const isTest = !isInternal && (/(^|[\s._-])test(?:[\s._-]|$)|dummy|example|fake/i.test(string(customerName)) ||
+          /(?:^test[0-9]*@|@test\.|@example\.|^test[0-9]*[._-])/i.test(string(email)) ||
+          /(?:^test$|dummy)/i.test(string(org?.name)));
+        // An external classification requires an organisation with a real member;
+        // unresolved records are shown separately rather than silently counted as customers.
+        const category = isInternal ? "internal" : isTest ? "test" : org && (memberCount.get(String(org.id)) ?? 0) > 0 ? "external" : "review";
         rows.push({
+          category,
           subscriptionId: sub.id,
           customerId,
-          customerName: customer && !customer.deleted ? customer.name || customer.email || "Unknown customer" : "Unknown customer",
-          email: customer && !customer.deleted ? customer.email : null,
+          customerName,
+          email,
           organisationId: org?.id ?? null,
           organisationName: org?.name ?? null,
           organisationStatus: org?.subscription_status ?? null,
@@ -151,11 +168,32 @@ export async function GET(req: Request) {
       const currency = String(row.currency);
       mrrByCurrency[currency] = Math.round(((mrrByCurrency[currency] ?? 0) + Number(row.monthlyAmount)) * 100) / 100;
     }
+    const externalActive = active.filter(r => r.category === "external");
+    const externalMrrByCurrency: Record<string, number> = {};
+    for (const row of externalActive) {
+      const currency = String(row.currency);
+      externalMrrByCurrency[currency] = Math.round(((externalMrrByCurrency[currency] ?? 0) + Number(row.monthlyAmount)) * 100) / 100;
+    }
+    const moduleCounts: Record<string, number> = {};
+    for (const row of externalActive) {
+      for (const key of new Set(row.purchasedModules as string[])) moduleCounts[key] = (moduleCounts[key] ?? 0) + 1;
+    }
     return NextResponse.json({
       customers: rows,
-      summary: { activeSubscriptions: active.length, payingCustomers: new Set(active.map(r => String(r.customerId))).size, mrrByCurrency, discrepancies: rows.filter(r => r.discrepancy).length },
+      summary: {
+        activeSubscriptions: active.length,
+        payingCustomers: new Set(active.map(r => String(r.customerId))).size,
+        mrrByCurrency,
+        discrepancies: rows.filter(r => r.discrepancy).length,
+        externalCustomers: new Set(externalActive.map(r => String(r.customerId))).size,
+        externalSubscriptions: externalActive.length,
+        externalMrrByCurrency,
+        actionableDiscrepancies: rows.filter(r => r.category === "external" && r.status === "active" && r.discrepancy).length,
+        reviewSubscriptions: rows.filter(r => r.category === "review" && r.status === "active").length,
+        moduleCounts,
+      },
       complete: !cursor,
-      note: "MRR is gross recurring list-price value before discounts, taxes or refunds. Only active subscriptions are counted. Stripe is read-only.",
+      note: "MRR is gross recurring list-price value before discounts, taxes or refunds. Only active subscriptions are counted. External classification is provisional; review unknown and internal accounts. Stripe is read-only.",
       generatedAt: new Date().toISOString(),
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

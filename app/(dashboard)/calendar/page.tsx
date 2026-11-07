@@ -1,5 +1,6 @@
-import BookingServicesEditor from "../../components/BookingServicesEditor";
 "use client";
+
+import BookingServicesEditor from "../../components/BookingServicesEditor";
 
 import {
   useCallback,

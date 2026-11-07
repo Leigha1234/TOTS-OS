@@ -1,6 +1,7 @@
 'use client';
 
 import AgencyContextPicker from '@/app/components/AgencyContextPicker';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Building2, ShieldCheck, Users, RefreshCw, Check, LockKeyhole, ArrowUpRight, Clock3, SlidersHorizontal, Plus, X, AlertCircle, Layers3, UserRound, ChevronRight, Sparkles } from 'lucide-react';
@@ -92,7 +93,7 @@ export default function AgencyPage() {
         <div aria-hidden="true" className="pointer-events-none absolute -right-2 -top-28 h-[310px] w-[310px] rounded-full border border-white/10" />
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div><div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.23em] text-[#C9DCCF]"><span className="h-1.5 w-1.5 rounded-full bg-[#B6D3BE]"/> ORBI. / Workspace</div><h1 className="font-serif text-4xl tracking-tight sm:text-5xl">Agency workspace<span className="text-[#BBD4C3]">.</span></h1><p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#D8E8DE] sm:text-base">A considered space to manage your organisations, client relationships and access permissions — all from one place.</p></div>
-          <div className="flex flex-wrap gap-2"><button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-sm font-medium text-white hover:bg-white/20 disabled:opacity-60"><RefreshCw size={16} className={loading?'animate-spin':''}/>Refresh</button>{owners.length>0&&<button type="button" onClick={()=>setShowInvite(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#F5F2E9] px-4 py-3 text-sm font-semibold text-[#103D31] hover:bg-white"><Plus size={17}/> Invite access</button>}</div>
+          <div className="flex flex-wrap gap-2"><Link href="/agency/approvals" className="inline-flex items-center gap-2 rounded-xl bg-[#F5F2E9] px-4 py-3 text-sm font-semibold text-[#103D31] hover:bg-white"><Check size={16}/> Client approvals</Link><button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-sm font-medium text-white hover:bg-white/20 disabled:opacity-60"><RefreshCw size={16} className={loading?'animate-spin':''}/>Refresh</button>{owners.length>0&&<button type="button" onClick={()=>setShowInvite(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#F5F2E9] px-4 py-3 text-sm font-semibold text-[#103D31] hover:bg-white"><Plus size={17}/> Invite access</button>}</div>
         </div>
       </header>
       <AgencyContextPicker />

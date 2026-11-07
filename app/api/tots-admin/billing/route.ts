@@ -36,6 +36,17 @@ export async function GET(req: Request) {
         if (string(org[field])) orgByCustomer.set(string(org[field]), org);
       }
     }
+    // Modules provisioned in ORBI, used to cross-check the modules purchased in Stripe.
+    const { data: assignedModules, error: modulesError } = await supabaseAdmin
+      .from("organisation_modules").select("organisation_id,module_key").limit(10000);
+    // Some older deployments may not have this table; Stripe metadata remains authoritative for purchases.
+    if (modulesError) console.warn("[ORBI ADMIN] Organisation module lookup unavailable", modulesError.message);
+    const assignedByOrg = new Map<string, string[]>();
+    for (const row of assignedModules ?? []) {
+      const id = string(row.organisation_id);
+      const key = string(row.module_key);
+      if (id && key) assignedByOrg.set(id, [...(assignedByOrg.get(id) ?? []), key]);
+    }
     const memberCount = new Map<string, number>();
     for (const member of members ?? []) {
       const id = string(member.organisation_id);
@@ -81,10 +92,18 @@ export async function GET(req: Request) {
         });
         const isKnownPrice = items.some(i => knownPriceIds.has(i.priceId));
         const isNamedOrbi = items.some(i => /\b(tots[- ]?os|orbi)\b/i.test(i.name));
-        const isOrbiMetadata = Boolean(meta.registration_id || meta.subscription_tier || meta.billing_package || meta.billing_model || meta.module_keys);
+        const isOrbiMetadata = Boolean(meta.registration_id || meta.subscription_tier || meta.billing_package || meta.billing_model || meta.modules || meta.module_keys);
         // Only platform subscriptions matching ORBI signals; connected-account Store subscriptions are not included by Stripe's platform listing.
         if (!(isKnownPrice || isNamedOrbi || isOrbiMetadata)) continue;
         const currency = items[0]?.currency ?? "gbp";
+        // Both ORBI SaaS checkout routes write `modules` (comma-separated) to subscription metadata.
+        // `module_keys` is retained as a backwards-compatible fallback.
+        const rawModules = string(meta.modules || meta.module_keys);
+        const purchasedModules = [...new Set(rawModules.split(/[;,|]/).map(v => v.trim()).filter(Boolean))];
+        const provisionedModules = org ? [...new Set(assignedByOrg.get(String(org.id)) ?? [])] : [];
+        const moduleDiscrepancy = purchasedModules.length && org &&
+          purchasedModules.some(key => !provisionedModules.includes(key))
+          ? "Purchased module not provisioned in organisation_modules" : null;
         const grossMonthlyPence = items.reduce((sum, item) => sum + item.monthlyPence, 0);
         const billable = sub.status === "active" || sub.status === "past_due" || sub.status === "unpaid";
         const organisationStatus = normal(org?.subscription_status);
@@ -106,7 +125,11 @@ export async function GET(req: Request) {
           products: items.map(({ name, priceId, quantity }) => ({ name, priceId, quantity })),
           metadata: { billingModel: meta.billing_model ?? null, billingPackage: meta.billing_package ?? null, tier: meta.subscription_tier ?? null, moduleKeys: meta.module_keys ?? null },
           nextBillingAt: sub.items.data[0]?.current_period_end ? new Date(sub.items.data[0].current_period_end * 1000).toISOString() : null,
-          discrepancy: mismatch,
+          discrepancy: mismatch || moduleDiscrepancy,
+          purchasedModules,
+          provisionedModules,
+          moduleSource: purchasedModules.length ? "stripe_subscription_metadata" : "not_specified",
+          modulesMatch: purchasedModules.length && org ? !moduleDiscrepancy : null,
         });
       }
       pages++;

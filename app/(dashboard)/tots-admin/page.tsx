@@ -198,6 +198,10 @@ type BillingCustomer = {
   currency: string;
   monthlyAmount: number;
   products: { name: string; quantity: number; priceId: string }[];
+  purchasedModules: string[];
+  provisionedModules: string[];
+  moduleSource: string;
+  modulesMatch: boolean | null;
   metadata: { billingModel: string | null; billingPackage: string | null; tier: string | null; moduleKeys: string | null };
   nextBillingAt: string | null;
   discrepancy: string | null;
@@ -958,7 +962,12 @@ export default function TotsAdminPage() {
                   <td className="px-4 py-3"><div className="font-semibold text-stone-900">{row.customerName}</div><div className="text-xs text-stone-500">{row.email || "No email"}</div><div className="mt-1 text-xs text-stone-600">{row.organisationName || "Not linked"}</div></td>
                   <td className="px-4 py-3 capitalize">{row.status.replaceAll("_", " ")}</td>
                   <td className="px-4 py-3 font-semibold">{new Intl.NumberFormat("en-GB", {style:"currency", currency: row.currency.toUpperCase()}).format(row.monthlyAmount)}<span className="block text-xs font-normal text-stone-500">Gross recurring</span></td>
-                  <td className="px-4 py-3">{row.products.map((item, i) => <div key={i}>{item.name}{item.quantity > 1 ? ` ×${item.quantity}` : ""}</div>)}{row.metadata.moduleKeys && <div className="mt-1 text-xs text-stone-500">Modules: {row.metadata.moduleKeys}</div>}{row.metadata.billingPackage && <div className="text-xs text-stone-500">Package: {row.metadata.billingPackage}</div>}</td>
+                  <td className="px-4 py-3">{row.products.map((item, i) => <div key={i} className="font-medium">{item.name}{item.quantity > 1 ? ` ×${item.quantity}` : ""}</div>)}
+                    {row.metadata.billingPackage && <div className="mt-1 text-xs text-stone-500">Package: {row.metadata.billingPackage}</div>}
+                    <div className="mt-2 text-xs font-semibold text-stone-700">Purchased modules</div>
+                    {row.purchasedModules?.length ? <div className="mt-1 flex flex-wrap gap-1">{row.purchasedModules.map(key => <span key={key} className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-900">{key.replace(/[_-]/g, " ")}</span>)}</div> : <div className="text-xs text-amber-700">Not itemised in Stripe metadata — check subscription product/package</div>}
+                    <div className="mt-2 text-xs text-stone-500">Enabled in ORBI: {row.provisionedModules?.length ? row.provisionedModules.map(key => key.replace(/[_-]/g, " ")).join(", ") : "None found / not linked"}</div>
+                    {row.modulesMatch === false && <div className="mt-1 text-xs font-semibold text-amber-800">⚠ Purchased modules do not match enabled modules</div>}</td>
                   <td className="px-4 py-3">{row.nextBillingAt ? new Date(row.nextBillingAt).toLocaleDateString("en-GB") : "—"}</td>
                   <td className="px-4 py-3">{row.discrepancy ? <span className="text-amber-700" title={row.discrepancy}>⚠ {row.discrepancy}</span> : <span className="text-emerald-700">No mismatch detected</span>}</td>
                 </tr>)}</tbody>

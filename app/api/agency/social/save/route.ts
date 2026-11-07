@@ -31,6 +31,22 @@ export async function POST(req: NextRequest) {
     if (!caption || caption.length > 10000 || !PLATFORMS.has(platform) || hashtags.length > 2000) {
       return response("Choose Facebook or Instagram and provide a caption (up to 10,000 characters)", 400);
     }
+    const mediaUrls = input.mediaUrls ?? [];
+    if (!Array.isArray(mediaUrls) || mediaUrls.length > 10 || new Set(mediaUrls).size !== mediaUrls.length) {
+      return response("Add up to 10 distinct media items.", 400);
+    }
+    const origin = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).origin;
+    const prefix = `/storage/v1/object/public/social-assets/organisations/${organisationId}/`;
+    for (const url of mediaUrls) {
+      if (typeof url !== "string") return response("Invalid media URL.", 400);
+      const parsed = new URL(url);
+      const key = parsed.pathname.slice(prefix.length);
+      if (parsed.origin !== origin || !parsed.pathname.startsWith(prefix) || !key || key.includes("/")) {
+        return response("All media must be uploaded to the selected organisation.", 400);
+      }
+    }
+    const format = mediaUrls.length > 1 ? "carousel" :
+      typeof input.format === "string" && input.format.length <= 40 ? input.format : "post";
 
     const { data, error } = await access.db.from("socials").insert({
       organisation_id: organisationId,
@@ -38,6 +54,9 @@ export async function POST(req: NextRequest) {
       platform,
       caption,
       hashtags: hashtags || null,
+      format,
+      media_urls: mediaUrls,
+      media_url: mediaUrls[0] || null,
       status: "draft",
     }).select("id,organisation_id,platform,caption,hashtags,status,created_at").single();
     if (error) {

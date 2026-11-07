@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { Resend } from "resend";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+import { approvalRequired, needsApproval } from "@/lib/orbi-approval-gate";
 
 export async function POST(req: Request) {
   try {
@@ -83,11 +85,18 @@ export async function POST(req: Request) {
     // -----------------------------------------
 
     const body = await req.json();
-    if (body.organisationId) {
+    let org = body.organisationId;
+    if (org) {
       const access = await requireAgencyEmailAccess(req.headers.get("authorization"), body.organisationId, "send");
       if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
       if (access.user.id !== user.id) return NextResponse.json({ error: "Authentication mismatch" }, { status: 403 });
+    } else {
+      const profile = await supabaseAdmin.from("profiles").select("organisation_id").eq("id", user.id)
+        .maybeSingle<{ organisation_id: string | null }>();
+      if (profile.error || !profile.data?.organisation_id) return NextResponse.json({ error: "Could not verify your organisation." }, { status: 403 });
+      org = profile.data.organisation_id;
     }
+    if (await needsApproval(supabaseAdmin, org, user.id)) return NextResponse.json({ error: approvalRequired }, { status: 409 });
 
 
     const {

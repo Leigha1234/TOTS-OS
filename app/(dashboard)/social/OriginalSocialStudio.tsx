@@ -2135,6 +2135,8 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
           platform: chosenPlatforms[0],
           caption: caption.trim(),
           hashtags: hashtags.trim(),
+          mediaUrls: await resolveComposerMedia(),
+          format,
         }),
       });
       const payload = await response.json();
@@ -2145,6 +2147,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
       toast.error(error instanceof Error ? error.message : "Unable to save draft.");
     } finally {
       setIsPosting(false);
+      setIsUploadingMedia(false);
     }
   };
 

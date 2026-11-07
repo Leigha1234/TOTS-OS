@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isUuid, requireAgencyEmailAccess, type EmailAction } from "@/lib/agency-email-access";
+import { approvalError, approvalRequired } from "@/lib/orbi-approval-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -103,6 +104,7 @@ export async function POST(req: NextRequest) {
           if (row.scheduled_for && (!Number.isFinite(Date.parse(String(row.scheduled_for))) || Date.parse(String(row.scheduled_for)) <= Date.now())) return fail(400, "Choose a future schedule time");
           // Immediate sends stay drafts until the existing send API creates deliveries.
           row.status = requestedStatus === "queued" && row.scheduled_for ? "queued" : "draft";
+          if (row.status === "queued") row.orbi_release_actor = access.user.id;
           row.sent_at = null;
           if (row.reply_to && !email.test(String(row.reply_to))) return fail(400, "Invalid reply-to email");
           if (row.editor_mode && !["blocks", "html"].includes(String(row.editor_mode))) return fail(400, "Invalid editor mode");
@@ -150,6 +152,7 @@ export async function POST(req: NextRequest) {
       data = collected;
     } else {
       const result = await query;
+      if (approvalError(result.error)) return fail(409, approvalRequired);
       if (result.error) return fail(500, "Unable to save client email data");
       data = result.data || [];
       if (["update", "delete"].includes(operation) && !data.length) return fail(409, "Record is missing or no longer editable");

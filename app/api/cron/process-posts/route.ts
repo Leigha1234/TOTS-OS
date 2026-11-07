@@ -1,25 +1,7 @@
-import { NextResponse } from "next/server";
-import { processScheduledPosts } from "@/lib/posting-worker";
+// The old worker only marked posts as posted without contacting the platform.
+// Send legacy cron traffic through the real authenticated publishing worker.
+import { GET as publish } from "../publish/route";
 
-export async function GET() {
-  try {
-    console.log("CRON: process-posts triggered");
-
-    await processScheduledPosts();
-
-    return NextResponse.json({
-      ok: true,
-      message: "Scheduled posts processed successfully",
-    });
-  } catch (error: any) {
-    console.error("CRON PROCESS-POSTS ERROR:", error);
-
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error?.message || "Unknown error processing posts",
-      },
-      { status: 500 }
-    );
-  }
-}
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const GET = publish;

@@ -6,6 +6,7 @@ import {
 import {
   createClient,
 } from "@supabase/supabase-js";
+import { approvalError, approvalRequired, releaseAllowed } from "@/lib/orbi-approval-gate";
 
 export const runtime =
   "nodejs";
@@ -203,7 +204,7 @@ export async function POST(
           "campaigns"
         )
         .select(
-          "id,organisation_id,status,total_sent"
+          "*"
         )
         .eq(
           "id",
@@ -247,6 +248,9 @@ export async function POST(
     // FIND FAILED DELIVERIES
     // ========================================================
 
+    if (!(await releaseAllowed(supabaseAdmin, "email", campaign, user.id))) {
+      return NextResponse.json({ success: false, error: approvalRequired }, { status: 409 });
+    }
     const {
       data: failedRows,
       error: failedRowsError,
@@ -417,6 +421,7 @@ export async function POST(
         .update({
           status:
             "queued",
+          orbi_release_actor: user.id,
 
           scheduled_for:
             now,
@@ -449,6 +454,7 @@ export async function POST(
     if (
       campaignUpdateError
     ) {
+      if (approvalError(campaignUpdateError)) return NextResponse.json({ success: false, error: approvalRequired }, { status: 409 });
       return NextResponse.json(
         {
           success: false,

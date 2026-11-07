@@ -36,9 +36,7 @@ export async function loadCampaignAudience(db: SupabaseClient, campaign: any): P
  * A campaign becomes processable only after all its queue rows are written.
  */
 export async function dispatchDueCampaigns(db: SupabaseClient) {
-  const due = await db.from("campaigns").select("id,organisation_id,list_id,scheduled_for")
-    .eq("status", "queued").lte("scheduled_for", new Date().toISOString())
-    .order("scheduled_for").limit(5);
+  const due = await db.rpc("orbi_email_work", { p_status: "queued" });
   if (due.error) throw new Error("Could not load due campaign schedules");
   for (const campaign of due.data || []) {
     try {

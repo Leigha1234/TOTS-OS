@@ -1,5 +1,6 @@
 import { campaignSender } from "@/lib/campaign-sender";
 import { dispatchDueCampaigns, canDeliverCampaignEmail, loadCampaignAudience } from "@/lib/campaign-schedule-dispatch";
+import { approvalError, approvalRequired, releaseAllowed, workerMayRelease, type WorkerCampaign } from "@/lib/orbi-approval-gate";
 import {
   NextRequest,
   NextResponse,
@@ -582,27 +583,8 @@ async function findNextCampaign() {
     error,
   } =
     await supabaseAdmin
-      .from(
-        "campaigns"
-      )
-      .select(
-        "*"
-      )
-      .eq(
-        "status",
-        "processing"
-      )
-      .order(
-        "created_at",
-        {
-          ascending:
-            true,
-        }
-      )
-      .limit(
-        1
-      )
-      .maybeSingle();
+      .rpc("orbi_email_work", { p_status: "processing" })
+      .maybeSingle<WorkerCampaign>();
   if (error) {
     throw new Error(
       `Failed to find campaign: ${error.message}`
@@ -1450,6 +1432,7 @@ async function processCampaign() {
     // ==================================================
     const idempotencyKey =
       `campaign/${campaign.id}/delivery/${delivery.id}`;
+    if (!(await workerMayRelease(supabaseAdmin, "email", campaign, "processing"))) break;
     // ==================================================
     // SEND
     // ==================================================
@@ -1811,6 +1794,9 @@ export async function POST(
         }
       );
     }
+    if (!(await releaseAllowed(supabaseAdmin, "email", campaign, user.id))) {
+      return NextResponse.json({ success: false, error: approvalRequired }, { status: 409 });
+    }
     // Do not allow a campaign to reference another organisation's audience.
     if (campaign.list_id) {
       const { data: audience, error: audienceError } = await supabaseAdmin
@@ -2063,6 +2049,7 @@ export async function POST(
         .update({
           status:
             "processing",
+          orbi_release_actor: user.id,
           scheduled_for:
             null,
           sent_count:
@@ -2075,6 +2062,7 @@ export async function POST(
     if (
       campaignUpdateError
     ) {
+      if (approvalError(campaignUpdateError)) return NextResponse.json({ success: false, error: approvalRequired }, { status: 409 });
       throw new Error(
         `Failed to update campaign: ${campaignUpdateError.message}`
       );

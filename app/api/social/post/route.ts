@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+import { approvalRequired, needsApproval } from "@/lib/orbi-approval-gate";
 import {
   createServerClient,
 } from "@supabase/ssr";
@@ -605,6 +607,7 @@ export async function POST(req: NextRequest) {
     // Authorise the actual action, not just viewing the organisation.
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) return fail("You must be signed in to publish.", 401);
+    if (await needsApproval(supabaseAdmin, organisationId, user.id)) return fail(approvalRequired, 409);
 
     // Use the authenticated client so Supabase RLS enforces access.
     const { data: rawAccount, error: accountError } = await supabase

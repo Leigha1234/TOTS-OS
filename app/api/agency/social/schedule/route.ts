@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAgencySocialAccess } from "../../../../../lib/agency-social-access";
+import { approvalError, approvalRequired } from "@/lib/orbi-approval-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,23 @@ export async function POST(request: NextRequest) {
     const organisationId = typeof body.organisationId === "string" ? body.organisationId : "";
     const access = await requireAgencySocialAccess(request.headers.get("authorization"), organisationId, "publish");
     if (!access.ok) return fail(access.error, access.status);
+    const draftId = body.draftId;
+    if (draftId != null) {
+      if (typeof draftId !== "string" || !UUID.test(draftId)) return fail("Invalid draft", 400);
+      const draft = await access.db.from("socials").select("caption,platform,format,media_url,media_urls")
+        .eq("organisation_id", organisationId).eq("id", draftId).eq("status", "draft").maybeSingle();
+      if (draft.error) return fail("Could not load social draft", 500);
+      if (!draft.data) return fail("Saved draft not found", 404);
+      Object.assign(body, {
+        caption: draft.data.caption, platform: draft.data.platform, format: draft.data.format,
+        mediaUrl: draft.data.media_url, mediaUrls: draft.data.media_urls ?? [],
+      });
+      const accounts = await access.db.from("social_accounts").select("id")
+        .eq("organisation_id", organisationId).in("platform", ["meta", "facebook", "instagram"]);
+      if (accounts.error) return fail("Unable to verify connected accounts", 500);
+      if (accounts.data?.length !== 1) return fail("Connect exactly one Meta account before scheduling.", 409);
+      body.accountId = accounts.data[0].id;
+    }
 
     const caption = typeof body.caption === "string" ? body.caption.trim() : "";
     const platform = body.platform;
@@ -72,7 +90,15 @@ export async function POST(request: NextRequest) {
     if (platform === "facebook" && !account.page_id) return fail("Facebook page not connected", 409);
 
     const format = mediaUrls.length > 1 ? "carousel" : (typeof body.format === "string" ? body.format : "post");
-    const { data, error } = await access.db.from("socials").insert({
+    const queue = {
+      orbi_release_actor: access.user.id,
+      scheduled_for: scheduled.toISOString(),
+      status: "scheduled",
+    };
+    const write = draftId ? access.db.from("socials").update(queue)
+      .eq("organisation_id", organisationId).eq("id", draftId).eq("status", "draft")
+      : access.db.from("socials").insert({
+      ...queue,
       organisation_id: organisationId,
       user_id: access.user.id,
       platform,
@@ -80,13 +106,14 @@ export async function POST(request: NextRequest) {
       format,
       media_url: mediaUrls[0] || null,
       media_urls: mediaUrls,
-      scheduled_for: scheduled.toISOString(),
-      status: "scheduled",
-    }).select("id,organisation_id,platform,scheduled_for,status").single();
+    });
+    const { data, error } = await write.select("id,organisation_id,platform,scheduled_for,status").maybeSingle();
+    if (approvalError(error)) return fail(approvalRequired, 409);
     if (error) {
       console.error("[AGENCY SOCIAL SCHEDULE]", error.message);
       return fail("Unable to schedule post", 500);
     }
+    if (!data) return fail("This draft is no longer editable.", 409);
     return NextResponse.json({ post: data }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch {
     return fail("Invalid schedule request", 400);
@@ -100,6 +127,8 @@ export async function PATCH(request: NextRequest) {
     const organisationId = typeof body.organisationId === "string" ? body.organisationId : "";
     const access = await requireAgencySocialAccess(request.headers.get("authorization"), organisationId, "edit");
     if (!access.ok) return fail(access.error, access.status);
+    const publisher = await requireAgencySocialAccess(request.headers.get("authorization"), organisationId, "publish");
+    if (!publisher.ok) return fail(publisher.error, publisher.status);
     const postId = typeof body.postId === "string" ? body.postId : "";
     const platform = typeof body.platform === "string" ? body.platform : "";
     const caption = typeof body.caption === "string" ? body.caption.trim() : "";
@@ -140,11 +169,13 @@ export async function PATCH(request: NextRequest) {
     }
     const format = mediaUrls.length > 1 ? "carousel" : (typeof body.format === "string" ? body.format : "Post");
     const { data, error } = await access.db.from("socials").update({
+      orbi_release_actor: access.user.id,
       caption, hashtags: hashtags || null, media_url: mediaUrls[0] || null,
       media_urls: mediaUrls, scheduled_for: when.toISOString(), format,
     }).eq("id", postId).eq("organisation_id", organisationId).eq("platform", platform)
       .eq("status", "scheduled").is("last_attempt_at", null)
       .select("id,platform,status,scheduled_for").maybeSingle();
+    if (approvalError(error)) return fail("Return this post to draft and request approval for the changes.", 409);
     if (error) return fail("Unable to update post", 500);
     if (!data) return fail("Post is no longer editable", 409);
     return NextResponse.json({ post: data }, { headers: { "Cache-Control": "no-store" } });

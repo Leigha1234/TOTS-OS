@@ -1,4 +1,5 @@
 import { campaignSender } from "@/lib/campaign-sender";
+import { workerMayRelease, type WorkerCampaign } from "@/lib/orbi-approval-gate";
 import { dispatchDueCampaigns, canDeliverCampaignEmail } from "@/lib/campaign-schedule-dispatch";
 import {
   NextRequest,
@@ -256,12 +257,8 @@ async function recoverStaleDeliveries() {
 
 async function findNextCampaign() {
   const { data, error } = await supabaseAdmin
-    .from("campaigns")
-    .select("*")
-    .eq("status", "processing")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .rpc("orbi_email_work", { p_status: "processing" })
+    .maybeSingle<WorkerCampaign>();
 
   if (error) throw new Error(`Failed to find campaign: ${error.message}`);
   return data;
@@ -609,7 +606,7 @@ async function processCampaign() {
 
       if (latestStatusError) throw new Error(latestStatusError.message);
 
-      if (latestCampaign?.status !== "processing") {
+      if (latestCampaign?.status !== "processing" || !(await workerMayRelease(supabaseAdmin, "email", campaign, "processing"))) {
         console.log(`Campaign ${campaign.id} cancelled before send.`);
         break;
       }

@@ -2,6 +2,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { workerMayRelease } from "@/lib/orbi-approval-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -3437,33 +3438,7 @@ export async function GET(
       scheduledQueueError,
   } =
     await supabase
-      .from(
-        "socials"
-      )
-      .select(
-        "*"
-      )
-      .eq(
-        "status",
-        "scheduled"
-      )
-      .lte(
-        "scheduled_for",
-        now
-      )
-      .or(
-        `attempts.lt.${MAX_ATTEMPTS},attempts.is.null`
-      )
-      .order(
-        "scheduled_for",
-        {
-          ascending:
-            true,
-        }
-      )
-      .limit(
-        20
-      );
+      .rpc("orbi_social_work", { p_attempts: MAX_ATTEMPTS });
 
   if (
     scheduledQueueError
@@ -3598,6 +3573,10 @@ export async function GET(
       );
 
     try {
+      if (post.status === "scheduled" && !(await workerMayRelease(supabase, "social", post, "scheduled"))) {
+        counters.skipped += 1;
+        continue;
+      }
       // ------------------------------------------------------
       // TIKTOK STATUS POLL
       // ------------------------------------------------------
@@ -3759,11 +3738,7 @@ export async function GET(
       attempt +=
         1;
 
-      const {
-        error:
-          attemptUpdateError,
-      } =
-        await supabase
+      let claim = supabase
           .from(
             "socials"
           )
@@ -3784,16 +3759,24 @@ export async function GET(
           .eq(
             "id",
             post.id
-          );
+          ).eq("status", "scheduled").eq("scheduled_for", post.scheduled_for);
+      claim = post.attempts == null ? claim.is("attempts", null) : claim.eq("attempts", post.attempts);
+      const { data: claimed, error: attemptUpdateError } = await claim.select("id").maybeSingle();
 
       if (
         attemptUpdateError
       ) {
+        if (attemptUpdateError.code === "P0421") { counters.skipped += 1; continue; }
         throw new Error(
           `Could not update publishing attempt: ${attemptUpdateError.message}`
         );
       }
 
+      if (!claimed) { counters.skipped += 1; continue; }
+      if (!(await workerMayRelease(supabase, "social", post, "scheduled"))) {
+        counters.skipped += 1;
+        continue;
+      }
       const fullMessage =
         [
           cleanString(

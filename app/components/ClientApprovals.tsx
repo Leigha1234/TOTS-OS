@@ -8,12 +8,13 @@ import { useActiveAgencyContext } from "@/lib/use-active-agency-context";
 
 type Kind = "email" | "social";
 type Review = {
-  id: string; version: number; summary: Record<string, unknown>;
+  id: string; draft_id: string; version: number; summary: Record<string, unknown>;
   status: "pending" | "approved" | "changes_requested" | "superseded";
   feedback: string | null; current_version: boolean; editable: boolean;
 };
 type Inbox = {
-  organisationName: string; owner: boolean; canRequest: boolean;
+  organisationName: string; owner: boolean; canRequest: boolean; canRelease: boolean;
+  userId: string; required: boolean; requiredUsers: string[];
   drafts: { id: string; label: string }[]; reviews: Review[];
 };
 const card = "rounded-2xl border border-[#E0E8E1] bg-white p-5 shadow-sm sm:p-6";
@@ -34,6 +35,21 @@ async function approvalRequest(organisationId: string, kind: Kind, action?: obje
   });
   const result = await response.json().catch(() => null);
   if (!response.ok || !result) throw new Error(result?.error || "Could not load client approvals.");
+  return result;
+}
+
+async function releaseDraft(organisationId: string, kind: Kind, draftId: string, scheduledFor?: string) {
+  if (kind === "email" && scheduledFor) return approvalRequest(organisationId, kind, { action: "schedule_email", draftId, scheduledFor });
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Sign in to ORBI. to release this draft.");
+  const response = await fetch(kind === "email" ? "/api/campaigns/send" : "/api/agency/social/schedule", {
+    method: "POST", cache: "no-store",
+    headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(kind === "email" ? { organisationId, campaignId: draftId } :
+      { organisationId, draftId, scheduledFor: scheduledFor ?? new Date(Date.now() + 120_000).toISOString() }),
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(result?.error || "Could not release this draft.");
   return result;
 }
 
@@ -81,11 +97,14 @@ function SubmittedDraft({ organisationId, kind, reviewId }: { organisationId: st
   return snapshot ? <ReviewPreview kind={kind} snapshot={snapshot} /> : <p role="status">Loading draft…</p>;
 }
 
-function ReviewItem({ review, organisationId, kind, owner, busy, decide }: {
+function ReviewItem({ review, organisationId, kind, owner, busy, canRelease, decide, release }: {
   review: Review; organisationId: string; kind: Kind; owner: boolean; busy: boolean;
+  canRelease: boolean;
   decide: (action: "approved" | "changes_requested", feedback: string) => void;
+  release: (scheduledFor?: string) => void;
 }) {
   const [feedback, setFeedback] = useState("");
+  const [scheduled, setScheduled] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const label = !review.current_version ? "Draft changed · review needed" :
     review.status === "pending" ? "Awaiting client" :
@@ -114,12 +133,26 @@ function ReviewItem({ review, organisationId, kind, owner, busy, decide }: {
         <button className={secondary} disabled={busy || !feedback.trim()} onClick={() => decide("changes_requested", feedback)}>Request changes</button>
       </div>
     </div>}
+    {canRelease && review.status === "approved" && review.current_version && review.editable && <div className="mt-5 space-y-2">
+      <label className="block text-sm font-medium">Schedule time (your local time)
+        <input type="datetime-local" className={field + " mt-1"} value={scheduled} onChange={e => setScheduled(e.target.value)} />
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <button className={secondary} disabled={busy || !Number.isFinite(Date.parse(scheduled))}
+          onClick={() => release(new Date(scheduled).toISOString())}>Schedule approved draft</button>
+        <button className={primary} disabled={busy}
+          onClick={() => { if (window.confirm("Queue this approved version for delivery?")) release(); }}>
+          {kind === "email" ? "Send approved email" : "Queue approved post"}
+        </button>
+      </div>
+    </div>}
   </article>;
 }
 
 function InboxPanel({ organisationId, kind }: { organisationId: string; kind: Kind }) {
   const [inbox, setInbox] = useState<Inbox | null>(null);
   const [draftId, setDraftId] = useState("");
+  const [staffId, setStaffId] = useState("");
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -134,10 +167,10 @@ function InboxPanel({ organisationId, kind }: { organisationId: string; kind: Ki
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [organisationId, kind, revision]);
-  async function act(action: object, success: string) {
+  async function act(action: object | (() => Promise<unknown>), success: string) {
     setBusy(true); setError(""); setNotice("");
     try {
-      await approvalRequest(organisationId, kind, action);
+      await (typeof action === "function" ? action() : approvalRequest(organisationId, kind, action));
       setDraftId("");
       setNotice(success);
       setLoading(true);
@@ -166,6 +199,30 @@ function InboxPanel({ organisationId, kind }: { organisationId: string; kind: Ki
         <p className="font-semibold">{inbox.organisationName} · {inbox.owner ? "Client view" : "Agency view"}</p>
         <button className={secondary} disabled={busy} onClick={() => { setError(""); setRevision(n => n + 1); }}>Refresh</button>
       </div>
+      {inbox.owner ? <section className={card + " space-y-3"}>
+        <h2 className="font-semibold">Staff approval rules</h2>
+        <p className="text-sm">Applies to email and social for this client. Staff not listed can still request approval and keep their existing permissions.</p>
+        <form className="space-y-2" onSubmit={e => {
+          e.preventDefault();
+          void act({ action: "policy", userId: staffId.trim(), required: true }, "Approval now required for this staff member.");
+        }}>
+          <label className="block text-sm">Staff ORBI. user ID
+            <input required className={field + " mt-1"} value={staffId} onChange={e => setStaffId(e.target.value)} />
+          </label>
+          <button disabled={busy || !staffId.trim()} className={primary}>Require approval</button>
+        </form>
+        {inbox.requiredUsers.map(userId => <div key={userId} className="flex flex-wrap items-center gap-2 text-sm">
+          <code>{userId}</code>
+          <button disabled={busy} className={secondary} onClick={() => {
+            if (window.confirm("Make approval optional? Any held releases may become eligible again.")) {
+              void act({ action: "policy", userId, required: false }, "Approval is now optional.");
+            }
+          }}>Make optional</button>
+        </div>)}
+      </section> : <p className="text-sm">
+        {inbox.required ? "Approval required for email and social." : "Approval optional. Your existing permissions still apply."}
+        {" "}Your ORBI. user ID: <code>{inbox.userId}</code>
+      </p>}
       {inbox.canRequest && <section className={card}>
         <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (draftId) void act({ action: "request", draftId }, "Draft submitted for client review."); }}>
           <label className="block text-sm font-semibold">Submit a saved draft
@@ -184,6 +241,7 @@ function InboxPanel({ organisationId, kind }: { organisationId: string; kind: Ki
       </section>}
       {inbox.reviews.length === 0 ? <p className={card + " text-sm"}>No drafts have been submitted for review yet.</p> :
         inbox.reviews.map(review => <ReviewItem key={review.id} review={review} organisationId={organisationId} kind={kind} owner={inbox.owner} busy={busy}
+          canRelease={inbox.canRelease} release={when => void act(() => releaseDraft(organisationId, kind, review.draft_id, when), when ? "Approved draft scheduled." : "Approved draft queued.")}
           decide={(action, feedback) => void act({ action, reviewId: review.id, feedback }, action === "approved" ? "Draft approved." : "Changes requested.")} />)}
     </>}
   </div>;

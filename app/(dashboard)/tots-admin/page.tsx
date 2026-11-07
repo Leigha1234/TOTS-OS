@@ -21,7 +21,6 @@ import {
   Store,
   TrendingUp,
   UserPlus,
-  Search,
   Users,
 } from "lucide-react";
 
@@ -186,6 +185,28 @@ type RevenueResponse = {
   >;
 
   generatedAt: string;
+};
+
+type BillingCustomer = {
+  subscriptionId: string;
+  customerId: string;
+  customerName: string;
+  email: string | null;
+  organisationName: string | null;
+  organisationStatus: string | null;
+  status: string;
+  currency: string;
+  monthlyAmount: number;
+  products: { name: string; quantity: number; priceId: string }[];
+  metadata: { billingModel: string | null; billingPackage: string | null; tier: string | null; moduleKeys: string | null };
+  nextBillingAt: string | null;
+  discrepancy: string | null;
+};
+type BillingResponse = {
+  customers: BillingCustomer[];
+  summary: { activeSubscriptions: number; payingCustomers: number; mrrByCurrency: Record<string, number>; discrepancies: number };
+  complete: boolean;
+  note: string;
 };
 
 // ============================================================
@@ -392,36 +413,8 @@ export default function TotsAdminPage() {
       null
     >(null);
 
-  const [organisationSearch, setOrganisationSearch] = useState("");
-  const [organisationFilter, setOrganisationFilter] = useState<"all" | "linked" | "unlinked" | "trial" | "issues">("linked");
-
-  // A CRM/imported organisation is not necessarily an ORBI customer.
-  // Only linked users are evidence of an account; payment must be verified server-side.
-  const organisationUserCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const user of users) {
-      if (user.organisationId) {
-        counts.set(user.organisationId, (counts.get(user.organisationId) || 0) + 1);
-      }
-    }
-    return counts;
-  }, [users]);
-
-  const filteredOrganisations = useMemo(() => {
-    const q = organisationSearch.trim().toLowerCase();
-    return organisations.filter((organisation) => {
-      const linked = (organisationUserCounts.get(organisation.id) || 0) > 0;
-      const status = (organisation.subscriptionStatus || "").toLowerCase();
-      const matches = !q || [organisation.name, organisation.subscriptionTier || "", status]
-        .some((value) => value.toLowerCase().includes(q));
-      if (!matches) return false;
-      if (organisationFilter === "linked") return linked;
-      if (organisationFilter === "unlinked") return !linked;
-      if (organisationFilter === "trial") return status === "trial" || status === "trialing";
-      if (organisationFilter === "issues") return ["past_due", "unpaid", "incomplete"].includes(status);
-      return true;
-    });
-  }, [organisations, organisationSearch, organisationFilter, organisationUserCounts]);
+  const [billing, setBilling] = useState<BillingResponse | null>(null);
+  const [billingError, setBillingError] = useState<string | null>(null);
 
   // ==========================================================
   // ACCESS TOKEN
@@ -611,6 +604,13 @@ export default function TotsAdminPage() {
           setRevenue(
             revenueData
           );
+          try {
+            const billingData = await adminFetch<BillingResponse>("/api/tots-admin/billing");
+            setBilling(billingData);
+            setBillingError(null);
+          } catch (billingFailure) {
+            setBillingError(billingFailure instanceof Error ? billingFailure.message : "Stripe report unavailable");
+          }
         } catch (
           error:
             unknown
@@ -713,7 +713,7 @@ export default function TotsAdminPage() {
           />
 
           <p className="text-[9px] font-black uppercase tracking-[0.28em] text-stone-400">
-            Loading ORBI. Control Centre
+            Loading TOTS Control Centre
           </p>
         </div>
       </div>
@@ -783,7 +783,7 @@ export default function TotsAdminPage() {
             </p>
 
             <h1 className="font-serif text-5xl italic text-stone-800 md:text-7xl">
-              ORBI. Control Centre
+              TOTS Control Centre
             </h1>
 
             <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-500">
@@ -842,7 +842,7 @@ export default function TotsAdminPage() {
             icon={
               Building2
             }
-            label="Organisation records"
+            label="Organisations"
             value={String(
               overview
                 .organisations
@@ -855,13 +855,13 @@ export default function TotsAdminPage() {
             icon={
               CreditCard
             }
-            label="Active status records"
+            label="Active Plans"
             value={String(
               overview
                 .subscriptions
                 .active
             )}
-            sub="Not verified payments"
+            sub={`${overview.subscriptions.trialing} trialing`}
           />
 
           <Metric
@@ -887,7 +887,7 @@ export default function TotsAdminPage() {
                 .store
                 .enabledOrganisations
             )}
-            sub={`${storeAdoption}% of all records (includes imports)`}
+            sub={`${storeAdoption}% adoption`}
           />
 
           <Metric
@@ -912,7 +912,7 @@ export default function TotsAdminPage() {
               revenue
                 .estimatedMrr
             )}
-            sub="Estimate only · verify with Stripe"
+            sub="Core + Store"
           />
 
           <Metric
@@ -927,6 +927,46 @@ export default function TotsAdminPage() {
             )}
             sub="Paid sales"
           />
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-stone-200 bg-white p-5 md:p-7">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-800">Live Stripe billing</p>
+              <h2 className="mt-1 text-2xl font-semibold text-stone-900">Who's paying, how much & what they have</h2>
+              <p className="mt-2 text-sm text-stone-500">Platform subscriptions only — excludes Store orders, invoices and connected-account memberships.</p>
+            </div>
+            {billing && <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-900">Stripe verified · Read only</span>}
+          </div>
+          {billingError && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Stripe billing unavailable: {billingError}. Existing dashboard metrics are estimates, not verified payments.</p>}
+          {billing && <>
+            <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <MiniMetric label="Paying Stripe customers" value={String(billing.summary.payingCustomers)} />
+              <MiniMetric label="Active subscriptions" value={String(billing.summary.activeSubscriptions)} />
+              <MiniMetric label="Verified gross MRR (GBP)" value={formatMoney(billing.summary.mrrByCurrency.gbp || 0)} />
+            </div>
+            {!billing.complete && <p className="mb-3 text-sm text-amber-800">Stripe result limit reached: figures may be incomplete.</p>}
+            {billing.summary.discrepancies > 0 && <p className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{billing.summary.discrepancies} billing linkage/status discrepancy(s) to investigate. Stripe records have not been changed.</p>}
+            <div className="overflow-x-auto rounded-xl border border-stone-100">
+              <table className="w-full min-w-[880px] text-left text-sm">
+                <thead className="bg-stone-50 text-xs uppercase tracking-wide text-stone-500"><tr>
+                  <th className="px-4 py-3">Customer / organisation</th><th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Monthly</th><th className="px-4 py-3">Subscription / modules</th>
+                  <th className="px-4 py-3">Next billing</th><th className="px-4 py-3">Sync</th>
+                </tr></thead>
+                <tbody>{billing.customers.map(row => <tr key={row.subscriptionId} className="border-t border-stone-100 align-top">
+                  <td className="px-4 py-3"><div className="font-semibold text-stone-900">{row.customerName}</div><div className="text-xs text-stone-500">{row.email || "No email"}</div><div className="mt-1 text-xs text-stone-600">{row.organisationName || "Not linked"}</div></td>
+                  <td className="px-4 py-3 capitalize">{row.status.replaceAll("_", " ")}</td>
+                  <td className="px-4 py-3 font-semibold">{new Intl.NumberFormat("en-GB", {style:"currency", currency: row.currency.toUpperCase()}).format(row.monthlyAmount)}<span className="block text-xs font-normal text-stone-500">Gross recurring</span></td>
+                  <td className="px-4 py-3">{row.products.map((item, i) => <div key={i}>{item.name}{item.quantity > 1 ? ` ×${item.quantity}` : ""}</div>)}{row.metadata.moduleKeys && <div className="mt-1 text-xs text-stone-500">Modules: {row.metadata.moduleKeys}</div>}{row.metadata.billingPackage && <div className="text-xs text-stone-500">Package: {row.metadata.billingPackage}</div>}</td>
+                  <td className="px-4 py-3">{row.nextBillingAt ? new Date(row.nextBillingAt).toLocaleDateString("en-GB") : "—"}</td>
+                  <td className="px-4 py-3">{row.discrepancy ? <span className="text-amber-700" title={row.discrepancy}>⚠ {row.discrepancy}</span> : <span className="text-emerald-700">No mismatch detected</span>}</td>
+                </tr>)}</tbody>
+              </table>
+            </div>
+            {billing.customers.length === 0 && <p className="mt-4 text-sm text-stone-500">No matching ORBI. subscriptions found in this Stripe account.</p>}
+            <p className="mt-3 text-xs text-stone-500">{billing.note} Existing estimated revenue cards below are separate from verified Stripe figures.</p>
+          </>}
         </section>
 
         {/* ===================================================
@@ -1227,44 +1267,9 @@ export default function TotsAdminPage() {
         =================================================== */}
 
         <Panel
-          eyebrow="Customers & CRM"
+          eyebrow="Platform"
           title="Organisations"
         >
-          <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-            <strong>Important:</strong> Imported organisations and CRM contacts are not customers.
-            An active database status does not prove payment. Revenue is estimated until the
-            Stripe checkout/subscription records are reconciled. A linked account is not proof of product usage.
-          </div>
-          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <MiniMetric label="Linked organisation accounts" value={String(organisations.filter(o => (organisationUserCounts.get(o.id) || 0) > 0).length)} />
-            <MiniMetric label="Unlinked / imported records" value={String(organisations.filter(o => !(organisationUserCounts.get(o.id) || 0)).length)} />
-            <MiniMetric label="Confirmed paid via Stripe" value="Not yet verified" />
-          </div>
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row">
-            <label className="flex flex-1 items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2">
-              <Search size={16} className="text-stone-400" />
-              <input
-                value={organisationSearch}
-                onChange={e => setOrganisationSearch(e.target.value)}
-                placeholder="Search organisations or plans..."
-                aria-label="Search organisations"
-                className="w-full bg-transparent text-sm outline-none"
-              />
-            </label>
-            <select
-              aria-label="Filter organisation records"
-              value={organisationFilter}
-              onChange={e => setOrganisationFilter(e.target.value as typeof organisationFilter)}
-              className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm"
-            >
-              <option value="linked">Linked user accounts</option>
-              <option value="all">All records</option>
-              <option value="unlinked">Unlinked / imported</option>
-              <option value="trial">Trial status</option>
-              <option value="issues">Payment issue status</option>
-            </select>
-          </div>
-          <p className="mb-3 text-xs text-stone-500">Showing {filteredOrganisations.length} of {organisations.length} organisation records. Linked accounts are determined from the users endpoint.</p>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-left">
               <thead>
@@ -1273,7 +1278,6 @@ export default function TotsAdminPage() {
                     Organisation
                   </th>
 
-                  <th className="px-3 py-3">Linked users</th>
                   <th className="px-3 py-3">
                     Plan
                   </th>
@@ -1297,7 +1301,7 @@ export default function TotsAdminPage() {
               </thead>
 
               <tbody>
-                {filteredOrganisations.map(
+                {organisations.map(
                   (
                     organisation
                   ) => (
@@ -1313,9 +1317,6 @@ export default function TotsAdminPage() {
                         }
                       </td>
 
-                      <td className="px-3 py-3 text-stone-500">
-                        {organisationUserCounts.get(organisation.id) || 0}
-                      </td>
                       <td className="px-3 py-3 capitalize text-stone-500">
                         {organisation.subscriptionTier ||
                           "—"}
@@ -1350,9 +1351,6 @@ export default function TotsAdminPage() {
                       </td>
                     </tr>
                   )
-                )}
-                {filteredOrganisations.length === 0 && (
-                  <tr><td colSpan={7} className="px-3 py-8 text-center text-sm text-stone-500">No matching organisation records.</td></tr>
                 )}
               </tbody>
             </table>

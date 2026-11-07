@@ -132,9 +132,11 @@ export async function GET(req: Request) {
         const isTest = !isInternal && (/(^|[\s._-])test(?:[\s._-]|$)|dummy|example|fake/i.test(string(customerName)) ||
           /(?:^test[0-9]*@|@test\.|@example\.|^test[0-9]*[._-])/i.test(string(email)) ||
           /(?:^test$|dummy)/i.test(string(org?.name)));
-        // An external classification requires an organisation with a real member;
-        // unresolved records are shown separately rather than silently counted as customers.
-        const category = isInternal ? "internal" : isTest ? "test" : org && (memberCount.get(String(org.id)) ?? 0) > 0 ? "external" : "review";
+        // A verified Stripe subscription linked to a real ORBI organisation is an
+        // external customer even if the organisation_members table has no matching
+        // row (e.g. legacy registrations). Do not classify unlinked subscriptions.
+        // Internal/test exclusions always take precedence.
+        const category = isInternal ? "internal" : isTest ? "test" : org ? "external" : "review";
         rows.push({
           category,
           subscriptionId: sub.id,

@@ -124,7 +124,7 @@ export async function GET(req: Request) {
           countsTowardsMrr: sub.status === "active", // excludes trials, overdue and cancelled subscriptions
           products: items.map(({ name, priceId, quantity }) => ({ name, priceId, quantity })),
           metadata: { billingModel: meta.billing_model ?? null, billingPackage: meta.billing_package ?? null, tier: meta.subscription_tier ?? null, moduleKeys: meta.module_keys ?? null },
-          nextBillingAt: sub.items.data[0]?.current_period_end ? new Date(sub.items.data[0].current_period_end * 1000).toISOString() : null,
+          nextBillingAt: null,
           discrepancy: mismatch || moduleDiscrepancy,
           purchasedModules,
           provisionedModules,

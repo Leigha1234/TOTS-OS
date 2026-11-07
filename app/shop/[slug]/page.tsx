@@ -2530,11 +2530,8 @@ export default function ShopFrontPage() {
             product.id
           ];
 
-        let nextQuantity =
-          existing
-            ? existing.quantity +
-              1
-            : 1;
+        const isCustomDonation = ["rooted-direct-donation", "rooted-christmas-market-stall"].includes(String(product.slug || "").toLowerCase());
+        let nextQuantity = isCustomDonation ? 1 : existing ? existing.quantity + 1 : 1;
 
         const available =
           getAvailableQuantity(
@@ -5238,6 +5235,14 @@ export default function ShopFrontPage() {
                 primary={primary}
                 onAdd={addToCart}
                 onRequest={requestProduct}
+              />
+            ) : visibleProducts.some((product) =>
+              ["rooted-direct-donation", "rooted-christmas-market-stall"].includes(String(product.slug || "").toLowerCase())
+            ) ? (
+              <RootedFundraiserSection
+                products={visibleProducts}
+                primary={primary}
+                onAdd={addToCart}
               />
             ) : (
               <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

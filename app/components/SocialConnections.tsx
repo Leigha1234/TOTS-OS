@@ -1254,7 +1254,7 @@ export default function SocialConnections({
       window.confirm(
         `Disconnect ${platformLabel(
           platform
-        )}? TOTS-OS will no longer be able to use this account for publishing.`
+        )}? ORBI. will no longer be able to use this account for publishing.`
       );
 
     if (
@@ -1405,7 +1405,7 @@ export default function SocialConnections({
             </p>
 
             <p className="mt-1 text-[10px] leading-5 text-amber-700">
-              TOTS-OS needs to know which workspace you are currently
+              ORBI. needs to know which workspace you are currently
               using before social accounts can be connected.
             </p>
           </div>
@@ -1641,7 +1641,7 @@ export default function SocialConnections({
                             platform.id
                           )
                         }
-                        className="inline-flex min-w-[145px] items-center justify-center gap-2 rounded-xl bg-[#A3B18A] px-4 py-3 text-[8px] font-black uppercase tracking-[0.13em] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex min-w-[145px] items-center justify-center gap-2 rounded-xl bg-[#0F3D32] px-4 py-3 text-[8px] font-black uppercase tracking-[0.13em] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {buttonLoading ? (
                           <>
@@ -1724,8 +1724,8 @@ export default function SocialConnections({
 
                 <p className="mt-1 text-[10px] leading-5 text-stone-500">
                   {accountMap.tiktok.display_name
-                    ? `${accountMap.tiktok.display_name} is ready for TikTok publishing through TOTS-OS.`
-                    : "TikTok authentication has completed and this account is ready for publishing through TOTS-OS."}
+                    ? `${accountMap.tiktok.display_name} is ready for TikTok publishing through ORBI..`
+                    : "TikTok authentication has completed and this account is ready for publishing through ORBI.."}
                 </p>
               </div>
             </div>

@@ -262,7 +262,7 @@ export default function LegalHub() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: selectedEmail,
-          subject: `${doc.name} from TOTS OS`,
+          subject: `${doc.name} from ORBI.`,
           body: `Hello ${selectedContact?.name || "there"},<br /><br />You can read this document here: ${window.location.origin}${doc.href}<br /><br />A printable PDF can be downloaded from the same page in Settings > Legal & Support.`,
         }),
       });
@@ -297,7 +297,7 @@ export default function LegalHub() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: selectedEmail,
-          subject: `${doc.title} from TOTS OS`,
+          subject: `${doc.title} from ORBI.`,
           body: `Hello ${selectedContact?.name || "there"},<br /><br />Please find the document below:<br /><br /><strong>${doc.title}</strong><br /><br />${content.replace(/\n/g, "<br />")}`,
         }),
       });

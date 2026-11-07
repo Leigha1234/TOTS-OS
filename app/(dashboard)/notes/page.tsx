@@ -57,7 +57,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 
 /* ============================================================
-   TOTS-OS NOTES / THE VAULT
+   ORBI. NOTES / THE VAULT
 ============================================================ */
 
 /* ============================================================
@@ -929,7 +929,7 @@ function NotesContent() {
     setTagColor,
   ] =
     useState(
-      "#A9B897"
+      "#0F3D32"
     );
 
   const [
@@ -1635,7 +1635,7 @@ function NotesContent() {
         folder.is_system
       ) {
         toast.error(
-          "TOTS-OS folders cannot be deleted"
+          "ORBI. folders cannot be deleted"
         );
 
         return;
@@ -2607,7 +2607,7 @@ function NotesContent() {
                     u.email,
 
                   subject:
-                    "You were mentioned in TOTS-OS",
+                    "You were mentioned in ORBI.",
 
                   message:
                     text,
@@ -6143,8 +6143,8 @@ function NotesContent() {
                     }
                     className={`w-full min-h-[118px] rounded-2xl border p-4 text-left transition-all ${
                       selected
-                        ? "bg-[#A9B897] text-white border-[#A9B897] shadow-lg"
-                        : "bg-white text-stone-700 border-stone-200 hover:border-[#A9B897]"
+                        ? "bg-[#0F3D32] text-white border-[#0F3D32] shadow-lg"
+                        : "bg-white text-stone-700 border-stone-200 hover:border-[#0F3D32]"
                     }`}
                   >
                     <div className="flex items-start justify-between">
@@ -6195,7 +6195,7 @@ function NotesContent() {
                       }`}
                     >
                       {folder.is_system
-                        ? "TOTS-OS folder"
+                        ? "ORBI. folder"
                         : folder.visibility ===
                             "private"
                           ? "Private folder"
@@ -6639,8 +6639,8 @@ function NotesContent() {
             >
               <div className="flex justify-between items-center">
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.35em] text-[#A9B897]">
-                    TOTS-OS
+                  <p className="text-[9px] font-black uppercase tracking-[0.35em] text-[#0F3D32]">
+                    ORBI.
                   </p>
 
                   <h3 className="text-3xl font-serif italic text-[#4f4a46] mt-1">
@@ -6697,14 +6697,14 @@ function NotesContent() {
                           }
                           className={`text-left rounded-xl border p-3 transition-all ${
                             active
-                              ? "border-[#A9B897] bg-[#F2F5EE] ring-1 ring-[#A9B897]"
+                              ? "border-[#0F3D32] bg-[#F2F5EE] ring-1 ring-[#0F3D32]"
                               : "border-stone-100 bg-stone-50 hover:border-stone-200"
                           }`}
                         >
                           <div
                             className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                               active
-                                ? "bg-[#A9B897] text-white"
+                                ? "bg-[#0F3D32] text-white"
                                 : "bg-white text-stone-400"
                             }`}
                           >
@@ -6746,7 +6746,7 @@ function NotesContent() {
                       )
                     }
                     placeholder="What type of note is this?"
-                    className="mt-3 w-full rounded-xl bg-stone-50 border border-stone-100 px-4 py-3 text-sm outline-none focus:border-[#A9B897]"
+                    className="mt-3 w-full rounded-xl bg-stone-50 border border-stone-100 px-4 py-3 text-sm outline-none focus:border-[#0F3D32]"
                   />
                 )}
               </div>
@@ -7586,7 +7586,7 @@ function NotesContent() {
                       }
                     }}
                     placeholder="e.g. Launch Planning"
-                    className="w-full rounded-xl bg-stone-50 border border-stone-100 px-4 py-3 text-sm outline-none focus:border-[#A9B897]"
+                    className="w-full rounded-xl bg-stone-50 border border-stone-100 px-4 py-3 text-sm outline-none focus:border-[#0F3D32]"
                   />
                 </div>
 
@@ -7607,7 +7607,7 @@ function NotesContent() {
                       className={`rounded-xl p-3 border text-left ${
                         newFolderVisibility ===
                         "org"
-                          ? "bg-[#EEF2E9] border-[#A9B897]"
+                          ? "bg-[#EEF2E9] border-[#0F3D32]"
                           : "bg-stone-50 border-stone-100"
                       }`}
                     >
@@ -7638,7 +7638,7 @@ function NotesContent() {
                       className={`rounded-xl p-3 border text-left ${
                         newFolderVisibility ===
                         "private"
-                          ? "bg-[#EEF2E9] border-[#A9B897]"
+                          ? "bg-[#EEF2E9] border-[#0F3D32]"
                           : "bg-stone-50 border-stone-100"
                       }`}
                     >

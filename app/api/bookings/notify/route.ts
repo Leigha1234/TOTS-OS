@@ -215,7 +215,7 @@ export async function POST(req: Request) {
                 color:#8fa07d;
               "
             >
-              TOTS-OS Booking
+              ORBI. Booking
             </p>
 
             <h1
@@ -331,7 +331,7 @@ export async function POST(req: Request) {
                 text-align:center;
               "
             >
-              This booking has been added to your TOTS-OS calendar.
+              This booking has been added to your ORBI. calendar.
             </p>
 
           </div>

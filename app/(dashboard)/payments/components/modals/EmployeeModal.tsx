@@ -82,7 +82,7 @@ export default function EmployeeModal({
           >
             <div className="mb-7 flex items-start justify-between gap-4">
               <div>
-                <p className="mb-2 text-[8px] font-black uppercase tracking-[0.35em] text-[#a9b897]">
+                <p className="mb-2 text-[8px] font-black uppercase tracking-[0.35em] text-[#0F3D32]">
                   Payroll
                 </p>
 
@@ -194,7 +194,7 @@ export default function EmployeeModal({
               type="button"
               onClick={onSubmit}
               disabled={!canSubmit}
-              className="mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#0F3D32] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? (
                 <Loader2

@@ -36,7 +36,7 @@ export default function AgencyContextPicker() {
   useEffect(() => { void load(); }, [load]);
   const active = contexts.find(o => o.id === selected);
   return (
-    <section className="rounded-2xl border border-[#A9B897] bg-[#FAF8F5] p-5 text-[#4f4a46]">
+    <section className="rounded-2xl border border-[#0F3D32] bg-[#FAF8F5] p-5 text-[#4f4a46]">
       <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold">Organisation selector — preview</h2><button type="button" onClick={() => void load()} className="text-sm underline">Refresh</button></div>
       <p className="mt-1 text-sm">Select an organisation to inspect your access. This does not switch live dashboard data yet.</p>
       {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}

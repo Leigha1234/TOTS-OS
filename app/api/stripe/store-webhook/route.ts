@@ -3100,7 +3100,7 @@ async function fulfilRaffleTickets({
               <div style="max-width:640px;margin:0 auto;padding:32px 18px;">
                 <div style="background:#111;border-radius:18px 18px 0 0;padding:28px;text-align:center;">
                   <div style="font-size:30px;font-weight:800;letter-spacing:2px;color:#f5efe5;">ROOTED</div>
-                  <div style="margin-top:5px;font-size:13px;letter-spacing:3px;color:#a9b897;">CIC</div>
+                  <div style="margin-top:5px;font-size:13px;letter-spacing:3px;color:#0F3D32;">CIC</div>
                 </div>
                 <div style="background:#fff;border-radius:0 0 18px 18px;padding:32px;">
                   <h1 style="margin:0 0 16px;font-size:26px;">Your raffle tickets are here 🎟️</h1>

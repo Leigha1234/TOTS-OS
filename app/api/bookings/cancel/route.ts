@@ -200,13 +200,13 @@ export async function POST(request: Request) {
       "",
       "If you would like to arrange another time, please return to the booking page you originally used.",
       "",
-      "TOTS-OS Bookings",
+      "ORBI. Bookings",
     ].join("\n");
 
     const html = `
       <div style="margin:0;padding:32px 16px;background:#faf8f5;font-family:Arial,sans-serif;color:#292524;">
         <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e7e5e4;border-radius:20px;padding:32px;">
-          <div style="font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#829473;margin-bottom:14px;">TOTS-OS Bookings</div>
+          <div style="font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#829473;margin-bottom:14px;">ORBI. Bookings</div>
           <h1 style="font-size:26px;line-height:1.2;margin:0 0 16px;color:#1c1917;">Your meeting has been cancelled</h1>
           <p style="font-size:15px;line-height:1.7;margin:0 0 18px;color:#57534e;">Hi ${safeName},</p>
           <p style="font-size:15px;line-height:1.7;margin:0 0 22px;color:#57534e;">The organiser has cancelled your booking.</p>
@@ -221,7 +221,7 @@ export async function POST(request: Request) {
     `;
 
     const { data: emailData, error: emailError } = await resend.emails.send({
-      from: "TOTS-OS Bookings <bookings@tots-os.co.uk>",
+      from: "ORBI. Bookings <bookings@tots-os.co.uk>",
       to: customer.email,
       subject: `Cancelled — ${meetingTitle}`,
       text,

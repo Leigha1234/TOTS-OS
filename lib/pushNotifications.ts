@@ -159,7 +159,7 @@ export async function enablePushNotifications() {
       !publicKey
     ) {
       throw new Error(
-        "TOTS-OS push notifications are not configured."
+        "ORBI. push notifications are not configured."
       );
     }
 

@@ -35,7 +35,7 @@ export default function EmptyState({
         border-dashed
         border-stone-200
         bg-[#faf9f6]
-        rounded-[2rem]
+        rounded-[24px]
         flex
         flex-col
         items-center
@@ -49,12 +49,12 @@ export default function EmptyState({
       `}
     >
       {Icon && (
-        <div className="w-12 h-12 rounded-2xl bg-white border border-stone-100 flex items-center justify-center text-[#a9b897] shadow-sm mb-4">
+        <div className="w-12 h-12 rounded-2xl bg-white border border-[#E6ECE7] flex items-center justify-center text-[#0F3D32] shadow-sm mb-4">
           <Icon size={19} />
         </div>
       )}
 
-      <h4 className="font-serif italic text-xl tracking-tight text-stone-900">
+      <h4 className="font-serif italic text-xl tracking-tight text-[#1E2A27]">
         {title}
       </h4>
 
@@ -75,10 +75,10 @@ export default function EmptyState({
               mt-5
               px-5 py-2.5
               rounded-full
-              bg-stone-900
+              bg-[#0F3D32]
               text-white
-              hover:bg-[#a9b897]
-              hover:text-stone-900
+              hover:bg-[#0F3D32]
+              hover:text-[#1E2A27]
               transition-all
               flex
               items-center
@@ -87,7 +87,7 @@ export default function EmptyState({
           >
             <Plus size={13} />
 
-            <span className="text-[8px] font-black uppercase tracking-widest">
+            <span className="text-[11px] font-black uppercase tracking-widest">
               {actionLabel}
             </span>
           </button>

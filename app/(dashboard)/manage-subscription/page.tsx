@@ -313,7 +313,7 @@ const AI_OPTIONS:
         0,
 
       description:
-        "Use your selected TOTS-OS modules without an AI add-on.",
+        "Use your selected ORBI. modules without an AI add-on.",
     },
 
     {
@@ -1051,7 +1051,7 @@ export default function ManageSubscription() {
       0
     ) {
       toast.error(
-        "Choose at least one TOTS-OS module.",
+        "Choose at least one ORBI. module.",
       );
 
       return;
@@ -1172,7 +1172,7 @@ export default function ManageSubscription() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-stone-50">
         <Loader2
-          className="animate-spin text-[#A3B18A]"
+          className="animate-spin text-[#0F3D32]"
           size={40}
         />
       </div>
@@ -1260,7 +1260,7 @@ export default function ManageSubscription() {
         <section className="mb-10">
 
           <p className="mb-3 text-[9px] font-black uppercase tracking-[0.2em] text-[#82936b]">
-            Build Your TOTS-OS
+            Build Your ORBI.
           </p>
 
           <h1 className="max-w-4xl font-serif text-4xl italic tracking-tight text-stone-900 md:text-6xl">
@@ -1270,11 +1270,11 @@ export default function ManageSubscription() {
 
           <p className="mt-5 max-w-3xl text-sm leading-7 text-stone-500">
             Choose your modules and
-            TOTS-OS automatically applies
+            ORBI. automatically applies
             the best module bundle price.
             Add Clarity AI if you want it,
             or choose all six modules for
-            TOTS-OS Complete.
+            ORBI. Complete.
           </p>
 
         </section>
@@ -1305,7 +1305,7 @@ export default function ManageSubscription() {
                     plan remains in place
                     until you choose to
                     move onto the new
-                    modular TOTS-OS
+                    modular ORBI.
                     pricing.
                   </p>
 
@@ -1387,10 +1387,10 @@ export default function ManageSubscription() {
                     ${
                       active
                         ? `
-                          border-[#A3B18A]
+                          border-[#0F3D32]
                           bg-[#F8F9F5]
                           ring-1
-                          ring-[#A3B18A]
+                          ring-[#0F3D32]
                         `
                         : `
                           border-stone-200
@@ -1504,11 +1504,11 @@ export default function ManageSubscription() {
                       ${
                         selected
                           ? `
-                            border-[#A3B18A]
+                            border-[#0F3D32]
                             bg-white
                             shadow-[0_18px_50px_rgba(28,25,23,0.07)]
                             ring-1
-                            ring-[#A3B18A]
+                            ring-[#0F3D32]
                           `
                           : `
                             border-stone-200
@@ -1550,8 +1550,8 @@ export default function ManageSubscription() {
                             ${
                               selected
                                 ? `
-                                  border-[#A3B18A]
-                                  bg-[#A3B18A]
+                                  border-[#0F3D32]
+                                  bg-[#0F3D32]
                                   text-white
                                 `
                                 : `
@@ -1649,8 +1649,8 @@ export default function ManageSubscription() {
 
                 <div>
 
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#A3B18A]">
-                    TOTS-OS Complete
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#0F3D32]">
+                    ORBI. Complete
                   </p>
 
                   <h3 className="mt-2 font-serif text-3xl italic">
@@ -1658,7 +1658,7 @@ export default function ManageSubscription() {
                   </h3>
 
                   <p className="mt-2 max-w-2xl text-xs leading-6 text-stone-400">
-                    All six TOTS-OS
+                    All six ORBI.
                     modules plus Clarity
                     AI Starter are included
                     in Complete.
@@ -1703,14 +1703,14 @@ export default function ManageSubscription() {
 
             <p className="mt-2 max-w-2xl text-xs leading-6 text-stone-500">
               {isComplete
-                ? "Clarity AI Starter is already included with TOTS-OS Complete."
+                ? "Clarity AI Starter is already included with ORBI. Complete."
                 : "Clarity AI is optional and is added on top of your selected module bundle."}
             </p>
 
           </div>
 
           {isComplete ? (
-            <div className="rounded-[2rem] border border-[#A3B18A] bg-[#F8F9F5] p-7">
+            <div className="rounded-[2rem] border border-[#0F3D32] bg-[#F8F9F5] p-7">
 
               <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
 
@@ -1782,10 +1782,10 @@ export default function ManageSubscription() {
                         ${
                           selected
                             ? `
-                              border-[#A3B18A]
+                              border-[#0F3D32]
                               bg-white
                               ring-1
-                              ring-[#A3B18A]
+                              ring-[#0F3D32]
                             `
                             : `
                               border-stone-200
@@ -1812,7 +1812,7 @@ export default function ManageSubscription() {
                           )}
 
                           {selected && (
-                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#A3B18A] text-white">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0F3D32] text-white">
                               <Check
                                 size={11}
                                 strokeWidth={3}
@@ -1872,7 +1872,7 @@ export default function ManageSubscription() {
 
               <p className="mt-2 text-sm font-semibold text-stone-700">
                 Add extra seats to your
-                TOTS-OS workspace.
+                ORBI. workspace.
               </p>
 
               <p className="mt-1 text-xs text-stone-400">
@@ -1963,8 +1963,8 @@ export default function ManageSubscription() {
 
             <div>
 
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#A3B18A]">
-                Your TOTS-OS Setup
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#0F3D32]">
+                Your ORBI. Setup
               </p>
 
               {moduleCount ===
@@ -1977,7 +1977,7 @@ export default function ManageSubscription() {
                 <>
                   <p className="mt-3 font-serif text-3xl italic">
                     {isComplete
-                      ? "TOTS-OS Complete"
+                      ? "ORBI. Complete"
                       : `${moduleCount} ${
                           moduleCount ===
                           1
@@ -2018,7 +2018,7 @@ export default function ManageSubscription() {
 
                     {effectiveAiTier !==
                       "none" && (
-                      <span className="rounded-full bg-[#A3B18A] px-3 py-1.5 text-[9px] font-black text-white">
+                      <span className="rounded-full bg-[#0F3D32] px-3 py-1.5 text-[9px] font-black text-white">
                         Clarity AI{" "}
                         {effectiveAiTier ===
                         "starter"

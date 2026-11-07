@@ -1220,7 +1220,7 @@ export default function InvoiceQuoteModal({
                       aria-checked={vatEnabled}
                       onClick={() => updateForm({ vatEnabled: !vatEnabled })}
                       className={`relative h-6 w-11 rounded-full transition ${
-                        vatEnabled ? "bg-[#a9b897]" : "bg-stone-200"
+                        vatEnabled ? "bg-[#0F3D32]" : "bg-stone-200"
                       }`}
                     >
                       <span
@@ -1478,7 +1478,7 @@ export default function InvoiceQuoteModal({
                                   updateForm({ repeatInvoice: !formData.repeatInvoice })
                                 }
                                 className={`relative h-6 w-11 rounded-full transition ${
-                                  formData.repeatInvoice ? "bg-[#a9b897]" : "bg-stone-200"
+                                  formData.repeatInvoice ? "bg-[#0F3D32]" : "bg-stone-200"
                                 }`}
                               >
                                 <span
@@ -1552,7 +1552,7 @@ export default function InvoiceQuoteModal({
                                   updateForm({ remindersEnabled: !formData.remindersEnabled })
                                 }
                                 className={`relative h-6 w-11 rounded-full transition ${
-                                  formData.remindersEnabled ? "bg-[#a9b897]" : "bg-stone-200"
+                                  formData.remindersEnabled ? "bg-[#0F3D32]" : "bg-stone-200"
                                 }`}
                               >
                                 <span
@@ -1654,7 +1654,7 @@ export default function InvoiceQuoteModal({
                   type="button"
                   onClick={onSubmit}
                   disabled={!canSubmit}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-[#a9b897] py-3.5 text-stone-900 transition hover:bg-[#9aaa87] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-[#0F3D32] py-3.5 text-stone-900 transition hover:bg-[#9aaa87] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {submitting ? (
                     <Loader2 size={15} className="animate-spin" />

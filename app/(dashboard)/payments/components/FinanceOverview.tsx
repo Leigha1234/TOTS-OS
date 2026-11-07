@@ -673,11 +673,11 @@ export default function FinanceOverview({
 
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[2.5rem] bg-stone-900 p-6 text-white shadow-xl sm:p-8">
+      <section className="relative overflow-hidden rounded-[2.5rem] bg-[#0F3D32] p-6 text-white shadow-xl sm:p-8">
         <div className="relative z-10">
           <div className="flex flex-col justify-between gap-8 xl:flex-row xl:items-end">
             <div>
-              <p className="text-[8px] font-black uppercase tracking-[0.4em] text-[#a9b897]">
+              <p className="text-[11px] font-black uppercase tracking-[0.4em] text-[#0F3D32]">
                 Financial
                 Control
                 Centre
@@ -705,12 +705,12 @@ export default function FinanceOverview({
 
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-[8px] uppercase tracking-[0.3em] text-stone-500">
+                <p className="text-[11px] uppercase tracking-[0.3em] text-stone-500">
                   Finance
                   Health
                 </p>
 
-                <p className="mt-1 text-2xl font-mono font-bold text-[#a9b897]">
+                <p className="mt-1 text-2xl font-mono font-bold text-[#0F3D32]">
                   {
                     healthScore
                   }
@@ -723,7 +723,7 @@ export default function FinanceOverview({
                   size={
                     20
                   }
-                  className="text-[#a9b897]"
+                  className="text-[#0F3D32]"
                 />
               </div>
             </div>
@@ -860,7 +860,7 @@ export default function FinanceOverview({
       >
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <div className="rounded-2xl bg-[#faf9f6] p-5">
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-stone-400">
               Profit Margin
             </p>
 
@@ -873,7 +873,7 @@ export default function FinanceOverview({
           </div>
 
           <div className="rounded-2xl bg-[#faf9f6] p-5">
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-stone-400">
               Overdue
             </p>
 
@@ -887,7 +887,7 @@ export default function FinanceOverview({
           </div>
 
           <div className="rounded-2xl bg-[#faf9f6] p-5">
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-stone-400">
               Open Quotes
             </p>
 
@@ -900,8 +900,8 @@ export default function FinanceOverview({
             </p>
           </div>
 
-          <div className="rounded-2xl bg-stone-900 p-5 text-white">
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+          <div className="rounded-2xl bg-[#0F3D32] p-5 text-white">
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-stone-400">
               Finance Status
             </p>
 
@@ -972,7 +972,7 @@ export default function FinanceOverview({
                       : item.level ===
                         "medium"
                       ? "border-amber-100 bg-amber-50"
-                      : "border-stone-100 bg-[#faf9f6]"
+                      : "border-[#E6ECE7] bg-[#faf9f6]"
                   } ${
                     item.action
                       ? "cursor-pointer hover:shadow-sm"
@@ -1057,7 +1057,7 @@ export default function FinanceOverview({
                     "sales"
                   )
                 }
-                className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-stone-500 hover:text-stone-900"
+                className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-stone-500 hover:text-[#1E2A27]"
               >
                 View all
                 <ArrowUpRight
@@ -1096,7 +1096,7 @@ export default function FinanceOverview({
                         }
                       </p>
 
-                      <p className="mt-1 text-[8px] uppercase tracking-widest text-stone-400">
+                      <p className="mt-1 text-[11px] uppercase tracking-widest text-stone-400">
                         {
                           entry.type
                         }{" "}
@@ -1140,7 +1140,7 @@ export default function FinanceOverview({
                     "expenses"
                   )
                 }
-                className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-stone-500 hover:text-stone-900"
+                className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-stone-500 hover:text-[#1E2A27]"
               >
                 View all
                 <ArrowUpRight
@@ -1174,7 +1174,7 @@ export default function FinanceOverview({
                     className="flex items-center justify-between gap-4 rounded-xl bg-[#faf9f6] p-4"
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-stone-100 bg-white">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E6ECE7] bg-white">
                         <Receipt
                           size={
                             14
@@ -1189,7 +1189,7 @@ export default function FinanceOverview({
                             "Business expense"}
                         </p>
 
-                        <p className="mt-1 text-[8px] uppercase tracking-widest text-stone-400">
+                        <p className="mt-1 text-[11px] uppercase tracking-widest text-stone-400">
                           {formatDate(
                             expense.date
                           )}
@@ -1231,7 +1231,7 @@ export default function FinanceOverview({
                   "payroll"
                 )
               }
-              className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-stone-500 hover:text-stone-900"
+              className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-stone-500 hover:text-[#1E2A27]"
             >
               Payroll
               <ArrowUpRight
@@ -1245,7 +1245,7 @@ export default function FinanceOverview({
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-2xl bg-[#faf9f6] p-5">
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-stone-400">
               Logged Hours
             </p>
 
@@ -1264,7 +1264,7 @@ export default function FinanceOverview({
           </div>
 
           <div className="rounded-2xl bg-[#faf9f6] p-5">
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-stone-400">
               Timesheet
               Labour
             </p>
@@ -1277,13 +1277,13 @@ export default function FinanceOverview({
             </p>
           </div>
 
-          <div className="rounded-2xl bg-stone-900 p-5 text-white">
-            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-400">
+          <div className="rounded-2xl bg-[#0F3D32] p-5 text-white">
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-stone-400">
               Monthly
               Payroll
             </p>
 
-            <p className="mt-3 text-2xl font-mono font-bold text-[#a9b897]">
+            <p className="mt-3 text-2xl font-mono font-bold text-[#0F3D32]">
               £
               {money(
                 derived.totalPayrollMonthly

@@ -133,7 +133,7 @@ export default async function BookingPage({
                   className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-1 ring-stone-100"
                 />
               ) : (
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#A3B18A]/15 text-xl font-bold text-[#6B705C]">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#0F3D32]/15 text-xl font-bold text-[#6B705C]">
                   {ownerData.full_name
                     ?.charAt(0)
                     ?.toUpperCase() || "T"}
@@ -144,7 +144,7 @@ export default async function BookingPage({
 
               <div className="min-w-0">
 
-                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.25em] text-[#A3B18A]">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.25em] text-[#0F3D32]">
                   Online Booking
                 </p>
 
@@ -198,7 +198,7 @@ export default async function BookingPage({
         <div className="mt-6 text-center">
 
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-300">
-            Booking powered by TOTS-OS
+            Booking powered by ORBI.
           </p>
 
         </div>

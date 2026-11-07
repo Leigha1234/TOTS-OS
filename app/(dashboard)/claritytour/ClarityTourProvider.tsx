@@ -618,7 +618,7 @@ export function ClarityTourProvider({
             ) {
               const validStep =
                 CLARITY_TOUR_STEPS.some(
-                  (step) =>
+                  (step: (typeof CLARITY_TOUR_STEPS)[number]) =>
                     step.id ===
                     profile.clarity_tour_step
                 );

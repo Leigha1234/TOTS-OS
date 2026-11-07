@@ -308,7 +308,7 @@ export default function PrivacyPolicy() {
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&family=Inter:wght@300;400;700;900&display=swap');
         :root {
-          --accent: #A3B18A;
+          --accent: #0F3D32;
         }
         .font-serif { font-family: 'Instrument Serif', serif; }
         .font-sans { font-family: 'Inter', sans-serif; }

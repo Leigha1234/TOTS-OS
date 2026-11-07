@@ -107,40 +107,40 @@ function getConnectionDescription(
     normalized ===
     "facebook"
   ) {
-    return "Your Facebook Page has been successfully connected to TOTS-OS.";
+    return "Your Facebook Page has been successfully connected to ORBI..";
   }
 
   if (
     normalized ===
     "instagram"
   ) {
-    return "Your Instagram Business or Creator account has been successfully connected to TOTS-OS.";
+    return "Your Instagram Business or Creator account has been successfully connected to ORBI..";
   }
 
   if (
     normalized ===
     "meta"
   ) {
-    return "Your Facebook and Instagram accounts have been successfully connected to TOTS-OS.";
+    return "Your Facebook and Instagram accounts have been successfully connected to ORBI..";
   }
 
   if (
     normalized ===
     "linkedin"
   ) {
-    return "Your LinkedIn account has been successfully connected to TOTS-OS.";
+    return "Your LinkedIn account has been successfully connected to ORBI..";
   }
 
   if (
     normalized ===
     "tiktok"
   ) {
-    return "Your TikTok account has been successfully connected to TOTS-OS.";
+    return "Your TikTok account has been successfully connected to ORBI..";
   }
 
   return `Your ${getPlatformLabel(
     platform
-  )} account has been successfully connected to TOTS-OS.`;
+  )} account has been successfully connected to ORBI..`;
 }
 
 // ============================================================
@@ -188,7 +188,7 @@ function getWorkspaceDescription(
     return "LinkedIn is now connected and available across your social workspace.";
   }
 
-  return "Your connected account is now available across your TOTS-OS social workspace.";
+  return "Your connected account is now available across your ORBI. social workspace.";
 }
 
 // ============================================================

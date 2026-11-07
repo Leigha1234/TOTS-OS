@@ -5,10 +5,10 @@ import type {
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name:
-      "TOTS-OS",
+      "ORBI.",
 
     short_name:
-      "TOTS-OS",
+      "ORBI.",
 
     description:
       "All in one productivity suite for the modern business.",
@@ -26,7 +26,7 @@ export default function manifest(): MetadataRoute.Manifest {
       "#fcfaf7",
 
     theme_color:
-      "#a9b897",
+      "#0F3D32",
 
     orientation:
       "portrait",

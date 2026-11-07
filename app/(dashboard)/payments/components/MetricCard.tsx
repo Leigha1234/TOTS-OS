@@ -41,11 +41,11 @@ export default function MetricCard({
       className={`
         relative
         overflow-hidden
-        rounded-[2rem]
+        rounded-[24px]
         p-5
         sm:p-6
-        min-h-[180px]
-        sm:min-h-[220px]
+        min-h-[155px]
+        sm:min-h-[175px]
         flex
         flex-col
         justify-between
@@ -54,8 +54,8 @@ export default function MetricCard({
         group
         ${
           isDark
-            ? "bg-stone-900 border border-stone-900 text-white shadow-xl"
-            : "bg-white border border-stone-100 text-stone-900 shadow-sm hover:shadow-lg"
+            ? "bg-[#0F3D32] border border-[#0F3D32] text-white shadow-xl"
+            : "bg-white border border-[#E6ECE7] text-[#1E2A27] shadow-[0_10px_28px_-22px_rgba(15,61,50,.4)] hover:shadow-md"
         }
         ${className}
       `}
@@ -64,14 +64,14 @@ export default function MetricCard({
       <div className="relative z-10 flex items-start justify-between gap-4">
         <p
           className={`
-            text-[8px]
+            text-[11px]
             font-black
             uppercase
-            tracking-[0.4em]
+            tracking-[0.12em]
             ${
               isDark
-                ? "text-stone-500"
-                : "text-stone-300"
+                ? "text-[#D7E8DD]"
+                : "text-[#63786D]"
             }
           `}
         >
@@ -86,8 +86,8 @@ export default function MetricCard({
               transition-all
               ${
                 isDark
-                  ? "bg-white/5 text-[#a9b897]"
-                  : "bg-[#faf9f6] text-stone-300 group-hover:text-stone-900"
+                  ? "bg-white/15 text-white"
+                  : "bg-[#faf9f6] text-[#63786D] group-hover:text-stone-900"
               }
             `}
           >
@@ -109,7 +109,7 @@ export default function MetricCard({
       <div className="relative z-10 mt-5 text-left">
         <h2
           className={`
-            font-mono
+            font-semibold tabular-nums
             tracking-tighter
             leading-tight
             ${
@@ -119,9 +119,9 @@ export default function MetricCard({
             }
             ${
               highlight
-                ? "text-[#a9b897]"
+                ? "text-[#0F3D32]"
                 : isDark
-                  ? "text-[#a9b897]"
+                  ? "text-white"
                   : "text-stone-900"
             }
           `}
@@ -152,12 +152,12 @@ export default function MetricCard({
       >
         <span
           className={`
-            text-[8px]
+            text-[11px]
             font-serif
             italic
             ${
               isDark
-                ? "text-[#a9b897]"
+                ? "text-[#E4EFE7]"
                 : "text-stone-400"
             }
           `}
@@ -169,7 +169,7 @@ export default function MetricCard({
           <Activity
             size={10}
             className={`
-              text-[#a9b897]
+              text-[#0F3D32]
               ${pulse ? "animate-pulse" : ""}
             `}
           />
@@ -200,7 +200,7 @@ export default function MetricCard({
             w-28
             h-28
             rounded-full
-            bg-[#a9b897]/10
+            bg-[#0F3D32]/10
             pointer-events-none
           "
         />

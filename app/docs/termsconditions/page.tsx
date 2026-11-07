@@ -192,7 +192,7 @@ export default function TermsAndConditions() {
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&family=Inter:wght@300;400;700;900&display=swap');
         :root {
-          --accent: #A3B18A;
+          --accent: #0F3D32;
         }
         .font-serif { font-family: 'Instrument Serif', serif; }
         .font-sans { font-family: 'Inter', sans-serif; }
@@ -295,7 +295,7 @@ export default function TermsAndConditions() {
             </div>
           </div>
 
-          <div className="bg-[#A3B18A] p-8 rounded-[2.5rem] text-white">
+          <div className="bg-[#0F3D32] p-8 rounded-[2.5rem] text-white">
              <h4 className="text-[10px] font-black uppercase tracking-widest mb-2">Notice</h4>
              <p className="text-xs font-serif italic">This version 0.1 is currently active for all TOTS OS beta tenants.</p>
           </div>

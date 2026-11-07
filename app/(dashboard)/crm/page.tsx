@@ -1548,57 +1548,28 @@ export default function CRMDirectory() {
   // ==========================================================
 
   return (
-    <main className="min-h-screen bg-[#f7f5f2] pb-32 text-stone-900">
+    <main className="min-h-screen bg-[#FAF9F6] pb-32 text-[#1E2A27]">
 
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
-
-      <section className="mx-auto max-w-[1320px] px-4 pb-6 pt-10 sm:px-6 lg:px-8 lg:pt-14">
-
-        <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
-
-          <div>
-
-            <div className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2 shadow-sm">
-
-              <Users
-                size={13}
-                className="text-[#829473]"
-              />
-
-              <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#829473]">
-                CRM
-              </span>
-
+      {/* ORBI. CRM — premium overview */}
+      <section className="relative overflow-hidden bg-[#0F3D32] text-[#F7EFE6]">
+        <div className="pointer-events-none absolute -right-24 -top-40 h-[460px] w-[460px] rounded-full border border-white/10" />
+        <div className="pointer-events-none absolute -right-4 -top-20 h-[340px] w-[340px] rounded-full border border-white/10" />
+        <div className="relative mx-auto max-w-[1440px] px-5 py-12 sm:px-8 lg:px-12 lg:py-16">
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#E5EDE6]">
+                <Users size={14} /> ORBI. / Customer relationships
+              </div>
+              <h1 className="font-serif text-5xl leading-[1.05] tracking-tight sm:text-6xl lg:text-[76px]">People make<br/><span className="italic text-[#D7E5D7]">business happen.</span></h1>
+              <p className="mt-6 max-w-xl text-sm leading-7 text-[#E5EDE6] sm:text-base">One beautifully organised home for every lead, client, partner and customer. Build better relationships, all in one place.</p>
             </div>
-
-            <h1 className="mt-5 max-w-3xl font-serif text-5xl italic leading-[0.95] tracking-tight text-stone-900 sm:text-6xl lg:text-7xl">
-              Everyone your business works with.
-            </h1>
-
-            <p className="mt-5 max-w-2xl text-sm leading-7 text-stone-500">
-              Leads, clients, store customers and partners all live here — giving you one customer record across TOTS-OS.
-            </p>
-
+            <div className="flex flex-wrap items-center gap-3">
+              <Link href="/projects" className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-5 py-3.5 text-xs font-bold text-white transition hover:bg-white/20"><Building2 size={16}/> View projects <ArrowRight size={15}/></Link>
+              <button type="button" onClick={openNewCustomer} className="inline-flex items-center gap-2 rounded-xl bg-[#F7EFE6] px-6 py-3.5 text-xs font-extrabold text-[#0F3D32] shadow-lg transition hover:bg-white"><Plus size={17}/> Add contact</button>
+            </div>
           </div>
-
-          <button
-            type="button"
-            onClick={
-              openNewCustomer
-            }
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-stone-900 px-5 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-white shadow-lg transition hover:bg-[#829473]"
-          >
-            <Plus
-              size={15}
-            />
-
-            Add customer
-          </button>
-
+          <div className="mt-10 flex flex-wrap gap-x-7 gap-y-3 border-t border-white/15 pt-5 text-xs text-[#E5EDE6]"><span className="flex items-center gap-2"><Check size={14}/> Unified contact records</span><span className="flex items-center gap-2"><Sparkles size={14}/> Leads & relationships</span><span className="flex items-center gap-2"><ShoppingBag size={14}/> Connected store customers</span></div>
         </div>
-
       </section>
 
       {/* =====================================================
@@ -1607,7 +1578,7 @@ export default function CRMDirectory() {
 
       {error &&
         !showModal && (
-        <section className="mx-auto max-w-[1320px] px-4 sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
 
           <motion.div
             initial={{
@@ -1646,9 +1617,9 @@ export default function CRMDirectory() {
           METRICS
       ===================================================== */}
 
-      <section className="mx-auto mt-6 max-w-[1320px] px-4 sm:px-6 lg:px-8">
+      <section className="mx-auto -mt-5 relative z-10 max-w-[1440px] px-4 sm:px-6 lg:px-8">
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
           <MetricCard
             icon={
@@ -1698,9 +1669,9 @@ export default function CRMDirectory() {
           SEARCH
       ===================================================== */}
 
-      <section className="mx-auto mt-8 max-w-[1320px] px-4 sm:px-6 lg:px-8">
+      <section className="mx-auto mt-8 max-w-[1440px] px-4 sm:px-6 lg:px-8">
 
-        <div className="rounded-[1.75rem] border border-stone-200 bg-white p-4 shadow-sm">
+        <div className="rounded-[1.75rem] border border-[#E5EDE6] bg-white p-5 shadow-[0_10px_40px_-30px_rgba(15,61,50,0.4)]">
 
           <div className="flex flex-col gap-3 md:flex-row">
 
@@ -1722,8 +1693,8 @@ export default function CRMDirectory() {
                     event.target.value
                   )
                 }
-                placeholder="Search by name, business, email or phone..."
-                className="w-full rounded-xl border border-stone-100 bg-stone-50 py-3.5 pl-11 pr-4 text-xs outline-none transition focus:border-[#a9b897] focus:bg-white"
+                placeholder="Search your relationships by name, company, email or phone..."
+                className="w-full rounded-xl border border-stone-100 bg-stone-50 py-3.5 pl-11 pr-4 text-xs outline-none transition focus:border-[#0F3D32] focus:bg-white"
               />
 
             </div>
@@ -1792,7 +1763,7 @@ export default function CRMDirectory() {
                     }
                     className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] transition ${
                       allVisibleSelected
-                        ? "border-[#a9b897] bg-[#a9b897]/15 text-[#718164]"
+                        ? "border-[#0F3D32] bg-[#0F3D32]/15 text-[#718164]"
                         : "border-stone-200 bg-stone-50 text-stone-500 hover:bg-stone-100"
                     }`}
                   >
@@ -1820,7 +1791,7 @@ export default function CRMDirectory() {
                     0 && (
                     <>
 
-                      <div className="rounded-xl bg-[#a9b897]/10 px-3.5 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] text-[#718164]">
+                      <div className="rounded-xl bg-[#0F3D32]/10 px-3.5 py-2.5 text-[8px] font-black uppercase tracking-[0.13em] text-[#718164]">
                         {selectedCount}{" "}
                         selected
                       </div>
@@ -1888,7 +1859,7 @@ export default function CRMDirectory() {
           CUSTOMERS
       ===================================================== */}
 
-      <section className="mx-auto mt-5 max-w-[1320px] px-4 sm:px-6 lg:px-8">
+      <section className="mx-auto mt-5 max-w-[1440px] px-4 sm:px-6 lg:px-8">
 
         {loading ? (
           <div className="flex min-h-[340px] flex-col items-center justify-center rounded-[2rem] border border-stone-200 bg-white">
@@ -1929,8 +1900,8 @@ export default function CRMDirectory() {
                     }
                     className={`group block rounded-[1.5rem] border p-4 no-underline shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg sm:p-5 ${
                       selected
-                        ? "border-[#a9b897] bg-[#f8faf6] ring-1 ring-[#a9b897]/30"
-                        : "border-stone-200 bg-white hover:border-[#a9b897]"
+                        ? "border-[#0F3D32] bg-[#f8faf6] ring-1 ring-[#0F3D32]/30"
+                        : "border-stone-200 bg-white hover:border-[#0F3D32]"
                     }`}
                   >
 
@@ -1961,7 +1932,7 @@ export default function CRMDirectory() {
                         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition ${
                           selected
                             ? "border-[#829473] bg-[#829473] text-white shadow-sm"
-                            : "border-stone-200 bg-white text-transparent hover:border-[#a9b897]"
+                            : "border-stone-200 bg-white text-transparent hover:border-[#0F3D32]"
                         }`}
                       >
                         <Check
@@ -1974,8 +1945,8 @@ export default function CRMDirectory() {
 
                       <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-sm font-black transition ${
                         selected
-                          ? "bg-[#a9b897] text-white"
-                          : "bg-stone-100 text-stone-500 group-hover:bg-[#a9b897] group-hover:text-white"
+                          ? "bg-[#0F3D32] text-white"
+                          : "bg-stone-100 text-stone-500 group-hover:bg-[#0F3D32] group-hover:text-white"
                       }`}>
                         {getInitials(
                           customer.name
@@ -1993,7 +1964,7 @@ export default function CRMDirectory() {
                               "Unnamed customer"}
                           </h3>
 
-                          <span className="rounded-full bg-[#a9b897]/10 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.13em] text-[#829473]">
+                          <span className="rounded-full bg-[#0F3D32]/10 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.13em] text-[#829473]">
                             {getStageLabel(
                               customer.stage
                             )}
@@ -2134,7 +2105,7 @@ export default function CRMDirectory() {
               onClick={
                 openNewCustomer
               }
-              className="mt-5 inline-flex items-center gap-2 rounded-full bg-stone-900 px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#0F3D32] px-5 py-3 text-[8px] font-black uppercase tracking-[0.14em] text-white"
             >
 
               <Plus
@@ -2271,7 +2242,7 @@ export default function CRMDirectory() {
 
                   <div>
 
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#a9b897]/15 text-[#829473]">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0F3D32]/15 text-[#829473]">
 
                       <CircleUserRound
                         size={19}
@@ -2284,7 +2255,7 @@ export default function CRMDirectory() {
                     </h2>
 
                     <p className="mt-2 text-xs leading-5 text-stone-400">
-                      This creates the main customer record used across TOTS-OS.
+                      This creates the main customer record used across ORBI..
                     </p>
 
                   </div>
@@ -2800,19 +2771,19 @@ function MetricCard({
   value: number;
 }) {
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+    <div className="group rounded-[1.5rem] border border-[#E5EDE6] bg-white p-6 shadow-[0_12px_36px_-25px_rgba(15,61,50,0.35)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_38px_-22px_rgba(15,61,50,0.35)]">
 
       <div className="flex items-start justify-between">
 
         <div>
 
-          <p className="text-[8px] font-black uppercase tracking-[0.15em] text-stone-400">
+          <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#64766B]">
             {
               label
             }
           </p>
 
-          <p className="mt-3 font-serif text-4xl italic leading-none text-stone-900">
+          <p className="mt-5 font-serif text-5xl leading-none tracking-tight text-[#0F3D32]">
             {
               value
             }
@@ -2820,7 +2791,7 @@ function MetricCard({
 
         </div>
 
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#a9b897]/15 text-[#829473]">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E5EDE6] text-[#0F3D32]">
 
           <Icon
             size={15}
@@ -2992,7 +2963,7 @@ function CRMGlobalStyles() {
 
       .crm-field:focus {
         background: #ffffff;
-        border-color: #a9b897;
+        border-color: #0F3D32;
         box-shadow:
           0 0 0 3px
           rgba(

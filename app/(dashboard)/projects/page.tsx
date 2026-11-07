@@ -2154,66 +2154,30 @@ export default function ProjectDirectory() {
   // =========================================================
 
   return (
-    <div className="min-h-screen bg-stone-50 p-4 pb-32 selection:bg-[#a9b897] selection:text-white md:p-10 lg:p-12">
-      <div className="mx-auto max-w-6xl">
+    <div className="min-h-screen bg-[#FAF9F6] p-4 pb-32 selection:bg-[#0F3D32] selection:text-white md:p-10 lg:p-12">
+      <div className="mx-auto max-w-7xl">
         {/* ===================================================
             HEADER
         =================================================== */}
 
-        <header className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.28em] text-[#a9b897]">
-              <Briefcase
-                size={
-                  13
-                }
-              />
-
-              Commercial Workspace
+        <header className="relative mb-8 overflow-hidden rounded-[2rem] bg-[#0F3D32] px-6 py-9 text-[#F7EFE6] shadow-[0_22px_60px_-35px_rgba(15,61,50,.7)] sm:px-10 sm:py-12">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-36 h-96 w-96 rounded-full border border-white/10" />
+          <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-20 h-72 w-72 rounded-full border border-white/10" />
+          <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#C9DCD0]"><Briefcase size={15} /> ORBI. / YOUR WORKSPACE</div>
+              <h1 className="font-serif text-4xl tracking-tight sm:text-5xl lg:text-6xl">Projects, beautifully organised.</h1>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-[#E0EBE4]">From first brief to final delivery. Keep clients, timelines, tasks and budgets connected in one place.</p>
+              <div className="mt-6 flex flex-wrap gap-2 text-[11px] font-medium text-[#E0EBE4]">
+                <span className="rounded-full border border-white/20 px-3 py-1.5">{activeProjects.length} active projects</span>
+                <span className="rounded-full border border-white/20 px-3 py-1.5">{projectsDueSoon.length} due this week</span>
+                <span className="rounded-full border border-white/20 px-3 py-1.5">{overdueProjects.length} overdue</span>
+              </div>
             </div>
-
-            <h1 className="font-serif text-5xl italic tracking-tight text-stone-800 md:text-7xl">
-              Clients & Projects
-            </h1>
-
-            <p className="mt-4 max-w-xl text-sm leading-6 text-stone-500">
-              Manage the people you work
-              with and everything you are
-              delivering for them.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link
-              href="/crm"
-              className="flex items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-5 py-4 text-[10px] font-black uppercase tracking-[0.18em] text-stone-600 transition hover:border-[#a9b897] hover:text-stone-900"
-            >
-              <ContactRound
-                size={
-                  16
-                }
-              />
-
-              Clients
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => {
-                setShowModal(
-                  true
-                );
-              }}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-stone-900 px-5 py-4 text-[10px] font-black uppercase tracking-[0.18em] text-white shadow-lg transition hover:bg-[#a9b897] active:scale-[0.98]"
-            >
-              <Plus
-                size={
-                  16
-                }
-              />
-
-              New Project
-            </button>
+            <div className="flex shrink-0 flex-wrap gap-3">
+              <Link href="/crm" className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/10 px-5 py-3 text-xs font-semibold text-white transition hover:bg-white/20"><ContactRound size={17} /> Clients</Link>
+              <button type="button" onClick={() => setShowModal(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#F7EFE6] px-5 py-3 text-xs font-bold text-[#0F3D32] shadow-lg transition hover:bg-white"><Plus size={17} /> New project</button>
+            </div>
           </div>
         </header>
 
@@ -2222,9 +2186,9 @@ export default function ProjectDirectory() {
         =================================================== */}
 
         {!loading && (
-          <section className="mb-8 rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8">
+          <section className="mb-8 rounded-[2rem] border border-[#DCE7DE] bg-white p-6 shadow-sm md:p-8">
             <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#a9b897]/10 text-[#7f9270]">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0F3D32]/10 text-[#7f9270]">
                 <Sparkles
                   size={
                     19
@@ -2234,7 +2198,7 @@ export default function ProjectDirectory() {
 
               <div>
                 <p className="mb-2 text-[9px] font-black uppercase tracking-[0.26em] text-[#829473]">
-                  TOTS Summary
+                  ORBI. PROJECT BRIEF
                 </p>
 
                 <p className="max-w-4xl text-lg leading-7 text-stone-700">
@@ -2251,7 +2215,7 @@ export default function ProjectDirectory() {
             METRICS
         =================================================== */}
 
-        <section className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <section className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
           <WorkspaceMetric
             icon={
               Folder
@@ -2311,10 +2275,10 @@ export default function ProjectDirectory() {
         <section className="mb-10 grid grid-cols-1 gap-4 md:grid-cols-2">
           <Link
             href="/crm"
-            className="group rounded-[2rem] border border-stone-200 bg-white p-6 transition hover:border-[#a9b897] hover:shadow-xl hover:shadow-stone-200/40"
+            className="group rounded-[2rem] border border-stone-200 bg-white p-6 transition hover:border-[#0F3D32] hover:shadow-xl hover:shadow-stone-200/40"
           >
             <div className="mb-8 flex items-start justify-between">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-50 text-stone-600 transition group-hover:bg-[#a9b897] group-hover:text-white">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-50 text-stone-600 transition group-hover:bg-[#0F3D32] group-hover:text-white">
                 <Users
                   size={
                     20
@@ -2326,7 +2290,7 @@ export default function ProjectDirectory() {
                 size={
                   18
                 }
-                className="text-stone-300 transition group-hover:text-[#a9b897]"
+                className="text-stone-300 transition group-hover:text-[#0F3D32]"
               />
             </div>
 
@@ -2351,9 +2315,9 @@ export default function ProjectDirectory() {
             </div>
           </Link>
 
-          <div className="rounded-[2rem] border border-[#a9b897]/50 bg-[#a9b897]/5 p-6">
+          <div className="rounded-[2rem] border border-[#0F3D32]/50 bg-[#0F3D32]/5 p-6">
             <div className="mb-8 flex items-start justify-between">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#a9b897] text-white">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0F3D32] text-white">
                 <Briefcase
                   size={
                     20
@@ -2501,7 +2465,7 @@ export default function ProjectDirectory() {
                         size={
                           17
                         }
-                        className="shrink-0 text-stone-300 transition group-hover:translate-x-1 group-hover:text-[#a9b897]"
+                        className="shrink-0 text-stone-300 transition group-hover:translate-x-1 group-hover:text-[#0F3D32]"
                       />
                     </Link>
                   );
@@ -2600,7 +2564,7 @@ export default function ProjectDirectory() {
                     event.target.value
                   )
                 }
-                className="w-full rounded-2xl border border-stone-200 bg-white py-3.5 pl-10 pr-4 text-xs outline-none transition focus:border-[#a9b897] focus:ring-2 focus:ring-[#a9b897]/10 md:w-80"
+                className="w-full rounded-2xl border border-stone-200 bg-white py-3.5 pl-10 pr-4 text-xs outline-none transition focus:border-[#0F3D32] focus:ring-2 focus:ring-[#0F3D32]/10 md:w-80"
               />
             </div>
           </div>
@@ -2608,7 +2572,7 @@ export default function ProjectDirectory() {
           <div className="grid grid-cols-1 gap-3">
             {loading ? (
               <div className="flex flex-col items-center justify-center gap-4 rounded-[2rem] border border-stone-100 bg-white p-20">
-                <Loader2 className="animate-spin text-[#a9b897]" />
+                <Loader2 className="animate-spin text-[#0F3D32]" />
 
                 <p className="text-[9px] font-black uppercase tracking-[0.28em] text-stone-300">
                   Loading Workspace
@@ -2652,14 +2616,14 @@ export default function ProjectDirectory() {
                       }
                       className={`group relative rounded-[1.8rem] border bg-white p-5 transition-all duration-300 hover:shadow-xl hover:shadow-stone-200/40 md:p-6 ${
                         completed
-                          ? "border-[#a9b897]/60"
+                          ? "border-[#0F3D32]/60"
                           : archived
                             ? "border-stone-200 opacity-70"
-                            : "border-stone-200 hover:border-[#a9b897]"
+                            : "border-stone-200 hover:border-[#0F3D32]"
                       }`}
                     >
                       {completed && (
-                        <div className="absolute inset-y-6 left-0 w-1 rounded-r-full bg-[#a9b897]" />
+                        <div className="absolute inset-y-6 left-0 w-1 rounded-r-full bg-[#0F3D32]" />
                       )}
 
                       <div className="flex items-center justify-between gap-4">
@@ -2667,10 +2631,10 @@ export default function ProjectDirectory() {
                           <div
                             className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border transition ${
                               completed
-                                ? "border-[#a9b897]/20 bg-[#a9b897]/10 text-[#829473]"
+                                ? "border-[#0F3D32]/20 bg-[#0F3D32]/10 text-[#829473]"
                                 : archived
                                   ? "border-stone-100 bg-stone-50 text-stone-300"
-                                  : "border-stone-100 bg-stone-50 text-stone-400 group-hover:bg-stone-900 group-hover:text-[#a9b897]"
+                                  : "border-stone-100 bg-stone-50 text-stone-400 group-hover:bg-stone-900 group-hover:text-[#0F3D32]"
                             }`}
                           >
                             {completed ? (
@@ -2711,7 +2675,7 @@ export default function ProjectDirectory() {
                               )}
 
                               {completed && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-[#a9b897]/15 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-[#6f8064]">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[#0F3D32]/15 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-[#6f8064]">
                                   <Check
                                     size={
                                       9
@@ -2816,8 +2780,8 @@ export default function ProjectDirectory() {
                         <div
                           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition ${
                             completed
-                              ? "bg-[#a9b897]/10 text-[#829473] group-hover:bg-[#a9b897] group-hover:text-white"
-                              : "bg-stone-50 text-stone-300 group-hover:bg-[#a9b897] group-hover:text-white"
+                              ? "bg-[#0F3D32]/10 text-[#829473] group-hover:bg-[#0F3D32] group-hover:text-white"
+                              : "bg-stone-50 text-stone-300 group-hover:bg-[#0F3D32] group-hover:text-white"
                           }`}
                         >
                           <ArrowUpRight
@@ -3121,7 +3085,7 @@ export default function ProjectDirectory() {
                           })
                         )
                       }
-                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 font-serif text-base italic outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 font-serif text-base italic outline-none transition focus:border-[#0F3D32] focus:bg-white focus:ring-2 focus:ring-[#0F3D32]/10"
                       placeholder="Website Redesign"
                     />
                   </div>
@@ -3157,7 +3121,7 @@ export default function ProjectDirectory() {
                             })
                           )
                         }
-                        className="w-full appearance-none rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 pr-10 text-xs outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                        className="w-full appearance-none rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 pr-10 text-xs outline-none transition focus:border-[#0F3D32] focus:bg-white focus:ring-2 focus:ring-[#0F3D32]/10"
                       >
                         <option value="">
                           Internal project / no client
@@ -3260,7 +3224,7 @@ export default function ProjectDirectory() {
                             })
                           )
                         }
-                        className="w-full appearance-none rounded-xl border border-stone-100 bg-stone-50 p-4 text-[10px] font-bold uppercase tracking-widest outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                        className="w-full appearance-none rounded-xl border border-stone-100 bg-stone-50 p-4 text-[10px] font-bold uppercase tracking-widest outline-none transition focus:border-[#0F3D32] focus:bg-white focus:ring-2 focus:ring-[#0F3D32]/10"
                       >
                         <option value="Client Work">
                           Client Work
@@ -3327,7 +3291,7 @@ export default function ProjectDirectory() {
                               })
                             )
                           }
-                          className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-xs outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                          className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-xs outline-none transition focus:border-[#0F3D32] focus:bg-white focus:ring-2 focus:ring-[#0F3D32]/10"
                           placeholder="6000"
                         />
                       </div>
@@ -3367,7 +3331,7 @@ export default function ProjectDirectory() {
                               })
                             )
                           }
-                          className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-[10px] font-bold outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                          className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-[10px] font-bold outline-none transition focus:border-[#0F3D32] focus:bg-white focus:ring-2 focus:ring-[#0F3D32]/10"
                         />
                       </div>
                     </div>
@@ -3408,7 +3372,7 @@ export default function ProjectDirectory() {
                               })
                             )
                           }
-                          className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-[10px] font-bold outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                          className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-[10px] font-bold outline-none transition focus:border-[#0F3D32] focus:bg-white focus:ring-2 focus:ring-[#0F3D32]/10"
                         />
                       </div>
                     </div>
@@ -3437,7 +3401,7 @@ export default function ProjectDirectory() {
                           })
                         )
                       }
-                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 font-serif text-sm italic outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                      className="w-full rounded-xl border border-stone-100 bg-stone-50 p-4 font-serif text-sm italic outline-none transition focus:border-[#0F3D32] focus:bg-white focus:ring-2 focus:ring-[#0F3D32]/10"
                       placeholder="What does success look like?"
                     />
                   </div>
@@ -3473,7 +3437,7 @@ export default function ProjectDirectory() {
                             })
                           )
                         }
-                        className="h-28 w-full resize-none rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-xs leading-relaxed outline-none transition focus:border-[#a9b897] focus:bg-white focus:ring-2 focus:ring-[#a9b897]/10"
+                        className="h-28 w-full resize-none rounded-xl border border-stone-100 bg-stone-50 p-4 pl-11 text-xs leading-relaxed outline-none transition focus:border-[#0F3D32] focus:bg-white focus:ring-2 focus:ring-[#0F3D32]/10"
                         placeholder="Scope, deliverables, requirements or useful project context..."
                       />
                     </div>
@@ -3508,7 +3472,7 @@ export default function ProjectDirectory() {
 
                       transition
 
-                      hover:bg-[#a9b897]
+                      hover:bg-[#0F3D32]
                       hover:text-stone-900
 
                       disabled:cursor-not-allowed
@@ -3556,7 +3520,7 @@ export default function ProjectDirectory() {
 
             .project-modal-scroll {
               scrollbar-width: thin;
-              scrollbar-color: #a9b897 #f5f5f4;
+              scrollbar-color: #0F3D32 #f5f5f4;
               scrollbar-gutter: stable;
             }
 
@@ -3572,7 +3536,7 @@ export default function ProjectDirectory() {
             }
 
             .project-modal-scroll::-webkit-scrollbar-thumb {
-              background: #a9b897;
+              background: #0F3D32;
               border-radius: 999px;
               border: 2px solid #f5f5f4;
             }
@@ -3610,7 +3574,7 @@ function SelectedClientPreview({
   }
 
   return (
-    <div className="mt-3 rounded-2xl border border-[#a9b897]/20 bg-[#a9b897]/5 p-4">
+    <div className="mt-3 rounded-2xl border border-[#0F3D32]/20 bg-[#0F3D32]/5 p-4">
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#829473]">
           <UserRound
@@ -3688,16 +3652,16 @@ function WorkspaceMetric({
 }) {
   return (
     <div
-      className={`rounded-[1.7rem] border bg-white p-5 ${
+      className={`rounded-[1.7rem] border bg-white p-6 shadow-[0_12px_35px_-28px_rgba(15,61,50,.6)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_35px_-24px_rgba(15,61,50,.4)] ${
         completed
-          ? "border-[#a9b897]/40"
+          ? "border-[#0F3D32]/40"
           : "border-stone-200"
       }`}
     >
       <div
         className={`mb-5 flex h-9 w-9 items-center justify-center rounded-xl ${
           completed
-            ? "bg-[#a9b897]/10 text-[#829473]"
+            ? "bg-[#0F3D32]/10 text-[#829473]"
             : "bg-stone-50 text-stone-500"
         }`}
       >
@@ -3708,13 +3672,13 @@ function WorkspaceMetric({
         />
       </div>
 
-      <p className="font-serif text-2xl italic text-stone-800 md:text-3xl">
+      <p className="font-serif text-3xl text-[#153E33] md:text-4xl">
         {
           value
         }
       </p>
 
-      <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-stone-400">
+      <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.13em] text-stone-500">
         {
           label
         }

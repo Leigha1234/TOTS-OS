@@ -98,7 +98,7 @@ function pageHtml({
           text-underline-offset:3px;
         "
       >
-        Return to TOTS-OS
+        Return to ORBI.
       </a>
     `
     : `
@@ -211,7 +211,7 @@ function pageHtml({
               letter-spacing:0.16em;
             "
           >
-            TOTS-OS
+            ORBI.
           </div>
 
           <h1

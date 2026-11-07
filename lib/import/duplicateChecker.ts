@@ -164,7 +164,7 @@ function markDuplicate(
     source ===
     "file"
       ? "Duplicate record detected within the uploaded file."
-      : "Matching record already exists in TOTS-OS.";
+      : "Matching record already exists in ORBI..";
 
   return {
     ...row,

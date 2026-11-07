@@ -51,7 +51,7 @@ const siteUrl =
 const fromEmail =
   process.env
     .RESEND_FROM_EMAIL ||
-  "TOTS-OS <hello@tots-os.co.uk>";
+  "ORBI. <hello@tots-os.co.uk>";
 
 // ============================================================
 // VALIDATE ENVIRONMENT
@@ -531,10 +531,10 @@ function buildEmail({
     "ending"
   ) {
     const subject =
-      "Your TOTS-OS trial ends tomorrow 👀";
+      "Your ORBI. trial ends tomorrow 👀";
 
     const preview =
-      "You have one day left on your 14-day TOTS-OS free trial.";
+      "You have one day left on your 14-day ORBI. free trial.";
 
     const html =
       `
@@ -552,7 +552,7 @@ function buildEmail({
             <tr>
               <td style="padding:42px 38px;">
                 <div style="font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#7e8873;font-weight:700;margin-bottom:18px;">
-                  TOTS-OS
+                  ORBI.
                 </div>
 
                 <h1 style="margin:0 0 18px;font-size:32px;line-height:1.15;color:#2f2c2a;">
@@ -564,7 +564,7 @@ function buildEmail({
                 </p>
 
                 <p style="font-size:16px;line-height:1.7;margin:0 0 18px;">
-                  You have one day left on your 14-day TOTS-OS free trial.
+                  You have one day left on your 14-day ORBI. free trial.
                 </p>
 
                 <p style="font-size:16px;line-height:1.7;margin:0 0 18px;">
@@ -572,7 +572,7 @@ function buildEmail({
                 </p>
 
                 <p style="font-size:16px;line-height:1.7;margin:0 0 28px;">
-                  If you'd like to keep using TOTS-OS after your trial, you can choose the plan that suits your business and carry on without starting again.
+                  If you'd like to keep using ORBI. after your trial, you can choose the plan that suits your business and carry on without starting again.
                 </p>
 
                 <table role="presentation" cellspacing="0" cellpadding="0">
@@ -590,7 +590,7 @@ function buildEmail({
 
                 <p style="font-size:15px;line-height:1.7;margin:30px 0 0;color:#66615e;">
                   Sam &amp; Leigha 🤍<br />
-                  TOTS-OS
+                  ORBI.
                 </p>
               </td>
             </tr>
@@ -605,19 +605,19 @@ function buildEmail({
     const text =
       `${greeting}
 
-Your TOTS-OS free trial ends tomorrow.
+Your ORBI. free trial ends tomorrow.
 
-You have one day left on your 14-day TOTS-OS free trial.
+You have one day left on your 14-day ORBI. free trial.
 
 Everything you've set up will stay exactly where it is — your clients, projects, tasks, notes, finances and workspace aren't going anywhere.
 
-If you'd like to keep using TOTS-OS after your trial, choose the plan that suits your business and carry on without starting again.
+If you'd like to keep using ORBI. after your trial, choose the plan that suits your business and carry on without starting again.
 
 Choose your plan:
 ${billingUrl}
 
 Sam & Leigha 🤍
-TOTS-OS`;
+ORBI.`;
 
     return {
       subject,
@@ -627,7 +627,7 @@ TOTS-OS`;
   }
 
   const subject =
-    "Your TOTS-OS free trial has ended 🤍";
+    "Your ORBI. free trial has ended 🤍";
 
   const preview =
     "Your 14 days are up — everything you've set up is still waiting for you.";
@@ -648,11 +648,11 @@ TOTS-OS`;
             <tr>
               <td style="padding:42px 38px;">
                 <div style="font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:#7e8873;font-weight:700;margin-bottom:18px;">
-                  TOTS-OS
+                  ORBI.
                 </div>
 
                 <h1 style="margin:0 0 18px;font-size:32px;line-height:1.15;color:#2f2c2a;">
-                  Your TOTS-OS free trial has ended 🤍
+                  Your ORBI. free trial has ended 🤍
                 </h1>
 
                 <p style="font-size:16px;line-height:1.7;margin:0 0 18px;">
@@ -660,7 +660,7 @@ TOTS-OS`;
                 </p>
 
                 <p style="font-size:16px;line-height:1.7;margin:0 0 18px;">
-                  Your 14-day TOTS-OS free trial has now come to an end.
+                  Your 14-day ORBI. free trial has now come to an end.
                 </p>
 
                 <p style="font-size:16px;line-height:1.7;margin:0 0 18px;">
@@ -690,7 +690,7 @@ TOTS-OS`;
                         href="${billingUrl}"
                         style="display:inline-block;padding:14px 22px;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;"
                       >
-                        Continue with TOTS-OS
+                        Continue with ORBI.
                       </a>
                     </td>
                   </tr>
@@ -698,7 +698,7 @@ TOTS-OS`;
 
                 <p style="font-size:15px;line-height:1.7;margin:30px 0 0;color:#66615e;">
                   Sam &amp; Leigha 🤍<br />
-                  TOTS-OS
+                  ORBI.
                 </p>
               </td>
             </tr>
@@ -713,7 +713,7 @@ TOTS-OS`;
   const text =
     `${greeting}
 
-Your 14-day TOTS-OS free trial has now come to an end.
+Your 14-day ORBI. free trial has now come to an end.
 
 We hope the last two weeks have given you a chance to see what running your business from one place can actually feel like.
 
@@ -725,11 +725,11 @@ Elite — £99/month
 
 Choose the plan that suits your business and carry on exactly where you left off.
 
-Continue with TOTS-OS:
+Continue with ORBI.:
 ${billingUrl}
 
 Sam & Leigha 🤍
-TOTS-OS`;
+ORBI.`;
 
   return {
     subject,

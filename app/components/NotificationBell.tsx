@@ -768,7 +768,7 @@ export default function NotificationBell() {
                         text-[#829473]
                       "
                     >
-                      TOTS-OS
+                      ORBI.
                     </p>
 
                     <div
@@ -1464,7 +1464,7 @@ function NotificationItem({
             h-full
             w-[3px]
 
-            bg-[#a9b897]
+            bg-[#0F3D32]
           "
         />
       )}

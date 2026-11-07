@@ -804,7 +804,7 @@ export default function StoreDashboardPage() {
                 store_name: organisationResult.data?.name || "Store",
                 background_colour: "#ffffff",
                 text_colour: "#1c1917",
-                accent_colour: "#A9B897",
+                accent_colour: "#0F3D32",
                 button_colour: "#1c1917",
                 button_text_colour: "#ffffff",
                 heading_font: "Inter",
@@ -1778,44 +1778,50 @@ export default function StoreDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f6f3]">
-      <div className="mx-auto w-full max-w-[1600px] px-5 py-6 md:px-8 lg:px-10">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-stone-400">
-              <Store className="h-4 w-4" />
-              Commerce
+    <div className="min-h-screen bg-[#FAF9F6]">
+      <div className="mx-auto w-full max-w-[1600px] px-5 py-7 md:px-8 lg:px-10">
+        {/* ORBI. Commerce — redesigned overview and primary actions */}
+        <header className="relative isolate overflow-hidden rounded-[30px] bg-[#0F3D32] px-6 py-7 text-[#F7EFE6] shadow-[0_22px_60px_-30px_rgba(15,61,50,0.6)] md:px-9 md:py-9">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-48 h-[420px] w-[420px] rounded-full border border-white/15" />
+          <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-32 h-[320px] w-[320px] rounded-full border border-white/10" />
+          <div className="relative flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <div className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#D4E2D9]">
+                <ShoppingBag className="h-4 w-4" /> ORBI. / Commerce
+              </div>
+              <h1 className="font-serif text-4xl tracking-tight md:text-5xl">Your store, in control.</h1>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-[#DCE8E0]">
+                Products, orders, recurring revenue and your storefront — everything in one place for {organisation.name}.
+              </p>
+              <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-[#F7EFE6]">
+                <span className={`h-2 w-2 rounded-full ${organisation.store_enabled === false ? "bg-amber-300" : "bg-emerald-300"}`} />
+                {organisation.store_enabled === false ? "Store disabled" : "Store workspace connected"}
+              </div>
             </div>
-
-            <h1 className="text-3xl font-semibold tracking-tight text-stone-950">
-              Store
-            </h1>
-
-            <p className="mt-1 text-sm text-stone-500">{organisation.name}</p>
+            <div className="flex flex-wrap gap-2.5">
+              <button type="button" onClick={() => void loadStore(true)} disabled={refreshing} className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-50">
+                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+              </button>
+              <button type="button" onClick={openNewProduct} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#F7EFE6] px-5 text-sm font-semibold text-[#0F3D32] shadow-sm transition hover:bg-white">
+                <Plus className="h-4 w-4" /> Add product
+              </button>
+            </div>
           </div>
+        </header>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => void loadStore(true)}
-              disabled={refreshing}
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-stone-700 shadow-sm transition hover:bg-stone-50 disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </button>
-
-            <button
-              type="button"
-              onClick={openNewProduct}
-              className="inline-flex h-11 items-center gap-2 rounded-xl bg-stone-950 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-stone-800"
-            >
-              <Plus className="h-4 w-4" />
-              Add product
-            </button>
-          </div>
+        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <button type="button" onClick={() => setTab("orders")} className="group flex items-center justify-between rounded-2xl border border-[#E6E9E4] bg-white px-4 py-4 text-left shadow-sm transition hover:border-[#A8BDA8] hover:shadow-md">
+            <span className="flex items-center gap-2.5 text-sm font-semibold text-[#263A32]"><ShoppingBag className="h-4 w-4 text-[#0F3D32]" /> Orders</span><ChevronRight className="h-4 w-4 text-[#7D9285] transition group-hover:translate-x-1" />
+          </button>
+          <button type="button" onClick={() => setTab("subscriptions")} className="group flex items-center justify-between rounded-2xl border border-[#E6E9E4] bg-white px-4 py-4 text-left shadow-sm transition hover:border-[#A8BDA8] hover:shadow-md">
+            <span className="flex items-center gap-2.5 text-sm font-semibold text-[#263A32]"><CreditCard className="h-4 w-4 text-[#0F3D32]" /> Subscriptions</span><ChevronRight className="h-4 w-4 text-[#7D9285] transition group-hover:translate-x-1" />
+          </button>
+          <button type="button" onClick={() => setTab("discounts")} className="group flex items-center justify-between rounded-2xl border border-[#E6E9E4] bg-white px-4 py-4 text-left shadow-sm transition hover:border-[#A8BDA8] hover:shadow-md">
+            <span className="flex items-center gap-2.5 text-sm font-semibold text-[#263A32]"><Tag className="h-4 w-4 text-[#0F3D32]" /> Discounts</span><ChevronRight className="h-4 w-4 text-[#7D9285] transition group-hover:translate-x-1" />
+          </button>
+          <button type="button" onClick={() => setTab("settings")} className="group flex items-center justify-between rounded-2xl border border-[#E6E9E4] bg-white px-4 py-4 text-left shadow-sm transition hover:border-[#A8BDA8] hover:shadow-md">
+            <span className="flex items-center gap-2.5 text-sm font-semibold text-[#263A32]"><Settings2 className="h-4 w-4 text-[#0F3D32]" /> Storefront</span><ChevronRight className="h-4 w-4 text-[#7D9285] transition group-hover:translate-x-1" />
+          </button>
         </div>
 
         {error && (
@@ -1842,7 +1848,17 @@ export default function StoreDashboardPage() {
           </div>
         )}
 
-        <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-7 mb-3 flex items-end justify-between gap-4">
+          <div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#73877C]">At a glance</p><h2 className="mt-1 font-serif text-2xl text-[#173D31]">Commerce performance</h2></div>
+          <span className="hidden text-xs text-[#73877C] sm:block">Live organisation data</span>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            icon={BadgePoundSterling}
+            label="Paid order revenue"
+            value={formatMoney(metrics.revenue)}
+            detail={`${metrics.paidOrders} paid orders · all-time loaded`}
+          />
           <MetricCard
             icon={Package}
             label="Active products"
@@ -1867,7 +1883,7 @@ export default function StoreDashboardPage() {
         </div>
 
         <div className="mt-7 overflow-x-auto">
-          <div className="inline-flex min-w-max gap-1 rounded-2xl border border-stone-200 bg-white p-1.5 shadow-sm">
+          <div className="inline-flex min-w-max gap-1 rounded-2xl border border-[#E1E9E2] bg-white p-1.5 shadow-sm">
             <TabButton active={tab === "overview"} onClick={() => setTab("overview")}>
               Overview
             </TabButton>
@@ -1945,7 +1961,7 @@ export default function StoreDashboardPage() {
 
         {tab === "overview" && (
           <div className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_.65fr]">
-            <section className="rounded-[24px] border border-stone-200 bg-white shadow-sm">
+            <section className="rounded-[24px] border border-[#E1E9E2] bg-white shadow-[0_8px_30px_-22px_rgba(15,61,50,0.4)]">
               <div className="flex items-center justify-between border-b border-stone-100 px-6 py-5">
                 <div>
                   <h2 className="font-semibold text-stone-950">Products</h2>
@@ -2027,14 +2043,13 @@ export default function StoreDashboardPage() {
                 </div>
               </section>
 
-              <section className="rounded-[24px] bg-stone-950 p-6 text-white shadow-sm">
+              <section className="rounded-[24px] bg-[#0F3D32] p-6 text-white shadow-sm">
                 <ShoppingBag className="h-6 w-6" />
 
                 <h2 className="mt-5 text-xl font-semibold">{organisation.name}</h2>
 
                 <p className="mt-2 text-sm leading-6 text-stone-400">
-                  This dashboard is scoped directly to the active organisation.
-                  There is no separate store ID required.
+                  Your commerce workspace is connected to this organisation. Manage products, orders, payments and your storefront together.
                 </p>
 
                 <div className="mt-5 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
@@ -2051,7 +2066,7 @@ export default function StoreDashboardPage() {
         )}
 
         {tab === "products" && (
-          <section className="mt-6 overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
+          <section className="mt-6 overflow-hidden rounded-[24px] border border-[#E1E9E2] bg-white shadow-[0_8px_30px_-22px_rgba(15,61,50,0.4)]">
             <SectionHeader
               title="Products"
               description="Manage products available through your store."
@@ -2201,7 +2216,7 @@ export default function StoreDashboardPage() {
         )}
 
         {tab === "orders" && (
-          <section className="mt-6 overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
+          <section className="mt-6 overflow-hidden rounded-[24px] border border-[#E1E9E2] bg-white shadow-[0_8px_30px_-22px_rgba(15,61,50,0.4)]">
             <SectionHeader
               title="Orders"
               description="Orders placed through this organisation's store."
@@ -2292,7 +2307,7 @@ export default function StoreDashboardPage() {
         )}
 
         {tab === "subscriptions" && (
-          <section className="mt-6 overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
+          <section className="mt-6 overflow-hidden rounded-[24px] border border-[#E1E9E2] bg-white shadow-[0_8px_30px_-22px_rgba(15,61,50,0.4)]">
             <SectionHeader
               title="Subscriptions"
               description="Recurring memberships and subscriptions attached to this store."
@@ -2385,7 +2400,7 @@ export default function StoreDashboardPage() {
         )}
 
         {tab === "discounts" && (
-          <section className="mt-6 overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
+          <section className="mt-6 overflow-hidden rounded-[24px] border border-[#E1E9E2] bg-white shadow-[0_8px_30px_-22px_rgba(15,61,50,0.4)]">
             <SectionHeader
               title="Discounts"
               description="Create, edit and manage discount codes without leaving Store."
@@ -2429,7 +2444,7 @@ export default function StoreDashboardPage() {
 
         {tab === "qr" && (
           <div className="mt-6 space-y-6">
-            <section className="overflow-hidden rounded-[24px] border border-stone-200 bg-white shadow-sm">
+            <section className="overflow-hidden rounded-[24px] border border-[#E1E9E2] bg-white shadow-[0_8px_30px_-22px_rgba(15,61,50,0.4)]">
               <SectionHeader
                 title="QR Codes"
                 description="Create permanent, trackable QR links for your shop, products, memberships and in-person sales."
@@ -2569,7 +2584,7 @@ export default function StoreDashboardPage() {
               </div>
               {stripeConnect?.connected && <p className="mt-3 text-xs text-stone-500">Payments: {stripeConnect.charges_enabled ? "Enabled" : "Pending"} · Payouts: {stripeConnect.payouts_enabled ? "Enabled" : "Pending"}</p>}
             </section>
-            <section className="rounded-[24px] border border-stone-200 bg-white shadow-sm">
+            <section className="rounded-[24px] border border-[#E1E9E2] bg-white shadow-[0_8px_30px_-22px_rgba(15,61,50,0.4)]">
               <SectionHeader
                 title="Storefront"
                 description="Control how your public store looks and where customers shop."
@@ -2705,7 +2720,7 @@ export default function StoreDashboardPage() {
                 {([
                   ["Background", "background_colour", "#ffffff"],
                   ["Text", "text_colour", "#1c1917"],
-                  ["Accent", "accent_colour", "#A9B897"],
+                  ["Accent", "accent_colour", "#0F3D32"],
                   ["Button", "button_colour", "#1c1917"],
                   ["Button text", "button_text_colour", "#ffffff"],
                 ] as const).map(([label, key, fallback]) => (
@@ -3121,7 +3136,7 @@ export default function StoreDashboardPage() {
                   <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-[#617451]" />
                   <div>
                     <p className="text-sm font-semibold text-stone-900">Clarity already knows your business</p>
-                    <p className="mt-1 text-xs leading-5 text-stone-600">It automatically uses your organisation, storefront and existing product copy to match the tone and language already used across TOTS-OS. You only need to tell it facts that are unique to this product.</p>
+                    <p className="mt-1 text-xs leading-5 text-stone-600">It automatically uses your organisation, storefront and existing product copy to match the tone and language already used across ORBI.. You only need to tell it facts that are unique to this product.</p>
                   </div>
                 </div>
               </div>
@@ -3165,7 +3180,7 @@ export default function StoreDashboardPage() {
             </div>
             <div className="flex shrink-0 items-center justify-end gap-3 border-t border-stone-200 bg-white px-5 py-4 sm:px-7">
               <button type="button" onClick={() => setAiOpen(false)} className="rounded-xl border border-stone-200 px-4 py-2.5 text-sm font-semibold">Close</button>
-              {editingProduct && aiCopy && <button type="button" disabled={aiBusy} onClick={() => void saveCurrentAi()} className="rounded-xl bg-[#a9b897] px-4 py-2.5 text-sm font-bold text-stone-900 disabled:opacity-50">Save AI content</button>}
+              {editingProduct && aiCopy && <button type="button" disabled={aiBusy} onClick={() => void saveCurrentAi()} className="rounded-xl bg-[#0F3D32] px-4 py-2.5 text-sm font-bold text-stone-900 disabled:opacity-50">Save AI content</button>}
             </div>
           </div>
         </div>
@@ -3190,7 +3205,7 @@ export default function StoreDashboardPage() {
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white"><Sparkles className="h-4 w-4 text-[#617451]" /></div>
                       <div>
                         <p className="text-sm font-semibold text-stone-900">Clarity does the boring bits</p>
-                        <p className="mt-1 text-xs leading-5 text-stone-600">Add the name, price and anything important. Clarity uses your existing TOTS-OS business context to write the description, category, SEO, alt text and promotional copy in your usual voice.</p>
+                        <p className="mt-1 text-xs leading-5 text-stone-600">Add the name, price and anything important. Clarity uses your existing ORBI. business context to write the description, category, SEO, alt text and promotional copy in your usual voice.</p>
                       </div>
                     </div>
                   </div>
@@ -3222,7 +3237,7 @@ export default function StoreDashboardPage() {
                       {draft.show_image ? (
                         <div className="space-y-2">
                           {draft.image_url && <img src={draft.image_url} alt="Product preview" className="h-28 w-full rounded-xl border border-stone-200 object-contain" />}
-                          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#a9b897] bg-[#f4f7f1] px-3 py-3 text-sm font-semibold text-[#526744]">
+                          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#0F3D32] bg-[#f4f7f1] px-3 py-3 text-sm font-semibold text-[#526744]">
                             {uploadingProductImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                             {uploadingProductImage ? "Uploading image…" : "Upload product image"}
                             <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" disabled={uploadingProductImage} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadProductImage(file); event.target.value = ""; }} />
@@ -3542,16 +3557,14 @@ function MetricCard({
   detail: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-stone-200 bg-white p-5 shadow-sm">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#edf2e8]">
-        <Icon className="h-5 w-5 text-[#617451]" />
+    <div className="group relative overflow-hidden rounded-[24px] border border-[#E1E9E2] bg-white p-5 shadow-[0_8px_28px_-18px_rgba(15,61,50,0.35)] transition duration-200 hover:-translate-y-0.5 hover:border-[#A8BDA8] hover:shadow-lg">
+      <div className="absolute right-0 top-0 h-24 w-24 translate-x-8 -translate-y-8 rounded-full bg-[#E5EDE6]/60 transition group-hover:scale-125" />
+      <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E5EDE6]">
+        <Icon className="h-5 w-5 text-[#0F3D32]" />
       </div>
-
-      <p className="mt-5 text-sm text-stone-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight text-stone-950">
-        {value}
-      </p>
-      <p className="mt-2 text-xs text-stone-400">{detail}</p>
+      <p className="relative mt-5 text-[13px] font-medium text-[#64766B]">{label}</p>
+      <p className="relative mt-1 font-serif text-[32px] leading-tight tracking-tight text-[#173D31]">{value}</p>
+      <p className="relative mt-2 text-xs text-[#73877C]">{detail}</p>
     </div>
   );
 }
@@ -3571,8 +3584,8 @@ function TabButton({
       onClick={onClick}
       className={`inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition ${
         active
-          ? "bg-stone-950 text-white shadow-sm"
-          : "text-stone-500 hover:bg-stone-50 hover:text-stone-900"
+          ? "bg-[#0F3D32] text-white shadow-sm"
+          : "text-[#64766B] hover:bg-[#E5EDE6] hover:text-[#0F3D32]"
       }`}
     >
       {children}
@@ -3858,7 +3871,7 @@ function ToggleCard({
       onClick={() => onChange(!checked)}
       className={`flex items-center justify-between rounded-2xl border p-4 text-left transition ${
         checked
-          ? "border-[#a9b897] bg-[#f4f7f1]"
+          ? "border-[#0F3D32] bg-[#f4f7f1]"
           : "border-stone-200 bg-white"
       }`}
     >

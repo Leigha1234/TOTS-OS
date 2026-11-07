@@ -952,7 +952,7 @@ export default function BookingClient({
         <div className="mb-5 flex items-center justify-between">
 
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#A3B18A]">
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0F3D32]">
               Step 1
             </p>
 
@@ -1069,7 +1069,7 @@ export default function BookingClient({
       <div>
 
         <div className="mb-5">
-          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#A3B18A]">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0F3D32]">
             Step 2
           </p>
 
@@ -1135,7 +1135,7 @@ export default function BookingClient({
           selectedTime && (
             <div className="mb-6 rounded-[1.5rem] border border-stone-200 bg-stone-50 p-5">
 
-              <p className="mb-4 text-[9px] font-black uppercase tracking-[0.2em] text-[#A3B18A]">
+              <p className="mb-4 text-[9px] font-black uppercase tracking-[0.2em] text-[#0F3D32]">
                 Your Booking
               </p>
 

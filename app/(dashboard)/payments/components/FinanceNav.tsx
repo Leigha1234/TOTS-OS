@@ -1,114 +1,18 @@
 "use client";
-
-import {
-  BarChart3,
-  BriefcaseBusiness,
-  Clock3,
-  FileText,
-  Landmark,
-  Receipt,
-} from "lucide-react";
-
-export type FinanceTab =
-  | "overview"
-  | "sales"
-  | "expenses"
-  | "tax"
-  | "payroll"
-  | "timesheets";
-
-type FinanceNavProps = {
-  activeTab: FinanceTab;
-  onChange: (
-    tab: FinanceTab
-  ) => void;
-};
-
-const tabs: {
-  key: FinanceTab;
-  label: string;
-  icon: React.ElementType;
-}[] = [
-  {
-    key: "overview",
-    label: "Overview",
-    icon: BarChart3,
-  },
-  {
-    key: "sales",
-    label: "Invoices & Quotes",
-    icon: FileText,
-  },
-  {
-    key: "expenses",
-    label: "Expenses",
-    icon: Receipt,
-  },
-  {
-    key: "tax",
-    label: "Tax & VAT",
-    icon: Landmark,
-  },
-  {
-    key: "payroll",
-    label: "Payroll",
-    icon: BriefcaseBusiness,
-  },
-  {
-    key: "timesheets",
-    label: "Timesheets",
-    icon: Clock3,
-  },
+import type React from "react";
+import { BarChart3, BriefcaseBusiness, Clock3, FileText, Landmark, Receipt } from "lucide-react";
+export type FinanceTab = "overview" | "sales" | "expenses" | "tax" | "payroll" | "timesheets";
+type FinanceNavProps = { activeTab: FinanceTab; onChange: (tab: FinanceTab) => void };
+const tabs: { key: FinanceTab; label: string; icon: React.ElementType }[] = [
+  { key: "overview", label: "Overview", icon: BarChart3 },
+  { key: "sales", label: "Invoices & quotes", icon: FileText },
+  { key: "expenses", label: "Expenses", icon: Receipt },
+  { key: "tax", label: "Tax & VAT", icon: Landmark },
+  { key: "payroll", label: "Payroll", icon: BriefcaseBusiness },
+  { key: "timesheets", label: "Timesheets", icon: Clock3 },
 ];
-
-export default function FinanceNav({
-  activeTab,
-  onChange,
-}: FinanceNavProps) {
-  return (
-    <div className="w-full overflow-x-auto no-scrollbar">
-      <nav className="flex items-center gap-1 min-w-max bg-white border border-stone-100 shadow-sm rounded-[1.5rem] p-1.5">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const active =
-            activeTab === tab.key;
-
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() =>
-                onChange(tab.key)
-              }
-              className={`
-                flex items-center gap-2
-                px-4 py-2.5
-                rounded-xl
-                whitespace-nowrap
-                transition-all duration-200
-                ${
-                  active
-                    ? "bg-stone-900 text-white shadow-md"
-                    : "text-stone-400 hover:text-stone-900 hover:bg-[#faf9f6]"
-                }
-              `}
-            >
-              <Icon
-                size={14}
-                className={
-                  active
-                    ? "text-[#a9b897]"
-                    : ""
-                }
-              />
-
-              <span className="text-[8px] font-black uppercase tracking-[0.14em]">
-                {tab.label}
-              </span>
-            </button>
-          );
-        })}
-      </nav>
-    </div>
-  );
+export default function FinanceNav({ activeTab, onChange }: FinanceNavProps) {
+  return <div className="w-full overflow-x-auto pb-1"><nav aria-label="Finance sections" className="flex min-w-max items-center gap-1.5 rounded-2xl border border-[#E5EAE5] bg-white p-2 shadow-[0_6px_22px_-16px_rgba(20,40,30,.35)]">
+    {tabs.map(({ key, label, icon: Icon }) => <button key={key} type="button" aria-current={activeTab === key ? "page" : undefined} onClick={() => onChange(key)} className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-[13px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F3D32] ${activeTab === key ? "bg-[#0F3D32] text-white shadow-sm" : "text-[#52645A] hover:bg-[#EAF1EC] hover:text-[#0F3D32]"}`}><Icon size={16} aria-hidden="true" />{label}</button>)}
+  </nav></div>;
 }

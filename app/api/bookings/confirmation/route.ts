@@ -294,7 +294,7 @@ function emailWrapper(
         />
 
         <title>
-          TOTS-OS Booking
+          ORBI. Booking
         </title>
       </head>
 
@@ -348,10 +348,10 @@ function emailWrapper(
                         font-size:12px;
                         font-weight:700;
                         letter-spacing:2px;
-                        color:#A9B897;
+                        color:#0F3D32;
                       "
                     >
-                      TOTS-OS
+                      ORBI.
                     </div>
 
                     <div
@@ -388,7 +388,7 @@ function emailWrapper(
                     "
                   >
                     Sent automatically
-                    by TOTS-OS.
+                    by ORBI..
                   </td>
                 </tr>
 
@@ -811,7 +811,7 @@ export async function POST(
       await resend.emails.send(
         {
           from:
-            "TOTS-OS Bookings <bookings@tots-os.co.uk>",
+            "ORBI. Bookings <bookings@tots-os.co.uk>",
 
           to:
             customerEmail,
@@ -1058,7 +1058,7 @@ export async function POST(
         await resend.emails.send(
           {
             from:
-              "TOTS-OS Bookings <bookings@tots-os.co.uk>",
+              "ORBI. Bookings <bookings@tots-os.co.uk>",
 
             to:
               ownerEmail,
@@ -1150,7 +1150,7 @@ export async function POST(
                       font-weight:700;
                       letter-spacing:1.4px;
                       text-transform:uppercase;
-                      color:#A9B897;
+                      color:#0F3D32;
                     "
                   >
                     Booking
@@ -1314,7 +1314,7 @@ export async function POST(
                       font-weight:700;
                     "
                   >
-                    Open TOTS-OS
+                    Open ORBI.
                     Calendar
                   </a>
                 </div>
@@ -1330,7 +1330,7 @@ export async function POST(
                   This meeting has
                   already been
                   added to your
-                  TOTS-OS calendar.
+                  ORBI. calendar.
                   A calendar invite
                   is also attached.
                 </p>

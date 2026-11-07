@@ -35,7 +35,7 @@ const notificationConfig: Record<
     wrapper:
       "bg-stone-900 text-white border-stone-800",
     iconWrapper:
-      "bg-[#a9b897]/15 text-[#a9b897]",
+      "bg-[#0F3D32]/15 text-[#0F3D32]",
   },
 
   error: {
@@ -59,7 +59,7 @@ const notificationConfig: Record<
     wrapper:
       "bg-white text-stone-900 border-stone-200",
     iconWrapper:
-      "bg-[#a9b897]/15 text-[#7f9270]",
+      "bg-[#0F3D32]/15 text-[#7f9270]",
   },
 };
 

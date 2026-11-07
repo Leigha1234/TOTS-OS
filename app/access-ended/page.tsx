@@ -410,7 +410,7 @@ export default function AccessEndedPage() {
           </div>
 
           <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
-            Checking your TOTS-OS access
+            Checking your ORBI. access
           </p>
 
         </div>
@@ -438,12 +438,12 @@ export default function AccessEndedPage() {
 
           <img
             src="/icon.png"
-            alt="TOTS-OS"
+            alt="ORBI."
             className="h-10 w-10 rounded-xl object-contain"
           />
 
           <span className="font-serif text-2xl italic tracking-tighter text-stone-900">
-            TOTS-OS
+            ORBI.
           </span>
 
         </div>
@@ -468,7 +468,7 @@ export default function AccessEndedPage() {
               />
 
               <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#748361]">
-                Your TOTS-OS access
+                Your ORBI. access
               </span>
 
             </div>
@@ -489,7 +489,7 @@ export default function AccessEndedPage() {
 
             <p className="mt-6 max-w-2xl text-base leading-8 text-stone-500">
               We hope you&apos;ve had a proper chance to explore
-              TOTS-OS and see what it can do for your business.
+              ORBI. and see what it can do for your business.
             </p>
 
             <p className="mt-3 max-w-2xl text-base leading-8 text-stone-500">
@@ -527,7 +527,7 @@ export default function AccessEndedPage() {
                   </p>
 
                   <p className="mt-3 text-sm font-semibold text-stone-700">
-                    Your TOTS-OS workspace and data have been kept safe.
+                    Your ORBI. workspace and data have been kept safe.
                   </p>
 
                   <p className="mt-2 max-w-xl text-xs leading-6 text-stone-500">
@@ -628,7 +628,7 @@ export default function AccessEndedPage() {
               </p>
 
               <p className="mt-3 max-w-xl text-sm leading-7 text-stone-500">
-                Choose the TOTS-OS membership that fits your
+                Choose the ORBI. membership that fits your
                 business. You can change your plan later as
                 your business grows.
               </p>
@@ -642,7 +642,7 @@ export default function AccessEndedPage() {
                 }
                 className="mt-7 flex w-full items-center justify-center gap-2 rounded-full bg-stone-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-stone-700 sm:w-auto"
               >
-                Choose my TOTS-OS plan
+                Choose my ORBI. plan
 
                 <ArrowRight
                   size={13}
@@ -650,7 +650,7 @@ export default function AccessEndedPage() {
               </button>
 
               <p className="mt-4 text-[10px] leading-5 text-stone-400">
-                Your existing TOTS-OS login and workspace will
+                Your existing ORBI. login and workspace will
                 stay the same.
               </p>
 
@@ -667,7 +667,7 @@ export default function AccessEndedPage() {
         <div className="mt-7 text-center">
 
           <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-stone-400">
-            TOTS-OS · Your business, organised.
+            ORBI. · Your business, organised.
           </p>
 
         </div>

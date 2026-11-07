@@ -4,6 +4,10 @@ import {
   AnimatePresence,
   motion,
   useReducedMotion,
+  useScroll,
+  useSpring,
+  useTransform,
+  type MotionValue,
 } from "framer-motion";
 
 import {
@@ -51,6 +55,8 @@ import {
 import {
   type CSSProperties,
   type ReactNode,
+  useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -222,8 +228,8 @@ const FEATURES: Feature[] = [
 
 const PRICING: PricingPlan[] = [
   {
-    name: "TOTS-OS Core",
-    price: 39,
+    name: "ORBI. Core",
+    price: 29,
     description:
       "Your central business workspace for the everyday running of your business.",
     features: [
@@ -231,12 +237,12 @@ const PRICING: PricingPlan[] = [
       "Contacts & everyday CRM",
       "Tasks & calendar",
       "Notes & brain dump",
-      "Your central TOTS-OS workspace",
+      "Your central ORBI. workspace",
     ],
   },
   {
     name: "Clients & Projects",
-    price: 49,
+    price: 29,
     description:
       "Keep client work, projects, tasks, deadlines, files and delivery together.",
     features: [
@@ -249,7 +255,7 @@ const PRICING: PricingPlan[] = [
   },
   {
     name: "Finance",
-    price: 49,
+    price: 29,
     description:
       "Bring quotes, invoices, expenses and financial visibility into the same system as your work.",
     features: [
@@ -262,7 +268,7 @@ const PRICING: PricingPlan[] = [
   },
   {
     name: "Social Studio",
-    price: 49,
+    price: 29,
     description:
       "Plan, organise and publish social content without keeping marketing in another disconnected tool.",
     features: [
@@ -275,7 +281,7 @@ const PRICING: PricingPlan[] = [
   },
   {
     name: "Email Marketing",
-    price: 39,
+    price: 29,
     description:
       "Manage subscriber lists, campaigns and customer emails alongside the rest of your business.",
     features: [
@@ -287,10 +293,10 @@ const PRICING: PricingPlan[] = [
     ],
   },
   {
-    name: "TOTS-OS Store",
-    price: 39,
+    name: "ORBI. Store",
+    price: 29,
     description:
-      "Sell products while keeping customers, orders and business activity connected to TOTS-OS.",
+      "Sell products while keeping customers, orders and business activity connected to ORBI.",
     features: [
       "Products",
       "Orders",
@@ -300,54 +306,66 @@ const PRICING: PricingPlan[] = [
     ],
   },
   {
-    name: "TOTS-OS Complete",
-    price: 199,
+    name: "ORBI. Complete",
+    price: 139,
     featured: true,
     badge: "Everything included",
     description:
-      "All six main TOTS-OS modules plus Clarity AI Starter for one fixed monthly price.",
+      "All six main ORBI. modules plus Clarity AI Starter for one fixed monthly price.",
     features: [
-      "TOTS-OS Core",
+      "ORBI. Core",
       "Clients & Projects",
       "Finance",
       "Social Studio",
       "Email Marketing",
-      "TOTS-OS Store",
+      "ORBI. Store",
       "Clarity AI Starter included",
     ],
   },
 ];
 
+const BUNDLE_LADDER = [
+  { label: "1 module", price: 29 },
+  { label: "2 modules", price: 55 },
+  { label: "3 modules", price: 79 },
+  { label: "4 modules", price: 99 },
+  { label: "5 modules", price: 119 },
+  { label: "Complete", price: 139, featured: true },
+];
+
+const COMPLETE_URL =
+  "/billing?source=find-your-setup&package=complete&modules=core%2CclientsProjects%2Cfinance%2Csocial%2Cemail%2Cstore&ai=starter";
+
 const FAQS: FAQ[] = [
   {
-    q: "What exactly is TOTS-OS?",
+    q: "What exactly is ORBI.?",
     a:
-      "TOTS-OS is an all-in-one business operating system. It brings clients, projects, tasks, finances, calendar, notes, social content, email marketing, store activity and business visibility into one connected workspace.",
+      "ORBI. is an all-in-one business operating system. It brings clients, projects, tasks, finances, calendar, notes, social content, email marketing, store activity and business visibility into one connected workspace.",
   },
   {
     q: "Do I have to buy everything?",
     a:
-      "No. TOTS-OS is modular, so you can start with only the parts your business needs. If you are not sure what to choose, Build Your Setup gives you a personalised recommendation in about two minutes.",
+      "No. ORBI. is modular, so you can start with only the parts your business needs. If you are not sure what to choose, Build Your Setup gives you a personalised recommendation in about two minutes.",
   },
   {
     q: "How does the pricing work?",
     a:
-      "Choose one or two modules at their normal monthly price, get 10% off when you choose three or four modules, and 20% off when you choose five. If your setup reaches £199 per month, TOTS-OS Complete gives you all six main modules plus Clarity AI Starter for £199 per month.",
+      "Every module is £29 a month on its own. Add more and your fixed bundle price applies automatically: £55 for two modules, £79 for three, £99 for four and £119 for five. ORBI. Complete gives you all six modules plus Clarity AI Starter for £139 a month, and you can start with a 14-day free trial.",
   },
   {
     q: "What is Clarity AI?",
     a:
-      "Clarity AI is the intelligent assistant inside TOTS-OS. It is designed to help you make sense of the information already in your workspace, surface priorities and reduce the amount of manual thinking and searching involved in running the business.",
+      "Clarity AI is the intelligent assistant inside ORBI. It is designed to help you make sense of the information already in your workspace, surface priorities and reduce the amount of manual thinking and searching involved in running the business.",
   },
   {
-    q: "Who is TOTS-OS for?",
+    q: "Who is ORBI. for?",
     a:
-      "TOTS-OS is designed for founders, freelancers, small businesses and growing teams that want fewer disconnected apps and a clearer way to run the everyday business.",
+      "ORBI. is designed for founders, freelancers, small businesses and growing teams that want fewer disconnected apps and a clearer way to run the everyday business.",
   },
   {
     q: "Can I change my setup later?",
     a:
-      "Yes. The point of the modular setup is that your TOTS-OS workspace can change as your business changes. You can start focused and add more capability when you actually need it.",
+      "Yes. The point of the modular setup is that your ORBI. workspace can change as your business changes. You can start focused and add more capability when you actually need it.",
   },
 ];
 
@@ -473,11 +491,11 @@ const TOUR_STEPS: TourStep[] = [
   {
     key: "store",
     screen: "store",
-    eyebrow: "07 · TOTS Commerce",
+    eyebrow: "07 · ORBI. Store",
     title:
       "Your store, connected to your business.",
     text:
-      "Manage products, orders, stock, payments, discounts and your public storefront from one commerce workspace. The overview gives you live order, revenue and stock visibility while the store stays connected to the rest of TOTS-OS.",
+      "Manage products, orders, stock, payments, discounts and your public storefront from one commerce workspace. The overview gives you live order, revenue and stock visibility while the store stays connected to the rest of ORBI.",
   },
   {
     key: "workspace",
@@ -513,7 +531,7 @@ const TOUR_STEPS: TourStep[] = [
     title:
       "Then ask your business what needs attention.",
     text:
-      "Clarity uses the context already inside TOTS-OS to surface priorities, overdue work, financial signals and the next things worth focusing on.",
+      "Clarity uses the context already inside ORBI. to surface priorities, overdue work, financial signals and the next things worth focusing on.",
   },
 ];
 
@@ -532,7 +550,7 @@ function Logo({
     <span className="tots-logo">
       <img
         src={LOGO_SRC}
-        alt="TOTS-OS"
+        alt="ORBI."
         width={size}
         height={size}
         style={{
@@ -544,11 +562,11 @@ function Logo({
       {showWordmark && (
         <span className="tots-logo-copy">
           <strong>
-            TOTS-OS
+            ORBI.
           </strong>
 
           <small>
-            by The Organised Types
+            by ORBI.
           </small>
         </span>
       )}
@@ -587,19 +605,21 @@ function Reveal({
             }
           : {
               opacity: 0,
-              y: 24,
+              y: 44,
+              filter: "blur(6px)",
             }
       }
       whileInView={{
         opacity: 1,
         y: 0,
+        filter: "blur(0px)",
       }}
       viewport={{
         once: true,
         amount: 0.12,
       }}
       transition={{
-        duration: 0.7,
+        duration: 0.9,
         delay,
         ease: [
           0.19,
@@ -1544,7 +1564,7 @@ function DemoSocial() {
 
           <div>
             <span className="green-label">
-              TOTS-OS
+              ORBI.
             </span>
 
             <h2>
@@ -1594,7 +1614,7 @@ function DemoSocial() {
           <p>
             Write something
             yourself or let
-            TOTS-OS create the
+            ORBI. create the
             starting point from
             what Clarity already
             knows about your
@@ -2474,11 +2494,11 @@ function DemoStore() {
     <div className="app-page commerce-page">
       <div className="commerce-heading">
         <div>
-          <div className="app-kicker commerce-kicker"><span />TOTS Commerce</div>
+          <div className="app-kicker commerce-kicker"><span />ORBI. Store</div>
           <h2>Your store, connected to your business.</h2>
           <p>
             Manage products, orders, stock and your public storefront alongside
-            the rest of TOTS-OS.
+            the rest of ORBI.
           </p>
         </div>
 
@@ -2507,7 +2527,7 @@ function DemoStore() {
       <div className="commerce-summary">
         <div className="commerce-summary-icon"><Sparkles size={16} /></div>
         <div>
-          <span>TOTS Commerce summary</span>
+          <span>ORBI. Store summary</span>
           <p>
             Your store currently has <strong>27 products</strong>,{" "}
             <strong>6 active orders</strong> and <strong>0 stock warnings</strong>.
@@ -2679,7 +2699,7 @@ function DemoWorkspace() {
 
         <div>
           <span className="green-label">
-            TOTS summary
+            ORBI. summary
           </span>
 
           <p>
@@ -2955,7 +2975,7 @@ function DemoCalendar() {
 
         <div>
           <span className="green-label">
-            TOTS schedule
+            ORBI. schedule
             summary
           </span>
 
@@ -3257,7 +3277,7 @@ function DemoClarity() {
 
           <p>
             Clarity looks across
-            your TOTS-OS
+            your ORBI.
             workspace to help
             identify what matters
             next.
@@ -3558,7 +3578,7 @@ function ProductDemo({
 
             <h3>
               Take the guided
-              TOTS-OS tour.
+              ORBI. tour.
             </h3>
 
             <p>
@@ -3916,7 +3936,7 @@ function GuidedTour({
 
                       <div>
                         <strong>
-                          This is where TOTS-OS
+                          This is where ORBI.
                           becomes more than
                           another collection
                           of tools.
@@ -3995,7 +4015,7 @@ function GuidedTour({
 
                 <h2>
                   Ready to make
-                  TOTS-OS your
+                  ORBI. your
                   workspace?
                 </h2>
 
@@ -4059,6 +4079,341 @@ function GuidedTour({
    PAGE
 ============================================================ */
 
+/* ============================================================
+   CINEMATIC LAYER
+============================================================ */
+
+function ScrollProgress() {
+  const { scrollYProgress } = useScroll();
+
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 120,
+    damping: 30,
+    mass: 0.3,
+  });
+
+  return (
+    <motion.div
+      className="lux-progress"
+      style={{ scaleX }}
+    />
+  );
+}
+
+function CursorGlow() {
+  useEffect(() => {
+    if (
+      window.matchMedia("(pointer: coarse)").matches
+    ) {
+      return;
+    }
+
+    const root =
+      document.querySelector<HTMLElement>(
+        ".tots-root"
+      );
+
+    if (!root) return;
+
+    let frame = 0;
+
+    const onMove = (event: MouseEvent) => {
+      cancelAnimationFrame(frame);
+
+      frame = requestAnimationFrame(() => {
+        root.style.setProperty(
+          "--mx",
+          `${event.clientX}px`
+        );
+
+        root.style.setProperty(
+          "--my",
+          `${event.clientY}px`
+        );
+      });
+    };
+
+    window.addEventListener(
+      "mousemove",
+      onMove,
+      { passive: true }
+    );
+
+    return () => {
+      window.removeEventListener(
+        "mousemove",
+        onMove
+      );
+
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  return (
+    <div
+      className="lux-cursor-glow"
+      aria-hidden="true"
+    />
+  );
+}
+
+function MaskLine({
+  children,
+  delay = 0,
+}: {
+  children: ReactNode;
+  delay?: number;
+}) {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <span className="lux-mask">
+      <motion.span
+        className="lux-mask-inner"
+        initial={
+          reduceMotion
+            ? false
+            : { y: "115%", opacity: 0 }
+        }
+        animate={{ y: 0, opacity: 1 }}
+        transition={{
+          duration: 1.2,
+          delay,
+          ease: [0.19, 1, 0.22, 1],
+        }}
+      >
+        {children}
+      </motion.span>
+    </span>
+  );
+}
+
+function HeroStage() {
+  const ref = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
+
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start end", "center center"],
+  });
+
+  const rotateX = useTransform(
+    scrollYProgress,
+    [0, 1],
+    [reduceMotion ? 0 : 26, 0]
+  );
+
+  const scale = useTransform(
+    scrollYProgress,
+    [0, 1],
+    [reduceMotion ? 1 : 0.88, 1]
+  );
+
+  const floatA = useTransform(
+    scrollYProgress,
+    [0, 1],
+    [reduceMotion ? 0 : 70, -10]
+  );
+
+  const floatB = useTransform(
+    scrollYProgress,
+    [0, 1],
+    [reduceMotion ? 0 : -50, 10]
+  );
+
+  return (
+    <div className="lux-stage" ref={ref}>
+      <motion.div
+        className="lux-stage-inner"
+        style={{ rotateX, scale }}
+      >
+        <div className="hero-window">
+          <div className="hero-window-top">
+            <div className="window-dots">
+              <span />
+              <span />
+              <span />
+            </div>
+
+            <span>ORBI.</span>
+          </div>
+
+          <div className="hero-window-content">
+            <div className="hero-mini-sidebar">
+              <Logo size={34} showWordmark={false} />
+
+              {[
+                LayoutDashboard,
+                Users,
+                FolderKanban,
+                CircleDollarSign,
+                CalendarDays,
+                NotebookPen,
+              ].map((Icon, index) => (
+                <div
+                  key={index}
+                  className={index === 0 ? "active" : ""}
+                >
+                  <Icon size={15} />
+                </div>
+              ))}
+            </div>
+
+            <div className="hero-mini-main">
+              <div className="hero-mini-heading">
+                <div>
+                  <span>Good morning.</span>
+                  <strong>Here&apos;s your business today.</strong>
+                </div>
+
+                <div className="hero-mini-clarity">
+                  <Sparkles size={12} />
+                  Clarity
+                </div>
+              </div>
+
+              <div className="hero-mini-metrics">
+                <div>
+                  <span>Revenue</span>
+                  <strong>£18.4k</strong>
+                </div>
+
+                <div>
+                  <span>Tasks</span>
+                  <strong>12</strong>
+                </div>
+
+                <div>
+                  <span>Projects</span>
+                  <strong>6</strong>
+                </div>
+              </div>
+
+              <div className="hero-mini-panels">
+                <div className="hero-mini-focus">
+                  <span>Focus</span>
+                  <strong>Today&apos;s priorities</strong>
+                  <div>Send proposal to Bennett Interiors</div>
+                  <div>Check outstanding invoices</div>
+                  <div>Review website project delivery</div>
+                </div>
+
+                <div className="hero-mini-schedule">
+                  <span>Coming up</span>
+                  <div>10:00 · Call with Amelia</div>
+                  <div>14:00 · Design review</div>
+                  <div>16:00 · Strategy session</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <motion.div
+          className="hero-floating-card hero-floating-one"
+          style={{ y: floatA }}
+        >
+          <span>
+            <Sparkles size={12} />
+            Clarity
+          </span>
+
+          <strong>3 things need your attention</strong>
+        </motion.div>
+
+        <motion.div
+          className="hero-floating-card hero-floating-two"
+          style={{ y: floatB }}
+        >
+          <span>Business health</span>
+          <strong>82%</strong>
+        </motion.div>
+      </motion.div>
+
+      <div className="lux-stage-fade" />
+    </div>
+  );
+}
+
+function ManifestoWord({
+  children,
+  progress,
+  range,
+}: {
+  children: ReactNode;
+  progress: MotionValue<number>;
+  range: [number, number];
+}) {
+  const opacity = useTransform(progress, range, [
+    0.13,
+    1,
+  ]);
+
+  return (
+    <motion.span style={{ opacity }}>
+      {children}{" "}
+    </motion.span>
+  );
+}
+
+const MANIFESTO =
+  "Every business runs on dozens of moving parts. ORBI. brings them into orbit — clients, projects, money, marketing and time — around one calm centre.";
+
+const LUX_STATS = [
+  { value: "6", label: "Connected modules" },
+  { value: "1", label: "Calm workspace" },
+  { value: "£139", label: "All six modules, monthly" },
+  { value: "2 min", label: "To build your setup" },
+];
+
+function Manifesto() {
+  const ref = useRef<HTMLElement>(null);
+
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start 0.8", "end 0.5"],
+  });
+
+  const words = MANIFESTO.split(" ");
+
+  return (
+    <section className="lux-manifesto" ref={ref}>
+      <div className="tots-container">
+        <span className="lux-chapter">
+          <i />
+          The idea
+        </span>
+
+        <p>
+          {words.map((word, index) => (
+            <ManifestoWord
+              key={`${word}-${index}`}
+              progress={scrollYProgress}
+              range={[
+                index / words.length,
+                (index + 1) / words.length,
+              ]}
+            >
+              {word}
+            </ManifestoWord>
+          ))}
+        </p>
+
+        <Reveal>
+          <div className="lux-stats">
+            {LUX_STATS.map((stat) => (
+              <div className="lux-stat" key={stat.label}>
+                <strong>{stat.value}</strong>
+                <span>{stat.label}</span>
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
 export default function TotsOSLanding() {
   const [
     mobileMenuOpen,
@@ -4098,7 +4453,7 @@ export default function TotsOSLanding() {
 
         body {
           margin: 0;
-          background: #f5f2eb;
+          background: #FAFAF8;
         }
 
         /* ====================================================
@@ -4112,10 +4467,10 @@ export default function TotsOSLanding() {
         .demo-video-card {
           position: relative;
           overflow: hidden;
-          border: 1px solid rgba(43, 42, 39, 0.10);
+          border: 1px solid rgba(30, 42, 39, 0.10);
           border-radius: 28px;
-          background: #2b2a27;
-          box-shadow: 0 26px 70px rgba(43, 42, 39, 0.14);
+          background: #0F3D32;
+          box-shadow: 0 26px 70px rgba(8, 44, 36, 0.14);
         }
 
         .demo-video-card::before {
@@ -4135,7 +4490,7 @@ export default function TotsOSLanding() {
           gap: 20px;
           padding: 18px 20px;
           border-bottom: 1px solid rgba(255,255,255,0.08);
-          color: #fffefd;
+          color: #FFFFFF;
         }
 
         .demo-video-heading-left {
@@ -4153,8 +4508,8 @@ export default function TotsOSLanding() {
           align-items: center;
           justify-content: center;
           border-radius: 12px;
-          background: #aabd96;
-          color: #2b2a27;
+          background: #0F3D32;
+          color: #FFFFFF;
         }
 
         .demo-video-heading strong {
@@ -4193,7 +4548,7 @@ export default function TotsOSLanding() {
           width: 100%;
           aspect-ratio: 16 / 9;
           display: block;
-          background: #151513;
+          background: #082C24;
           object-fit: cover;
         }
 
@@ -4203,20 +4558,20 @@ export default function TotsOSLanding() {
           justify-content: space-between;
           gap: 18px;
           padding: 16px 20px 18px;
-          background: #fffefd;
+          background: #FFFFFF;
         }
 
         .demo-video-caption p {
           margin: 0;
           max-width: 720px;
-          color: #78766f;
+          color: #66716D;
           font-family: "DM Sans", sans-serif;
           font-size: 11px;
           line-height: 1.65;
         }
 
         .demo-video-caption strong {
-          color: #2b2a27;
+          color: #1E2A27;
         }
 
         .demo-video-caption a {
@@ -4224,7 +4579,7 @@ export default function TotsOSLanding() {
           flex: 0 0 auto;
           align-items: center;
           gap: 8px;
-          color: #2b2a27;
+          color: #1E2A27;
           font-family: "Manrope", sans-serif;
           font-size: 9px;
           font-weight: 800;
@@ -4258,32 +4613,32 @@ export default function TotsOSLanding() {
         }
 
         .tots-root {
-          --cream: #f6f3ec;
-          --cream-deep: #eae4d6;
-          --white: #fffefd;
+          --cream: #FAFAF8;
+          --cream-deep: #E5E7E4;
+          --white: #FFFFFF;
 
-          --charcoal: #2b2a27;
-          --charcoal-soft: #514f4a;
-          --muted: #78766f;
+          --charcoal: #1E2A27;
+          --charcoal-soft: #66716D;
+          --muted: #66716D;
 
-          --tan: #c8a06a;
-          --tan-dark: #9c7539;
-          --tan-soft: #ecdec2;
-          --tan-shine: #e8c891;
+          --tan: #0F3D32;
+          --tan-dark: #082C24;
+          --tan-soft: #E6EEEA;
+          --tan-shine: #0F3D32;
 
-          --sage: #aabd96;
-          --sage-dark: #82996e;
-          --sage-light: #eff3e9;
+          --sage: #0F3D32;
+          --sage-dark: #082C24;
+          --sage-light: #E6EEEA;
 
-          --app-bg: #fbfaf7;
-          --app-white: #ffffff;
-          --app-border: #e4e2dc;
-          --app-text: #221f1a;
-          --app-muted: #96928a;
+          --app-bg: #FAFAF8;
+          --app-white: #FFFFFF;
+          --app-border: #E5E7E4;
+          --app-text: #1E2A27;
+          --app-muted: #66716D;
 
           --border:
             rgba(
-              43,
+              30,
               42,
               39,
               0.09
@@ -4291,7 +4646,7 @@ export default function TotsOSLanding() {
 
           --border-strong:
             rgba(
-              43,
+              30,
               42,
               39,
               0.15
@@ -4300,7 +4655,7 @@ export default function TotsOSLanding() {
           --shadow:
             0 4px 10px rgba(43, 42, 39, 0.03),
             0 25px 70px rgba(43, 42, 39, 0.09),
-            0 2px 3px rgba(156, 117, 57, 0.05);
+            0 2px 3px rgba(8, 44, 36, 0.05);
 
           --shadow-lift:
             0 10px 20px rgba(43, 42, 39, 0.06),
@@ -4318,9 +4673,7 @@ export default function TotsOSLanding() {
           background:
             var(--cream);
 
-          background-image:
-            radial-gradient(circle at 12% 8%, rgba(200, 160, 106, 0.10), transparent 42%),
-            radial-gradient(circle at 88% 92%, rgba(170, 189, 150, 0.10), transparent 45%);
+          background-image: none;
 
           color:
             var(--charcoal);
@@ -4505,10 +4858,10 @@ export default function TotsOSLanding() {
             999px;
 
           background:
-            rgba(200, 160, 106, 0.10);
+            rgba(15, 61, 50, 0.06);
 
           border:
-            1px solid rgba(200, 160, 106, 0.22);
+            1px solid rgba(229, 231, 228, 0.9);
 
           color:
             var(--charcoal-soft);
@@ -4540,7 +4893,7 @@ export default function TotsOSLanding() {
             linear-gradient(135deg, var(--tan-shine), var(--tan-dark));
 
           box-shadow:
-            0 0 0 3px rgba(200, 160, 106, 0.18);
+            0 0 0 3px rgba(15, 61, 50, 0.12);
         }
 
         .section-title {
@@ -4716,7 +5069,7 @@ export default function TotsOSLanding() {
             var(--charcoal);
 
           background:
-            linear-gradient(155deg, #34322e, var(--charcoal) 55%, #201f1c);
+            linear-gradient(155deg, #082C24, var(--charcoal) 55%, #1E2A27);
 
           color:
             white !important;
@@ -4730,7 +5083,7 @@ export default function TotsOSLanding() {
           content: "";
           position: absolute;
           inset: 0;
-          background: linear-gradient(120deg, transparent 30%, rgba(200,160,106,0.35) 50%, transparent 70%);
+          background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.2) 50%, transparent 70%);
           transform: translateX(-120%);
           transition: transform .7s var(--ease-lux);
         }
@@ -4869,10 +5222,10 @@ export default function TotsOSLanding() {
           border:
             1px solid
             rgba(
-              200,
-              160,
-              106,
-              .16
+              229,
+              231,
+              228,
+              .8
             );
 
           border-radius:
@@ -5181,17 +5534,17 @@ export default function TotsOSLanding() {
             radial-gradient(
               circle,
               rgba(
-                198,
-                157,
-                105,
-                .15
+                15,
+                61,
+                50,
+                .08
               )
               0%,
               rgba(
-                198,
-                157,
-                105,
-                .07
+                15,
+                61,
+                50,
+                .04
               )
               40%,
               transparent
@@ -5252,10 +5605,10 @@ export default function TotsOSLanding() {
           border:
             1px solid
             rgba(
-              198,
-              157,
-              105,
-              .26
+              229,
+              231,
+              228,
+              .9
             );
 
           border-radius:
@@ -5691,14 +6044,14 @@ export default function TotsOSLanding() {
         .transform-card.good {
           border-color:
             rgba(
-              198,
-              157,
-              105,
-              .35
+              15,
+              61,
+              50,
+              .3
             );
 
           background:
-            #fffaf3;
+            #FFFFFF;
         }
 
         .transform-card > span {
@@ -5854,10 +6207,10 @@ export default function TotsOSLanding() {
           border:
             1px solid
             rgba(
-              198,
-              157,
-              105,
-              .25
+              229,
+              231,
+              228,
+              .9
             );
 
           border-radius:
@@ -7066,7 +7419,7 @@ export default function TotsOSLanding() {
             8px;
 
           background:
-            #faf9f6;
+            #FAFAF8;
         }
 
         .task-demo-chip i {
@@ -7602,10 +7955,10 @@ export default function TotsOSLanding() {
 
           border-bottom:
             1px solid
-            #eeece7;
+            #E5E7E4;
 
           color:
-            #9e9a92;
+            #66716D;
 
           font-size:
             5px;
@@ -8113,7 +8466,7 @@ export default function TotsOSLanding() {
             5px;
 
           color:
-            #96928a;
+            #66716D;
 
           font-size:
             6px;
@@ -8276,7 +8629,7 @@ export default function TotsOSLanding() {
             10px;
 
           background:
-            #fbfaf7;
+            #FAFAF8;
 
           text-align:
             center;
@@ -8520,7 +8873,7 @@ export default function TotsOSLanding() {
             8px;
 
           color:
-            #96928a;
+            #66716D;
 
           font-size:
             6px;
@@ -10027,7 +10380,7 @@ export default function TotsOSLanding() {
           gap: 6px; border-radius: 8px; color: #9a958d; font-size: 7px; font-weight: 800;
           letter-spacing: .11em; text-transform: uppercase; white-space: nowrap;
         }
-        .commerce-tab.active { background: #201f1c; color: white; }
+        .commerce-tab.active { background: #0F3D32; color: white; }
         .commerce-summary {
           margin-top: 18px; padding: 22px 24px; display: flex; gap: 15px; align-items: flex-start;
           border: 1px solid var(--app-border); border-radius: 18px; background: white;
@@ -12243,7 +12596,7 @@ export default function TotsOSLanding() {
           top: -220px;
           left: -170px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(198,157,105,.18), rgba(198,157,105,.06) 43%, transparent 72%);
+          background: radial-gradient(circle, rgba(15,61,50,.10), rgba(15,61,50,.04) 43%, transparent 72%);
           filter: blur(20px);
           pointer-events: none;
         }
@@ -12256,7 +12609,7 @@ export default function TotsOSLanding() {
           right: -220px;
           bottom: -260px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(170,189,150,.16), transparent 70%);
+          background: radial-gradient(circle, rgba(15,61,50,.08), transparent 70%);
           pointer-events: none;
         }
 
@@ -12324,16 +12677,16 @@ export default function TotsOSLanding() {
           display: flex;
           align-items: center;
           gap: 13px;
-          border: 1px solid rgba(170,189,150,.55);
+          border: 1px solid rgba(229,231,228,.9);
           border-radius: 16px;
-          background: linear-gradient(135deg, #f4f8ef, #eef4e6);
-          box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 16px 34px rgba(130,153,110,.10);
+          background: linear-gradient(135deg, #E6EEEA, #FAFAF8);
+          box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 16px 34px rgba(8,44,36,.10);
           transition: transform .4s var(--ease-lux), box-shadow .4s var(--ease-lux);
         }
 
         .hero-trial-banner:hover {
           transform: translateY(-2px);
-          box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 20px 42px rgba(130,153,110,.16);
+          box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 20px 42px rgba(8,44,36,.16);
         }
 
         .hero-trial-icon {
@@ -12378,7 +12731,7 @@ export default function TotsOSLanding() {
           position: absolute;
           inset: 8% 3%;
           border-radius: 42%;
-          background: radial-gradient(circle at 50% 50%, rgba(198,157,105,.28), rgba(170,189,150,.14) 42%, transparent 70%);
+          background: radial-gradient(circle at 50% 50%, rgba(15,61,50,.12), rgba(15,61,50,.08) 42%, transparent 70%);
           filter: blur(32px);
         }
 
@@ -12387,7 +12740,7 @@ export default function TotsOSLanding() {
           position: relative;
           z-index: 2;
           overflow: hidden;
-          border: 1px solid rgba(200,160,106,.20);
+          border: 1px solid rgba(229,231,228,.8);
           border-radius: 25px;
           background: #fff;
           box-shadow:
@@ -12418,9 +12771,9 @@ export default function TotsOSLanding() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-bottom: 1px solid #ece9e2;
-          background: #faf9f6;
-          color: #98938b;
+          border-bottom: 1px solid #E5E7E4;
+          background: #FAFAF8;
+          color: #66716D;
           font-size: 8px;
           font-weight: 700;
           letter-spacing: .14em;
@@ -12436,7 +12789,7 @@ export default function TotsOSLanding() {
           width: 7px;
           height: 7px;
           border-radius: 50%;
-          background: #d7d2c8;
+          background: #E5E7E4;
         }
 
         .hero-window-content {
@@ -12452,7 +12805,7 @@ export default function TotsOSLanding() {
           flex-direction: column;
           align-items: center;
           gap: 10px;
-          border-right: 1px solid #e7e4de;
+          border-right: 1px solid #E5E7E4;
           background: white;
         }
 
@@ -12581,7 +12934,7 @@ export default function TotsOSLanding() {
           height: 18px;
           margin-top: 8px;
           border-radius: 6px;
-          background: #f3f1ec;
+          background: #FAFAF8;
         }
 
         .hero-mini-schedule > div:nth-of-type(2) {
@@ -12718,8 +13071,8 @@ export default function TotsOSLanding() {
         }
 
         .product-statement-final {
-          border: 1px solid rgba(170,189,150,.4);
-          background: #f7faf2 !important;
+          border: 1px solid rgba(229,231,228,.9);
+          background: #FAFAF8 !important;
         }
 
         .product-statement-final strong {
@@ -12753,7 +13106,7 @@ export default function TotsOSLanding() {
 
         .feature-card:hover {
           transform: translateY(-6px);
-          border-color: rgba(198,157,105,.35);
+          border-color: rgba(15,61,50,.3);
           background: rgba(255,255,255,.86);
           box-shadow: 0 1px 0 rgba(255,255,255,.8) inset, 0 30px 60px rgba(43,42,39,.09);
         }
@@ -12822,7 +13175,7 @@ export default function TotsOSLanding() {
           padding: 24px;
           border: 1px solid var(--border);
           border-radius: 26px;
-          background: #fffefd;
+          background: #FFFFFF;
           box-shadow: var(--shadow);
         }
 
@@ -12909,7 +13262,7 @@ export default function TotsOSLanding() {
           display: flex;
           align-items: center;
           gap: 10px;
-          border: 1px solid rgba(130,153,110,.16);
+          border: 1px solid rgba(229,231,228,.9);
           border-radius: 12px;
           background: rgba(255,255,255,.72);
         }
@@ -12938,7 +13291,7 @@ export default function TotsOSLanding() {
 
         .clarity-showcase-item small {
           margin-top: 3px;
-          color: #8f8a82;
+          color: #66716D;
           font-size: 8px;
         }
 
@@ -12953,7 +13306,7 @@ export default function TotsOSLanding() {
 
         .hero-setup-banner:hover {
           transform: translateY(-2px);
-          border-color: rgba(130,153,110,.55);
+          border-color: rgba(15,61,50,.5);
           box-shadow: 0 16px 35px rgba(55,55,53,.07);
         }
 
@@ -12983,9 +13336,9 @@ export default function TotsOSLanding() {
           gap: 58px;
           align-items: center;
           padding: 52px;
-          border: 1px solid rgba(130,153,110,.30);
+          border: 1px solid rgba(229,231,228,.9);
           border-radius: 32px;
-          background: linear-gradient(135deg, #f0f5eb 0%, #fffefd 54%, #f4eadc 120%);
+          background: linear-gradient(135deg, #E6EEEA 0%, #FFFFFF 54%, #FAFAF8 120%);
           box-shadow: 0 28px 75px rgba(55,55,53,.07);
         }
 
@@ -12996,7 +13349,7 @@ export default function TotsOSLanding() {
           right: -100px;
           top: -130px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(170,189,150,.30), transparent 68%);
+          background: radial-gradient(circle, rgba(15,61,50,.08), transparent 68%);
           pointer-events: none;
         }
 
@@ -13047,7 +13400,7 @@ export default function TotsOSLanding() {
           align-items: center;
           gap: 7px;
           padding: 7px 11px;
-          border: 1px solid rgba(130,153,110,.25);
+          border: 1px solid rgba(229,231,228,.9);
           border-radius: 999px;
           background: rgba(255,255,255,.72);
           color: var(--charcoal-soft);
@@ -13155,17 +13508,17 @@ export default function TotsOSLanding() {
 
         .pricing-card:not(.featured):hover {
           transform: translateY(-6px);
-          border-color: rgba(198,157,105,.30);
+          border-color: rgba(15,61,50,.3);
           box-shadow: 0 1px 0 rgba(255,255,255,.8) inset, 0 26px 55px rgba(43,42,39,.08);
         }
 
         .pricing-card.featured {
-          border: 1px solid rgba(198,157,105,.5);
-          background: linear-gradient(165deg, #fffaf3, #fdf3e2);
+          border: 1px solid rgba(15,61,50,.5);
+          background: linear-gradient(165deg, #FFFFFF, #E6EEEA);
           box-shadow:
             0 1px 0 rgba(255,255,255,.8) inset,
-            0 30px 70px rgba(156,117,57,.16),
-            0 0 0 1px rgba(198,157,105,.12);
+            0 30px 70px rgba(8,44,36,.12),
+            0 0 0 1px rgba(15,61,50,.12);
           transform: translateY(-9px);
         }
 
@@ -13173,8 +13526,8 @@ export default function TotsOSLanding() {
           transform: translateY(-12px);
           box-shadow:
             0 1px 0 rgba(255,255,255,.8) inset,
-            0 36px 80px rgba(156,117,57,.20),
-            0 0 0 1px rgba(198,157,106,.18);
+            0 36px 80px rgba(8,44,36,.16),
+            0 0 0 1px rgba(15,61,50,.18);
         }
 
         .pricing-trial-callout {
@@ -13184,9 +13537,9 @@ export default function TotsOSLanding() {
           display: inline-flex;
           align-items: center;
           gap: 11px;
-          border: 1px solid rgba(170,189,150,.55);
+          border: 1px solid rgba(229,231,228,.9);
           border-radius: 15px;
-          background: #f4f8ef;
+          background: #E6EEEA;
           color: var(--sage-dark);
         }
 
@@ -13325,7 +13678,7 @@ export default function TotsOSLanding() {
           display: inline-flex;
           align-items: center;
           gap: 7px;
-          border: 1px solid rgba(170,189,150,.38);
+          border: 1px solid rgba(229,231,228,.9);
           border-radius: 999px;
           background: var(--sage-light);
           color: var(--sage-dark);
@@ -13378,8 +13731,8 @@ export default function TotsOSLanding() {
         }
 
         .about-founder-card.featured {
-          border-color: rgba(198,157,105,.32);
-          background: #fffaf3;
+          border-color: rgba(15,61,50,.32);
+          background: #FFFFFF;
         }
 
         .about-founder-head {
@@ -13524,7 +13877,7 @@ export default function TotsOSLanding() {
           left: 50%;
           transform: translateX(-50%);
           border-radius: 50%;
-          background: rgba(198,157,105,.25);
+          background: rgba(15,61,50,.10);
           filter: blur(70px);
           pointer-events: none;
         }
@@ -13747,14 +14100,14 @@ export default function TotsOSLanding() {
           .footer-bottom { flex-direction: column; align-items: flex-start; }
         }
 
-        /* ---------------- TOTS COMMERCE PUBLIC SECTION ---------------- */
+        /* ---------------- ORBI. STORE PUBLIC SECTION ---------------- */
         .shop-showcase {
           position: relative; overflow: hidden; border: 1px solid rgba(55,55,53,.11);
-          border-radius: 34px; background: #fffefd; box-shadow: 0 28px 70px rgba(55,55,53,.07);
+          border-radius: 34px; background: #FFFFFF; box-shadow: 0 28px 70px rgba(30,42,39,.07);
         }
         .shop-showcase::before {
           content: ""; position: absolute; width: 420px; height: 420px; right: -120px; top: -160px;
-          border-radius: 50%; background: radial-gradient(circle, rgba(170,189,150,.24), transparent 68%);
+          border-radius: 50%; background: radial-gradient(circle, rgba(15,61,50,.08), transparent 68%);
           pointer-events: none;
         }
         .shop-showcase-grid {
@@ -13795,61 +14148,61 @@ export default function TotsOSLanding() {
         }
         .shop-browser-bar {
           height: 34px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between;
-          border-bottom: 1px solid #ece9e2; background: #f7f6f3; color: #aaa59d; font-size: 7px;
+          border-bottom: 1px solid #E5E7E4; background: #FAFAF8; color: #66716D; font-size: 7px;
           font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
         }
-        .shop-backend-body { padding: 18px; background: #fbfaf7; }
+        .shop-backend-body { padding: 18px; background: #FAFAF8; }
         .shop-backend-title {
           display: flex; justify-content: space-between; gap: 12px; align-items: center;
         }
         .shop-backend-title strong { font-size: 12px; font-weight: 600; }
         .shop-backend-title span {
-          padding: 6px 8px; border-radius: 7px; background: #24231f; color: white;
+          padding: 6px 8px; border-radius: 7px; background: #0F3D32; color: white;
           font-size: 6px; text-transform: uppercase;
         }
         .shop-mini-tabs {
           margin-top: 13px; height: 30px; padding: 4px; display: flex; gap: 4px;
-          border: 1px solid #e7e4de; border-radius: 8px; background: white;
+          border: 1px solid #E5E7E4; border-radius: 8px; background: white;
         }
-        .shop-mini-tabs i { flex: 1; border-radius: 5px; background: #f3f1ec; }
-        .shop-mini-tabs i:first-child { background: #24231f; }
+        .shop-mini-tabs i { flex: 1; border-radius: 5px; background: #FAFAF8; }
+        .shop-mini-tabs i:first-child { background: #0F3D32; }
         .shop-mini-summary {
-          margin-top: 10px; height: 55px; border: 1px solid #e7e4de;
+          margin-top: 10px; height: 55px; border: 1px solid #E5E7E4;
           border-radius: 11px; background: white;
         }
         .shop-mini-metrics {
           margin-top: 9px; display: grid; grid-template-columns: repeat(4,1fr); gap: 6px;
         }
         .shop-mini-metrics i {
-          height: 50px; border: 1px solid #e7e4de; border-radius: 9px; background: white;
+          height: 50px; border: 1px solid #E5E7E4; border-radius: 9px; background: white;
         }
         .shop-mini-lower {
           margin-top: 7px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 7px;
         }
         .shop-mini-lower i {
-          height: 90px; border: 1px solid #e7e4de; border-radius: 10px; background: white;
+          height: 90px; border: 1px solid #E5E7E4; border-radius: 10px; background: white;
         }
-        .shop-storefront-body { padding: 15px; background: #faf9f5; }
+        .shop-storefront-body { padding: 15px; background: #FAFAF8; }
         .shop-storefront-head {
-          display: flex; justify-content: space-between; align-items: center; color: #4b4842;
+          display: flex; justify-content: space-between; align-items: center; color: #1E2A27;
           font-size: 8px; font-weight: 700;
         }
         .shop-storefront-pills { margin-top: 13px; display: flex; gap: 5px; }
         .shop-storefront-pills i {
-          width: 46px; height: 12px; border-radius: 999px; background: #eeece7;
+          width: 46px; height: 12px; border-radius: 999px; background: #E5E7E4;
         }
         .shop-storefront-pills i:first-child { background: var(--sage); }
         .shop-product-row {
           margin-top: 17px; display: grid; grid-template-columns: repeat(3,1fr); gap: 7px;
         }
         .shop-product-row > div {
-          overflow: hidden; border: 1px solid #e7e4de; border-radius: 9px; background: white;
+          overflow: hidden; border: 1px solid #E5E7E4; border-radius: 9px; background: white;
         }
         .shop-product-row i {
-          height: 58px; display: block; background: linear-gradient(135deg,#e7e1d7,#f6f4ef);
+          height: 58px; display: block; background: linear-gradient(135deg,#E6EEEA,#FAFAF8);
         }
         .shop-product-row span {
-          height: 24px; display: block; margin: 7px; border-radius: 5px; background: #f3f1ec;
+          height: 24px; display: block; margin: 7px; border-radius: 5px; background: #FAFAF8;
         }
 
                     /* =====================================================
@@ -14458,7 +14811,921 @@ export default function TotsOSLanding() {
           }
         }
 
+
+        /* =====================================================
+           CINEMATIC LUXURY LAYER
+           Dark emerald + champagne gold. The product demo
+           frames stay light so they glow against the dark.
+        ===================================================== */
+
+        body {
+          background: #060D0B !important;
+        }
+
+        .tots-root {
+          --cream: #060D0B;
+          --white: #0B1512;
+          --charcoal: #F3EEE4;
+          --charcoal-soft: rgba(243, 238, 228, 0.74);
+          --muted: rgba(243, 238, 228, 0.58);
+          --border: rgba(243, 238, 228, 0.09);
+          --border-strong: rgba(243, 238, 228, 0.2);
+          --gold: #D9B77E;
+          --gold-soft: #F1DDB0;
+          --gold-deep: #A8834A;
+          --shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+
+          color: var(--charcoal);
+
+          background:
+            radial-gradient(1100px 720px at 12% -8%, rgba(15, 90, 71, 0.5), transparent 62%),
+            radial-gradient(900px 640px at 100% 24%, rgba(217, 183, 126, 0.07), transparent 60%),
+            radial-gradient(1000px 800px at 50% 108%, rgba(15, 61, 50, 0.35), transparent 60%),
+            #060D0B;
+        }
+
+        .tots-root ::selection {
+          background: var(--gold);
+          color: #1a1206;
+        }
+
+        .tots-root ::-webkit-scrollbar-track { background: #060D0B; }
+        .tots-root ::-webkit-scrollbar-thumb {
+          background: rgba(217, 183, 126, 0.28);
+          border: 2px solid #060D0B;
+        }
+        .tots-root ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+        /* Light product surfaces keep their original palette */
+        .tots-root .hero-window,
+        .tots-root .product-demo-frame,
+        .tots-root .tour-window,
+        .tots-root .clarity-showcase,
+        .tots-root .shop-backend-card,
+        .tots-root .shop-storefront-card,
+        .tots-root .demo-video-caption {
+          --charcoal: #1E2A27;
+          --charcoal-soft: #66716D;
+          --muted: #66716D;
+          --border: rgba(30, 42, 39, 0.09);
+          --border-strong: rgba(30, 42, 39, 0.15);
+          --cream: #FAFAF8;
+          color: #1E2A27;
+        }
+
+        /* ---------- overlays ---------- */
+
+        .lux-progress {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          z-index: 200;
+          transform-origin: 0 50%;
+          background: linear-gradient(90deg, #A8834A, #F1DDB0, #D9B77E);
+          box-shadow: 0 0 12px rgba(217, 183, 126, 0.6);
+        }
+
+        .lux-cursor-glow {
+          position: fixed;
+          inset: 0;
+          z-index: 1;
+          pointer-events: none;
+          background: radial-gradient(
+            520px circle at var(--mx, 50%) var(--my, 30%),
+            rgba(217, 183, 126, 0.07),
+            transparent 65%
+          );
+        }
+
+        .lux-grain {
+          position: fixed;
+          inset: 0;
+          z-index: 90;
+          pointer-events: none;
+          opacity: 0.07;
+          mix-blend-mode: overlay;
+          background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+        }
+
+        .lux-vignette {
+          position: fixed;
+          inset: 0;
+          z-index: 89;
+          pointer-events: none;
+          background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.38) 100%);
+        }
+
+        /* ---------- type ---------- */
+
+        .tots-section { padding: 140px 0; }
+
+        .tots-section.soft {
+          background: linear-gradient(180deg, rgba(15, 61, 50, 0.16), rgba(15, 61, 50, 0) 70%);
+          border-top: 1px solid var(--border);
+          border-bottom: 1px solid var(--border);
+        }
+
+        .tots-root .tots-eyebrow {
+          color: var(--gold);
+          background: rgba(217, 183, 126, 0.06);
+          border: 1px solid rgba(217, 183, 126, 0.26);
+          letter-spacing: 0.16em;
+        }
+
+        .tots-root .tots-eyebrow > span {
+          background: var(--gold);
+          box-shadow: 0 0 0 3px rgba(217, 183, 126, 0.18), 0 0 14px rgba(217, 183, 126, 0.7);
+        }
+
+        .tots-root .section-title {
+          font-size: clamp(2.8rem, 6vw, 5.8rem);
+          font-weight: 400;
+          letter-spacing: -0.04em;
+          line-height: 1;
+          color: var(--charcoal);
+        }
+
+        .tots-root .section-copy {
+          color: var(--muted);
+          font-size: 17px;
+        }
+
+        .tots-root .gold-text {
+          background: linear-gradient(100deg, #B8925A 0%, #F1DDB0 35%, #D9B77E 60%, #A8834A 100%);
+          background-size: 220% auto;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          font-style: italic;
+          animation: lux-shimmer 9s linear infinite;
+        }
+
+        @keyframes lux-shimmer {
+          to { background-position: 220% center; }
+        }
+
+        .tots-root .tots-logo-copy strong { color: var(--charcoal); }
+
+        /* ---------- buttons ---------- */
+
+        .tots-root .button-primary {
+          border: 1px solid rgba(241, 221, 176, 0.6);
+          background: linear-gradient(135deg, #F1DDB0 0%, #D9B77E 48%, #B8925A 100%);
+          color: #1a1206 !important;
+          box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset, 0 18px 40px rgba(217, 183, 126, 0.22);
+        }
+
+        .tots-root .button-primary:hover {
+          border-color: #F1DDB0;
+          box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 26px 60px rgba(217, 183, 126, 0.4);
+        }
+
+        .tots-root .button-secondary {
+          border: 1px solid var(--border-strong);
+          background: rgba(255, 255, 255, 0.04);
+          color: var(--charcoal);
+        }
+
+        .tots-root .button-secondary:hover {
+          border-color: var(--gold);
+          background: rgba(217, 183, 126, 0.08);
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+        }
+
+        /* ---------- nav ---------- */
+
+        .tots-root .tots-nav {
+          border-color: rgba(243, 238, 228, 0.1);
+          background: rgba(7, 14, 11, 0.62);
+          box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 18px 50px rgba(0, 0, 0, 0.45);
+        }
+
+        .tots-root .tots-nav-links a:hover {
+          background: rgba(255, 255, 255, 0.07);
+          color: var(--gold-soft);
+        }
+
+        .tots-root .tots-menu-button,
+        .tots-root .mobile-menu-top > button {
+          background: rgba(255, 255, 255, 0.06);
+          border-color: var(--border-strong);
+          color: var(--charcoal);
+        }
+
+        .tots-root .mobile-overlay { background: rgba(0, 0, 0, 0.55); }
+        .tots-root .mobile-menu { background: #0A1411; border-color: var(--border-strong); }
+
+        /* ---------- hero ---------- */
+
+        .tots-root .lux-hero {
+          position: relative;
+          min-height: 100vh;
+          padding: 150px 0 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          overflow: hidden;
+        }
+
+        .lux-aurora {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          overflow: hidden;
+          pointer-events: none;
+        }
+
+        .lux-aurora i {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(90px);
+          opacity: 0.6;
+          animation: lux-drift 20s ease-in-out infinite alternate;
+        }
+
+        .lux-aurora i:nth-child(1) {
+          width: 760px; height: 760px; left: -12%; top: -22%;
+          background: radial-gradient(circle, #0F6A53, transparent 65%);
+        }
+
+        .lux-aurora i:nth-child(2) {
+          width: 620px; height: 620px; right: -10%; top: 6%;
+          background: radial-gradient(circle, rgba(217, 183, 126, 0.38), transparent 65%);
+          animation-duration: 26s;
+          animation-direction: alternate-reverse;
+        }
+
+        .lux-aurora i:nth-child(3) {
+          width: 820px; height: 520px; left: 24%; bottom: -10%;
+          background: radial-gradient(circle, rgba(15, 61, 50, 0.7), transparent 65%);
+          animation-duration: 30s;
+        }
+
+        @keyframes lux-drift {
+          0% { transform: translate3d(0, 0, 0) scale(1); }
+          100% { transform: translate3d(70px, 50px, 0) scale(1.15); }
+        }
+
+        .lux-beam {
+          position: absolute;
+          inset: 0;
+          z-index: 1;
+          pointer-events: none;
+          background: conic-gradient(from 180deg at 50% -12%, transparent 41%, rgba(241, 221, 176, 0.13) 50%, transparent 59%);
+          -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 75%);
+          mask-image: linear-gradient(180deg, #000 0%, transparent 75%);
+          animation: lux-breathe 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes lux-breathe {
+          from { opacity: 0.55; }
+          to { opacity: 1; }
+        }
+
+        .lux-hero-inner {
+          position: relative;
+          z-index: 3;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+        }
+
+        .lux-hero-badge {
+          padding: 9px 17px;
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          border: 1px solid rgba(217, 183, 126, 0.3);
+          border-radius: 999px;
+          background: rgba(217, 183, 126, 0.07);
+          color: var(--gold-soft);
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          backdrop-filter: blur(10px);
+        }
+
+        .tots-root .lux-hero-title {
+          margin-top: 34px;
+          font-size: clamp(3.5rem, 9.4vw, 9.2rem);
+          font-weight: 400;
+          letter-spacing: -0.05em;
+          line-height: 0.95;
+          color: var(--charcoal);
+        }
+
+        .lux-mask {
+          display: block;
+          overflow: hidden;
+          padding-bottom: 0.14em;
+          margin-bottom: -0.14em;
+        }
+
+        .lux-mask-inner { display: block; }
+
+        .tots-root .lux-hero-sub {
+          max-width: 660px;
+          margin-top: 32px;
+          color: var(--muted);
+          font-size: clamp(15px, 1.4vw, 18px);
+          line-height: 1.8;
+        }
+
+        .lux-hero-actions {
+          margin-top: 38px;
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 12px;
+        }
+
+        .lux-hero-proof {
+          margin-top: 26px;
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 10px 26px;
+          color: var(--muted);
+          font-size: 11px;
+          font-weight: 500;
+          letter-spacing: 0.03em;
+        }
+
+        .lux-hero-proof > div { display: inline-flex; align-items: center; gap: 7px; }
+        .lux-hero-proof svg { color: var(--gold); }
+
+        /* hero stage — 3D product reveal */
+
+        .lux-stage {
+          position: relative;
+          z-index: 2;
+          width: min(1080px, calc(100% - 40px));
+          margin: 72px auto 0;
+          perspective: 1800px;
+        }
+
+        .lux-stage-inner {
+          position: relative;
+          transform-style: preserve-3d;
+          transform-origin: 50% 100%;
+        }
+
+        .lux-stage .hero-window {
+          width: 100%;
+          transform: none;
+          animation: none;
+          border-radius: 22px 22px 0 0;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-bottom: 0;
+          box-shadow:
+            0 0 0 1px rgba(217, 183, 126, 0.2),
+            0 -20px 120px rgba(217, 183, 126, 0.16),
+            0 70px 150px rgba(0, 0, 0, 0.65);
+        }
+
+        .lux-stage .hero-window-content {
+          min-height: 470px;
+          grid-template-columns: 88px 1fr;
+        }
+
+        .lux-stage .hero-mini-sidebar > div { width: 42px; height: 42px; }
+        .lux-stage .hero-mini-main { padding: 40px 40px 0; }
+        .lux-stage .hero-mini-heading span { font-size: 10px; }
+        .lux-stage .hero-mini-heading strong { font-size: 24px; letter-spacing: -0.02em; }
+        .lux-stage .hero-mini-clarity { font-size: 10px; padding: 10px 14px; }
+        .lux-stage .hero-mini-metrics { margin-top: 32px; gap: 14px; }
+        .lux-stage .hero-mini-metrics > div { min-height: 104px; padding: 18px; border-radius: 16px; }
+        .lux-stage .hero-mini-metrics span { font-size: 9px; }
+        .lux-stage .hero-mini-metrics strong { margin-top: 18px; font-size: 34px; font-family: 'Fraunces', serif; font-weight: 400; }
+        .lux-stage .hero-mini-panels { margin-top: 14px; gap: 14px; }
+        .lux-stage .hero-mini-focus,
+        .lux-stage .hero-mini-schedule { min-height: 190px; padding: 20px; border-radius: 16px; }
+        .lux-stage .hero-mini-focus > span,
+        .lux-stage .hero-mini-schedule > span { font-size: 9px; }
+        .lux-stage .hero-mini-focus > strong { font-size: 15px; margin-top: 6px; }
+
+        .lux-stage .hero-mini-focus > div,
+        .lux-stage .hero-mini-schedule > div {
+          width: 100%;
+          height: auto;
+          min-height: 32px;
+          margin-top: 9px;
+          padding: 0 12px;
+          display: flex;
+          align-items: center;
+          border-radius: 9px;
+          background: #FAFAF8;
+          color: #4c4943;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .lux-stage .hero-floating-card {
+          background: rgba(8, 18, 14, 0.78);
+          border: 1px solid rgba(217, 183, 126, 0.32);
+          backdrop-filter: blur(16px);
+          box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+        }
+
+        .lux-stage .hero-floating-card span { color: var(--gold); }
+        .lux-stage .hero-floating-card strong { color: var(--charcoal); }
+        .lux-stage .hero-floating-one { left: -5%; bottom: 22%; width: 200px; }
+        .lux-stage .hero-floating-two { right: -4%; top: 16%; }
+        .lux-stage .hero-floating-two strong { font-family: 'Fraunces', serif; font-weight: 400; font-size: 34px; }
+
+        .lux-stage-fade {
+          position: absolute;
+          left: -4%;
+          right: -4%;
+          bottom: -1px;
+          height: 38%;
+          z-index: 5;
+          pointer-events: none;
+          background: linear-gradient(180deg, transparent, #060D0B 92%);
+        }
+
+        /* marquee */
+
+        .lux-marquee {
+          position: relative;
+          z-index: 3;
+          padding: 34px 0 30px;
+          border-top: 1px solid var(--border);
+          border-bottom: 1px solid var(--border);
+          background: rgba(6, 13, 11, 0.7);
+        }
+
+        .lux-marquee-label {
+          display: block;
+          margin-bottom: 22px;
+          text-align: center;
+          color: var(--gold);
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.24em;
+          text-transform: uppercase;
+        }
+
+        .lux-marquee-mask {
+          overflow: hidden;
+          -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+        }
+
+        .lux-marquee-track {
+          width: max-content;
+          display: flex;
+          align-items: center;
+          animation: lux-marquee 46s linear infinite;
+        }
+
+        .lux-marquee-track span {
+          display: inline-flex;
+          align-items: center;
+          color: rgba(243, 238, 228, 0.5);
+          font-family: 'Fraunces', serif;
+          font-size: 26px;
+          font-style: italic;
+          white-space: nowrap;
+          transition: color 0.4s var(--ease-lux);
+        }
+
+        .lux-marquee-track span:hover { color: var(--gold-soft); }
+
+        .lux-marquee-track i {
+          width: 5px;
+          height: 5px;
+          margin: 0 44px;
+          border-radius: 50%;
+          background: var(--gold);
+          opacity: 0.6;
+        }
+
+        @keyframes lux-marquee {
+          to { transform: translateX(-50%); }
+        }
+
+        /* manifesto */
+
+        .lux-manifesto { position: relative; padding: 160px 0 130px; }
+
+        .lux-chapter {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 14px;
+          color: var(--gold);
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.26em;
+          text-transform: uppercase;
+        }
+
+        .lux-chapter i {
+          width: 48px;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, var(--gold));
+        }
+
+        .tots-root .lux-manifesto p {
+          max-width: 1060px;
+          margin: 36px auto 0;
+          text-align: center;
+          color: var(--charcoal);
+          font-family: 'Fraunces', serif;
+          font-size: clamp(2rem, 4.6vw, 4.1rem);
+          font-weight: 400;
+          letter-spacing: -0.03em;
+          line-height: 1.16;
+        }
+
+        .lux-stats {
+          margin-top: 110px;
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          border-top: 1px solid var(--border);
+          border-bottom: 1px solid var(--border);
+        }
+
+        .lux-stat {
+          padding: 44px 20px;
+          text-align: center;
+          border-left: 1px solid var(--border);
+        }
+
+        .lux-stat:first-child { border-left: 0; }
+
+        .lux-stat strong {
+          display: block;
+          font-family: 'Fraunces', serif;
+          font-size: clamp(2.6rem, 5vw, 4.6rem);
+          font-weight: 400;
+          letter-spacing: -0.04em;
+          background: linear-gradient(180deg, #F1DDB0, #B8925A);
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        .lux-stat span {
+          display: block;
+          margin-top: 12px;
+          color: var(--muted);
+          font-size: 10px;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+        }
+
+        /* ---------- setup spotlight ---------- */
+
+        .tots-root .setup-spotlight-card {
+          border: 1px solid rgba(217, 183, 126, 0.24);
+          background:
+            radial-gradient(600px 300px at 90% 0%, rgba(217, 183, 126, 0.12), transparent 70%),
+            linear-gradient(135deg, rgba(15, 80, 63, 0.55), rgba(7, 16, 13, 0.92) 62%);
+          box-shadow: 0 40px 110px rgba(0, 0, 0, 0.5);
+        }
+
+        .tots-root .setup-spotlight-kicker { color: var(--gold); }
+        .tots-root .setup-spotlight-copy h2 span { color: var(--gold-soft); font-style: italic; }
+        .tots-root .setup-benefits span { background: rgba(255, 255, 255, 0.05); border-color: var(--border-strong); color: var(--charcoal-soft); }
+        .tots-root .setup-benefits svg { color: var(--gold); }
+        .tots-root .setup-mini-card { background: rgba(255, 255, 255, 0.05); border-color: var(--border-strong); box-shadow: none; backdrop-filter: blur(12px); }
+        .tots-root .setup-mini-card span { color: var(--gold); }
+
+        /* ---------- product statement / features ---------- */
+
+        .tots-root .product-statement {
+          border-color: var(--border);
+          background: rgba(255, 255, 255, 0.025);
+          backdrop-filter: blur(10px);
+        }
+
+        .tots-root .product-statement > div { background: rgba(255, 255, 255, 0.035); }
+
+        .tots-root .product-statement > svg { color: var(--gold); }
+
+        .tots-root .product-statement-final {
+          border-color: rgba(217, 183, 126, 0.3);
+          background: linear-gradient(145deg, rgba(15, 90, 71, 0.5), rgba(8, 20, 16, 0.9)) !important;
+        }
+
+        .tots-root .feature-card,
+        .tots-root .why-card {
+          border-color: var(--border);
+          background: linear-gradient(160deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012));
+          box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 30px 60px rgba(0, 0, 0, 0.3);
+          backdrop-filter: blur(12px);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .tots-root .feature-card::before {
+          content: "";
+          position: absolute;
+          top: 0;
+          left: 12%;
+          right: 12%;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(241, 221, 176, 0.6), transparent);
+          opacity: 0.5;
+          transition: opacity 0.5s var(--ease-lux);
+        }
+
+        .tots-root .feature-card:hover {
+          border-color: rgba(217, 183, 126, 0.4);
+          background: linear-gradient(160deg, rgba(217, 183, 126, 0.09), rgba(255, 255, 255, 0.02));
+          box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1) inset, 0 40px 90px rgba(0, 0, 0, 0.5), 0 0 60px rgba(217, 183, 126, 0.08);
+        }
+
+        .tots-root .feature-card:hover::before { opacity: 1; }
+
+        .tots-root .feature-icon,
+        .tots-root .why-icon {
+          background: rgba(217, 183, 126, 0.08);
+          border-color: rgba(217, 183, 126, 0.28);
+          color: var(--gold);
+        }
+
+        .tots-root .feature-number { color: rgba(243, 238, 228, 0.3); }
+        .tots-root .feature-card h3 { font-family: 'Fraunces', serif; font-weight: 400; font-size: 28px; }
+
+        /* ---------- demo ---------- */
+
+        .tots-root .product-demo-frame {
+          border-color: rgba(217, 183, 126, 0.3);
+          box-shadow:
+            0 0 0 1px rgba(217, 183, 126, 0.1),
+            0 60px 140px rgba(0, 0, 0, 0.6),
+            0 0 140px rgba(217, 183, 126, 0.1);
+        }
+
+        .tots-root .demo-video-card {
+          border-color: rgba(217, 183, 126, 0.25);
+          box-shadow: 0 50px 120px rgba(0, 0, 0, 0.55), 0 0 100px rgba(15, 100, 80, 0.2);
+        }
+
+        .tots-root .demo-mobile-tabs button { border-color: var(--border-strong); color: var(--muted); }
+        .tots-root .demo-mobile-tabs button.active { background: var(--gold); border-color: var(--gold); color: #1a1206; }
+
+        .tots-root .demo-cta {
+          border-color: rgba(217, 183, 126, 0.26);
+          background: linear-gradient(135deg, rgba(15, 80, 63, 0.4), rgba(7, 16, 13, 0.9));
+        }
+
+        .tots-root .demo-cta > div:first-child > span { color: var(--gold); letter-spacing: 0.14em; }
+
+        /* ---------- clarity ---------- */
+
+        .tots-root .clarity-points > div {
+          border-color: var(--border);
+          background: rgba(255, 255, 255, 0.04);
+          color: var(--charcoal-soft);
+        }
+
+        .tots-root .clarity-points svg { color: var(--gold); }
+
+        .tots-root .clarity-showcase {
+          border-color: rgba(217, 183, 126, 0.3);
+          box-shadow: 0 50px 120px rgba(0, 0, 0, 0.55), 0 0 120px rgba(217, 183, 126, 0.12);
+        }
+
+        /* ---------- commerce ---------- */
+
+        .tots-root .shop-showcase {
+          border-color: rgba(217, 183, 126, 0.22);
+          background: linear-gradient(150deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012));
+          box-shadow: 0 50px 120px rgba(0, 0, 0, 0.5);
+        }
+
+        .tots-root .shop-showcase::before {
+          background: radial-gradient(circle, rgba(217, 183, 126, 0.16), transparent 68%);
+        }
+
+        .tots-root .shop-benefit svg { color: var(--gold); }
+        .tots-root .shop-price-line strong { font-family: 'Fraunces', serif; font-weight: 400; color: var(--gold-soft); }
+
+        .tots-root .shop-backend-card,
+        .tots-root .shop-storefront-card { box-shadow: 0 40px 90px rgba(0, 0, 0, 0.55); }
+
+        /* ---------- pricing ---------- */
+
+        .tots-root .pricing-trial-callout {
+          border-color: rgba(217, 183, 126, 0.28);
+          background: rgba(217, 183, 126, 0.07);
+          color: var(--gold);
+        }
+
+        .tots-root .pricing-card {
+          border-color: var(--border);
+          background: linear-gradient(165deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012));
+          box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 30px 70px rgba(0, 0, 0, 0.35);
+          backdrop-filter: blur(12px);
+        }
+
+        .tots-root .pricing-card:not(.featured):hover {
+          border-color: rgba(217, 183, 126, 0.4);
+          box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1) inset, 0 40px 90px rgba(0, 0, 0, 0.5), 0 0 60px rgba(217, 183, 126, 0.07);
+        }
+
+        .tots-root .pricing-card.featured {
+          border: 1px solid transparent;
+          background:
+            linear-gradient(165deg, #0E211B, #08130F) padding-box,
+            linear-gradient(135deg, #F1DDB0, #A8834A 45%, #0F5A47) border-box;
+          box-shadow: 0 50px 120px rgba(0, 0, 0, 0.6), 0 0 100px rgba(217, 183, 126, 0.18);
+        }
+
+        .tots-root .pricing-badge { background: linear-gradient(135deg, #F1DDB0, #D9B77E); color: #1a1206; }
+        .tots-root .pricing-name { color: var(--gold); }
+        .tots-root .pricing-price > span { color: var(--gold-soft); }
+        .tots-root .pricing-price strong { font-family: 'Fraunces', serif; font-weight: 400; }
+        .tots-root .pricing-features svg,
+        .tots-root .pricing-free-note { color: var(--gold); }
+
+        /* ---------- about ---------- */
+
+        .tots-root .about-us-card {
+          border: 1px solid rgba(217, 183, 126, 0.24);
+          background: radial-gradient(500px 260px at 100% 0%, rgba(217, 183, 126, 0.12), transparent 70%), linear-gradient(145deg, #0E241D, #07110D);
+        }
+
+        .tots-root .about-us-card .green-label { color: var(--gold); }
+
+        .tots-root .about-founder-card {
+          border-color: var(--border);
+          background: linear-gradient(165deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012));
+        }
+
+        .tots-root .about-founder-card.featured { border-color: rgba(217, 183, 126, 0.4); background: rgba(217, 183, 126, 0.06); }
+
+        .tots-root .about-founder-avatar,
+        .tots-root .about-founder-card.featured .about-founder-avatar {
+          background: rgba(217, 183, 126, 0.1);
+          border: 1px solid rgba(217, 183, 126, 0.3);
+          color: var(--gold-soft);
+          font-family: 'Fraunces', serif;
+          font-weight: 400;
+        }
+
+        .tots-root .about-story-kicker {
+          border-color: rgba(217, 183, 126, 0.28);
+          background: rgba(217, 183, 126, 0.07);
+          color: var(--gold-soft);
+        }
+
+        /* ---------- FAQ ---------- */
+
+        .tots-root .faq-list {
+          border-color: var(--border);
+          background: linear-gradient(165deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+          backdrop-filter: blur(10px);
+        }
+
+        .tots-root .faq-question:hover > span { color: var(--gold-soft); }
+        .tots-root .faq-item.open .faq-question svg { color: var(--gold); }
+
+        /* ---------- final CTA + footer ---------- */
+
+        .tots-root .final-cta {
+          border: 1px solid rgba(217, 183, 126, 0.26);
+          background:
+            radial-gradient(700px 360px at 50% -10%, rgba(217, 183, 126, 0.22), transparent 70%),
+            radial-gradient(600px 400px at 0% 100%, rgba(15, 100, 80, 0.5), transparent 70%),
+            #07110D;
+          box-shadow: 0 60px 140px rgba(0, 0, 0, 0.55);
+        }
+
+        .tots-root .final-cta h2 { font-weight: 400; }
+        .tots-root .final-cta h2 span { color: var(--gold-soft); font-style: italic; }
+        .tots-root .final-cta .button-primary { border-color: rgba(241, 221, 176, 0.6); background: linear-gradient(135deg, #F1DDB0, #D9B77E 48%, #B8925A); color: #1a1206 !important; }
+        .tots-root .final-cta .button-secondary { border-color: var(--border-strong); background: rgba(255, 255, 255, 0.05); color: var(--charcoal); }
+
+        .tots-root .final-trial-note {
+          margin-top: 22px;
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: rgba(243, 238, 228, 0.55);
+          font-size: 11px;
+          letter-spacing: 0.04em;
+        }
+
+        .tots-root .final-trial-note svg { color: var(--gold); }
+        .tots-root .footer-links a:hover { color: var(--gold-soft); }
+
+        /* ---------- tour on light surface ---------- */
+
+        .tots-root .tour-window .button-secondary {
+          border-color: rgba(30, 42, 39, 0.18);
+          background: #fff;
+          color: #1E2A27;
+        }
+
+        /* ---------- responsive + motion ---------- */
+
+        @media (max-width: 860px) {
+          .tots-section { padding: 96px 0; }
+          .lux-manifesto { padding: 110px 0 90px; }
+          .lux-stats { grid-template-columns: repeat(2, 1fr); }
+          .lux-stat:nth-child(3) { border-left: 0; }
+          .lux-stat:nth-child(n+3) { border-top: 1px solid var(--border); }
+          .lux-stage .hero-window-content { min-height: 380px; }
+          .lux-stage .hero-mini-main { padding: 24px 20px 0; }
+        }
+
+        @media (max-width: 640px) {
+          .tots-root .lux-hero { padding-top: 118px; }
+          .lux-stage { margin-top: 48px; }
+          .lux-stage .hero-window-content { grid-template-columns: 54px 1fr; }
+          .lux-stage .hero-mini-heading strong { font-size: 17px; }
+          .lux-stage .hero-mini-metrics strong { font-size: 22px; }
+          .lux-stage .hero-mini-metrics > div { min-height: 78px; padding: 12px; }
+          .lux-stage .hero-mini-panels { grid-template-columns: 1fr; }
+          .lux-stage .hero-mini-schedule { display: none; }
+          .lux-stage .hero-floating-card { display: none; }
+          .lux-marquee-track span { font-size: 20px; }
+          .lux-marquee-track i { margin: 0 26px; }
+          .lux-hero-actions { width: 100%; flex-direction: column; }
+          .lux-hero-actions .button-primary,
+          .lux-hero-actions .button-secondary { width: 100%; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .lux-aurora i,
+          .lux-beam,
+          .lux-marquee-track,
+          .tots-root .gold-text { animation: none; }
+        }
+
+
+        /* bundle price ladder */
+        .lux-ladder {
+          margin-top: 44px;
+          display: grid;
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+          gap: 12px;
+        }
+
+        .lux-ladder-step {
+          padding: 22px 12px 20px;
+          text-align: center;
+          border: 1px solid var(--border);
+          border-radius: 18px;
+          background: linear-gradient(165deg, rgba(255,255,255,0.055), rgba(255,255,255,0.012));
+          transition: border-color .4s var(--ease-lux), transform .4s var(--ease-lux);
+        }
+
+        .lux-ladder-step:hover { border-color: rgba(217,183,126,.4); transform: translateY(-3px); }
+
+        .lux-ladder-step span {
+          display: block;
+          color: var(--gold);
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: .16em;
+          text-transform: uppercase;
+        }
+
+        .lux-ladder-step strong {
+          display: block;
+          margin-top: 12px;
+          font-family: 'Fraunces', serif;
+          font-size: clamp(1.7rem, 3vw, 2.6rem);
+          font-weight: 400;
+          letter-spacing: -0.03em;
+          color: var(--charcoal);
+        }
+
+        .lux-ladder-step small { color: var(--muted); font-size: 11px; }
+
+        .lux-ladder-step.featured {
+          border-color: rgba(217,183,126,.55);
+          background: linear-gradient(165deg, rgba(217,183,126,.16), rgba(15,90,71,.3));
+          box-shadow: 0 0 60px rgba(217,183,126,.14);
+        }
+
+        .lux-ladder-step.featured strong {
+          background: linear-gradient(180deg, #F1DDB0, #B8925A);
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        @media (max-width: 860px) {
+          .lux-ladder { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
       `}</style>
+
+      <ScrollProgress />
+      <CursorGlow />
+      <div className="lux-grain" aria-hidden="true" />
+      <div className="lux-vignette" aria-hidden="true" />
 
       {/* ======================================================
           NAVIGATION
@@ -14648,313 +15915,115 @@ export default function TotsOSLanding() {
       ====================================================== */}
 
       <main id="top">
-        <section className="hero">
-          <div className="tots-container">
-            <div className="hero-grid">
-              <Reveal>
-                <div className="hero-copy">
-                  <Eyebrow>
-                    One business.
-                    One connected system.
-                  </Eyebrow>
-
-                  <h1 className="hero-title">
-                    Run your business
-                    without the{" "}
-                    <span className="gold-text">
-                      app chaos.
-                    </span>
-                  </h1>
-
-                  <p className="hero-description">
-                    TOTS-OS is your all-in-one business operating system — bringing clients,
-                    projects, finances, social media, email marketing, your store, planning,
-                    notes and day-to-day admin into one connected workspace. Start with only
-                    the modules you need and build a system that grows with your business.
-                  </p>
-
-                  <a href={SETUP_URL} className="hero-trial-banner hero-setup-banner">
-                    <div className="hero-trial-icon">
-                      <WandSparkles size={17} />
-                    </div>
-
-                    <div>
-                      <strong>Not sure what you need? Build your TOTS-OS setup.</strong>
-                      <span>Answer 11 quick questions and get the modules and price that fit your business — with a £199/month maximum.</span>
-                    </div>
-
-                    <ArrowRight size={17} className="hero-setup-arrow" />
-                  </a>
-
-                  <div className="hero-actions">
-                    <a
-                      href={SETUP_URL}
-                      className="button-primary button-large"
-                    >
-                      Build my setup
-
-                      <WandSparkles
-                        size={15}
-                      />
-                    </a>
-
-                    <button
-                      type="button"
-                      className="button-secondary button-large"
-                      onClick={() =>
-                        setTourOpen(
-                          true
-                        )
-                      }
-                    >
-                      <Play
-                        size={14}
-                      />
-
-                      Take the
-                      tour
-                    </button>
-                  </div>
-
-                  <div className="hero-proof">
-                    <div>
-                      <Check
-                        size={13}
-                      />
-                      Choose only what you need
-                    </div>
-
-                    <div>
-                      <Check
-                        size={13}
-                      />
-                      Bundle savings applied automatically
-                    </div>
-
-                    <div>
-                      <Check
-                        size={13}
-                      />
-                      Never more than £199/month
-                    </div>
-                  </div>
-                </div>
-              </Reveal>
-
-              <Reveal
-                delay={
-                  0.12
-                }
-              >
-                <div className="hero-visual">
-                  <div className="hero-visual-glow" />
-
-                  <div className="hero-window">
-                    <div className="hero-window-top">
-                      <div className="window-dots">
-                        <span />
-                        <span />
-                        <span />
-                      </div>
-
-                      <span>
-                        TOTS-OS
-                      </span>
-                    </div>
-
-                    <div className="hero-window-content">
-                      <div className="hero-mini-sidebar">
-                        <Logo
-                          size={34}
-                          showWordmark={
-                            false
-                          }
-                        />
-
-                        {[
-                          LayoutDashboard,
-                          Users,
-                          FolderKanban,
-                          CircleDollarSign,
-                          CalendarDays,
-                          NotebookPen,
-                        ].map(
-                          (
-                            Icon,
-                            index
-                          ) => (
-                            <div
-                              key={
-                                index
-                              }
-                              className={
-                                index ===
-                                0
-                                  ? "active"
-                                  : ""
-                              }
-                            >
-                              <Icon
-                                size={14}
-                              />
-                            </div>
-                          )
-                        )}
-                      </div>
-
-                      <div className="hero-mini-main">
-                        <div className="hero-mini-heading">
-                          <div>
-                            <span>
-                              Good
-                              morning.
-                            </span>
-
-                            <strong>
-                              Here&apos;s
-                              your
-                              business
-                              today.
-                            </strong>
-                          </div>
-
-                          <div className="hero-mini-clarity">
-                            <Sparkles
-                              size={12}
-                            />
-                            Clarity
-                          </div>
-                        </div>
-
-                        <div className="hero-mini-metrics">
-                          <div>
-                            <span>
-                              Revenue
-                            </span>
-                            <strong>
-                              £18.4k
-                            </strong>
-                          </div>
-
-                          <div>
-                            <span>
-                              Tasks
-                            </span>
-                            <strong>
-                              12
-                            </strong>
-                          </div>
-
-                          <div>
-                            <span>
-                              Projects
-                            </span>
-                            <strong>
-                              6
-                            </strong>
-                          </div>
-                        </div>
-
-                        <div className="hero-mini-panels">
-                          <div className="hero-mini-focus">
-                            <span>
-                              Focus
-                            </span>
-
-                            <strong>
-                              Today&apos;s
-                              priorities
-                            </strong>
-
-                            <div />
-
-                            <div />
-
-                            <div />
-                          </div>
-
-                          <div className="hero-mini-schedule">
-                            <span>
-                              Coming up
-                            </span>
-
-                            <div />
-
-                            <div />
-
-                            <div />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="hero-floating-card hero-floating-one">
-                    <span>
-                      <Sparkles
-                        size={12}
-                      />
-                      Clarity
-                    </span>
-
-                    <strong>
-                      3 things
-                      need your
-                      attention
-                    </strong>
-                  </div>
-
-                  <div className="hero-floating-card hero-floating-two">
-                    <span>
-                      Business
-                      health
-                    </span>
-
-                    <strong>
-                      82%
-                    </strong>
-                  </div>
-                </div>
-              </Reveal>
-            </div>
-
-            <Reveal
-              delay={
-                0.18
-              }
-            >
-              <div className="trusted-block">
-                <span className="trusted-label">
-                  Built for
-                  businesses
-                  like
-                </span>
-
-                <div className="trusted-row">
-                  {TRUSTED_BY.map(
-                    (
-                      company
-                    ) => (
-                      <span
-                        key={
-                          company
-                        }
-                      >
-                        {
-                          company
-                        }
-                      </span>
-                    )
-                  )}
-                </div>
-              </div>
-            </Reveal>
+        <section className="lux-hero">
+          <div className="lux-aurora" aria-hidden="true">
+            <i />
+            <i />
+            <i />
           </div>
+
+          <div className="lux-beam" aria-hidden="true" />
+
+          <div className="tots-container lux-hero-inner">
+            <motion.div
+              className="lux-hero-badge"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9, ease: [0.19, 1, 0.22, 1] }}
+            >
+              <Sparkles size={13} />
+              One business. One connected system.
+            </motion.div>
+
+            <h1 className="lux-hero-title">
+              <MaskLine delay={0.1}>Run your business</MaskLine>
+
+              <MaskLine delay={0.24}>
+                without the{" "}
+                <span className="gold-text">app chaos.</span>
+              </MaskLine>
+            </h1>
+
+            <motion.p
+              className="lux-hero-sub"
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1, delay: 0.5, ease: [0.19, 1, 0.22, 1] }}
+            >
+              ORBI. is your all-in-one business operating system — clients,
+              projects, finances, social, email, your store, planning and
+              notes in one connected workspace. Start with only the modules
+              you need and grow from there.
+            </motion.p>
+
+            <motion.div
+              className="lux-hero-actions"
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1, delay: 0.65, ease: [0.19, 1, 0.22, 1] }}
+            >
+              <a href={SETUP_URL} className="button-primary button-large">
+                Build my setup
+                <WandSparkles size={15} />
+              </a>
+
+              <button
+                type="button"
+                className="button-secondary button-large"
+                onClick={() => setTourOpen(true)}
+              >
+                <Play size={14} />
+                Take the tour
+              </button>
+            </motion.div>
+
+            <motion.div
+              className="lux-hero-proof"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1.2, delay: 0.9 }}
+            >
+              <div>
+                <Check size={13} />
+                Choose only what you need
+              </div>
+
+              <div>
+                <Check size={13} />
+                Bundle savings applied automatically
+              </div>
+
+              <div>
+                <Check size={13} />
+                All six modules for £139/month
+              </div>
+            </motion.div>
+          </div>
+
+          <HeroStage />
         </section>
 
-        {/* ====================================================
-            BUILD YOUR SETUP
-        ==================================================== */}
+        <div
+          className="lux-marquee"
+          aria-label="Built for businesses like"
+        >
+          <span className="lux-marquee-label">
+            Built for businesses like
+          </span>
+
+          <div className="lux-marquee-mask">
+            <div className="lux-marquee-track">
+              {[...TRUSTED_BY, ...TRUSTED_BY].map((company, index) => (
+                <span key={`${company}-${index}`}>
+                  {company}
+                  <i />
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <Manifesto />
 
         <section className="setup-spotlight-section" aria-labelledby="setup-spotlight-title">
           <div className="tots-container">
@@ -14964,7 +16033,7 @@ export default function TotsOSLanding() {
 
                 <div className="setup-spotlight-copy">
                   <span className="setup-spotlight-kicker">
-                    Your TOTS-OS. Built around your business.
+                    Your ORBI. Built around your business.
                   </span>
 
                   <h2 id="setup-spotlight-title">
@@ -14973,7 +16042,7 @@ export default function TotsOSLanding() {
 
                   <p>
                     Tell us how you currently manage clients, projects, finances, marketing,
-                    selling and admin. In about two minutes, we&apos;ll recommend the TOTS-OS
+                    selling and admin. In about two minutes, we&apos;ll recommend the ORBI.
                     modules that would genuinely help — and leave out the ones you don&apos;t need.
                   </p>
 
@@ -14981,7 +16050,7 @@ export default function TotsOSLanding() {
                     <span role="listitem"><Check size={13} /> Personalised module recommendation</span>
                     <span role="listitem"><Check size={13} /> Automatic bundle savings</span>
                     <span role="listitem"><Check size={13} /> Clarity AI recommendation</span>
-                    <span role="listitem"><Check size={13} /> £199/month maximum</span>
+                    <span role="listitem"><Check size={13} /> Complete from £139/month</span>
                   </div>
                 </div>
 
@@ -14993,7 +16062,7 @@ export default function TotsOSLanding() {
                   </div>
 
                   <a href={SETUP_URL} className="button-primary button-large setup-main-button">
-                    Build my TOTS-OS
+                    Build my ORBI.
                     <WandSparkles size={16} />
                   </a>
 
@@ -15034,7 +16103,7 @@ export default function TotsOSLanding() {
                 It needs one
                 place where the
                 important things
-                connect. TOTS-OS
+                connect. ORBI.
                 gives you a
                 clearer view of
                 the work, people,
@@ -15079,7 +16148,7 @@ export default function TotsOSLanding() {
                   </span>
 
                   <strong>
-                    TOTS-OS
+                    ORBI.
                   </strong>
 
                   <p>
@@ -15191,7 +16260,7 @@ export default function TotsOSLanding() {
           <div className="tots-container">
             <Reveal>
               <Eyebrow>
-                Explore TOTS-OS
+                Explore ORBI.
               </Eyebrow>
 
               <h2 className="section-title">
@@ -15208,7 +16277,7 @@ export default function TotsOSLanding() {
                 the guided tour
                 to see how the
                 different parts
-                of TOTS-OS work
+                of ORBI. work
                 together.
               </p>
             </Reveal>
@@ -15229,7 +16298,7 @@ export default function TotsOSLanding() {
 
                     <div>
                       <strong>
-                        Watch TOTS-OS in action
+                        Watch ORBI. in action
                       </strong>
 
                       <span>
@@ -15248,7 +16317,7 @@ export default function TotsOSLanding() {
                   controls
                   playsInline
                   preload="metadata"
-                  aria-label="TOTS-OS product demonstration"
+                  aria-label="ORBI. product demonstration"
                 >
                   <source
                     src="/demo.mp4"
@@ -15321,7 +16390,7 @@ export default function TotsOSLanding() {
                     information
                     already
                     inside your
-                    TOTS-OS
+                    ORBI.
                     workspace to
                     help you see
                     priorities,
@@ -15475,7 +16544,7 @@ export default function TotsOSLanding() {
                           are
                           already
                           saved in
-                          TOTS-OS
+                          ORBI.
                         </small>
                       </div>
                     </div>
@@ -15487,7 +16556,7 @@ export default function TotsOSLanding() {
         </section>
 
         {/* ====================================================
-            TOTS COMMERCE
+            ORBI. STORE
         ==================================================== */}
 
         <section className="tots-section soft" id="shop">
@@ -15496,7 +16565,7 @@ export default function TotsOSLanding() {
               <div className="shop-showcase">
                 <div className="shop-showcase-grid">
                   <div className="shop-copy">
-                    <Eyebrow>TOTS Commerce</Eyebrow>
+                    <Eyebrow>ORBI. Store</Eyebrow>
 
                     <h2 className="section-title">
                       Your shop. Your brand.{" "}
@@ -15505,14 +16574,14 @@ export default function TotsOSLanding() {
 
                     <p>
                       Sell products or services through your own branded public
-                      storefront, while TOTS Commerce handles the operational side:
+                      storefront, while ORBI. Store handles the operational side:
                       products, orders, stock, payments, discounts and fulfilment.
-                      It is built to sit alongside the rest of TOTS-OS, so commerce
+                      It is built to sit alongside the rest of ORBI., so commerce
                       does not become another disconnected system to manage.
                     </p>
 
                     <div className="shop-price-line">
-                      <strong>£39</strong>
+                      <strong>£29</strong>
                       <span>/ month</span>
                     </div>
 
@@ -15536,20 +16605,20 @@ export default function TotsOSLanding() {
 
                     <div className="shop-actions">
                       <a href={SHOP_BUY_URL} className="button-primary button-large">
-                        Buy TOTS Commerce
+                        Buy ORBI. Store
                         <ArrowRight size={15} />
                       </a>
 
                       <span className="shop-note">
-                        Standalone commerce module · £39/month
+                        ORBI. Store module · £29/month
                       </span>
                     </div>
                   </div>
 
-                  <div className="shop-visual-stack" aria-label="TOTS Commerce preview">
+                  <div className="shop-visual-stack" aria-label="ORBI. Store preview">
                     <div className="shop-backend-card">
                       <div className="shop-browser-bar">
-                        <span>TOTS-OS</span><span>Commerce backend</span>
+                        <span>ORBI.</span><span>Commerce backend</span>
                       </div>
                       <div className="shop-backend-body">
                         <div className="shop-backend-title">
@@ -15569,7 +16638,7 @@ export default function TotsOSLanding() {
                       </div>
                       <div className="shop-storefront-body">
                         <div className="shop-storefront-head">
-                          <span>The Organised Types</span><span>Basket</span>
+                          <span>ORBI.</span><span>Basket</span>
                         </div>
                         <div className="shop-storefront-pills"><i /><i /><i /><i /></div>
                         <div className="shop-product-row">
@@ -15608,9 +16677,9 @@ export default function TotsOSLanding() {
               </h2>
 
               <p className="section-copy">
-                Start with one module or connect several parts of your business. Choose 3–4 modules
-                and get 10% off, choose 5 and get 20% off. If your setup reaches £199/month,
-                TOTS-OS Complete gives you all six main modules plus Clarity AI Starter for £199.
+                Start with one module or connect several parts of your business. Every module is £29/month
+                on its own, and your fixed bundle price applies automatically as you add more.
+                ORBI. Complete gives you all six modules plus Clarity AI Starter for £139/month.
               </p>
 
               <a href={SETUP_URL} className="pricing-trial-callout pricing-setup-callout">
@@ -15621,6 +16690,22 @@ export default function TotsOSLanding() {
                 </div>
                 <ArrowRight size={15} />
               </a>
+            </Reveal>
+
+            <Reveal>
+              <div className="lux-ladder" role="list" aria-label="Bundle pricing">
+                {BUNDLE_LADDER.map((tier) => (
+                  <div
+                    key={tier.label}
+                    role="listitem"
+                    className={`lux-ladder-step ${tier.featured ? "featured" : ""}`}
+                  >
+                    <span>{tier.label}</span>
+                    <strong>£{tier.price}</strong>
+                    <small>/month</small>
+                  </div>
+                ))}
+              </div>
             </Reveal>
 
             <div className="pricing-grid">
@@ -15713,7 +16798,7 @@ export default function TotsOSLanding() {
                       </div>
 
                       <a
-                        href={plan.featured ? `${BILLING_URL}?package=complete&modules=core,clientsProjects,finance,social,email,store&ai=starter&price=199` : SETUP_URL}
+                        href={plan.featured ? COMPLETE_URL : SETUP_URL}
                         className={
                           plan.featured
                             ? "button-primary button-large pricing-button"
@@ -15761,7 +16846,7 @@ export default function TotsOSLanding() {
                 a mum-and-daughter team,
                 two very different brains,
                 and the people behind The
-                Organised Types and TOTS-OS.
+                Organised Types and ORBI.
               </p>
 
               <p className="section-copy">
@@ -15802,7 +16887,7 @@ export default function TotsOSLanding() {
                 <p>
                   That back-and-forth is a
                   pretty good summary of how
-                  TOTS-OS came to life. We kept
+                  ORBI. came to life. We kept
                   looking at the everyday way
                   small businesses actually work
                   and asking: can this be calmer,
@@ -15810,7 +16895,7 @@ export default function TotsOSLanding() {
                 </p>
 
                 <p>
-                  TOTS-OS is our answer — a
+                  ORBI. is our answer — a
                   system made to feel useful,
                   human and genuinely nice to
                   open every day.
@@ -15873,7 +16958,7 @@ export default function TotsOSLanding() {
                   design and constant “we could
                   make this better” energy. She
                   turns the ideas into the product
-                  — from how TOTS-OS feels to how
+                  — from how ORBI. feels to how
                   all the moving parts connect.
                 </p>
 
@@ -16051,7 +17136,7 @@ export default function TotsOSLanding() {
 
                 <div className="final-trial-note">
                   <Check size={13} />
-                  Personalised recommendation · flexible modules · £199/month maximum
+                  Personalised recommendation · flexible modules · from £29/month
                 </div>
               </div>
             </Reveal>
@@ -16131,7 +17216,7 @@ export default function TotsOSLanding() {
             </span>
 
             <span>
-              TOTS-OS · Your
+              ORBI. · Your
               business,
               organised.
             </span>

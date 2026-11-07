@@ -695,7 +695,7 @@ export default function StoreSuccessPage() {
               {processingComplete
                 ? "Your order has been received and processed successfully."
                 : paymentSuccessful
-                  ? "Your payment was successful. TOTS-OS is just finishing the final order processing."
+                  ? "Your payment was successful. ORBI. is just finishing the final order processing."
                   : "Your checkout has been received and we’re waiting for the payment confirmation to finish."}
             </p>
 
@@ -968,7 +968,7 @@ export default function StoreSuccessPage() {
               </h2>
 
               <p className="mt-2 text-xs leading-6 text-stone-600">
-                The business now has your order in TOTS-OS and will be able to follow up with you directly. Keep your order number handy in case you need to get in touch.
+                The business now has your order in ORBI. and will be able to follow up with you directly. Keep your order number handy in case you need to get in touch.
               </p>
             </div>
           </div>
@@ -1023,7 +1023,7 @@ export default function StoreSuccessPage() {
         </div>
 
         <p className="mt-7 text-center text-[8px] uppercase tracking-[0.16em] text-stone-300">
-          Secure checkout powered by TOTS-OS and Stripe
+          Secure checkout powered by ORBI. and Stripe
         </p>
       </div>
 

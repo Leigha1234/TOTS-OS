@@ -110,18 +110,18 @@ export default function FinanceExpenses({
     <div className="space-y-6">
       {/* SUMMARY */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-stone-900 text-white rounded-[2rem] p-6 shadow-xl">
-          <p className="text-[8px] font-black uppercase tracking-[0.3em] text-stone-500">
+        <div className="bg-[#0F3D32] text-white rounded-[24px] p-6 shadow-xl">
+          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-stone-500">
             Total Expenses
           </p>
 
-          <p className="text-2xl font-mono tracking-tight mt-4 text-[#a9b897]">
+          <p className="text-2xl font-mono tracking-tight mt-4 text-[#0F3D32]">
             {currency(total)}
           </p>
         </div>
 
-        <div className="bg-white border border-stone-100 rounded-[2rem] p-6 shadow-sm">
-          <p className="text-[8px] font-black uppercase tracking-[0.3em] text-stone-300">
+        <div className="bg-white border border-[#E6ECE7] rounded-[24px] p-6 shadow-sm">
+          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[#64776D]">
             Approved
           </p>
 
@@ -132,8 +132,8 @@ export default function FinanceExpenses({
           </p>
         </div>
 
-        <div className="bg-white border border-stone-100 rounded-[2rem] p-6 shadow-sm">
-          <p className="text-[8px] font-black uppercase tracking-[0.3em] text-stone-300">
+        <div className="bg-white border border-[#E6ECE7] rounded-[24px] p-6 shadow-sm">
+          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[#64776D]">
             Pending
           </p>
 
@@ -157,20 +157,20 @@ export default function FinanceExpenses({
                 onAddExpense
               }
               className="
-                bg-stone-900
+                bg-[#0F3D32]
                 text-white
                 px-5 py-2.5
                 rounded-full
                 flex items-center
                 gap-2
-                hover:bg-[#a9b897]
-                hover:text-stone-900
+                hover:bg-[#0F3D32]
+                hover:text-[#1E2A27]
                 transition-all
               "
             >
               <Plus size={14} />
 
-              <span className="text-[8px] font-black uppercase tracking-widest">
+              <span className="text-[11px] font-black uppercase tracking-widest">
                 Log Expense
               </span>
             </button>
@@ -220,7 +220,7 @@ export default function FinanceExpenses({
                       group
                       bg-[#faf9f6]
                       border
-                      border-stone-100
+                      border-[#E6ECE7]
                       rounded-[1.5rem]
                       p-4 sm:p-5
                       flex
@@ -235,7 +235,7 @@ export default function FinanceExpenses({
                     "
                   >
                     <div className="flex items-start gap-4 min-w-0">
-                      <div className="w-11 h-11 bg-white border border-stone-100 rounded-xl flex items-center justify-center text-[#a9b897] shrink-0">
+                      <div className="w-11 h-11 bg-white border border-[#E6ECE7] rounded-xl flex items-center justify-center text-[#0F3D32] shrink-0">
                         <Receipt
                           size={
                             17
@@ -244,19 +244,19 @@ export default function FinanceExpenses({
                       </div>
 
                       <div className="min-w-0">
-                        <p className="font-bold text-stone-900 truncate">
+                        <p className="font-bold text-[#1E2A27] truncate">
                           {expense.description ||
                             "Untitled expense"}
                         </p>
 
                         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
-                          <span className="text-[8px] font-mono uppercase tracking-widest text-stone-400">
+                          <span className="text-[11px] font-mono uppercase tracking-widest text-stone-400">
                             {expense.date ||
                               "No date"}
                           </span>
 
                           {expense.category && (
-                            <span className="text-[8px] uppercase tracking-widest text-stone-400">
+                            <span className="text-[11px] uppercase tracking-widest text-stone-400">
                               {
                                 expense.category
                               }
@@ -264,7 +264,7 @@ export default function FinanceExpenses({
                           )}
 
                           {expense.supplier && (
-                            <span className="text-[8px] uppercase tracking-widest text-stone-400">
+                            <span className="text-[11px] uppercase tracking-widest text-stone-400">
                               {
                                 expense.supplier
                               }

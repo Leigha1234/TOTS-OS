@@ -255,7 +255,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Your account is not linked to a TOTS-OS workspace.",
+            "Your account is not linked to a ORBI. workspace.",
         },
         {
           status:
@@ -352,10 +352,10 @@ export async function POST(
           user.id,
 
         title:
-          "TOTS-OS test notification",
+          "ORBI. test notification",
 
         body:
-          "Push notifications are working. You’ll receive important TOTS-OS updates here.",
+          "Push notifications are working. You’ll receive important ORBI. updates here.",
 
         url:
           "/settings",

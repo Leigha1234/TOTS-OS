@@ -35,8 +35,8 @@ export default function TopLoader() {
         loading ? "w-1/2 opacity-100" : "w-full opacity-0"
       }`}
       style={{
-        backgroundColor: "#a9b897",
-        boxShadow: "0 0 10px #a9b897, 0 0 5px #a9b897",
+        backgroundColor: "#0F3D32",
+        boxShadow: "0 0 10px #0F3D32, 0 0 5px #0F3D32",
       }}
     />
   );

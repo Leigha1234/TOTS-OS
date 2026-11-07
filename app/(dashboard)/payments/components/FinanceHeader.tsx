@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  Download,
-  Fingerprint,
-  Plus,
-  RefreshCw,
-} from "lucide-react";
+import { ArrowUpRight, Download, Plus, RefreshCw, WalletCards } from "lucide-react";
 
 type FinanceHeaderProps = {
   onCreateDocument?: () => void;
@@ -16,104 +11,26 @@ type FinanceHeaderProps = {
   loading?: boolean;
 };
 
-export default function FinanceHeader({
-  onCreateDocument,
-  onCreateInvoice,
-  onCreateQuote,
-  onRefresh,
-  onExport,
-  loading = false,
-}: FinanceHeaderProps) {
-  const handleCreateInvoice = onCreateInvoice ?? onCreateDocument;
-
+export default function FinanceHeader({ onCreateDocument, onCreateInvoice, onCreateQuote, onRefresh, onExport, loading = false }: FinanceHeaderProps) {
+  const createInvoice = onCreateInvoice ?? onCreateDocument;
   return (
-    <header className="rounded-[2rem] border border-stone-100 bg-white p-5 shadow-sm sm:p-6">
-      <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900 text-[#a9b897] shadow-lg">
-              <Fingerprint size={16} />
-            </div>
-
-            <div className="h-1.5 w-1.5 rounded-full bg-[#a9b897] animate-pulse" />
-
-            <span className="text-[8px] font-black uppercase tracking-[0.28em] text-stone-300">
-              Financial Operations
-            </span>
+    <header className="relative isolate overflow-hidden rounded-[28px] bg-[#0F3D32] px-6 py-8 text-[#F7EFE6] shadow-[0_18px_50px_-24px_rgba(15,61,50,.65)] sm:px-9 sm:py-10">
+      <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-40 h-96 w-96 rounded-full border border-white/10" />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-6 -top-24 h-72 w-72 rounded-full border border-white/10" />
+      <div aria-hidden="true" className="pointer-events-none absolute bottom-0 right-24 h-44 w-44 translate-y-1/2 rounded-full bg-[#8CB7A1]/10 blur-3xl" />
+      <div className="relative z-10 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+        <div className="max-w-2xl">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-semibold tracking-[.14em] text-[#D9E9E0]">
+            <WalletCards size={14} aria-hidden="true" /> ORBI. / FINANCIAL WORKSPACE
           </div>
-
-          <div>
-            <h1 className="text-3xl font-serif italic tracking-tighter text-stone-900 sm:text-4xl lg:text-5xl">
-              Finance
-            </h1>
-
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-stone-500">
-              Manage money coming in, money going out, invoices,
-              expenses, tax, payroll and financial performance from one place.
-            </p>
-          </div>
+          <h1 className="font-serif text-4xl leading-tight tracking-tight sm:text-5xl lg:text-[58px]">Your finances, <em className="font-normal text-[#C4D8CA]">in focus.</em></h1>
+          <p className="mt-4 max-w-xl text-sm leading-6 text-[#DCE9E1] sm:text-base">Stay on top of invoices, expenses and cash flow — with everything your business needs in one connected workspace.</p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {onRefresh && (
-            <button
-              type="button"
-              onClick={onRefresh}
-              disabled={loading}
-              className="flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-white px-3 text-stone-500 transition hover:border-stone-300 hover:text-stone-900 disabled:opacity-50"
-            >
-              <RefreshCw
-                size={13}
-                className={loading ? "animate-spin" : ""}
-              />
-
-              <span className="text-[8px] font-black uppercase tracking-widest">
-                Refresh
-              </span>
-            </button>
-          )}
-
-          {onExport && (
-            <button
-              type="button"
-              onClick={onExport}
-              className="flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-white px-3 text-stone-500 transition hover:border-stone-300 hover:text-stone-900"
-            >
-              <Download size={13} />
-
-              <span className="text-[8px] font-black uppercase tracking-widest">
-                Export
-              </span>
-            </button>
-          )}
-
-          {handleCreateInvoice && (
-            <button
-              type="button"
-              onClick={handleCreateInvoice}
-              className="flex h-10 items-center gap-2 rounded-full bg-[#a9b897] px-4 text-stone-900 shadow-lg transition hover:bg-stone-900 hover:text-white active:scale-95"
-            >
-              <Plus size={14} />
-
-              <span className="text-[8px] font-black uppercase tracking-widest">
-                New Invoice
-              </span>
-            </button>
-          )}
-
-          {onCreateQuote && (
-            <button
-              type="button"
-              onClick={onCreateQuote}
-              className="flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-4 text-stone-700 transition hover:border-stone-300 hover:bg-white"
-            >
-              <Plus size={14} />
-
-              <span className="text-[8px] font-black uppercase tracking-widest">
-                New Quote
-              </span>
-            </button>
-          )}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {onRefresh && <button type="button" onClick={onRefresh} disabled={loading} className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-50"><RefreshCw size={16} className={loading ? "animate-spin" : ""} />Refresh</button>}
+          {onExport && <button type="button" onClick={onExport} className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/20"><Download size={16} />Export</button>}
+          {onCreateQuote && <button type="button" onClick={onCreateQuote} className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/20"><Plus size={16} />New quote</button>}
+          {createInvoice && <button type="button" onClick={createInvoice} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#F7EFE6] px-5 text-sm font-bold text-[#0F3D32] shadow-lg transition hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><Plus size={17} />New invoice<ArrowUpRight size={15} /></button>}
         </div>
       </div>
     </header>

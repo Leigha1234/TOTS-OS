@@ -677,7 +677,7 @@ export default function TotsAdminPage() {
             size={
               28
             }
-            className="mx-auto mb-4 animate-spin text-[#a9b897]"
+            className="mx-auto mb-4 animate-spin text-[#0F3D32]"
           />
 
           <p className="text-[9px] font-black uppercase tracking-[0.28em] text-stone-400">
@@ -756,7 +756,7 @@ export default function TotsAdminPage() {
 
             <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-500">
               Everything happening across
-              TOTS-OS in one private
+              ORBI. in one private
               platform dashboard.
             </p>
           </div>
@@ -771,7 +771,7 @@ export default function TotsAdminPage() {
                 true
               )
             }
-            className="flex items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-5 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-stone-600 transition hover:border-[#a9b897]"
+            className="flex items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-5 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-stone-600 transition hover:border-[#0F3D32]"
           >
             <RefreshCw
               size={

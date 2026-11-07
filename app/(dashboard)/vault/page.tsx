@@ -108,7 +108,7 @@ export default function VaultUploadPage() {
   const filteredFiles = files.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] text-stone-900 font-sans selection:bg-[#a9b897] selection:text-white pb-32">
+    <div className="min-h-screen bg-[#faf9f6] text-stone-900 font-sans selection:bg-[#0F3D32] selection:text-white pb-32">
       
       <div className="max-w-[1400px] mx-auto px-8 py-10 space-y-10">
         
@@ -116,7 +116,7 @@ export default function VaultUploadPage() {
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-stone-100 pb-10 text-left">
           <div className="space-y-4">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-stone-900 text-[#a9b897] rounded-xl shadow-lg cursor-pointer hover:rotate-12 transition-transform">
+              <div className="p-3 bg-stone-900 text-[#0F3D32] rounded-xl shadow-lg cursor-pointer hover:rotate-12 transition-transform">
                 <Database size={20} />
               </div>
               
@@ -126,10 +126,10 @@ export default function VaultUploadPage() {
 
           <div className="flex items-center gap-3">
              <div className="bg-white border border-stone-100 p-1 rounded-full flex gap-1 shadow-sm">
-                <button onClick={() => setViewMode("grid")} className={`p-2 rounded-full transition-all ${viewMode === "grid" ? "bg-stone-900 text-[#a9b897]" : "text-stone-300 hover:text-stone-500"}`}><LayoutGrid size={14}/></button>
-                <button onClick={() => setViewMode("list")} className={`p-2 rounded-full transition-all ${viewMode === "list" ? "bg-stone-900 text-[#a9b897]" : "text-stone-300 hover:text-stone-500"}`}><List size={14}/></button>
+                <button onClick={() => setViewMode("grid")} className={`p-2 rounded-full transition-all ${viewMode === "grid" ? "bg-stone-900 text-[#0F3D32]" : "text-stone-300 hover:text-stone-500"}`}><LayoutGrid size={14}/></button>
+                <button onClick={() => setViewMode("list")} className={`p-2 rounded-full transition-all ${viewMode === "list" ? "bg-stone-900 text-[#0F3D32]" : "text-stone-300 hover:text-stone-500"}`}><List size={14}/></button>
              </div>
-             <button onClick={() => fileInputRef.current?.click()} className="bg-stone-900 text-white px-8 py-3 rounded-full flex items-center gap-3 hover:bg-[#a9b897] hover:text-stone-900 transition-all shadow-xl active:scale-95">
+             <button onClick={() => fileInputRef.current?.click()} className="bg-stone-900 text-white px-8 py-3 rounded-full flex items-center gap-3 hover:bg-[#0F3D32] hover:text-stone-900 transition-all shadow-xl active:scale-95">
                 <Plus size={16} />
                 <span className="text-[9px] font-black uppercase tracking-widest">New Upload</span>
              </button>
@@ -141,9 +141,9 @@ export default function VaultUploadPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-8 flex flex-col md:flex-row gap-4 text-left">
             <div className="relative flex-1 group">
-              <Search size={14} className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-[#a9b897] transition-colors" />
+              <Search size={14} className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-[#0F3D32] transition-colors" />
               <input placeholder="Search archive logic..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-white border border-stone-100 rounded-2xl py-4 pl-14 pr-4 text-[10px] font-bold outline-none focus:border-[#a9b897] transition-all shadow-sm" />
+                className="w-full bg-white border border-stone-100 rounded-2xl py-4 pl-14 pr-4 text-[10px] font-bold outline-none focus:border-[#0F3D32] transition-all shadow-sm" />
             </div>
             <button className="px-6 bg-white border border-stone-100 rounded-2xl flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-widest text-stone-400 hover:text-stone-900 transition-all">
               <Filter size={14} /> Filter
@@ -154,8 +154,8 @@ export default function VaultUploadPage() {
 
         {/* --- UPLOAD ZONE --- */}
         <div onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={handleUpload}
-          className={`relative border-2 border-dashed rounded-[3rem] p-16 transition-all duration-500 group flex flex-col items-center justify-center gap-6 ${isDragging ? "bg-[#a9b897]/5 border-[#a9b897] scale-[0.99]" : "bg-white border-stone-100 hover:border-[#a9b897]/30"}`}>
-          <div className={`p-6 rounded-full transition-all duration-500 ${isDragging ? "bg-stone-900 text-[#a9b897] scale-110" : "bg-stone-50 text-stone-200"}`}>
+          className={`relative border-2 border-dashed rounded-[3rem] p-16 transition-all duration-500 group flex flex-col items-center justify-center gap-6 ${isDragging ? "bg-[#0F3D32]/5 border-[#0F3D32] scale-[0.99]" : "bg-white border-stone-100 hover:border-[#0F3D32]/30"}`}>
+          <div className={`p-6 rounded-full transition-all duration-500 ${isDragging ? "bg-stone-900 text-[#0F3D32] scale-110" : "bg-stone-50 text-stone-200"}`}>
             <CloudUpload size={40} className={isDragging ? "animate-bounce" : ""} />
           </div>
           <div className="text-center space-y-2">
@@ -178,7 +178,7 @@ export default function VaultUploadPage() {
                         {/* IN-PLACE INLINE PREVIEW ACTION CLICK ON THE BRANDING CARDS */}
                         <button 
                           onClick={() => triggerPreviewFlow(file)}
-                          className="w-12 h-12 bg-stone-50 rounded-xl flex items-center justify-center text-stone-300 group-hover:bg-stone-900 group-hover:text-[#a9b897] transition-all cursor-pointer shadow-inner"
+                          className="w-12 h-12 bg-stone-50 rounded-xl flex items-center justify-center text-stone-300 group-hover:bg-stone-900 group-hover:text-[#0F3D32] transition-all cursor-pointer shadow-inner"
                         >
                           {file.type === 'pdf' ? <FileText size={20}/> : <File size={20}/>}
                         </button>
@@ -209,11 +209,11 @@ export default function VaultUploadPage() {
                         <div className="space-y-2 relative z-30 bg-stone-50 p-3 rounded-xl border border-stone-200">
                           <input className="w-full bg-white text-xs p-2 rounded border border-stone-200 font-mono" value={editName} onChange={(e) => setEditName(e.target.value)} />
                           <input className="w-full bg-white text-[9px] font-black uppercase tracking-wider p-2 rounded border border-stone-200" value={editCategory} onChange={(e) => setEditCategory(e.target.value)} />
-                          <button onClick={() => saveFileModifications(file.id)} className="w-full bg-stone-900 text-[#a9b897] text-[8px] font-black uppercase tracking-widest py-1.5 rounded flex items-center justify-center gap-1.5"><Check size={10}/> Save</button>
+                          <button onClick={() => saveFileModifications(file.id)} className="w-full bg-stone-900 text-[#0F3D32] text-[8px] font-black uppercase tracking-widest py-1.5 rounded flex items-center justify-center gap-1.5"><Check size={10}/> Save</button>
                         </div>
                       ) : (
                         <div className="space-y-1 cursor-pointer relative z-10" onClick={() => triggerPreviewFlow(file)}>
-                          <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#a9b897] italic">{file.category}</p>
+                          <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#0F3D32] italic">{file.category}</p>
                           <h4 className="text-xl font-serif italic text-stone-800 tracking-tighter truncate leading-tight group-hover:text-stone-950">{file.name}</h4>
                           <p className="text-[8px] font-mono font-bold text-stone-300 uppercase tracking-widest">{file.size} • {file.uploadedAt}</p>
                         </div>
@@ -222,12 +222,12 @@ export default function VaultUploadPage() {
 
                     <div className="mt-6 flex items-center justify-between pt-4 border-t border-stone-50 relative z-10">
                        <div className="flex items-center gap-2">
-                          <ShieldCheck size={10} className="text-[#a9b897]" />
+                          <ShieldCheck size={10} className="text-[#0F3D32]" />
                           <span className="text-[7px] font-black text-stone-300 uppercase tracking-widest">{file.status}</span>
                        </div>
                        <div className="flex items-center gap-2">
                          <button onClick={() => triggerPreviewFlow(file)} className="p-1.5 text-stone-200 hover:text-stone-800 transition-all rounded-md hover:bg-stone-50" title="Quick View"><Eye size={13}/></button>
-                         <button onClick={() => downloadAsPDF(file)} className="p-1.5 text-stone-200 hover:text-[#a9b897] transition-all rounded-md hover:bg-stone-50" title="Download PDF Blueprint"><Download size={13}/></button>
+                         <button onClick={() => downloadAsPDF(file)} className="p-1.5 text-stone-200 hover:text-[#0F3D32] transition-all rounded-md hover:bg-stone-50" title="Download PDF Blueprint"><Download size={13}/></button>
                        </div>
                     </div>
                   </motion.div>
@@ -239,14 +239,14 @@ export default function VaultUploadPage() {
                {filteredFiles.map((file) => (
                   <div key={file.id} className="bg-white border border-stone-100 p-4 px-8 rounded-2xl flex items-center justify-between group hover:border-stone-900 transition-all text-left">
                      <div className="flex items-center gap-6 flex-1 cursor-pointer" onClick={() => triggerPreviewFlow(file)}>
-                        <FileText size={16} className="text-stone-200 group-hover:text-[#a9b897]" />
+                        <FileText size={16} className="text-stone-200 group-hover:text-[#0F3D32]" />
                         {editingFileId === file.id ? (
                           <div className="flex gap-2 items-center" onClick={e => e.stopPropagation()}>
                             <input className="bg-stone-50 text-[10px] font-bold text-stone-800 p-1 px-2 rounded border" value={editName} onChange={e => setEditName(e.target.value)} />
                             <button onClick={() => saveFileModifications(file.id)} className="p-1 bg-stone-900 text-white rounded"><Check size={10}/></button>
                           </div>
                         ) : (
-                          <span className="text-[10px] font-bold text-stone-800 min-w-[200px] hover:text-[#a9b897] transition-colors">{file.name}</span>
+                          <span className="text-[10px] font-bold text-stone-800 min-w-[200px] hover:text-[#0F3D32] transition-colors">{file.name}</span>
                         )}
                         <span className="text-[8px] font-black text-stone-300 uppercase tracking-widest">{file.category}</span>
                      </div>
@@ -255,7 +255,7 @@ export default function VaultUploadPage() {
                         <div className="flex items-center gap-2">
                            <button onClick={() => startEditing(file)} className="p-2 text-stone-200 hover:text-stone-900 transition-colors" title="Edit Meta"><Edit3 size={14}/></button>
                            <button onClick={() => triggerPreviewFlow(file)} className="p-2 text-stone-200 hover:text-stone-900 transition-colors" title="Preview"><Eye size={14}/></button>
-                           <button onClick={() => downloadAsPDF(file)} className="p-2 text-stone-200 hover:text-[#a9b897] transition-colors" title="Download PDF"><Download size={14}/></button>
+                           <button onClick={() => downloadAsPDF(file)} className="p-2 text-stone-200 hover:text-[#0F3D32] transition-colors" title="Download PDF"><Download size={14}/></button>
                            <button onClick={() => toast.error("Purge Denied: Admin Clearance Required")} className="p-2 text-stone-200 hover:text-red-500 transition-colors"><Trash2 size={14}/></button>
                         </div>
                      </div>
@@ -290,7 +290,7 @@ export default function VaultUploadPage() {
                        className="p-4 bg-stone-50 hover:bg-stone-900/5 border border-transparent hover:border-stone-200 rounded-2xl flex justify-between items-center cursor-pointer transition-all group"
                      >
                         <div className="flex items-center gap-3">
-                          <FileText size={14} className="text-stone-400 group-hover:text-[#a9b897]" />
+                          <FileText size={14} className="text-stone-400 group-hover:text-[#0F3D32]" />
                           <span className="text-[10px] font-bold text-stone-700 group-hover:text-stone-900">{f.name}</span>
                         </div>
                      </div>
@@ -308,11 +308,11 @@ export default function VaultUploadPage() {
                 className="bg-white rounded-[3.5rem] w-full max-w-xl p-10 shadow-2xl relative z-10 border border-stone-200 text-left space-y-6 overflow-hidden"
               >
                 {/* ARCHIVE ACCENT DECORATION */}
-                <div className="absolute top-0 left-0 right-0 h-2 bg-[#a9b897]" />
+                <div className="absolute top-0 left-0 right-0 h-2 bg-[#0F3D32]" />
 
                 <div className="flex justify-between items-start pt-2">
                   <div className="space-y-1">
-                    <span className="text-[8px] font-black uppercase tracking-[0.3em] text-[#a9b897] bg-[#a9b897]/10 px-2.5 py-1 rounded-md">{previewFile.category}</span>
+                    <span className="text-[8px] font-black uppercase tracking-[0.3em] text-[#0F3D32] bg-[#0F3D32]/10 px-2.5 py-1 rounded-md">{previewFile.category}</span>
                     <h3 className="text-3xl font-serif italic tracking-tighter text-stone-900 pt-2">{previewFile.name}</h3>
                   </div>
                   <button onClick={() => setPreviewFile(null)} className="p-2 bg-stone-50 text-stone-400 hover:text-stone-900 rounded-full transition-colors"><X size={18}/></button>
@@ -342,7 +342,7 @@ export default function VaultUploadPage() {
                   </button>
                   <button 
                     onClick={() => downloadAsPDF(previewFile)}
-                    className="flex-1 py-3 bg-stone-900 text-white hover:bg-[#a9b897] hover:text-stone-900 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-md"
+                    className="flex-1 py-3 bg-stone-900 text-white hover:bg-[#0F3D32] hover:text-stone-900 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-md"
                   >
                     <HardDriveDownload size={12}/>Download PDF
                   </button>
@@ -356,7 +356,7 @@ export default function VaultUploadPage() {
         <div className="flex flex-wrap justify-center gap-4 pt-6">
             <button onClick={() => setActiveModal('manifest')} 
               className="flex items-center gap-4 px-8 py-3.5 bg-white border border-stone-200 hover:border-stone-900 rounded-full text-[9px] font-black uppercase tracking-widest transition-all shadow-sm group">
-                <Clock size={14} className="text-[#a9b897] group-hover:rotate-12 transition-transform" />
+                <Clock size={14} className="text-[#0F3D32] group-hover:rotate-12 transition-transform" />
                 <span>Recents</span> 
             </button>
         </div>

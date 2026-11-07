@@ -146,21 +146,21 @@ export default function FinanceBanking({
     <div className="space-y-6">
       {/* BALANCE SUMMARY */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-stone-900 text-white rounded-[2rem] p-6 shadow-xl">
+        <div className="bg-[#0F3D32] text-white rounded-[24px] p-6 shadow-xl">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-[8px] uppercase tracking-[0.3em] font-black text-stone-500">
+              <p className="text-[11px] uppercase tracking-[0.3em] font-black text-stone-500">
                 Available Cash
               </p>
 
-              <p className="text-3xl font-mono tracking-tight mt-4 text-[#a9b897]">
+              <p className="text-3xl font-mono tracking-tight mt-4 text-[#0F3D32]">
                 {currency(
                   totalBalance
                 )}
               </p>
             </div>
 
-            <div className="w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center text-[#a9b897]">
+            <div className="w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center text-[#0F3D32]">
               <Landmark
                 size={17}
               />
@@ -168,13 +168,13 @@ export default function FinanceBanking({
           </div>
         </div>
 
-        <div className="bg-white border border-stone-100 rounded-[2rem] p-6 shadow-sm">
+        <div className="bg-white border border-[#E6ECE7] rounded-[24px] p-6 shadow-sm">
           <div className="flex items-center gap-2 text-green-600">
             <ArrowDownLeft
               size={15}
             />
 
-            <p className="text-[8px] uppercase tracking-[0.3em] font-black">
+            <p className="text-[11px] uppercase tracking-[0.3em] font-black">
               Inflow
             </p>
           </div>
@@ -184,13 +184,13 @@ export default function FinanceBanking({
           </p>
         </div>
 
-        <div className="bg-white border border-stone-100 rounded-[2rem] p-6 shadow-sm">
+        <div className="bg-white border border-[#E6ECE7] rounded-[24px] p-6 shadow-sm">
           <div className="flex items-center gap-2 text-red-500">
             <ArrowUpRight
               size={15}
             />
 
-            <p className="text-[8px] uppercase tracking-[0.3em] font-black">
+            <p className="text-[11px] uppercase tracking-[0.3em] font-black">
               Outflow
             </p>
           </div>
@@ -216,7 +216,7 @@ export default function FinanceBanking({
                 onClick={
                   onRefresh
                 }
-                className="w-10 h-10 rounded-full border border-stone-200 flex items-center justify-center text-stone-400 hover:text-stone-900 transition-colors disabled:opacity-50"
+                className="w-10 h-10 rounded-full border border-stone-200 flex items-center justify-center text-stone-400 hover:text-[#1E2A27] transition-colors disabled:opacity-50"
               >
                 <RefreshCw
                   size={14}
@@ -235,13 +235,13 @@ export default function FinanceBanking({
                 onClick={
                   onConnectBank
                 }
-                className="bg-stone-900 text-white px-5 py-2.5 rounded-full flex items-center gap-2 hover:bg-[#a9b897] hover:text-stone-900 transition-all"
+                className="bg-[#0F3D32] text-white px-5 py-2.5 rounded-full flex items-center gap-2 hover:bg-[#0F3D32] hover:text-[#1E2A27] transition-all"
               >
                 <Link2
                   size={14}
                 />
 
-                <span className="text-[8px] font-black uppercase tracking-widest">
+                <span className="text-[11px] font-black uppercase tracking-widest">
                   Connect Bank
                 </span>
               </button>
@@ -272,10 +272,10 @@ export default function FinanceBanking({
                   key={
                     account.id
                   }
-                  className="bg-[#faf9f6] border border-stone-100 rounded-[1.75rem] p-5 hover:bg-white hover:shadow-sm transition-all"
+                  className="bg-[#faf9f6] border border-[#E6ECE7] rounded-[1.75rem] p-5 hover:bg-white hover:shadow-sm transition-all"
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <div className="w-11 h-11 rounded-xl bg-white border border-stone-100 flex items-center justify-center text-[#a9b897]">
+                    <div className="w-11 h-11 rounded-xl bg-white border border-[#E6ECE7] flex items-center justify-center text-[#0F3D32]">
                       <WalletCards
                         size={
                           17
@@ -292,13 +292,13 @@ export default function FinanceBanking({
                   </div>
 
                   <div className="mt-6">
-                    <p className="font-bold text-stone-900">
+                    <p className="font-bold text-[#1E2A27]">
                       {
                         account.name
                       }
                     </p>
 
-                    <p className="text-[8px] uppercase tracking-widest text-stone-400 mt-1">
+                    <p className="text-[11px] uppercase tracking-widest text-stone-400 mt-1">
                       {account.bank_name ||
                         "Bank account"}
                       {account.account_type
@@ -315,7 +315,7 @@ export default function FinanceBanking({
                     </p>
 
                     {account.last_synced_at && (
-                      <p className="text-[8px] font-mono uppercase tracking-widest text-stone-300 mt-3">
+                      <p className="text-[11px] font-mono uppercase tracking-widest text-[#64776D] mt-3">
                         Last synced{" "}
                         {new Date(
                           account.last_synced_at
@@ -399,7 +399,7 @@ export default function FinanceBanking({
                           }
                         </p>
 
-                        <p className="text-[8px] uppercase tracking-widest text-stone-400 mt-1">
+                        <p className="text-[11px] uppercase tracking-widest text-stone-400 mt-1">
                           {
                             transaction.date
                           }
@@ -418,7 +418,7 @@ export default function FinanceBanking({
                         className={`font-mono font-bold ${
                           incoming
                             ? "text-green-600"
-                            : "text-stone-900"
+                            : "text-[#1E2A27]"
                         }`}
                       >
                         {incoming

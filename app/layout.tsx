@@ -52,7 +52,7 @@ export const viewport: Viewport =
       "cover",
 
     themeColor:
-      "#a9b897",
+      "#0F3D32",
   };
 
 // ============================================================
@@ -63,17 +63,17 @@ export const metadata: Metadata =
   {
     title: {
       default:
-        "TOTS-OS",
+        "ORBI.",
 
       template:
-        "%s | TOTS-OS",
+        "%s | ORBI.",
     },
 
     description:
-      "All in one productivity suite for the modern business.",
+      "Your business. One place. ORBI. brings clients, projects, finances, marketing and everyday operations together. Everything in your orbit.",
 
     applicationName:
-      "TOTS-OS",
+      "ORBI.",
 
     manifest:
       "/manifest.webmanifest",
@@ -87,7 +87,7 @@ export const metadata: Metadata =
         true,
 
       title:
-        "TOTS-OS",
+        "ORBI.",
 
       statusBarStyle:
         "default",
@@ -100,52 +100,17 @@ export const metadata: Metadata =
     icons: {
       icon: [
         {
-          url:
-            "/icon.png?v=4",
-
-          type:
-            "image/png",
-
-          sizes:
-            "1024x1024",
-        },
-
-        {
-          url:
-            "/icons/icon-192.png",
-
-          type:
-            "image/png",
-
-          sizes:
-            "192x192",
-        },
-
-        {
-          url:
-            "/icons/icon-512.png",
-
-          type:
-            "image/png",
-
-          sizes:
-            "512x512",
+          url: "/icon.png?v=5",
+          type: "image/png",
+          sizes: "1024x1024",
         },
       ],
-
-      shortcut:
-        "/icon.png?v=4",
-
+      shortcut: "/icon.png?v=5",
       apple: [
         {
-          url:
-            "/icons/icon-192.png",
-
-          sizes:
-            "192x192",
-
-          type:
-            "image/png",
+          url: "/icon.png?v=5",
+          sizes: "1024x1024",
+          type: "image/png",
         },
       ],
     },
@@ -165,7 +130,7 @@ export const metadata: Metadata =
         "default",
 
       "apple-mobile-web-app-title":
-        "TOTS-OS",
+        "ORBI.",
     },
   };
 
@@ -192,13 +157,13 @@ export default function RootLayout({
         <link
           rel="icon"
           type="image/png"
-          href="/icon.png?v=4"
+          href="/icon.png?v=5"
         />
 
         <link
           rel="shortcut icon"
           type="image/png"
-          href="/icon.png?v=4"
+          href="/icon.png?v=5"
         />
 
         {/* ==================================================
@@ -212,7 +177,7 @@ export default function RootLayout({
 
         <link
           rel="apple-touch-icon"
-          href="/icons/icon-192.png"
+          href="/icon.png?v=5"
         />
 
         <meta
@@ -232,12 +197,12 @@ export default function RootLayout({
 
         <meta
           name="apple-mobile-web-app-title"
-          content="TOTS-OS"
+          content="ORBI."
         />
 
         <meta
           name="theme-color"
-          content="#a9b897"
+          content="#0F3D32"
         />
 
         {/* ==================================================
@@ -384,7 +349,7 @@ export default function RootLayout({
       </head>
 
       <body
-        className={`${inter.variable} antialiased selection:bg-[#a9b897]/30`}
+        className={`${inter.variable} antialiased selection:bg-[#A8BDA8]/30`}
       >
         {/* ==================================================
             SERVICE WORKER

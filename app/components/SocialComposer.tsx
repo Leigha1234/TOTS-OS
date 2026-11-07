@@ -515,7 +515,7 @@ export default function SocialComposer({
               destinations.includes(
                 "facebook"
               )
-                ? "border-[#A3B18A] bg-[#f3f6ef]"
+                ? "border-[#0F3D32] bg-[#f3f6ef]"
                 : "border-stone-200 bg-white hover:border-stone-300"
             } disabled:cursor-not-allowed disabled:opacity-45`}
           >
@@ -574,7 +574,7 @@ export default function SocialComposer({
               destinations.includes(
                 "instagram"
               )
-                ? "border-[#A3B18A] bg-[#f3f6ef]"
+                ? "border-[#0F3D32] bg-[#f3f6ef]"
                 : "border-stone-200 bg-white hover:border-stone-300"
             } disabled:cursor-not-allowed disabled:opacity-45`}
           >
@@ -645,7 +645,7 @@ export default function SocialComposer({
           disabled={
             loading
           }
-          className="w-full resize-none rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm leading-6 text-stone-800 outline-none transition placeholder:text-stone-300 focus:border-[#A3B18A] focus:bg-white disabled:opacity-60"
+          className="w-full resize-none rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm leading-6 text-stone-800 outline-none transition placeholder:text-stone-300 focus:border-[#0F3D32] focus:bg-white disabled:opacity-60"
         />
       </div>
 
@@ -687,7 +687,7 @@ export default function SocialComposer({
           disabled={
             loading
           }
-          className="w-full rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm text-stone-800 outline-none transition placeholder:text-stone-300 focus:border-[#A3B18A] focus:bg-white disabled:opacity-60"
+          className="w-full rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm text-stone-800 outline-none transition placeholder:text-stone-300 focus:border-[#0F3D32] focus:bg-white disabled:opacity-60"
         />
 
         <p className="mt-2 text-[9px] leading-4 text-stone-400">

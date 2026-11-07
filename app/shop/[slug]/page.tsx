@@ -302,7 +302,7 @@ function formatCurrency(
 
 function normaliseColour(
   value?: string | null,
-  fallback = "#a9b897"
+  fallback = "#0F3D32"
 ) {
   const trimmed = String(
     value || ""
@@ -2167,7 +2167,7 @@ export default function ShopFrontPage() {
             "Marketing Services",
             "Branding",
             "Business Coaching",
-            "TOTS-OS Services",
+            "ORBI. Services",
             "Website Add-ons",
           ];
 
@@ -3113,7 +3113,7 @@ export default function ShopFrontPage() {
   const primary =
     normaliseColour(
       store?.accent_colour,
-      "#a9b897"
+      "#0F3D32"
     );
 
   const secondary =
@@ -5653,7 +5653,7 @@ export default function ShopFrontPage() {
                 }}
               />
 
-              Powered by TOTS-OS
+              Powered by ORBI.
             </span>
 
           </div>
@@ -7733,10 +7733,10 @@ function OrganisedTypesServiceSections({
       description: "Strategy sessions and longer programmes for business owners who want hands-on direction.",
     },
     {
-      category: "TOTS-OS Services",
-      eyebrow: "TOTS-OS",
+      category: "ORBI. Services",
+      eyebrow: "ORBI.",
       title: "Get your workspace set up and working for you.",
-      description: "Done-for-you setup and optional ongoing concierge support for TOTS-OS customers.",
+      description: "Done-for-you setup and optional ongoing concierge support for ORBI. customers.",
     },
   ];
 

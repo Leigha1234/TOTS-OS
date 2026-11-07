@@ -112,7 +112,7 @@ const MODULE_BUNDLE_PRICES: Record<number, number> = {
 const MODULES: Record<ModuleKey, ModuleInfo> = {
   core: {
     key: "core",
-    name: "TOTS-OS Core",
+    name: "ORBI. Core",
     shortName: "Core",
     description:
       "Your central workspace for dashboards, contacts, tasks, calendar, notes and everyday business organisation.",
@@ -157,7 +157,7 @@ const MODULES: Record<ModuleKey, ModuleInfo> = {
   },
   store: {
     key: "store",
-    name: "TOTS-OS Store",
+    name: "ORBI. Store",
     shortName: "Store",
     description:
       "Manage products, customers and orders without running your online store as another disconnected system.",
@@ -172,7 +172,7 @@ const AI_TIERS: Record<AiTierKey, AiTierInfo> = {
     name: "No Clarity AI",
     shortName: "No AI",
     price: 0,
-    description: "Use your TOTS-OS workspace without adding Clarity AI.",
+    description: "Use your ORBI. workspace without adding Clarity AI.",
   },
   starter: {
     key: "starter",
@@ -247,7 +247,7 @@ function calculatePricing(
       modularTotal: COMPLETE_PRICE,
       totalMonthly: COMPLETE_PRICE,
       isComplete: true,
-      bundleLabel: "TOTS-OS Complete",
+      bundleLabel: "ORBI. Complete",
       aiUpgradeSuggested:
         requestedAiTier === "plus" ||
         requestedAiTier === "pro",
@@ -657,7 +657,7 @@ export default function BillingPage() {
       0
     ) {
       setCheckoutError(
-        "Choose at least one TOTS-OS module before continuing.",
+        "Choose at least one ORBI. module before continuing.",
       );
       return;
     }
@@ -708,7 +708,7 @@ export default function BillingPage() {
             response.status === 401
           ) {
             throw new Error(
-              "Please sign in to your existing TOTS-OS account before changing your membership.",
+              "Please sign in to your existing ORBI. account before changing your membership.",
             );
           }
 
@@ -834,7 +834,7 @@ export default function BillingPage() {
             Just a moment...
           </h1>
           <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-[#69645f]">
-            We&apos;re confirming your Stripe subscription and activating the right TOTS-OS modules for your workspace.
+            We&apos;re confirming your Stripe subscription and activating the right ORBI. modules for your workspace.
           </p>
         </div>
       </main>
@@ -851,7 +851,7 @@ export default function BillingPage() {
             "_",
             " ",
           )
-        : "TOTS-OS";
+        : "ORBI.";
 
     return (
       <main className="min-h-screen bg-[#FAF8F5] px-5 py-12 md:px-10 md:py-16">
@@ -883,12 +883,12 @@ export default function BillingPage() {
               )}
 
               <p className="mt-6 max-w-2xl text-base leading-8 text-[#69645f]">
-                Your TOTS-OS membership has been activated and your workspace is ready to use.
+                Your ORBI. membership has been activated and your workspace is ready to use.
               </p>
             </div>
 
             <div className="p-8 md:p-14">
-              <div className="rounded-[1.5rem] border border-[#A9B897]/50 bg-[#EFF3EB] p-6 md:p-8">
+              <div className="rounded-[1.5rem] border border-[#0F3D32]/50 bg-[#EFF3EB] p-6 md:p-8">
                 <div className="flex items-start gap-4">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#637454] shadow-sm">
                     <ShieldCheck
@@ -945,7 +945,7 @@ export default function BillingPage() {
                 }}
                 className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#373330] px-8 py-4 text-xs font-black text-white transition hover:bg-[#4f4a46]"
               >
-                Go to TOTS-OS
+                Go to ORBI.
                 <ArrowRight size={15} />
               </button>
             </div>
@@ -1024,10 +1024,10 @@ export default function BillingPage() {
                 <Sparkles size={13} />
                 <span className="text-[11px] font-black uppercase tracking-[0.15em]">
                   {existingAccount
-                    ? "Update your TOTS-OS membership"
+                    ? "Update your ORBI. membership"
                     : fromQuiz
-                      ? "Your recommended TOTS-OS membership"
-                      : "Build your TOTS-OS membership"}
+                      ? "Your recommended ORBI. membership"
+                      : "Build your ORBI. membership"}
                 </span>
               </div>
 
@@ -1040,7 +1040,7 @@ export default function BillingPage() {
               </h1>
 
               <p className="mt-6 max-w-2xl text-base leading-8 text-[#69645f]">
-                Choose the TOTS-OS modules you want, add Clarity AI if you need it, and your fixed module bundle price is applied automatically.
+                Choose the ORBI. modules you want, add Clarity AI if you need it, and your fixed module bundle price is applied automatically.
               </p>
             </div>
 
@@ -1052,7 +1052,7 @@ export default function BillingPage() {
                 <span className="h-2.5 w-2.5 rounded-full bg-[#637454]" />
                 <p className="text-xl font-semibold tracking-[-0.025em] text-[#373330]">
                   {pricing.isComplete
-                    ? "TOTS-OS Complete"
+                    ? "ORBI. Complete"
                     : pricing.moduleCount === 0
                       ? "No modules selected"
                       : `${pricing.moduleCount} ${
@@ -1069,7 +1069,7 @@ export default function BillingPage() {
           </div>
 
           {fromQuiz && !existingAccount && (
-            <div className="mt-7 flex max-w-3xl items-start gap-4 rounded-2xl border border-[#A9B897]/60 bg-[#EFF3EB] px-5 py-4">
+            <div className="mt-7 flex max-w-3xl items-start gap-4 rounded-2xl border border-[#0F3D32]/60 bg-[#EFF3EB] px-5 py-4">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#637454] shadow-sm">
                 <CheckCircle2 size={18} />
               </div>
@@ -1187,7 +1187,7 @@ export default function BillingPage() {
                       className={`relative rounded-[1.35rem] border p-5 text-left transition ${
                         selected
                           ? "border-[#637454] bg-[#EFF3EB]"
-                          : "border-[#4f4a46]/10 bg-white hover:border-[#A9B897]"
+                          : "border-[#4f4a46]/10 bg-white hover:border-[#0F3D32]"
                       }`}
                     >
                       <div className="flex items-start gap-4">
@@ -1246,7 +1246,7 @@ export default function BillingPage() {
                   Choose your Clarity AI level
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm leading-7 text-[#69645f]">
-                  Clarity AI is optional with modular setups. Starter is included with TOTS-OS Complete.
+                  Clarity AI is optional with modular setups. Starter is included with ORBI. Complete.
                 </p>
               </div>
 
@@ -1345,7 +1345,7 @@ export default function BillingPage() {
                       </span>
                     </div>
                     <h2 className="mt-5 text-3xl font-semibold tracking-[-0.04em] md:text-4xl">
-                      TOTS-OS Complete
+                      ORBI. Complete
                     </h2>
                     <p className="mt-3 max-w-2xl text-sm leading-7 text-white/75">
                       Get all six main modules plus Clarity AI Starter for one fixed monthly price.
@@ -1383,8 +1383,8 @@ export default function BillingPage() {
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-[#373330]">
                   {pricing.isComplete
-                    ? "TOTS-OS Complete"
-                    : "Your TOTS-OS setup"}
+                    ? "ORBI. Complete"
+                    : "Your ORBI. setup"}
                 </h2>
               </div>
 
@@ -1429,7 +1429,7 @@ export default function BillingPage() {
                 )}
 
                 {selectedModules.length > 0 && (
-                  <div className="mt-5 rounded-2xl border border-[#A9B897]/50 bg-[#EFF3EB] px-4 py-4">
+                  <div className="mt-5 rounded-2xl border border-[#0F3D32]/50 bg-[#EFF3EB] px-4 py-4">
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#637454]">

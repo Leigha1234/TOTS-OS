@@ -155,7 +155,7 @@ export default function OneMoreWeekPage() {
             <p className="mt-3 max-w-2xl text-base leading-8 text-stone-500">
               We&apos;ve added another{" "}
               <strong className="font-semibold text-stone-800">
-                7 days of TOTS-OS
+                7 days of ORBI.
               </strong>{" "}
               to your account, completely free.
             </p>
@@ -200,7 +200,7 @@ export default function OneMoreWeekPage() {
                   <p className="mt-3 max-w-xl text-xs leading-6 text-stone-500">
                     No payment details.
                     No commitment.
-                    Just another week to properly use TOTS-OS
+                    Just another week to properly use ORBI.
                     and see whether it earns its place in your
                     business.
                   </p>
@@ -223,7 +223,7 @@ export default function OneMoreWeekPage() {
 
               <p className="mt-3 max-w-xl text-sm leading-7 text-stone-500">
                 Have another look around, try the tools you
-                haven&apos;t used yet and see how TOTS-OS fits
+                haven&apos;t used yet and see how ORBI. fits
                 into the way you actually run your business.
               </p>
 
@@ -244,7 +244,7 @@ export default function OneMoreWeekPage() {
                 }
                 className="flex items-center justify-center gap-2 rounded-full bg-stone-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-stone-700"
               >
-                Take me back to TOTS-OS
+                Take me back to ORBI.
 
                 <ArrowRight
                   size={13}
@@ -258,7 +258,7 @@ export default function OneMoreWeekPage() {
                     "/billing"
                   )
                 }
-                className="rounded-full border border-stone-200 bg-white px-8 py-4 text-[10px] font-black uppercase tracking-[0.16em] text-stone-700 transition hover:border-[#a9b897] hover:bg-[#edf1e8]"
+                className="rounded-full border border-stone-200 bg-white px-8 py-4 text-[10px] font-black uppercase tracking-[0.16em] text-stone-700 transition hover:border-[#0F3D32] hover:bg-[#edf1e8]"
               >
                 Actually, I&apos;m ready to stay
               </button>

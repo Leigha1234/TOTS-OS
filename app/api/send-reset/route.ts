@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "TOTS OS Security <onboarding@resend.dev>";
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "ORBI. Security <onboarding@resend.dev>";
 
     // -----------------------------
     // 1. Generate Supabase reset link (server-side)
@@ -58,12 +58,12 @@ export async function POST(req: Request) {
     }
 
     // -----------------------------
-    // 2. Send email via Resend (TOTS OS branded)
+    // 2. Send email via Resend (ORBI. branded)
     // -----------------------------
     const { data: resendData, error: resendError } = await resend.emails.send({
       from: fromEmail,
       to: [normalizedEmail],
-      subject: "Reset your TOTS OS password",
+      subject: "Reset your ORBI. password",
 
       html: `
       <div style="font-family: Inter, Arial, sans-serif; background:#0f0f0f; padding:40px;">
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
           </h1>
 
           <p style="color:#a1a1a1; font-size:13px; line-height:1.6;">
-            We received a request to reset your <strong style="color:#fff;">TOTS OS</strong> password.
+            We received a request to reset your <strong style="color:#fff;">ORBI.</strong> password.
             If this was you, you can safely reset it below.
           </p>
 
@@ -99,7 +99,7 @@ export async function POST(req: Request) {
           </p>
 
           <div style="margin-top:30px; padding-top:16px; border-top:1px solid #222; color:#444; font-size:10px;">
-            TOTS OS · Secure Workspace Platform
+            ORBI. · Secure Workspace Platform
           </div>
 
         </div>

@@ -69,7 +69,7 @@ async function sendSignupNotification(
   const resendApiKey = process.env.RESEND_API_KEY;
 
   // Hardcoded so every successful signup notification
-  // is sent to the TOTS-OS inbox.
+  // is sent to the ORBI. inbox.
   const notificationEmail = "hello@tots-os.co.uk";
 
   const fromEmail = process.env.RESEND_FROM_EMAIL;
@@ -115,7 +115,7 @@ async function sendSignupNotification(
 
       to: [notificationEmail],
 
-      subject: `🎉 New TOTS-OS signup — ${companyName}`,
+      subject: `🎉 New ORBI. signup — ${companyName}`,
 
       html: `
         <div
@@ -149,7 +149,7 @@ async function sendSignupNotification(
                 text-transform:uppercase;
               "
             >
-              New TOTS-OS signup
+              New ORBI. signup
             </div>
 
             <h1
@@ -171,7 +171,7 @@ async function sendSignupNotification(
                 line-height:1.6;
               "
             >
-              A new TOTS-OS account and 14-day trial have been
+              A new ORBI. account and 14-day trial have been
               successfully created.
             </p>
 

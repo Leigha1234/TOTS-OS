@@ -409,7 +409,7 @@ export default function FinanceTimesheets({
                 (current) => !current
               );
             }}
-            className="flex items-center gap-2 rounded-full bg-stone-900 px-5 py-2.5 text-[8px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#a9b897] hover:text-stone-900"
+            className="flex items-center gap-2 rounded-full bg-[#0F3D32] px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#0F3D32] hover:text-[#1E2A27]"
           >
             {showForm ? (
               <X size={14} />
@@ -428,9 +428,9 @@ export default function FinanceTimesheets({
         ================================================== */}
 
         {showForm && (
-          <div className="mb-8 rounded-[2rem] border border-stone-100 bg-[#faf9f6] p-5 sm:p-6">
+          <div className="mb-8 rounded-[24px] border border-[#E6ECE7] bg-[#faf9f6] p-5 sm:p-6">
             <div className="mb-6">
-              <p className="text-lg font-bold text-stone-900">
+              <p className="text-lg font-bold text-[#1E2A27]">
                 New Timesheet
               </p>
 
@@ -442,7 +442,7 @@ export default function FinanceTimesheets({
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
-                <label className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                <label className="text-[11px] font-black uppercase tracking-widest text-stone-400">
                   Team Member
                 </label>
 
@@ -458,12 +458,12 @@ export default function FinanceTimesheets({
                     )
                   }
                   placeholder="Full name"
-                  className="mt-2 w-full rounded-xl border border-stone-100 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-stone-900"
+                  className="mt-2 w-full rounded-xl border border-[#E6ECE7] bg-white px-4 py-3 text-sm outline-none transition-all focus:border-stone-900"
                 />
               </div>
 
               <div>
-                <label className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                <label className="text-[11px] font-black uppercase tracking-widest text-stone-400">
                   Week Starting
                 </label>
 
@@ -478,19 +478,19 @@ export default function FinanceTimesheets({
                       event.target.value
                     )
                   }
-                  className="mt-2 w-full rounded-xl border border-stone-100 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-stone-900"
+                  className="mt-2 w-full rounded-xl border border-[#E6ECE7] bg-white px-4 py-3 text-sm outline-none transition-all focus:border-stone-900"
                 />
               </div>
 
               <div>
-                <label className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                <label className="text-[11px] font-black uppercase tracking-widest text-stone-400">
                   Hourly Rate
                 </label>
 
                 <div className="relative mt-2">
                   <PoundSterling
                     size={13}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64776D]"
                   />
 
                   <input
@@ -507,7 +507,7 @@ export default function FinanceTimesheets({
                       )
                     }
                     placeholder="0.00"
-                    className="w-full rounded-xl border border-stone-100 bg-white py-3 pl-10 pr-4 text-sm outline-none transition-all focus:border-stone-900"
+                    className="w-full rounded-xl border border-[#E6ECE7] bg-white py-3 pl-10 pr-4 text-sm outline-none transition-all focus:border-stone-900"
                   />
                 </div>
               </div>
@@ -516,7 +516,7 @@ export default function FinanceTimesheets({
             {/* DAYS */}
 
             <div className="mt-6">
-              <label className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+              <label className="text-[11px] font-black uppercase tracking-widest text-stone-400">
                 Hours
               </label>
 
@@ -532,9 +532,9 @@ export default function FinanceTimesheets({
                 ].map(([field, label]) => (
                   <div
                     key={field}
-                    className="rounded-xl border border-stone-100 bg-white p-3"
+                    className="rounded-xl border border-[#E6ECE7] bg-white p-3"
                   >
-                    <p className="mb-2 text-center text-[8px] font-black uppercase tracking-widest text-stone-400">
+                    <p className="mb-2 text-center text-[11px] font-black uppercase tracking-widest text-stone-400">
                       {label}
                     </p>
 
@@ -565,7 +565,7 @@ export default function FinanceTimesheets({
 
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="rounded-2xl bg-white p-4">
-                <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                <p className="text-[11px] font-black uppercase tracking-widest text-stone-400">
                   Total Hours
                 </p>
 
@@ -577,7 +577,7 @@ export default function FinanceTimesheets({
               </div>
 
               <div className="rounded-2xl bg-white p-4">
-                <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                <p className="text-[11px] font-black uppercase tracking-widest text-stone-400">
                   Labour Cost
                 </p>
 
@@ -590,7 +590,7 @@ export default function FinanceTimesheets({
               </div>
 
               <div className="rounded-2xl bg-white p-4">
-                <label className="text-[8px] font-black uppercase tracking-widest text-stone-400">
+                <label className="text-[11px] font-black uppercase tracking-widest text-stone-400">
                   Status
                 </label>
 
@@ -626,7 +626,7 @@ export default function FinanceTimesheets({
                 onClick={
                   handleAddTimesheet
                 }
-                className="flex items-center gap-2 rounded-full bg-stone-900 px-6 py-3 text-[8px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center gap-2 rounded-full bg-[#0F3D32] px-6 py-3 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#0F3D32] hover:text-[#1E2A27] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submitting ? (
                   <Loader2
@@ -668,7 +668,7 @@ export default function FinanceTimesheets({
               onClick={() =>
                 setShowForm(true)
               }
-              className="mt-5 inline-flex items-center gap-2 rounded-full bg-stone-900 px-5 py-2.5 text-[8px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#a9b897] hover:text-stone-900"
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#0F3D32] px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#0F3D32] hover:text-[#1E2A27]"
             >
               <Plus size={13} />
               Add Timesheet
@@ -678,28 +678,28 @@ export default function FinanceTimesheets({
           <div className="overflow-x-auto">
             <table className="min-w-[850px] w-full text-left">
               <thead>
-                <tr className="border-b border-stone-100">
-                  <th className="py-4 pr-4 text-[8px] font-black uppercase tracking-[0.3em] text-stone-400">
+                <tr className="border-b border-[#E6ECE7]">
+                  <th className="py-4 pr-4 text-[11px] font-black uppercase tracking-[0.3em] text-stone-400">
                     Team Member
                   </th>
 
-                  <th className="px-4 py-4 text-[8px] font-black uppercase tracking-[0.3em] text-stone-400">
+                  <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.3em] text-stone-400">
                     Period
                   </th>
 
-                  <th className="px-4 py-4 text-[8px] font-black uppercase tracking-[0.3em] text-stone-400">
+                  <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.3em] text-stone-400">
                     Hours
                   </th>
 
-                  <th className="px-4 py-4 text-[8px] font-black uppercase tracking-[0.3em] text-stone-400">
+                  <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.3em] text-stone-400">
                     Rate
                   </th>
 
-                  <th className="px-4 py-4 text-[8px] font-black uppercase tracking-[0.3em] text-stone-400">
+                  <th className="px-4 py-4 text-[11px] font-black uppercase tracking-[0.3em] text-stone-400">
                     Labour Cost
                   </th>
 
-                  <th className="py-4 pl-4 text-[8px] font-black uppercase tracking-[0.3em] text-stone-400">
+                  <th className="py-4 pl-4 text-[11px] font-black uppercase tracking-[0.3em] text-stone-400">
                     Status
                   </th>
                 </tr>
@@ -735,14 +735,14 @@ export default function FinanceTimesheets({
                         className="transition-colors hover:bg-[#faf9f6]/70"
                       >
                         <td className="py-5 pr-4">
-                          <p className="text-sm font-bold text-stone-900">
+                          <p className="text-sm font-bold text-[#1E2A27]">
                             {
                               person
                             }
                           </p>
 
                           {row.user_id && (
-                            <p className="mt-1 font-mono text-[8px] text-stone-300">
+                            <p className="mt-1 font-mono text-[11px] text-[#64776D]">
                               {row.user_id.slice(
                                 0,
                                 12
@@ -766,7 +766,7 @@ export default function FinanceTimesheets({
                         </td>
 
                         <td className="px-4 py-5">
-                          <p className="font-mono font-bold text-stone-900">
+                          <p className="font-mono font-bold text-[#1E2A27]">
                             {hours.toFixed(
                               1
                             )}{" "}
@@ -784,7 +784,7 @@ export default function FinanceTimesheets({
                         </td>
 
                         <td className="px-4 py-5">
-                          <p className="font-mono font-bold text-stone-900">
+                          <p className="font-mono font-bold text-[#1E2A27]">
                             £
                             {formatMoney(
                               labourCost
@@ -886,7 +886,7 @@ export default function FinanceTimesheets({
                     className="rounded-2xl bg-[#faf9f6] p-4"
                   >
                     <div className="mb-4 flex items-center justify-between">
-                      <p className="text-sm font-bold text-stone-900">
+                      <p className="text-sm font-bold text-[#1E2A27]">
                         {
                           person
                         }
@@ -912,15 +912,15 @@ export default function FinanceTimesheets({
                             key={String(
                               day
                             )}
-                            className="rounded-xl border border-stone-100 bg-white p-3 text-center"
+                            className="rounded-xl border border-[#E6ECE7] bg-white p-3 text-center"
                           >
-                            <p className="text-[8px] font-black uppercase tracking-widest text-stone-300">
+                            <p className="text-[11px] font-black uppercase tracking-widest text-[#64776D]">
                               {
                                 day
                               }
                             </p>
 
-                            <p className="mt-1 font-mono text-sm font-bold text-stone-900">
+                            <p className="mt-1 font-mono text-sm font-bold text-[#1E2A27]">
                               {Number(
                                 value
                               ).toFixed(

@@ -294,7 +294,7 @@ export function detectRecords(
     // a health questionnaire to the ordinary contacts batch importer.
     throw new Error(
       "This spreadsheet appears to contain sensitive health or consultation information. " +
-      "TOTS-OS has stopped the import to prevent medical answers being lost or stored in ordinary CRM records. " +
+      "ORBI. has stopped the import to prevent medical answers being lost or stored in ordinary CRM records. " +
       "Keep the original file secure. Use a dedicated, access-controlled consultation import once configured."
     );
   }

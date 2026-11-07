@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
+import Link from "next/link";
 import {
   Activity, AlertCircle, ArrowUpRight, BarChart3, Briefcase,
   Cpu, Download, Hash, Loader2, Mail, ShieldCheck, Share2,
-  Target, TrendingUp, Users, Zap,
+  Target, TrendingUp, Users, Zap, ArrowRight, CalendarDays, FileText, RefreshCw, Sparkles, Wallet, CheckCircle2, ChevronRight,
 } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -73,7 +74,7 @@ interface TeamMember {
 type Tab = "overview" | "financial" | "productivity" | "marketing" | "team";
 
 const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
-const PIE_COLORS = ["#a9b897", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#0891b2"];
+const PIE_COLORS = ["#0F3D32", "#5C9A80", "#A8BDA8", "#D2A887", "#8B9E91", "#C9D8CD"];
 
 const currencyFmt = (value: number, currency = "GBP") =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
@@ -109,6 +110,7 @@ function monthKey(dateStr: string) {
 
 export default function FullReportsPage() {
   const [tab, setTab] = useState<Tab>("overview");
+  const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unauthenticated, setUnauthenticated] = useState(false);
@@ -186,7 +188,7 @@ export default function FullReportsPage() {
 
     load();
     return () => { cancelled = true; };
-  }, [supabase]);
+  }, [supabase, refreshKey]);
 
   // ---------- FINANCIAL ----------
   const financial = useMemo(() => {
@@ -356,10 +358,10 @@ export default function FullReportsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+      <div className="min-h-screen flex items-center justify-center bg-[#FAF9F6]">
         <div className="text-center space-y-6">
-          <Loader2 className="text-[#a9b897] animate-spin mx-auto" size={40} />
-          <p className="text-[#a9b897] animate-pulse font-black uppercase text-[10px] tracking-[0.5em]">Loading Reports...</p>
+          <Loader2 className="text-[#0F3D32] animate-spin mx-auto" size={40} />
+          <p className="text-[#0F3D32] animate-pulse font-black uppercase text-[10px] tracking-[0.5em]">Loading Reports...</p>
         </div>
         <FontImport />
       </div>
@@ -368,62 +370,94 @@ export default function FullReportsPage() {
 
   if (unauthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+      <div className="min-h-screen flex items-center justify-center bg-[#FAF9F6]">
         <div className="text-center space-y-4 max-w-sm px-6">
-          <ShieldCheck className="text-stone-300 mx-auto" size={40} />
-          <p className="font-serif italic text-2xl text-stone-800">Sign in required</p>
-          <p className="text-[11px] text-stone-400 uppercase tracking-widest">Please sign in to view your team&apos;s reports.</p>
+          <ShieldCheck className="text-[#829087] mx-auto" size={40} />
+          <p className="font-serif italic text-2xl text-[#183C31]">Sign in required</p>
+          <p className="text-[11px] text-[#65756C] uppercase tracking-widest">Please sign in to view your team&apos;s reports.</p>
         </div>
         <FontImport />
       </div>
     );
   }
 
-  const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "overview", label: "Overview", icon: <Activity size={14} /> },
-    { id: "financial", label: "Financial", icon: <Briefcase size={14} /> },
-    { id: "productivity", label: "Productivity", icon: <Target size={14} /> },
-    { id: "marketing", label: "Marketing", icon: <Share2 size={14} /> },
-    { id: "team", label: "Team", icon: <Users size={14} /> },
+  const TABS: { id: Tab; label: string; icon: React.ReactNode; description: string }[] = [
+    { id: "overview", label: "Overview", icon: <Activity size={16} />, description: "At a glance" },
+    { id: "financial", label: "Financial", icon: <Wallet size={16} />, description: "Cash flow & invoices" },
+    { id: "productivity", label: "Productivity", icon: <Target size={16} />, description: "Tasks & time" },
+    { id: "marketing", label: "Marketing", icon: <Share2 size={16} />, description: "Campaign performance" },
+    { id: "team", label: "Team", icon: <Users size={16} />, description: "People & workload" },
   ];
 
   return (
-    <div className="p-6 md:p-12 max-w-[1400px] mx-auto min-h-screen bg-stone-50 text-stone-900 space-y-10">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-stone-200 pb-10">
-        <h1 className="text-7xl md:text-8xl font-serif italic tracking-tighter leading-none">Reports</h1>
-      </div>
+    <main className="min-h-screen bg-[#FAF9F6] text-[#1E2A27] pb-20">
+      <div className="mx-auto max-w-[1600px] px-5 py-7 sm:px-8 lg:px-12 lg:py-10 space-y-8">
+        <header className="relative overflow-hidden rounded-[30px] bg-[#0F3D32] px-7 py-8 text-[#F7EFE6] shadow-[0_20px_55px_-28px_rgba(15,61,50,0.55)] sm:px-10 sm:py-10">
+          <div className="pointer-events-none absolute -right-20 -top-40 h-[420px] w-[420px] rounded-full border border-[#A8BDA8]/20" />
+          <div className="pointer-events-none absolute -right-10 -top-28 h-[340px] w-[340px] rounded-full border border-[#A8BDA8]/20" />
+          <div className="relative flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="mb-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.28em] text-[#C9D8CD]"><Sparkles size={13} /> ORBI. / Business intelligence</div>
+              <h1 className="font-serif text-5xl leading-[1.05] tracking-tight sm:text-6xl">Your business, <em className="font-normal">in focus.</em></h1>
+              <p className="mt-4 max-w-xl text-sm leading-relaxed text-[#D8E4DC]">One place to understand your finances, productivity, marketing and team performance. All insights below come from your workspace data.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setRefreshKey((v) => v + 1)} className="inline-flex items-center gap-2 rounded-xl border border-white/25 px-4 py-3 text-xs font-semibold text-white transition hover:bg-white/10"><RefreshCw size={15} /> Refresh</button>
+              <button type="button" onClick={() => {
+                const rows: (string | number)[][] = [
+                  ["Paid revenue", financial.paidRevenue], ["Outstanding", financial.outstanding],
+                  ["Overdue invoices", financial.overdueCount], ["Tasks completed", productivity.doneCount],
+                  ["Open tasks", productivity.openCount], ["Hours logged", productivity.totalHours],
+                  ["Emails sent", marketing.emailTotals.sent], ["Social posts", marketing.totalPosts],
+                ];
+                downloadCsv("orbi_business_snapshot.csv", ["Metric", "Value"], rows);
+              }} className="inline-flex items-center gap-2 rounded-xl bg-[#F7EFE6] px-4 py-3 text-xs font-bold text-[#0F3D32] transition hover:bg-white"><Download size={15} /> Export snapshot</button>
+            </div>
+          </div>
+          <div className="relative mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-white/15 pt-5 text-[11px] text-[#D8E4DC]">
+            <span className="inline-flex items-center gap-2"><CheckCircle2 size={14} className="text-[#B8D6C4]" /> Live workspace reports</span>
+            <span>{invoices.length.toLocaleString()} invoices</span><span>{tasks.length.toLocaleString()} tasks</span><span>{members.length.toLocaleString()} team members</span>
+          </div>
+        </header>
 
-      {error && (
-        <div className="bg-red-50 border border-red-100 text-red-500 rounded-2xl p-6 flex items-center gap-3">
-          <AlertCircle size={18} />
-          <p className="text-[11px] font-bold uppercase tracking-widest">{error}</p>
+        {error && <div role="alert" className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800"><AlertCircle size={19} className="shrink-0" />{error}</div>}
+
+        <nav aria-label="Report categories" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+          {TABS.map((t) => (
+            <button key={t.id} type="button" onClick={() => setTab(t.id)} aria-current={tab === t.id ? "page" : undefined}
+              className={`group flex min-h-[88px] items-center gap-3 rounded-[20px] border px-4 py-4 text-left transition-all duration-200 ${tab === t.id ? "border-[#0F3D32] bg-[#0F3D32] text-white shadow-lg shadow-emerald-950/10" : "border-[#E5E8E3] bg-white text-[#1E2A27] hover:-translate-y-0.5 hover:border-[#9AB6A6] hover:shadow-md"}`}>
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tab === t.id ? "bg-white/15" : "bg-[#E5EDE6] text-[#0F3D32]"}`}>{t.icon}</span>
+              <span className="min-w-0"><span className="block text-sm font-bold">{t.label}</span><span className={`mt-1 block text-[10px] ${tab === t.id ? "text-[#D5E4D9]" : "text-[#64746C]"}`}>{t.description}</span></span>
+              <ChevronRight size={14} className="ml-auto hidden shrink-0 opacity-50 sm:block" />
+            </button>
+          ))}
+        </nav>
+
+        <section aria-label={`${tab} report`} className="space-y-6">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div><p className="mb-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[#56786A]">Performance insights</p><h2 className="font-serif text-3xl text-[#183C31] sm:text-4xl">{TABS.find((t) => t.id === tab)?.label} <em className="font-normal">report</em></h2></div>
+            <p className="max-w-sm text-right text-xs leading-relaxed text-[#65756C]">Figures reflect available records in your workspace; some datasets may be limited to the most recent 500–1,000 records.</p>
+          </div>
+          {tab === "overview" && <OverviewTab financial={financial} productivity={productivity} marketing={marketing} />}
+          {tab === "financial" && <FinancialTab financial={financial} invoices={invoices} />}
+          {tab === "productivity" && <ProductivityTab productivity={productivity} />}
+          {tab === "marketing" && <MarketingTab marketing={marketing} />}
+          {tab === "team" && <TeamTab team={team} />}
+        </section>
+
+        <div className="rounded-[24px] border border-[#E4E8E1] bg-white px-6 py-6 sm:px-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#56786A]">Keep moving</p><h3 className="mt-1 font-serif text-2xl text-[#183C31]">Turn insights into action.</h3><p className="mt-1 text-xs text-[#64746C]">Jump straight to the tools behind your reports.</p></div>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/payments" className="inline-flex items-center gap-2 rounded-xl bg-[#E5EDE6] px-4 py-3 text-xs font-bold text-[#0F3D32] hover:bg-[#D5E5D8]"><Wallet size={15} /> Finances <ArrowUpRight size={14} /></Link>
+              <Link href="/notes" className="inline-flex items-center gap-2 rounded-xl bg-[#E5EDE6] px-4 py-3 text-xs font-bold text-[#0F3D32] hover:bg-[#D5E5D8]"><FileText size={15} /> Tasks & notes <ArrowUpRight size={14} /></Link>
+              <Link href="/settings/team" className="inline-flex items-center gap-2 rounded-xl bg-[#0F3D32] px-4 py-3 text-xs font-bold text-white hover:bg-[#155443]"><Users size={15} /> Manage team <ArrowUpRight size={14} /></Link>
+            </div>
+          </div>
         </div>
-      )}
-
-      {/* TAB NAV */}
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
-              tab === t.id ? "bg-stone-900 text-[#a9b897]" : "bg-white text-stone-400 border border-stone-100 hover:border-[#a9b897]"
-            }`}
-          >
-            {t.icon} {t.label}
-          </button>
-        ))}
       </div>
-
-      {tab === "overview" && <OverviewTab financial={financial} productivity={productivity} marketing={marketing} />}
-      {tab === "financial" && <FinancialTab financial={financial} invoices={invoices} />}
-      {tab === "productivity" && <ProductivityTab productivity={productivity} />}
-      {tab === "marketing" && <MarketingTab marketing={marketing} />}
-      {tab === "team" && <TeamTab team={team} />}
-
       <FontImport />
-    </div>
+    </main>
   );
 }
 
@@ -433,7 +467,7 @@ function FontImport() {
   return (
     <style dangerouslySetInnerHTML={{
       __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@1,400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@0,400;1,400&display=swap');
         .font-serif { font-family: 'Instrument Serif', serif; }
       `,
     }} />
@@ -442,13 +476,10 @@ function FontImport() {
 
 function Card({ title, sub, children, action }: { title: string; sub?: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-500">{title}</h3>
-          {sub && <p className="text-[10px] font-serif italic text-stone-300">{sub}</p>}
-        </div>
-        {action}
+    <div className="min-w-0 overflow-hidden rounded-[24px] border border-[#E5E8E3] bg-white p-5 shadow-[0_8px_30px_-20px_rgba(15,61,50,0.22)] sm:p-7">
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <div><h3 className="font-serif text-2xl leading-tight tracking-tight text-[#183C31]">{title}</h3>{sub && <p className="mt-1 text-xs leading-relaxed text-[#65756C]">{sub}</p>}</div>
+        {action && <div className="shrink-0 rounded-lg bg-[#E5EDE6] p-2 text-[#0F3D32]">{action}</div>}
       </div>
       {children}
     </div>
@@ -456,21 +487,15 @@ function Card({ title, sub, children, action }: { title: string; sub?: string; c
 }
 
 function EmptyNote({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="text-[10px] font-bold uppercase tracking-widest text-stone-300 py-8 text-center border border-dashed border-stone-200 rounded-2xl">
-      {children}
-    </div>
-  );
+  return <div className="rounded-2xl border border-dashed border-[#D8E3DA] bg-[#FAFBF8] px-4 py-10 text-center text-xs leading-relaxed text-[#64746C]">{children}</div>;
 }
 
 function KPI({ label, value, icon, critical }: { label: string; value: string | number; icon: React.ReactNode; critical?: boolean }) {
   return (
-    <div className="bg-white p-8 rounded-[2rem] border border-stone-100 shadow-sm">
-      <div className="flex justify-between items-start mb-6">
-        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400">{label}</p>
-        <div className={`p-2 rounded-lg ${critical ? "bg-red-50 text-red-400" : "bg-stone-50 text-stone-300"}`}>{icon}</div>
-      </div>
-      <p className="text-4xl font-serif italic tracking-tighter">{value}</p>
+    <div className="group relative min-w-0 overflow-hidden rounded-[22px] border border-[#E5E8E3] bg-white p-5 shadow-[0_8px_30px_-20px_rgba(15,61,50,0.18)] transition hover:-translate-y-0.5 hover:shadow-lg sm:p-6">
+      <div className={`absolute bottom-0 left-0 h-1 w-full ${critical ? "bg-[#BD786A]" : "bg-[#9EBDAA]"}`} />
+      <div className="mb-5 flex items-start justify-between gap-3"><p className="text-[10px] font-bold uppercase leading-relaxed tracking-[0.15em] text-[#65756C]">{label}</p><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${critical ? "bg-[#FFF0EC] text-[#B04E3C]" : "bg-[#E5EDE6] text-[#0F3D32]"}`}>{icon}</span></div>
+      <p className="break-words font-serif text-3xl leading-none tracking-tight text-[#183C31] sm:text-4xl">{value}</p>
     </div>
   );
 }
@@ -479,14 +504,14 @@ function KPI({ label, value, icon, critical }: { label: string; value: string | 
 
 function OverviewTab({ financial, productivity, marketing }: any) {
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5">
         <KPI label="Paid Revenue" value={currencyFmt(financial.paidRevenue, financial.currency)} icon={<Activity size={16} />} />
         <KPI label="Outstanding" value={currencyFmt(financial.outstanding, financial.currency)} icon={<AlertCircle size={16} />} critical={financial.overdueCount > 0} />
         <KPI label="Tasks Done" value={productivity.doneCount} icon={<Target size={16} />} />
         <KPI label="Hours Logged" value={productivity.totalHours} icon={<Zap size={16} />} />
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card title="Revenue Trend" sub="Last 12 months, paid invoices">
           {financial.monthlyRevenue.length ? (
             <ResponsiveContainer width="100%" height={260}>
@@ -495,7 +520,7 @@ function OverviewTab({ financial, productivity, marketing }: any) {
                 <XAxis dataKey="month" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip formatter={(v: number) => currencyFmt(v, financial.currency)} />
-                <Line type="monotone" dataKey="revenue" stroke="#a9b897" strokeWidth={3} dot={false} />
+                <Line type="monotone" dataKey="revenue" stroke="#0F3D32" strokeWidth={3} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           ) : <EmptyNote>No paid invoices with dates yet</EmptyNote>}
@@ -504,11 +529,11 @@ function OverviewTab({ financial, productivity, marketing }: any) {
           <div className="grid grid-cols-2 gap-6 text-center py-6">
             <div>
               <p className="text-3xl font-serif italic">{marketing.emailTotals.sent.toLocaleString()}</p>
-              <p className="text-[9px] uppercase tracking-widest text-stone-400 mt-2">Emails Sent</p>
+              <p className="text-[9px] uppercase tracking-widest text-[#65756C] mt-2">Emails Sent</p>
             </div>
             <div>
               <p className="text-3xl font-serif italic">{marketing.totalPosts}</p>
-              <p className="text-[9px] uppercase tracking-widest text-stone-400 mt-2">Posts Published</p>
+              <p className="text-[9px] uppercase tracking-widest text-[#65756C] mt-2">Posts Published</p>
             </div>
           </div>
         </Card>
@@ -522,18 +547,18 @@ function OverviewTab({ financial, productivity, marketing }: any) {
 function FinancialTab({ financial, invoices }: any) {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5">
         <KPI label="Paid Revenue" value={currencyFmt(financial.paidRevenue, financial.currency)} icon={<Activity size={16} />} />
         <KPI label="Outstanding (AR)" value={currencyFmt(financial.outstanding, financial.currency)} icon={<AlertCircle size={16} />} critical={financial.overdueCount > 0} />
         <KPI label="Overdue Invoices" value={financial.overdueCount} icon={<AlertCircle size={16} />} critical={financial.overdueCount > 0} />
         <KPI label="Total Invoices" value={invoices.length} icon={<Briefcase size={16} />} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card
           title="Monthly Revenue"
           action={
-            <button onClick={() => downloadCsv("revenue_by_month.csv", ["Month", "Revenue"], financial.monthlyRevenue.map((r: any) => [r.month, r.revenue]))} className="text-stone-300 hover:text-[#a9b897]">
+            <button onClick={() => downloadCsv("revenue_by_month.csv", ["Month", "Revenue"], financial.monthlyRevenue.map((r: any) => [r.month, r.revenue]))} className="text-[#829087] hover:text-[#0F3D32]">
               <Download size={16} />
             </button>
           }
@@ -545,7 +570,7 @@ function FinancialTab({ financial, invoices }: any) {
                 <XAxis dataKey="month" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip formatter={(v: number) => currencyFmt(v, financial.currency)} />
-                <Bar dataKey="revenue" fill="#a9b897" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="revenue" fill="#0F3D32" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : <EmptyNote>No paid invoices with dates yet</EmptyNote>}
@@ -569,10 +594,10 @@ function FinancialTab({ financial, invoices }: any) {
       </div>
 
       <Card title="Accounts Receivable Aging" sub="Outstanding balance by days overdue">
-        <div className="grid grid-cols-5 gap-4 text-center">
+        <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-5">
           {financial.aging.map((b: any) => (
-            <div key={b.bucket} className="p-4 bg-stone-50 rounded-2xl">
-              <p className="text-[9px] uppercase tracking-widest text-stone-400 mb-2">{b.bucket}</p>
+            <div key={b.bucket} className="p-4 bg-[#FAF9F6] rounded-2xl">
+              <p className="text-[9px] uppercase tracking-widest text-[#65756C] mb-2">{b.bucket}</p>
               <p className="text-lg font-serif italic">{currencyFmt(b.amount, financial.currency)}</p>
             </div>
           ))}
@@ -587,7 +612,7 @@ function FinancialTab({ financial, invoices }: any) {
               <XAxis type="number" tick={{ fontSize: 10 }} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={120} />
               <Tooltip formatter={(v: number) => currencyFmt(v, financial.currency)} />
-              <Bar dataKey="revenue" fill="#a9b897" radius={[0, 6, 6, 0]} />
+              <Bar dataKey="revenue" fill="#0F3D32" radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : <EmptyNote>Not tracked yet — invoices have no client_name field</EmptyNote>}
@@ -601,14 +626,14 @@ function FinancialTab({ financial, invoices }: any) {
 function ProductivityTab({ productivity }: any) {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5">
         <KPI label="Total Tasks" value={productivity.totalTasks} icon={<Target size={16} />} />
         <KPI label="Completed" value={productivity.doneCount} icon={<Target size={16} />} />
         <KPI label="Open" value={productivity.openCount} icon={<AlertCircle size={16} />} />
         <KPI label="Hours Logged" value={productivity.totalHours} icon={<Zap size={16} />} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card title="Task Status Breakdown">
           {productivity.statusBreakdown.length ? (
             <ResponsiveContainer width="100%" height={240}>
@@ -633,7 +658,7 @@ function ProductivityTab({ productivity }: any) {
                 <XAxis dataKey="month" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip />
-                <Line type="monotone" dataKey="completed" stroke="#3b82f6" strokeWidth={3} dot={false} />
+                <Line type="monotone" dataKey="completed" stroke="#5C9A80" strokeWidth={3} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           ) : <EmptyNote>No completed tasks with dates yet</EmptyNote>}
@@ -648,7 +673,7 @@ function ProductivityTab({ productivity }: any) {
               <XAxis dataKey="week" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
               <Tooltip />
-              <Bar dataKey="hours" fill="#a9b897" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="hours" fill="#0F3D32" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : <EmptyNote>Not tracked yet — timesheets have no week_start field</EmptyNote>}
@@ -662,14 +687,14 @@ function ProductivityTab({ productivity }: any) {
 function MarketingTab({ marketing }: any) {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5">
         <KPI label="Emails Sent" value={marketing.emailTotals.sent} icon={<Mail size={16} />} />
         <KPI label="Open Rate" value={marketing.emailTotals.sent ? `${((marketing.emailTotals.opens / marketing.emailTotals.sent) * 100).toFixed(1)}%` : "0%"} icon={<Mail size={16} />} />
         <KPI label="Click Rate" value={marketing.emailTotals.opens ? `${((marketing.emailTotals.clicks / marketing.emailTotals.opens) * 100).toFixed(1)}%` : "0%"} icon={<Mail size={16} />} />
         <KPI label="Posts Published" value={marketing.totalPosts} icon={<Share2 size={16} />} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card title="Engagement by Platform">
           {marketing.platformBreakdown.length ? (
             <ResponsiveContainer width="100%" height={240}>
@@ -678,7 +703,7 @@ function MarketingTab({ marketing }: any) {
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip />
-                <Bar dataKey="value" fill="#a9b897" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="value" fill="#0F3D32" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : <EmptyNote>No posts yet</EmptyNote>}
@@ -692,7 +717,7 @@ function MarketingTab({ marketing }: any) {
                 <XAxis type="number" tick={{ fontSize: 10 }} />
                 <YAxis type="category" dataKey="stage" tick={{ fontSize: 10 }} width={70} />
                 <Tooltip />
-                <Bar dataKey="value" fill="#3b82f6" radius={[0, 6, 6, 0]} />
+                <Bar dataKey="value" fill="#5C9A80" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : <EmptyNote>No email campaigns yet</EmptyNote>}
@@ -701,15 +726,15 @@ function MarketingTab({ marketing }: any) {
 
       <Card title="Top Performing Posts">
         {marketing.topPosts.length ? (
-          <table className="w-full text-left text-[11px]">
+          <div className="overflow-x-auto"><table className="w-full min-w-[480px] text-left text-xs">
             <thead>
-              <tr className="text-stone-400 uppercase tracking-widest text-[9px] border-b border-stone-100">
+              <tr className="text-[#65756C] uppercase tracking-widest text-[9px] border-b border-[#E5E8E3]">
                 <th className="py-2">Platform</th><th>Likes</th><th>Comments</th><th>Score</th>
               </tr>
             </thead>
             <tbody>
               {marketing.topPosts.map((p: any) => (
-                <tr key={p.id} className="border-b border-stone-50">
+                <tr key={p.id} className="border-b border-[#EEF0EB]">
                   <td className="py-3 font-bold uppercase">{p.platform || "other"}</td>
                   <td>{p.likes || 0}</td>
                   <td>{p.comments || 0}</td>
@@ -717,7 +742,7 @@ function MarketingTab({ marketing }: any) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         ) : <EmptyNote>No posts yet</EmptyNote>}
       </Card>
     </div>
@@ -735,23 +760,23 @@ function TeamTab({ team }: any) {
             <EmptyNote>Add user_id to timesheets and assignee_id to tasks to see per-member breakdowns</EmptyNote>
           </div>
         )}
-        <table className="w-full text-left text-[11px]">
+        <div className="overflow-x-auto"><table className="w-full min-w-[480px] text-left text-xs">
           <thead>
-            <tr className="text-stone-400 uppercase tracking-widest text-[9px] border-b border-stone-100">
+            <tr className="text-[#65756C] uppercase tracking-widest text-[9px] border-b border-[#E5E8E3]">
               <th className="py-2">Name</th><th>Role</th><th>Hours</th><th>Tasks Assigned</th>
             </tr>
           </thead>
           <tbody>
             {team.rows.map((r: any) => (
-              <tr key={r.id} className="border-b border-stone-50">
+              <tr key={r.id} className="border-b border-[#EEF0EB]">
                 <td className="py-3 font-bold">{r.name}</td>
-                <td className="text-stone-400 uppercase text-[10px] tracking-widest">{r.role}</td>
+                <td className="text-[#65756C] uppercase text-[10px] tracking-widest">{r.role}</td>
                 <td>{r.hours === null ? "—" : r.hours}</td>
                 <td>{r.tasks === null ? "—" : r.tasks}</td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </Card>
     </div>
   );

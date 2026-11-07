@@ -153,7 +153,7 @@ export default function ExpenseModal({
 
             <div className="mb-7 flex items-start justify-between gap-4">
               <div>
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 text-[#a9b897]">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 text-[#0F3D32]">
                   <Receipt size={17} />
                 </div>
 
@@ -325,7 +325,7 @@ export default function ExpenseModal({
                   )}
 
                   {expense.projectId && (
-                    <div className="mt-3 flex items-start gap-2 rounded-xl bg-[#a9b897]/10 p-3">
+                    <div className="mt-3 flex items-start gap-2 rounded-xl bg-[#0F3D32]/10 p-3">
                       <Briefcase
                         size={13}
                         className="mt-0.5 shrink-0 text-[#829473]"
@@ -509,7 +509,7 @@ export default function ExpenseModal({
               type="button"
               onClick={onSubmit}
               disabled={!canSubmit || uploadingReceipt}
-              className="mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#a9b897] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#0F3D32] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting || uploadingReceipt ? (
                 <Loader2

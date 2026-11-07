@@ -23,7 +23,7 @@ export default function SectionShell({
     <section
       className={`
         bg-white
-        border border-stone-100
+        border border-[#E6ECE7]
         rounded-[2.5rem]
         p-5 sm:p-6 lg:p-8
         shadow-sm
@@ -49,7 +49,7 @@ export default function SectionShell({
               font-serif
               italic
               tracking-tighter
-              text-stone-900
+              text-[#1E2A27]
             "
           >
             {title}

@@ -217,7 +217,7 @@ function BetaLeaveContent() {
             }
             className="mt-8 rounded-full bg-stone-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-stone-700"
           >
-            Go to TOTS-OS
+            Go to ORBI.
           </button>
 
         </div>
@@ -237,11 +237,11 @@ function BetaLeaveContent() {
 
         <Loader2
           size={36}
-          className="mx-auto animate-spin text-[#A3B18A]"
+          className="mx-auto animate-spin text-[#0F3D32]"
         />
 
         <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
-          Updating your TOTS-OS access
+          Updating your ORBI. access
         </p>
 
       </div>
@@ -262,11 +262,11 @@ function BetaLeaveFallback() {
 
         <Loader2
           size={36}
-          className="mx-auto animate-spin text-[#A3B18A]"
+          className="mx-auto animate-spin text-[#0F3D32]"
         />
 
         <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
-          Opening your TOTS-OS account
+          Opening your ORBI. account
         </p>
 
       </div>

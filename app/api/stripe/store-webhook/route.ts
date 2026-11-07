@@ -1,3 +1,4 @@
+import { MTC_CREDIT_ORGANISATION_ID, resolveMtcCreditSku, expectedMtcCredits } from "@/lib/integrations/mtc/credit-products";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
@@ -2453,78 +2454,55 @@ async function fulfilMtcCourseAndWalkInCredits({
   order: StoreOrderRow;
   customerEmail: string | null;
 }) {
-  const email = normaliseEmail(
-    customerEmail || order.customer_email
-  );
+  if (order.organisation_id !== MTC_CREDIT_ORGANISATION_ID) return;
 
-  if (!email) {
-    console.warn(
-      `[MTC CREDIT] ${order.order_number} has no customer email.`
-    );
-    return;
+  const { data: items, error } = await supabaseAdmin
+    .from("store_order_items")
+    .select("id, order_id, product_id, product_name, sku, quantity, unit_price, total, created_at")
+    .eq("order_id", order.id);
+  if (error) throw error;
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error(`MTC order ${order.id} has no order items to verify.`);
   }
 
-  const { data: items, error } =
-    await supabaseAdmin
-      .from("store_order_items")
-      .select(
-        "id, order_id, product_id, product_name, sku, quantity, unit_price, total, created_at"
-      )
-      .eq("order_id", order.id);
+  // Resolve the complete basket before granting anything. Historical missing
+  // SKUs use verified product IDs, never a product name or client input.
+  const creditItems = (items as StoreOrderItemRow[]).map(item => ({
+    item,
+    sku: resolveMtcCreditSku({
+      organisationId: order.organisation_id,
+      productId: item.product_id,
+      sku: item.sku,
+    }),
+  })).filter((entry): entry is { item: StoreOrderItemRow; sku: string } => entry.sku !== null);
+  if (!creditItems.length) return;
 
-  if (error) {
-    throw error;
+  const email = normaliseEmail(customerEmail || order.customer_email);
+  if (!email) throw new Error(`MTC credit order ${order.id} has no customer email.`);
+  for (const { item, sku } of creditItems) {
+    expectedMtcCredits(sku, item.quantity); // Reject invalid quantities; never default to a free credit.
   }
 
-  const creditItems =
-    (items as StoreOrderItemRow[] | null)?.filter(
-      (item) =>
-        [
-          "MTC-WALK-IN",
-          "MTC-HYROX-BEGINNER-4WK",
-          "MTC-CROSSFIT-BEGINNER-4WK",
-          "MTC-MUMFIT-BEGINNER-4WK",
-        ].includes(
-          asString(item.sku)?.trim().toUpperCase() ?? ""
-        )
-    ) ?? [];
-
-  if (!creditItems.length) {
-    return;
-  }
-
-  for (const item of creditItems) {
-    const quantity = Math.max(
-      1,
-      safeInteger(item.quantity, 1)
-    );
-
-    const sku = asString(item.sku)?.trim().toUpperCase() ?? "";
-
-    const result =
-      await grantMtcPackCreditsSafely({
-        orderId: order.id,
-        orderItemId: item.id,
-        email,
-        sku,
-        quantity,
-        planLabel:
-          asString(item.product_name) ||
-          "Walk-In Session",
-      });
-
+  for (const { item, sku } of creditItems) {
+    const result = await grantMtcPackCreditsSafely({
+      orderId: order.id,
+      orderItemId: item.id,
+      email,
+      sku,
+      quantity: item.quantity,
+      planLabel: asString(item.product_name) || "Walk-In Session",
+    });
     if (!result.success) {
-      throw new Error(
-        result.error ||
-          result.message ||
-          `MTC credit fulfilment failed for order item ${item.id}.`
-      );
+      throw new Error(result.error || result.message || `MTC credit fulfilment failed for order item ${item.id}.`);
     }
-
-    console.log(
-      `[MTC CREDIT] ${order.order_number}: ` +
-        `${result.alreadyProcessed ? "already processed" : result.pending ? "pending account registration" : `+${result.creditsAdded ?? quantity} credit(s)`}.`
-    );
+    console.info("[MTC CREDIT] Fulfilment confirmed.", {
+      orderId: order.id,
+      orderItemId: item.id,
+      sku,
+      pending: result.pending === true,
+      alreadyProcessed: result.alreadyProcessed === true,
+      creditsAdded: result.creditsAdded,
+    });
   }
 }
 
@@ -3781,6 +3759,47 @@ export async function POST(
       `account=${eventStripeAccountId || "platform"}`
   );
 
+  // Claim only after Stripe signature verification. Fail closed if tracking
+  // is unavailable: an untracked delivery must never execute side effects.
+  let webhookClaimToken: string | null = null;
+  try {
+    const { data, error } = await supabaseAdmin.rpc(
+      "claim_stripe_webhook_event",
+      {
+        p_event_id: event.id,
+        p_stripe_account_id: eventStripeAccountId,
+        p_event_type: event.type,
+      }
+    );
+    if (error) throw error;
+    const claim = Array.isArray(data) ? data[0] : null;
+    if (!claim) throw new Error("Webhook claim returned no result.");
+
+    if (claim.claim_status === "completed") {
+      return NextResponse.json(
+        { received: true, duplicate: true, eventId: event.id },
+        { status: 200, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    if (claim.claim_status === "busy") {
+      // Do not acknowledge another request's incomplete work.
+      return NextResponse.json(
+        { error: "Webhook event is already processing." },
+        { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "30" } }
+      );
+    }
+    if (claim.claim_status !== "claimed" || typeof claim.claim_token !== "string") {
+      throw new Error("Invalid webhook claim response.");
+    }
+    webhookClaimToken = claim.claim_token;
+  } catch (claimError) {
+    console.error("[TOTS STORE WEBHOOK] Claim failed:", claimError);
+    return NextResponse.json(
+      { error: "Could not claim Stripe webhook event." },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
   try {
     switch (
       event.type
@@ -4097,6 +4116,16 @@ export async function POST(
       }
     }
 
+    // Only acknowledge the event after all required side effects complete.
+    const { data: completed, error: completionError } = await supabaseAdmin.rpc(
+      "complete_stripe_webhook_event",
+      { p_event_id: event.id, p_claim_token: webhookClaimToken }
+    );
+    if (completionError) throw completionError;
+    if (completed !== true) {
+      throw new Error(`Webhook ${event.id} could not be marked completed.`);
+    }
+
     return NextResponse.json(
       {
         received:
@@ -4131,6 +4160,26 @@ export async function POST(
       `[TOTS STORE WEBHOOK] Processing failed for ${event.type} (${event.id}):`,
       error
     );
+
+    // Release only our own claim. Never mask the original processing error.
+    if (webhookClaimToken) {
+      try {
+        const { data: failed, error: failureError } = await supabaseAdmin.rpc(
+          "fail_stripe_webhook_event",
+          {
+            p_event_id: event.id,
+            p_claim_token: webhookClaimToken,
+            p_error: error instanceof Error ? error.message : "Unknown processing error.",
+          }
+        );
+        if (failureError) throw failureError;
+        if (failed !== true) {
+          console.warn("[TOTS STORE WEBHOOK] Claim no longer owned:", event.id);
+        }
+      } catch (trackingError) {
+        console.error("[TOTS STORE WEBHOOK] Failure tracking failed:", trackingError);
+      }
+    }
 
     return NextResponse.json(
       {

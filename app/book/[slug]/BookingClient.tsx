@@ -23,6 +23,7 @@ interface BookingClientProps {
   bookingPage: {
     id: string;
     user_id: string;
+    organisation_id?: string | null;
     title: string;
     duration_minutes: number;
 
@@ -688,58 +689,28 @@ export default function BookingClient({
             "In person";
 
       // ==============================================
-      // CREATE EVENT
+      // CREATE LINKED BOOKING + EVENT ON THE SERVER
       // ==============================================
 
-      const {
-        data:
-          insertedEvent,
-        error:
-          bookingError,
-      } = await supabase
-        .from("events")
-        .insert({
-          user_id:
-            bookingPage.user_id,
+      const bookingResponse = await fetch("/api/bookings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingPageId: bookingPage.id,
+          customerName: name.trim(),
+          customerEmail: email.trim().toLowerCase(),
+          startTime: start.toISOString(),
+          meetingOption,
+        }),
+      });
 
-          title:
-            `${bookingPage.title} - ${name.trim()}`,
-
-          description:
-            `Booking requested by ${name.trim()} (${email
-              .trim()
-              .toLowerCase()})`,
-
-          start_time:
-            start.toISOString(),
-
-          end_time:
-            end.toISOString(),
-
-          location,
-        })
-        .select(
-          "id,start_time,end_time"
-        )
-        .single();
-
-      if (
-        bookingError
-      ) {
-        console.error(
-          "EVENT INSERT ERROR:",
-          JSON.stringify(
-            bookingError,
-            null,
-            2
-          )
-        );
-
-        throw new Error(
-          bookingError.message ||
-            "Unable to create booking event"
-        );
+      const bookingResult = await bookingResponse.json().catch(() => null);
+      if (!bookingResponse.ok || !bookingResult?.eventId) {
+        if (bookingResponse.status === 409) setSelectedTime("");
+        throw new Error(bookingResult?.error || "Unable to create booking");
       }
+
+      const insertedEvent = { id: bookingResult.eventId };
 
       // ==============================================
       // SEND CUSTOMER + OWNER EMAILS

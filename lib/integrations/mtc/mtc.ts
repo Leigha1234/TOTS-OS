@@ -1,3 +1,4 @@
+import { expectedMtcCredits } from "./credit-products";
 import "server-only";
 
 type MtcSyncTrigger =
@@ -216,6 +217,7 @@ export async function grantMtcPackCreditsSafely(
   grant: MtcPackCreditGrant,
 ): Promise<MtcPackCreditGrantResult> {
   try {
+    const expectedCredits = expectedMtcCredits(grant.sku, grant.quantity);
     const url = getMtcCreditGrantUrl();
     const secret = getMtcIntegrationSecret();
 
@@ -241,6 +243,20 @@ export async function grantMtcPackCreditsSafely(
     }
 
     const result = payload as MtcPackCreditGrantResult;
+    const queued = result.pending === true;
+    const duplicate = result.alreadyProcessed === true;
+    if (
+      (result.pending !== undefined && typeof result.pending !== "boolean") ||
+      (result.alreadyProcessed !== undefined && typeof result.alreadyProcessed !== "boolean") ||
+      (queued && duplicate) ||
+      result.creditsAdded !== (queued || duplicate ? 0 : expectedCredits) ||
+      (!queued && (
+        typeof result.userId !== "string" || !result.userId.trim() ||
+        !Number.isSafeInteger(result.packCredits) || (result.packCredits ?? -1) < 0
+      ))
+    ) {
+      throw new Error("MTC did not confirm a valid credit grant, duplicate, or pending account grant.");
+    }
     console.info("[MTC integration] Pack credits granted.", {
       orderId: grant.orderId,
       orderItemId: grant.orderItemId,

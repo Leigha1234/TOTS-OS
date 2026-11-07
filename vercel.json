@@ -5,12 +5,20 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/campaigns",
-      "schedule": "0 9 * * *"
-    },
+  "path": "/api/cron/campaigns",
+  "schedule": "*/5 * * * *"
+},
     {
       "path": "/api/webhooks/gocardless/process",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/mtc-trial-schedule",
+      "schedule": "15 8 * * *"
+    },
+    {
+      "path": "/api/cron/mtc-trial-health",
+      "schedule": "30 8 * * *"
     }
   ]
 }

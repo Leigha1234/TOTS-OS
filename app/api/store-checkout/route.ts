@@ -1,3 +1,4 @@
+import { resolveMtcCreditSku } from "@/lib/integrations/mtc/credit-products";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
@@ -409,7 +410,14 @@ export async function POST(req: Request) {
       .select("id,organisation_id,name,slug,description,sku,category,selling_model,purchase_type,billing_interval,external_system,external_plan_code,beneficiary_mode,family_addon_eligible,family_addon_discount,family_addon_requires_couples,stripe_product_id,stripe_price_id,price,compare_at_price,stock,inventory_quantity,track_inventory,is_active,status,image_url")
       .eq("organisation_id", organisationId).in("id", productIds);
     if (productError) { console.error("[TOTS STORE] Product checkout lookup failed:", productError); return NextResponse.json({error: "The products in your basket could not be verified."}, {status: 500}); }
-    const products = (productRows || []) as StoreProductRow[];
+    const products = ((productRows || []) as StoreProductRow[]).map(product => ({
+      ...product,
+      sku: resolveMtcCreditSku({
+        organisationId: product.organisation_id,
+        productId: product.id,
+        sku: product.sku,
+      }) ?? product.sku,
+    }));
     const validatedLines: ValidatedLine[] = [];
     const hasCouplesMembershipRequested = products.filter(isCouplesMembershipProduct).length === 1;
     for (const productId of productIds) {

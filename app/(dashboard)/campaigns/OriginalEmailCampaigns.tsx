@@ -1199,34 +1199,16 @@ function getConversionRate(
   );
 }
 
-function getStatusLabel(
-  campaign: Campaign
-) {
-  if (
-    campaign.status === "sending" ||
-    campaign.status === "queued" ||
-    campaign.status === "scheduled" ||
-    campaign.status === "failed"
-  ) {
-    return campaign.status;
-  }
-
-  if (
-    campaign.sent_at ||
-    Number(
-      campaign.sent_count ||
-        0
-    ) > 0 ||
-    campaign.status ===
-      "sent"
-  ) {
-    return "sent";
-  }
-
-  return (
-    campaign.status ||
-    "draft"
-  );
+function getStatusLabel(campaign: Campaign) {
+  // Database status is authoritative. A partial sent_count or an old
+  // sent_at must never turn an active/cancelled campaign into "sent".
+  const status = String(campaign.status || "draft").toLowerCase();
+  if (status === "processing" || status === "sending") return "sending";
+  if (status === "cancelled" || status === "canceled") return "cancelled";
+  if (status === "queued" || status === "scheduled" || status === "failed") return status;
+  if (status === "sent" || status === "completed") return "sent";
+  if (status === "draft" && campaign.sent_at) return "sent";
+  return status;
 }
 
 function createUniqueTrackingCounts(
@@ -1322,7 +1304,9 @@ function StatusBadge({
           status ===
             "processing"
         ? "bg-amber-50 text-amber-700"
-        : status ===
+        : status === "cancelled"
+          ? "bg-stone-200 text-stone-700"
+          : status ===
             "failed"
           ? "bg-red-50 text-red-700"
           : status ===
@@ -2671,20 +2655,9 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
           ) => ({
             ...campaign,
 
-            status:
-              campaign.status === "sending" ||
-              campaign.status === "queued" ||
-              campaign.status === "scheduled" ||
-              campaign.status === "failed"
-                ? campaign.status
-                : campaign.sent_at ||
-                    Number(
-                      campaign.sent_count ||
-                        0
-                    ) > 0
-                  ? "sent"
-                  : campaign.status ||
-                    "draft",
+            // Preserve the authoritative database status, including
+            // "processing" and "cancelled" when some emails were sent.
+            status: campaign.status || "draft",
 
             sent_count:
               deliveryCounts[campaign.id]?.total
@@ -8489,6 +8462,16 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                                 conversion
                               </span>
                             </span>
+                          </div>
+                        ) : status === "sending" || status === "cancelled" ? (
+                          <div className="text-xs text-stone-600">
+                            <strong>{Number(campaign.delivery_sent_count ?? campaign.sent_count ?? 0)}</strong>
+                            <span className="text-stone-400"> / {Number(campaign.delivery_sent_count ?? campaign.sent_count ?? 0) + Number(campaign.pending_count ?? 0) + Number(campaign.failed_count ?? 0)} sent</span>
+                            {status === "sending" && (
+                              <div className="mt-1 h-1.5 w-full max-w-32 overflow-hidden rounded-full bg-stone-200">
+                                <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${Math.min(100, Math.round(100 * Number(campaign.delivery_sent_count ?? campaign.sent_count ?? 0) / Math.max(1, Number(campaign.delivery_sent_count ?? campaign.sent_count ?? 0) + Number(campaign.pending_count ?? 0) + Number(campaign.failed_count ?? 0))))}%` }} />
+                              </div>
+                            )}
                           </div>
                         ) : campaign.scheduled_for ? (
                           <p className="text-[10px] text-stone-400">

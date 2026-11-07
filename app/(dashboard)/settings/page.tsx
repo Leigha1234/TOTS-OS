@@ -2478,7 +2478,7 @@ function SettingsInner() {
                     </div>
 
                     <div className="flex shrink-0 items-center gap-3 self-stretch sm:self-auto">
-                      <div className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-stone-900 px-5 text-[8px] font-black uppercase tracking-[0.12em] text-white transition duration-300 group-hover:bg-[#0F3D32] group-hover:text-stone-900 sm:w-auto">
+                      <div className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0F3D32] px-5 text-[8px] font-black uppercase tracking-[0.12em] text-white transition duration-300 group-hover:bg-[#0F3D32] group-hover:text-stone-900 sm:w-auto">
                         Open Import Hub
 
                         <ArrowRight
@@ -2533,7 +2533,7 @@ function SettingsInner() {
               ================================================== */}
 
               <div className="border-t border-stone-100 pt-10">
-                <div className="overflow-hidden rounded-[2rem] border border-stone-200 bg-stone-900 text-white shadow-[0_18px_55px_rgba(0,0,0,0.10)]">
+                <div className="overflow-hidden rounded-[2rem] border border-stone-200 bg-[#0F3D32] text-white shadow-[0_18px_55px_rgba(0,0,0,0.10)]">
                   <div className="relative p-5 sm:p-6">
                     <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-[#0F3D32]/20 blur-3xl" />
 
@@ -2576,7 +2576,7 @@ function SettingsInner() {
                         type="button"
                         onClick={() => void installTotsOs()}
                         disabled={appInstalled}
-                        className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#0F3D32] px-5 text-[9px] font-black uppercase tracking-[0.12em] text-stone-900 transition hover:bg-[#b8c6a9] disabled:cursor-default disabled:bg-white/10 disabled:text-stone-400"
+                        className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#0F3D32] px-5 text-[9px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#b8c6a9] disabled:cursor-default disabled:bg-white/10 disabled:text-stone-400"
                       >
                         {appInstalled ? (
                           <CheckCircle2 size={14} />
@@ -2683,7 +2683,7 @@ function SettingsInner() {
                       onClick={() =>
                         void saveMobileNavigation()
                       }
-                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 text-[8px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#0F3D32] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#0F3D32] px-4 text-[8px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#185B49] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {mobileNavSaving ? (
                         <Loader2
@@ -3060,7 +3060,7 @@ function SettingsInner() {
                               : notificationPermission ===
                                   "denied"
                                 ? "bg-red-50 text-red-500"
-                                : "bg-stone-900 text-white"
+                                : "bg-[#0F3D32] text-white"
                           }
                         `}
                       >
@@ -3158,7 +3158,7 @@ function SettingsInner() {
                             !notificationSupported ||
                             !pushSupported
                           }
-                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 text-[9px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#0F3D32] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0F3D32] px-4 text-[9px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#185B49] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {notificationLoading ? (
                             <Loader2
@@ -3306,7 +3306,7 @@ function SettingsInner() {
                         onClick={() =>
                           void saveNotificationPreferences()
                         }
-                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#0F3D32] px-4 text-[8px] font-black uppercase tracking-[0.12em] text-stone-900 transition hover:bg-[#b6c5a5] disabled:opacity-50"
+                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#0F3D32] px-4 text-[8px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#b6c5a5] disabled:opacity-50"
                       >
                         {notificationPreferencesSaving ? (
                           <Loader2

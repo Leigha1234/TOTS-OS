@@ -1654,7 +1654,7 @@ export default function InvoiceQuoteModal({
                   type="button"
                   onClick={onSubmit}
                   disabled={!canSubmit}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-[#0F3D32] py-3.5 text-stone-900 transition hover:bg-[#9aaa87] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-[#0F3D32] py-3.5 text-white transition hover:bg-[#9aaa87] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {submitting ? (
                     <Loader2 size={15} className="animate-spin" />

@@ -6524,6 +6524,8 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
         .orbi-social select:focus-visible, .orbi-social button:focus-visible {
           outline: 2px solid #39806b; outline-offset: 2px;
         }
+        .orbi-social input:not([type="checkbox"]):not([type="radio"]), .orbi-social textarea, .orbi-social select { accent-color: #103d32; }
+        .orbi-social ::selection { background: #c6e4d3; color: #103d32; }
         .orbi-social button { transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease; }
       `}</style>
 
@@ -6532,160 +6534,53 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
           HEADER
       ====================================================== */}
 
-      <header className="sticky top-0 z-50 border-b border-[#E5EAE5] bg-[#FAF9F6]/95 px-4 py-5 backdrop-blur-xl md:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
+      <header className="relative z-30 border-b border-[#E2EAE4] bg-white/90 px-4 py-5 backdrop-blur-xl md:px-8">
+        <div className="mx-auto flex max-w-[1480px] flex-wrap items-center justify-between gap-5">
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0F3D32] text-white shadow-lg shadow-emerald-950/15">
-              <Layers
-                size={
-                  18
-                }
-              />
-            </div>
-
+            <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#103D32] text-[#E5F0E9] shadow-sm"><Layers size={21} /></div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-[#487668]">
-                ORBI.
-              </p>
-
-              <h1 className="font-serif text-3xl font-semibold tracking-tight text-[#0F3D32] md:text-4xl">
-                Social Studio
-              </h1>
-              <p className="mt-1 text-xs font-medium text-[#63756D]">Create, plan and publish — all in your orbit.</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#648B79]">ORBI. / YOUR MARKETING SPACE</p>
+              <h1 className="font-serif text-[28px] leading-tight tracking-tight text-[#103D32]">Social Studio<span className="text-[#A3BBAE]">.</span></h1>
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-[#E5EAE5] bg-white p-1.5 shadow-sm">
-
-            <button
-              type="button"
-              onClick={() =>
-                setViewMode(
-                  "create"
-                )
-              }
-              className={`rounded-xl px-5 py-3 text-[9px] font-black uppercase tracking-wider transition ${
-                viewMode ===
-                "create"
-                  ? "bg-[#0F3D32] text-white shadow-sm"
-                  : "text-stone-400 hover:text-stone-700"
-              }`}
-            >
-              Create
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                setViewMode(
-                  "ideas"
-                )
-              }
-              className={`flex items-center gap-2 rounded-xl px-5 py-3 text-[9px] font-black uppercase tracking-wider transition ${
-                viewMode ===
-                "ideas"
-                  ? "bg-[#0F3D32] text-white shadow-sm"
-                  : "text-stone-400 hover:text-stone-700"
-              }`}
-            >
-              <Sparkles
-                size={
-                  12
-                }
-              />
-
-              Ideas
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                setViewMode(
-                  "planner"
-                )
-              }
-              className={`rounded-xl px-5 py-3 text-[9px] font-black uppercase tracking-wider transition ${
-                viewMode ===
-                "planner"
-                  ? "bg-[#0F3D32] text-white shadow-sm"
-                  : "text-stone-400 hover:text-stone-700"
-              }`}
-            >
-              Planner
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="rounded-full border border-stone-200 bg-white px-4 py-2">
-              <span className="flex items-center gap-2 text-[8px] font-black uppercase tracking-wider text-stone-400">
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    status ===
-                    "Ready"
-                      ? "bg-[#0F3D32]"
-                      : status ===
-                          "Not authenticated"
-                        ? "bg-red-400"
-                        : "bg-amber-400"
-                  }`}
-                />
-
-                {
-                  status
-                }
-              </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#DCE9E0] bg-[#F6F9F6] px-3 py-2 text-xs font-semibold text-[#35594A]">
+              <span className={`h-2 w-2 rounded-full ${status === "Ready" ? "bg-emerald-500" : status === "Not authenticated" ? "bg-red-400" : "bg-amber-400"}`} />{status}
             </div>
-
-            <button
-              type="button"
-              disabled={
-                isPosting
-              }
-              onClick={() =>
-                void refreshEverything()
-              }
-              className="rounded-xl border border-stone-200 bg-white p-3 text-stone-400 transition hover:text-stone-900 disabled:opacity-50"
-            >
-              <RefreshCcw
-                size={
-                  15
-                }
-                className={
-                  status.includes(
-                    "Refresh"
-                  ) ||
-                  status ===
-                    "Syncing"
-                    ? "animate-spin"
-                    : ""
-                }
-              />
-            </button>
+            <button type="button" aria-label="Refresh social studio" title="Refresh" disabled={isPosting} onClick={() => void refreshEverything()} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#DFE8E1] bg-white text-[#345B4B] hover:bg-[#F2F7F2] disabled:opacity-50"><RefreshCcw size={16} className={status.includes("Refresh") || status === "Syncing" ? "animate-spin" : ""} /></button>
+            <button type="button" onClick={() => setViewMode("create")} className="inline-flex items-center gap-2 rounded-xl bg-[#103D32] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#195341]"><Plus size={16} /> New post</button>
           </div>
         </div>
       </header>
 
-      {/* ======================================================
-          MAIN
-      ====================================================== */}
-
-      <main className="mx-auto max-w-[1480px] p-4 md:p-8 lg:p-10">
-        <section className="relative mb-8 overflow-hidden rounded-[28px] bg-[#0F3D32] px-6 py-7 text-white shadow-xl shadow-emerald-950/10 md:px-10 md:py-9">
-          <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-28 h-72 w-72 rounded-full border border-white/10" />
-          <div aria-hidden="true" className="pointer-events-none absolute -right-4 -top-16 h-52 w-52 rounded-full border border-white/10" />
-          <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-end">
+      <main className="mx-auto max-w-[1480px] px-4 pb-14 pt-7 md:px-8 lg:px-10">
+        <section className="relative mb-7 overflow-hidden rounded-[30px] bg-[#103D32] px-6 py-8 text-white shadow-[0_16px_45px_-28px_rgba(16,61,50,.6)] md:px-10 md:py-10">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-32 h-96 w-96 rounded-full border border-white/10" />
+          <div aria-hidden="true" className="pointer-events-none absolute right-16 -top-20 h-72 w-72 rounded-full border border-white/10" />
+          <div aria-hidden="true" className="pointer-events-none absolute -bottom-48 right-0 h-80 w-80 rounded-full bg-[#2B7058]/25 blur-3xl" />
+          <div className="relative flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
             <div>
-              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.28em] text-[#B9D4C7]">ORBI. / MARKETING WORKSPACE</p>
-              <h2 className="max-w-xl font-serif text-3xl leading-tight md:text-5xl">Your next big idea starts here.</h2>
-              <p className="mt-3 max-w-lg text-sm leading-6 text-[#D7E6DF]">A dedicated space to shape your content, schedule campaigns and manage your social presence.</p>
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.17em] text-[#CDE5D8]"><Sparkles size={13} /> CREATE · PLAN · CONNECT</div>
+              <h2 className="max-w-[650px] font-serif text-4xl leading-[1.12] tracking-tight md:text-[52px]">Good content deserves<br /><span className="italic text-[#BFDCCB]">a great home.</span></h2>
+              <p className="mt-5 max-w-xl text-sm leading-7 text-[#D1E1D8]">From the first spark of an idea to the moment you hit publish. Plan your content, find your voice and keep everything in your orbit.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setViewMode("create")} className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-xs font-bold text-[#0F3D32] transition hover:bg-[#F1F5EF]"><Plus size={16} /> Create a post</button>
-              <button type="button" onClick={() => setViewMode("planner")} className="inline-flex items-center gap-2 rounded-xl border border-white/30 px-5 py-3 text-xs font-bold text-white transition hover:bg-white/10"><CalendarDays size={16} /> Content planner</button>
+              <button type="button" onClick={() => setViewMode("create")} className="inline-flex items-center gap-2 rounded-xl bg-[#F6F6ED] px-5 py-3 text-xs font-bold text-[#103D32] hover:bg-white"><Plus size={16} /> Create a post</button>
+              <button type="button" onClick={() => setViewMode("planner")} className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-xs font-bold text-white hover:bg-white/20"><CalendarDays size={16} /> Open planner</button>
             </div>
           </div>
         </section>
+
+        <nav aria-label="Social Studio sections" className="mb-8 flex flex-wrap items-center gap-2 rounded-[20px] border border-[#E1E9E2] bg-white p-2 shadow-[0_5px_22px_-18px_rgba(16,61,50,.4)]">
+          {([
+            { id: "create", label: "Create content", icon: Plus },
+            { id: "ideas", label: "Ideas & inspiration", icon: Sparkles },
+            { id: "planner", label: "Content planner", icon: CalendarDays },
+          ] as const).map(({ id, label, icon: Icon }) => (
+            <button key={id} type="button" aria-current={viewMode === id ? "page" : undefined} onClick={() => setViewMode(id)} className={`inline-flex min-h-11 items-center gap-2 rounded-[13px] px-4 py-2.5 text-xs font-bold transition ${viewMode === id ? "bg-[#103D32] text-white shadow-sm" : "text-[#557165] hover:bg-[#F1F6F1] hover:text-[#103D32]"}`}><Icon size={15} />{label}</button>
+          ))}
+          <span className="ml-auto hidden pr-3 text-[11px] text-[#83958A] lg:inline">Your content, beautifully organised.</span>
+        </nav>
 
         {/* ====================================================
             LATEST RESULT
@@ -6936,7 +6831,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                         void generateBusinessIdeas();
                       }
                     }}
-                    className="flex items-center justify-center gap-3 rounded-2xl bg-[#0F3D32] px-6 py-4 text-[10px] font-black uppercase tracking-wider text-stone-900"
+                    className="flex items-center justify-center gap-3 rounded-2xl bg-[#0F3D32] px-6 py-4 text-[10px] font-black uppercase tracking-wider text-white"
                   >
                     <Wand2
                       size={
@@ -8505,7 +8400,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                             true,
                         })
                       }
-                      className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#0F3D32] px-6 py-5 text-[10px] font-black uppercase tracking-widest text-stone-900 shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#0F3D32] px-6 py-5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {isPosting ? (
                         <Loader2
@@ -8560,7 +8455,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                     }}
                     className={`flex w-full items-center justify-center gap-3 rounded-2xl px-6 py-5 text-[10px] font-black uppercase tracking-widest shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 ${
                       isEditingScheduledPost
-                        ? "bg-[#0F3D32] text-stone-900"
+                        ? "bg-[#0F3D32] text-white"
                         : "bg-[#0F3D32] text-white shadow-sm"
                     }`}
                   >
@@ -8675,7 +8570,7 @@ export default function SocialStudioUnified({ selectedOrganisationId }: SocialSt
                   onClick={() =>
                     void generateBusinessIdeas()
                   }
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#0F3D32] px-5 py-3.5 text-[9px] font-black uppercase tracking-[0.18em] text-stone-900 transition hover:bg-[#b8caa4] disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#0F3D32] px-5 py-3.5 text-[9px] font-black uppercase tracking-[0.18em] text-white transition hover:bg-[#b8caa4] disabled:opacity-50"
                 >
                   {generatingIdeas ? (
                     <Loader2

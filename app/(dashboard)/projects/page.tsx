@@ -268,6 +268,9 @@ export default function ProjectDirectory() {
   ] =
     useState("");
 
+  const [projectView, setProjectView] = useState<"all" | "active" | "overdue" | "completed" | "archived">("all");
+  const [projectSort, setProjectSort] = useState<"recent" | "name" | "due">("recent");
+
   const [
     showModal,
     setShowModal,
@@ -1853,6 +1856,26 @@ export default function ProjectDirectory() {
       ]
     );
 
+  const displayedProjects = useMemo(() => {
+    const result = filtered.filter((project) => {
+      if (projectView === "completed") return isProjectComplete(project.status);
+      if (projectView === "archived") return isProjectArchived(project.status);
+      if (projectView === "active") return !isProjectComplete(project.status) && !isProjectArchived(project.status);
+      if (projectView === "overdue") {
+        const remaining = daysUntil(project.due_date);
+        return !isProjectComplete(project.status) && !isProjectArchived(project.status) && remaining !== null && remaining < 0;
+      }
+      return true;
+    });
+    if (projectSort === "name") return [...result].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    if (projectSort === "due") return [...result].sort((a, b) => {
+      const aTime = a.due_date ? new Date(a.due_date).getTime() : Number.POSITIVE_INFINITY;
+      const bTime = b.due_date ? new Date(b.due_date).getTime() : Number.POSITIVE_INFINITY;
+      return aTime - bTime;
+    });
+    return result;
+  }, [filtered, projectView, projectSort]);
+
   // =========================================================
   // DASHBOARD METRICS
   // =========================================================
@@ -2166,8 +2189,8 @@ export default function ProjectDirectory() {
           <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#C9DCD0]"><Briefcase size={15} /> ORBI. / YOUR WORKSPACE</div>
-              <h1 className="font-serif text-4xl tracking-tight sm:text-5xl lg:text-6xl">Projects, beautifully organised.</h1>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-[#E0EBE4]">From first brief to final delivery. Keep clients, timelines, tasks and budgets connected in one place.</p>
+              <h1 className="max-w-3xl font-serif text-4xl tracking-tight sm:text-5xl lg:text-6xl">Great work starts with a clear plan<span className="text-[#B8D3C2]">.</span></h1>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-[#E0EBE4]">Your projects, people and priorities — all moving in the same direction. See what needs attention and keep every delivery on track.</p>
               <div className="mt-6 flex flex-wrap gap-2 text-[11px] font-medium text-[#E0EBE4]">
                 <span className="rounded-full border border-white/20 px-3 py-1.5">{activeProjects.length} active projects</span>
                 <span className="rounded-full border border-white/20 px-3 py-1.5">{projectsDueSoon.length} due this week</span>
@@ -2215,7 +2238,7 @@ export default function ProjectDirectory() {
             METRICS
         =================================================== */}
 
-        <section className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <section aria-label="Project overview" className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
           <WorkspaceMetric
             icon={
               Folder
@@ -2569,6 +2592,33 @@ export default function ProjectDirectory() {
             </div>
           </div>
 
+          <div className="mb-5 flex flex-col gap-4 rounded-[1.5rem] border border-[#DCE7DE] bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter projects">
+              {([
+                ["all", "All", projects.length],
+                ["active", "Active", activeProjects.length],
+                ["overdue", "Overdue", overdueProjects.length],
+                ["completed", "Completed", completedProjects.length],
+                ["archived", "Archived", archivedProjects.length],
+              ] as const).map(([key, label, count]) => (
+                <button key={key} type="button" onClick={() => setProjectView(key)} aria-pressed={projectView === key}
+                  className={`rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-colors ${projectView === key ? "bg-[#0F3D32] text-white shadow-sm" : "bg-[#F4F6F1] text-[#496358] hover:bg-[#E7EEE7]"}`}>
+                  {label} <span className={`ml-1 ${projectView === key ? "text-white/70" : "text-[#81948A]"}`}>{count}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="whitespace-nowrap text-xs text-stone-500">{displayedProjects.length} shown</span>
+              <label htmlFor="project-sort" className="sr-only">Sort projects</label>
+              <select id="project-sort" value={projectSort} onChange={(event) => setProjectSort(event.target.value as typeof projectSort)}
+                className="rounded-xl border border-[#DCE7DE] bg-[#FAF9F6] px-3 py-2.5 text-xs font-semibold text-[#0F3D32] outline-none focus:ring-2 focus:ring-[#0F3D32]/20">
+                <option value="recent">Default order</option>
+                <option value="name">Name A–Z</option>
+                <option value="due">Due date first</option>
+              </select>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-3">
             {loading ? (
               <div className="flex flex-col items-center justify-center gap-4 rounded-[2rem] border border-stone-100 bg-white p-20">
@@ -2578,9 +2628,9 @@ export default function ProjectDirectory() {
                   Loading Workspace
                 </p>
               </div>
-            ) : filtered.length >
+            ) : displayedProjects.length >
               0 ? (
-              filtered.map(
+              displayedProjects.map(
                 (
                   project
                 ) => {
@@ -2805,12 +2855,17 @@ export default function ProjectDirectory() {
                 />
 
                 <p className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-300">
-                  {search
-                    ? "No Matching Projects"
-                    : "No Projects Yet"}
+                  {search || projectView !== "all"
+                    ? "No matching projects"
+                    : "No projects yet"}
                 </p>
 
-                {!search && (
+                {(search || projectView !== "all") ? (
+                  <button type="button" onClick={() => { setSearch(""); setProjectView("all"); }}
+                    className="mt-5 rounded-xl bg-[#0F3D32] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#174F41]">
+                    Clear filters
+                  </button>
+                ) : (
                   <button
                     type="button"
                     onClick={() => {

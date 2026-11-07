@@ -81,13 +81,13 @@ export default function ComprehensiveTeamHub() {
 
       if (settingsData) {
         setLogo(settingsData.logo_url || "");
-        setBusinessName(settingsData.business_name || "");
-        setAddress(settingsData.address || "");
+        setBusinessName(settingsData.social_links?.business_name || "");
+        setAddress(settingsData.social_links?.address || "");
         setWebsite(settingsData.social_links?.website || "");
-        setContactEmail(settingsData.contact_email || "");
+        setContactEmail(settingsData.social_links?.contact_email || "");
         setPrimaryColor(settingsData.brand_color || "#0F3D32");
         setHandles(settingsData.social_links || { instagram: "", linkedin: "" });
-        setToneOfVoice(settingsData.tone_of_voice || "");
+        setToneOfVoice(settingsData.social_links?.tone_of_voice || "");
         setNextOfKinPhone(settingsData.next_of_kin_phone || "");
       }
 
@@ -100,81 +100,47 @@ export default function ComprehensiveTeamHub() {
   }
 
  const handleInvite = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setSaving(true);
-  
-  try {
-    // 1. Query the Org for available seats
-    const { data: org, error: orgError } = await supabase
-      .from('organizations')
-      .select('available_seats')
-      .eq('id', organisationId)
-      .single();
-
-    if (orgError) throw orgError;
-
-    // 2. Logic Check: Credit Pool vs. Direct Pay
-    if (org.available_seats > 0) {
-      // A: USE CREDIT
-      await supabase
-        .from('organizations')
-        .update({ available_seats: org.available_seats - 1 })
-        .eq('id', organisationId);
-
-      const { data: invite, error: inviteError } = await supabase
-        .from('invites')
-        .insert([{ 
-          email: inviteEmail, 
-          organisation_id: organisationId, 
-          role: inviteRole, 
-          status: 'paid' 
-        }])
-        .select()
-        .single();
-
-      if (inviteError) throw inviteError;
-      setGeneratedLink(`${window.location.origin}/join?token=${invite.token}`);
-      toast.success("Seat consumed from credits.");
-    } else {
-      // B: PAY FOR SEAT (Redirect to Stripe)
-      const { data: invite, error: inviteError } = await supabase
-        .from('invites')
-        .insert([{ 
-          email: inviteEmail, 
-          organisation_id: organisationId, 
-          role: inviteRole, 
-          status: 'pending' 
-        }])
-        .select()
-        .single();
-
-      if (inviteError) throw inviteError;
-      
-      // Trigger Stripe Checkout
-      const response = await fetch('/api/checkout/create-seat-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inviteId: invite.id, email: inviteEmail })
-      });
-      
-      const { url, sessionId } = await response.json(); // Ensure your API returns sessionId
-      if (!url) throw new Error("Payment session creation failed.");
-
-      // Save the session ID to the invite record for "world-class" recovery
-      await supabase
-        .from('invites')
-        .update({ stripe_session_id: sessionId })
-        .eq('id', invite.id);
-
-      window.location.href = url; // Redirect to Stripe
-    }
-  } catch (err: any) {
-    console.error(err);
-    toast.error(err.message || "Payment setup failed");
-  } finally {
-    setSaving(false);
-  }
-};
+    e.preventDefault();
+    if (!organisationId || !inviteEmail.trim()) return;
+    setSaving(true);
+    try {
+      const email = inviteEmail.trim().toLowerCase();
+      const { data: org, error: orgError } = await supabase
+        .from('organisations').select('available_seats').eq('id', organisationId).single();
+      if (orgError) throw orgError;
+      if ((org.available_seats ?? 0) > 0) {
+        // Database transaction prevents double-spending seats and duplicate invites.
+        const { data: invite, error } = await supabase.rpc('orbi_create_prepaid_invite', {
+          p_organisation_id: organisationId, p_email: email, p_role: inviteRole
+        });
+        if (error) throw error;
+        if (!invite?.token) throw new Error('Invitation token was not returned.');
+        setGeneratedLink(`${window.location.origin}/join?token=${encodeURIComponent(invite.token)}`);
+        toast.success('Invitation created using one available seat.');
+      } else {
+        // Unpaid invitations retain the existing Stripe checkout flow.
+        const { data: invite, error: inviteError } = await supabase
+          .from('invites').insert([{ email, organisation_id: organisationId, role: inviteRole, status: 'pending' }])
+          .select('id').single();
+        if (inviteError) throw inviteError;
+        const response = await fetch('/api/checkout/create-seat-session', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inviteId: invite.id, email })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.url) throw new Error(result.error || 'Payment session creation failed.');
+        if (result.sessionId) {
+          const { error: updateError } = await supabase.from('invites')
+            .update({ stripe_session_id: result.sessionId }).eq('id', invite.id);
+          if (updateError) console.warn('Could not store checkout session:', updateError);
+        }
+        window.location.assign(result.url);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Unable to create invitation.');
+    } finally { setSaving(false); }
+  };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedLink);
@@ -187,12 +153,8 @@ export default function ComprehensiveTeamHub() {
       const { error } = await supabase.from("settings").upsert({
         organisation_id: organisationId,
         logo_url: logo, 
-        business_name: businessName, 
-        address, 
-        contact_email: contactEmail, 
         brand_color: primaryColor,
-        social_links: { ...handles, website }, 
-        tone_of_voice: toneOfVoice,
+        social_links: { ...handles, website, business_name: businessName, address, contact_email: contactEmail, tone_of_voice: toneOfVoice },
         next_of_kin_phone: nextOfKinPhone
       });
       if (error) throw error;
@@ -235,13 +197,13 @@ export default function ComprehensiveTeamHub() {
             <p className="text-[10px] font-black uppercase tracking-[0.5em] text-stone-300 ml-2">Identity & Member Management</p>
           </div>
           <nav className="flex flex-wrap items-center gap-3 pt-6">
-            <button onClick={() => setActiveTab("team")} className={`flex items-center gap-4 px-8 py-4 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === "team" ? "bg-stone-900 text-white shadow-2xl" : "bg-white border border-stone-100 text-stone-300"}`}><Users size={14} /> Members</button>
-            <button onClick={() => setActiveTab("brand")} className={`flex items-center gap-4 px-8 py-4 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === "brand" ? "bg-stone-900 text-white shadow-2xl" : "bg-white border border-stone-100 text-stone-300"}`}><Palette size={14} /> Brand Identity</button>
+            <button onClick={() => setActiveTab("team")} className={`flex items-center gap-4 px-8 py-4 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === "team" ? "bg-[#0F3D32] text-white shadow-2xl" : "bg-white border border-stone-100 text-stone-300"}`}><Users size={14} /> Members</button>
+            <button onClick={() => setActiveTab("brand")} className={`flex items-center gap-4 px-8 py-4 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === "brand" ? "bg-[#0F3D32] text-white shadow-2xl" : "bg-white border border-stone-100 text-stone-300"}`}><Palette size={14} /> Brand Identity</button>
          </nav>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
           <button onClick={() => router.push('/settings')} className="group w-full sm:w-auto px-10 py-5 rounded-[2rem] border border-stone-100 bg-white text-stone-400 hover:text-stone-900 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3"><ArrowLeft size={14} /> Settings</button>
-          <motion.button whileHover={{ scale: 1.02 }} onClick={handleSave} disabled={saving} className="w-full sm:w-auto flex items-center justify-center gap-4 bg-stone-900 px-12 py-5 rounded-[2rem] shadow-xl hover:bg-[#0F3D32] transition-all disabled:opacity-50 group">
+          <motion.button whileHover={{ scale: 1.02 }} onClick={handleSave} disabled={saving} className="w-full sm:w-auto flex items-center justify-center gap-4 bg-[#0F3D32] px-12 py-5 rounded-[2rem] shadow-xl hover:bg-[#0F3D32] transition-all disabled:opacity-50 group">
             {saving ? <Loader2 className="animate-spin text-white" size={18} /> : <Database className="text-[#0F3D32] group-hover:text-white" size={18} />}
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Save Changes</span>
           </motion.button>
@@ -372,7 +334,7 @@ export default function ComprehensiveTeamHub() {
                       <option value="admin">Administrator</option>
                     </select>
                   </div>
-                  <button type="submit" disabled={saving} className="w-full py-5 bg-stone-900 text-white rounded-3xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3">
+                  <button type="submit" disabled={saving} className="w-full py-5 bg-[#0F3D32] text-white rounded-3xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3">
                     {saving ? <Loader2 className="animate-spin" size={14}/> : <Zap size={14} fill="currentColor"/>}
                     Generate Invite Link
                   </button>

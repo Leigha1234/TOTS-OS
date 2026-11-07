@@ -409,7 +409,7 @@ export default function FinanceTimesheets({
                 (current) => !current
               );
             }}
-            className="flex items-center gap-2 rounded-full bg-[#0F3D32] px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#0F3D32] hover:text-[#1E2A27]"
+            className="flex items-center gap-2 rounded-full bg-[#0F3D32] px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#17634F] hover:text-white"
           >
             {showForm ? (
               <X size={14} />
@@ -626,7 +626,7 @@ export default function FinanceTimesheets({
                 onClick={
                   handleAddTimesheet
                 }
-                className="flex items-center gap-2 rounded-full bg-[#0F3D32] px-6 py-3 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#0F3D32] hover:text-[#1E2A27] disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center gap-2 rounded-full bg-[#0F3D32] px-6 py-3 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#17634F] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submitting ? (
                   <Loader2
@@ -668,7 +668,7 @@ export default function FinanceTimesheets({
               onClick={() =>
                 setShowForm(true)
               }
-              className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#0F3D32] px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#0F3D32] hover:text-[#1E2A27]"
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#0F3D32] px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-[#17634F] hover:text-white"
             >
               <Plus size={13} />
               Add Timesheet

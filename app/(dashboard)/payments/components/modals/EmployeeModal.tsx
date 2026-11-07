@@ -194,7 +194,7 @@ export default function EmployeeModal({
               type="button"
               onClick={onSubmit}
               disabled={!canSubmit}
-              className="mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#0F3D32] hover:text-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-stone-900 py-4 text-white transition hover:bg-[#17634F] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? (
                 <Loader2

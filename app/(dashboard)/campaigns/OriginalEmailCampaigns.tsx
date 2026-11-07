@@ -8086,141 +8086,65 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
   // ==================================================
 
   return (
-    <div className="min-h-screen bg-[#f8f8f7] p-4 text-stone-900 md:p-10">
-      <div className="mx-auto max-w-7xl">
-        {/* PAGE HEADER */}
-
-        <header className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#82916f]">
-              Marketing
-            </p>
-
-            <h1 className="mt-3 text-4xl font-black tracking-tight md:text-5xl">
-              Email
-              Campaigns
-            </h1>
-
-            <p className="mt-3 max-w-xl text-sm leading-7 text-stone-500">
-              Create,
-              schedule and
-              track email
-              campaigns from
-              one place.
-            </p>
-          </div>
-
-          <button
-            onClick={
-              openNewCampaign
-            }
-            className="flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-6 py-4 text-[9px] font-black uppercase tracking-[0.16em] text-[#0F3D32] shadow-lg"
-          >
-            <Plus
-              size={14}
-            />
-            Create
-            campaign
-          </button>
-        </header>
-
-        {/* TABS */}
-
-        <div className="mb-7 flex items-center justify-between border-b border-stone-200">
-          <div className="flex gap-7">
-            <button className="border-b-2 border-stone-900 pb-4 text-[10px] font-black uppercase tracking-[0.12em] text-stone-900">
-              Campaigns
+    <div className="min-h-screen bg-[#F6F8F4] p-4 text-[#183E33] md:p-8 xl:p-10">
+      <div className="mx-auto max-w-[1440px]">
+        {/* ORBI CAMPAIGN OVERVIEW — presentation only; existing send and audience logic retained */}
+        <header className="relative mb-7 overflow-hidden rounded-[2rem] bg-[#0F3D32] px-6 py-8 text-[#F8F5EB] shadow-[0_24px_60px_-30px_rgba(15,61,50,.5)] md:px-10 md:py-10">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-32 h-96 w-96 rounded-full border border-white/10" />
+          <div aria-hidden="true" className="pointer-events-none absolute -right-5 -top-12 h-72 w-72 rounded-full border border-white/10" />
+          <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 right-32 h-64 w-64 rounded-full bg-[#B8D3AC]/10 blur-3xl" />
+          <div className="relative flex flex-col gap-7 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8DDCE]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#B9D8A9]" /> ORBI / Marketing studio
+              </div>
+              <h1 className="text-4xl font-semibold tracking-[-0.055em] md:text-6xl">Make every <span className="font-serif italic font-normal text-[#C6D9B8]">message</span> count.</h1>
+              <p className="mt-4 max-w-lg text-sm leading-7 text-[#D4E2DA]">Create thoughtful campaigns, connect with your audience and see what resonates — all in your orbit.</p>
+            </div>
+            <button type="button" onClick={openNewCampaign} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#F8F5EB] px-6 py-3.5 text-sm font-bold text-[#0F3D32] shadow-lg transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
+              <Plus size={17} /> New campaign <ArrowRight size={15} />
             </button>
           </div>
+        </header>
 
-          <button
-            onClick={() =>
-              void refreshStats()
-            }
-            disabled={
-              refreshingStats
-            }
-            className="mb-3 flex items-center gap-2 text-[8px] font-black uppercase tracking-wider text-stone-400"
-          >
-            <RefreshCw
-              size={12}
-              className={
-                refreshingStats
-                  ? "animate-spin"
-                  : ""
-              }
-            />
-
-            Refresh
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#67877A]">At a glance</p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#183E33]">Your campaign overview</h2>
+          </div>
+          <button type="button" onClick={() => void refreshStats()} disabled={refreshingStats} className="inline-flex items-center gap-2 rounded-full border border-[#D9E4DD] bg-white px-4 py-2.5 text-xs font-semibold text-[#315E4C] transition hover:bg-[#F0F6F0] disabled:opacity-50">
+            <RefreshCw size={14} className={refreshingStats ? "animate-spin" : ""} /> Refresh data
           </button>
         </div>
 
-        {/* SUMMARY CARDS */}
+        <div className="mb-10 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: "Total campaigns", value: campaigns.length, icon: Mail, detail: "Across all statuses" },
+            { label: "Campaigns sent", value: campaigns.filter((c) => getStatusLabel(c) === "sent").length, icon: Send, detail: "Successfully dispatched" },
+            { label: "Audience lists", value: lists.length, icon: Users, detail: "Your saved segments" },
+            { label: "List subscriptions", value: Object.values(subscriberCounts).reduce((total, count) => total + count, 0), icon: BarChart3, detail: "Across lists · may overlap" },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.label} className="group rounded-[1.5rem] border border-[#DFE9E1] bg-white p-5 shadow-[0_6px_24px_-18px_rgba(15,61,50,.25)] transition hover:-translate-y-0.5 hover:border-[#A9C9B5]">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-xs font-semibold text-[#637B70]">{item.label}</span>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EDF5EE] text-[#2B6550]"><Icon size={17} /></span>
+                </div>
+                <p className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#143E31]">{item.value.toLocaleString()}</p>
+                <p className="mt-2 text-xs text-[#84978C]">{item.detail}</p>
+              </div>
+            );
+          })}
+        </div>
 
-        <div className="mb-8 grid gap-4 md:grid-cols-4">
-          <div className="rounded-[1.5rem] border border-stone-200 bg-white p-5">
-            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
-              Campaigns
-            </p>
-
-            <p className="mt-2 text-3xl font-black">
-              {
-                campaigns.length
-              }
-            </p>
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#67877A]">Your workspace</p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#183E33]">Campaign library</h2>
+            <p className="mt-1 text-sm text-[#788D80]">Find, manage and review every campaign.</p>
           </div>
-
-          <div className="rounded-[1.5rem] border border-stone-200 bg-white p-5">
-            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
-              Sent
-            </p>
-
-            <p className="mt-2 text-3xl font-black">
-              {
-                campaigns.filter(
-                  (
-                    campaign
-                  ) =>
-                    getStatusLabel(
-                      campaign
-                    ) ===
-                    "sent"
-                ).length
-              }
-            </p>
-          </div>
-
-          <div className="rounded-[1.5rem] border border-stone-200 bg-white p-5">
-            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
-              Audiences
-            </p>
-
-            <p className="mt-2 text-3xl font-black">
-              {
-                lists.length
-              }
-            </p>
-          </div>
-
-          <div className="rounded-[1.5rem] border border-stone-200 bg-white p-5">
-            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-stone-400">
-              Subscribers
-            </p>
-
-            <p className="mt-2 text-3xl font-black">
-              {Object.values(
-                subscriberCounts
-              ).reduce(
-                (
-                  total,
-                  count
-                ) =>
-                  total +
-                  count,
-                0
-              )}
-            </p>
-          </div>
+          <span className="rounded-full bg-[#E8F0E9] px-3 py-1.5 text-xs font-semibold text-[#34614E]">{displayedCampaigns.length} showing</span>
         </div>
 
         {/* CAMPAIGNS TABLE */}
@@ -8271,7 +8195,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                   className={`rounded-xl px-4 py-2 text-[8px] font-black uppercase tracking-[0.12em] transition ${
                     campaignFilter ===
                     value
-                      ? "bg-stone-900 text-[#0F3D32]"
+                      ? "bg-[#0F3D32] text-white"
                       : "border border-stone-200 bg-white text-stone-500 hover:border-stone-400"
                   }`}
                 >
@@ -8312,7 +8236,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
           </div>
         </div>
 
-        <section className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-sm">
+        <section className="overflow-hidden rounded-[1.5rem] border border-[#DFE9E1] bg-white shadow-sm">
           {displayedCampaigns.length ===
           0 ? (
             <div className="py-20 text-center">
@@ -8341,7 +8265,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                 onClick={
                   openNewCampaign
                 }
-                className="mt-6 rounded-xl bg-stone-900 px-6 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#0F3D32]"
+                className="mt-6 rounded-xl bg-[#0F3D32] px-6 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-white"
               >
                 Create
                 campaign
@@ -8389,7 +8313,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                           "analytics"
                         );
                       }}
-                      className="grid w-full gap-4 border-b border-stone-100 px-6 py-5 text-left transition last:border-0 hover:bg-stone-50 md:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_auto] md:items-center"
+                      className="grid w-full gap-4 border-b border-stone-100 px-6 py-5 text-left transition last:border-0 hover:bg-[#F4F8F3] md:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_auto] md:items-center"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -8510,9 +8434,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
               </p>
 
               <p className="mt-1 text-xs text-stone-400">
-                Your
-                subscriber
-                lists
+                Manage the people behind your campaigns
               </p>
             </div>
 
@@ -8671,7 +8593,7 @@ export default function CampaignsPage({ clientOrganisationId }: { clientOrganisa
                 onClick={() =>
                   void createList()
                 }
-                className="mt-4 w-full rounded-xl bg-stone-900 py-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#0F3D32]"
+                className="mt-4 w-full rounded-xl bg-[#0F3D32] py-4 text-[9px] font-black uppercase tracking-[0.14em] text-white"
               >
                 Create
                 audience

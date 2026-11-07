@@ -1,3 +1,4 @@
+import BookingServicesEditor from "../../components/BookingServicesEditor";
 "use client";
 
 import {
@@ -119,6 +120,11 @@ type AvailabilityMap = Record<
 >;
 
 interface BookingPage {
+  price_pence: number;
+  payment_requirement: "none" | "deposit" | "full";
+  deposit_type: "fixed" | "percentage";
+  deposit_value: number;
+  payment_policy: string;
   id?: string;
 
   user_id?: string;
@@ -344,6 +350,11 @@ const DEFAULT_WINDOW: AvailabilityWindow = {
 };
 
 const DEFAULT_BOOKING_PAGE: BookingPage = {
+  price_pence: 0,
+  payment_requirement: "none",
+  deposit_type: "fixed",
+  deposit_value: 0,
+  payment_policy: "",
   slug: "",
 
   title: "Discovery Call",
@@ -3876,6 +3887,12 @@ export default function CalendarPage() {
           availability:
             bookingPage.availability,
 
+          price_pence: Math.max(0, Math.round(Number(bookingPage.price_pence) || 0)),
+          // Payments remain disabled until Stripe Checkout + webhook confirmation is deployed.
+          payment_requirement: "none",
+          deposit_type: bookingPage.deposit_type,
+          deposit_value: Math.max(0, Math.round(Number(bookingPage.deposit_value) || 0)),
+          payment_policy: bookingPage.payment_policy || "",
           is_active:
             bookingPage.is_active,
         };
@@ -5403,6 +5420,26 @@ export default function CalendarPage() {
                     </button>
                   </div>
                 </div>
+
+                {bookingPage.id && <BookingServicesEditor bookingPageId={bookingPage.id} />}
+
+                <section className="rounded-[2rem] border border-[#E1EAE2] bg-white p-6 md:p-8">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">Payments &amp; deposits</p>
+                  <h3 className="mt-2 text-2xl font-serif text-[#183E31]">Set your appointment price</h3>
+                  <p className="mt-2 text-sm text-[#52665B]">Prices and booking terms can be saved now. Deposit collection will be enabled after secure Stripe checkout and payment confirmation are installed.</p>
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <label className="text-sm font-medium text-stone-700">Appointment price (£)
+                      <input className="form-input mt-2" type="number" min="0" step="0.01" value={(bookingPage.price_pence / 100).toFixed(2)} onChange={e => setBookingPage(p => ({...p, price_pence: Math.max(0, Math.round(Number(e.target.value || 0) * 100))}))} />
+                    </label>
+                    <label className="text-sm font-medium text-stone-700">Payment at booking
+                      <select className="form-input mt-2" value="none" disabled><option value="none">No online payment (currently)</option></select>
+                    </label>
+                  </div>
+                  <label className="mt-5 block text-sm font-medium text-stone-700">Booking and cancellation terms
+                    <textarea className="form-input mt-2 min-h-24" value={bookingPage.payment_policy} onChange={e => setBookingPage(p => ({...p, payment_policy: e.target.value}))} placeholder="e.g. Please give 24 hours notice to cancel." />
+                  </label>
+                  <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-900">Deposits and full payments are not live yet. Customers can still book without paying online.</p>
+                </section>
 
                 <section className="rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8">
                   <h3 className="text-2xl font-serif italic text-stone-800">Share this booking calendar</h3>

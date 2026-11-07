@@ -42,7 +42,12 @@ export default async function BookingPage({
       max_days_ahead,
       timezone,
       availability,
-      is_active
+      is_active,
+      price_pence,
+      payment_requirement,
+      deposit_type,
+      deposit_value,
+      payment_policy
     `)
     .eq("slug", slug)
     .eq("is_active", true)
@@ -59,6 +64,15 @@ export default async function BookingPage({
 
     notFound();
   }
+
+  // Load public services independently. Existing single-service pages still work.
+  const { data: services, error: servicesError } = await supabase
+    .from("booking_services")
+    .select("id,name,description,duration_minutes,price_pence,payment_rule,deposit_value,sort_order")
+    .eq("booking_page_id", bookingPage.id)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+  if (servicesError) console.error("BOOKING SERVICES LOAD ERROR:", servicesError);
 
   // ==================================================
   // LOAD BOOKING PAGE OWNER
@@ -183,8 +197,17 @@ export default async function BookingPage({
 
           <div className="px-6 py-8 sm:px-10 sm:py-10 lg:px-12">
 
+            {(bookingPage.price_pence > 0 || bookingPage.payment_policy) && (
+              <div className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-5">
+                {bookingPage.price_pence > 0 && <p className="font-semibold text-[#183E31]">Appointment price: £{(bookingPage.price_pence / 100).toFixed(2)}</p>}
+                {bookingPage.payment_policy && <p className="mt-2 whitespace-pre-wrap text-sm text-stone-600">{bookingPage.payment_policy}</p>}
+                <p className="mt-2 text-xs text-stone-500">{bookingPage.payment_requirement === "none" ? "No payment is required to book." : "A secure payment may be required before confirmation."}</p>
+              </div>
+            )}
             <BookingClient
               bookingPage={bookingPage}
+              services={services || []}
+              servicesLoadFailed={Boolean(servicesError)}
               owner={ownerData}
             />
 

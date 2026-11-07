@@ -19,12 +19,29 @@ interface BookingOwner {
   avatar_url: string | null;
 }
 
+interface PublicBookingService {
+  id: string;
+  name: string;
+  description: string;
+  duration_minutes: number;
+  price_pence: number;
+  payment_rule: "none" | "fixed" | "percentage" | "full";
+  deposit_value: number;
+}
+
 interface BookingClientProps {
+  services?: PublicBookingService[];
+  servicesLoadFailed?: boolean;
   bookingPage: {
     id: string;
     user_id: string;
     organisation_id?: string | null;
     title: string;
+    price_pence?: number;
+    payment_requirement?: "none" | "deposit" | "full";
+    payment_policy?: string;
+    deposit_type?: "fixed" | "percentage";
+    deposit_value?: number;
     duration_minutes: number;
 
     location_type: string;
@@ -97,6 +114,8 @@ function isValidEmail(
 export default function BookingClient({
   bookingPage,
   owner,
+  services = [],
+  servicesLoadFailed = false,
 }: BookingClientProps) {
   const [
     selectedDate,
@@ -154,6 +173,24 @@ export default function BookingClient({
     bookedTimes,
     setBookedTimes,
   ] = useState<string[]>([]);
+
+  const [selectedServiceId, setSelectedServiceId] = useState("");
+  const selectedService = services.find((service) => service.id === selectedServiceId);
+  const serviceDuration = selectedService?.duration_minutes ?? bookingPage.duration_minutes;
+  // Each service controls its own charge and duration. The server recalculates all amounts.
+  const serviceCheckoutNotReady = services.length > 0 && !selectedService;
+  const requiresPayment = selectedService
+    ? selectedService.payment_rule !== "none" && selectedService.price_pence > 0
+    : bookingPage.payment_requirement === "full" || bookingPage.payment_requirement === "deposit";
+  const paymentsTestEnabled = process.env.NEXT_PUBLIC_ORBI_BOOKING_PAYMENTS_TEST_MODE === "true";
+  const price = selectedService?.price_pence ?? bookingPage.price_pence ?? 0;
+  const dueNow = selectedService
+    ? selectedService.payment_rule === "full" ? price
+      : selectedService.payment_rule === "percentage" ? Math.ceil(price * selectedService.deposit_value / 100)
+      : selectedService.payment_rule === "fixed" ? selectedService.deposit_value : 0
+    : bookingPage.payment_requirement === "full" ? price
+      : bookingPage.payment_requirement === "deposit" ? (bookingPage.deposit_type === "percentage" ? Math.ceil(price * (bookingPage.deposit_value || 0) / 100) : (bookingPage.deposit_value || 0)) : 0;
+  const money = (pence: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
 
   // ==================================================
   // RESET SELECTED TIME
@@ -497,7 +534,7 @@ export default function BookingClient({
 
           while (
             currentMinutes +
-              bookingPage.duration_minutes <=
+              serviceDuration <=
             endMinutes
           ) {
             const hours =
@@ -546,7 +583,7 @@ export default function BookingClient({
             }
 
             currentMinutes +=
-              bookingPage.duration_minutes;
+              serviceDuration;
           }
         }
       );
@@ -557,7 +594,7 @@ export default function BookingClient({
     }, [
       selectedDate,
       bookingPage.availability,
-      bookingPage.duration_minutes,
+      serviceDuration,
       bookingPage.min_notice_hours,
       bookedTimes,
     ]);
@@ -567,6 +604,10 @@ export default function BookingClient({
   // ==================================================
 
   async function createBooking() {
+    if (serviceCheckoutNotReady || servicesLoadFailed) {
+      setMessage("Please select a service before continuing. No appointment has been made or charged.");
+      return;
+    }
     if (
       !selectedDate ||
       !selectedTime ||
@@ -612,7 +653,7 @@ export default function BookingClient({
       const end =
         new Date(
           start.getTime() +
-            bookingPage.duration_minutes *
+            serviceDuration *
               60000
         );
 
@@ -688,6 +729,24 @@ export default function BookingClient({
           : bookingPage.location_value ||
             "In person";
 
+      // Paid appointments must use verified Stripe Checkout, never the free-booking endpoint.
+      if (requiresPayment) {
+        if (!paymentsTestEnabled) throw new Error("Online booking payments are not available yet. Please contact the business.");
+        const checkoutResponse = await fetch("/api/bookings/checkout", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bookingPageId: bookingPage.id, customerName: name.trim(),
+            customerEmail: email.trim().toLowerCase(), startTime: start.toISOString(), meetingOption, serviceId: selectedService?.id ?? null, slug: window.location.pathname.split("/").filter(Boolean).pop() }),
+        });
+        const checkout = await checkoutResponse.json().catch(() => null);
+        if (!checkoutResponse.ok || typeof checkout?.checkoutUrl !== "string" ||
+          !checkout.checkoutUrl.startsWith("https://checkout.stripe.com/")) {
+          if (checkoutResponse.status === 409) setSelectedTime("");
+          throw new Error(checkout?.error || "Unable to start secure checkout");
+        }
+        window.location.assign(checkout.checkoutUrl);
+        return;
+      }
+
       // ==============================================
       // CREATE LINKED BOOKING + EVENT ON THE SERVER
       // ==============================================
@@ -701,6 +760,7 @@ export default function BookingClient({
           customerEmail: email.trim().toLowerCase(),
           startTime: start.toISOString(),
           meetingOption,
+          serviceId: selectedService?.id ?? null,
         }),
       });
 
@@ -942,7 +1002,27 @@ export default function BookingClient({
   // ==================================================
 
   return (
-    <div className="grid gap-8 md:grid-cols-2">
+    <div>
+      {servicesLoadFailed && <p role="alert" className="mb-6 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Services are temporarily unavailable. Please try again later.</p>}
+      {services.length > 0 && (
+        <section className="mb-8 rounded-2xl border border-stone-200 bg-stone-50 p-5">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-[#0F3D32]">Choose your treatment or service</p>
+          <h2 className="mt-1 text-xl font-semibold text-stone-900">What would you like to book?</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {services.map((service) => {
+              const due = service.payment_rule === "full" ? service.price_pence : service.payment_rule === "fixed" ? service.deposit_value : service.payment_rule === "percentage" ? Math.ceil(service.price_pence * service.deposit_value / 100) : 0;
+              return <button key={service.id} type="button" onClick={() => { setSelectedServiceId(service.id); setSelectedTime(""); }} className={`rounded-xl border p-4 text-left transition ${selectedServiceId === service.id ? "border-[#0F3D32] bg-emerald-50" : "border-stone-200 bg-white hover:border-[#0F3D32]"}`}>
+                <span className="block font-semibold text-stone-900">{service.name}</span>
+                {service.description && <span className="mt-1 block text-xs text-stone-500">{service.description}</span>}
+                <span className="mt-2 block text-sm text-stone-700">{service.duration_minutes} min · {money(service.price_pence)}</span>
+                <span className="mt-1 block text-xs text-[#0F3D32]">{due > 0 ? `${money(due)} due to book` : "No upfront payment"}</span>
+              </button>;
+            })}
+          </div>
+          <p className="mt-4 text-xs text-amber-800">Select a service to see its duration and payment requirement. Payment-enabled services require a configured test checkout.</p>
+        </section>
+      )}
+      <div className="grid gap-8 md:grid-cols-2">
 
       {/* ==================================================
           DATE
@@ -1317,6 +1397,15 @@ export default function BookingClient({
             </p>
           )}
 
+          {requiresPayment && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+              <div className="flex justify-between"><span>Appointment total</span><strong>{money(price)}</strong></div>
+              <div className="mt-2 flex justify-between"><span>Pay now</span><strong>{money(dueNow)}</strong></div>
+              <div className="mt-2 flex justify-between"><span>Remaining after payment</span><strong>{money(Math.max(0, price - dueNow))}</strong></div>
+              <p className="mt-3 text-xs">Your appointment is only confirmed once payment is verified.</p>
+              {!paymentsTestEnabled && <p className="mt-2 text-xs font-semibold">Online payments are not enabled yet. Contact the business to book.</p>}
+            </div>
+          )}
           <button
             type="button"
             onClick={() =>
@@ -1324,6 +1413,9 @@ export default function BookingClient({
             }
             disabled={
               loading ||
+              serviceCheckoutNotReady ||
+              servicesLoadFailed ||
+              (requiresPayment && !paymentsTestEnabled) ||
               !selectedDate ||
               !selectedTime ||
               !name.trim() ||
@@ -1332,11 +1424,12 @@ export default function BookingClient({
             className="w-full rounded-xl bg-stone-900 p-4 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {loading
-              ? "Confirming..."
-              : "Confirm Booking"}
+              ? "Please wait..."
+              : requiresPayment ? `Pay ${money(dueNow)} securely` : "Confirm Booking"}
           </button>
 
         </div>
+      </div>
       </div>
     </div>
   );

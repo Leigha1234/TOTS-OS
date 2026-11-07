@@ -97,16 +97,18 @@ function priceToPence(value: number) { return Math.round(value * 100); }
 
 // ROOTED CUSTOMER-SELECTED DONATIONS
 const ROOTED_DIRECT_DONATION_SLUG = "rooted-direct-donation";
+const ROOTED_MARKET_STALL_SLUG = "rooted-christmas-market-stall";
 const MIN_ROOTED_DONATION = 1;
 const MAX_ROOTED_DONATION = 5000;
 function supportsCustomUnitPrice(product: StoreProductRow) {
-  return cleanString(product.slug).toLowerCase() === ROOTED_DIRECT_DONATION_SLUG;
+  return [ROOTED_DIRECT_DONATION_SLUG, ROOTED_MARKET_STALL_SLUG].includes(cleanString(product.slug).toLowerCase());
 }
 function validateCustomUnitPrice(product: StoreProductRow, value: unknown) {
   if (!supportsCustomUnitPrice(product)) return null;
   const amount = safeNumber(value, 0);
-  if (amount < MIN_ROOTED_DONATION || amount > MAX_ROOTED_DONATION) {
-    throw new Error(`Choose a donation between £${MIN_ROOTED_DONATION.toFixed(2)} and £${MAX_ROOTED_DONATION.toFixed(2)}.`);
+  const minimum = cleanString(product.slug).toLowerCase() === ROOTED_MARKET_STALL_SLUG ? 10 : MIN_ROOTED_DONATION;
+  if (!Number.isFinite(amount) || amount < minimum || amount > MAX_ROOTED_DONATION || Math.round(amount * 100) !== amount * 100) {
+    throw new Error(`Choose an amount between £${minimum.toFixed(2)} and £${MAX_ROOTED_DONATION.toFixed(2)}.`);
   }
   return moneyRound(amount);
 }
@@ -431,6 +433,7 @@ export async function POST(req: Request) {
       if (isSubscriptionProduct(product) && !getBillingInterval(product)) return NextResponse.json({error: `${product.name} is missing its subscription billing interval.`}, {status: 400});
       if (cleanString(product.external_system).toLowerCase() === "mtc" && isSubscriptionProduct(product) && (!cleanString(product.external_plan_code) || getBeneficiaryMode(product) === "none")) return NextResponse.json({error: `${product.name} is missing its membership integration setup.`}, {status: 400});
       const quantity = quantityByProduct.get(product.id) || 0;
+      if (cleanString(product.slug).toLowerCase() === ROOTED_MARKET_STALL_SLUG && quantity !== 1) return NextResponse.json({error: "Book one market stall per checkout."}, {status: 400});
       const available = getAvailableQuantity(product);
       if (available !== null && available < quantity) return NextResponse.json({error: available <= 0 ? `${product.name} is sold out.` : `Only ${available} of ${product.name} are currently available.`}, {status: 400});
       const submittedCustomPrice = customUnitPriceByProduct.get(product.id);
@@ -576,6 +579,18 @@ export async function POST(req: Request) {
       metadata, billing_address_collection: "auto", phone_number_collection: {enabled: true},
       ...(isSubscriptionCheckout ? {payment_method_collection: "always" as const} : {}),
     };
+    // Collect stall-holder details directly in Stripe Checkout; fields are stored on
+    // the Checkout Session and can be viewed in the connected Stripe dashboard.
+    const includesMarketStall = validatedLines.some(line => cleanString(line.product.slug).toLowerCase() === ROOTED_MARKET_STALL_SLUG);
+    if (includesMarketStall) {
+      if (isSubscriptionCheckout) return NextResponse.json({error: "Market stall bookings must be checked out separately from subscriptions."}, {status: 400});
+      sessionParams.custom_fields = [
+        {key: "business_name", label: {type: "custom", custom: "Business or stallholder name"}, type: "text", text: {maximum_length: 100}, optional: false},
+        {key: "stall_products", label: {type: "custom", custom: "What will you be selling?"}, type: "text", text: {maximum_length: 200}, optional: false},
+        {key: "raffle_prize", label: {type: "custom", custom: "Can you donate a raffle prize?"}, type: "dropdown", dropdown: {options: [{label: "Yes", value: "yes"}, {label: "No", value: "no"}, {label: "Maybe - contact me", value: "maybe"}]}, optional: false},
+      ];
+      metadata.rooted_market_stall = "2026-11-28";
+    }
     if (customerEmail) sessionParams.customer_email = customerEmail;
     if (requiresShipping) sessionParams.shipping_address_collection = {allowed_countries: ["GB"]};
     if (isSubscriptionCheckout) sessionParams.subscription_data = {metadata};

@@ -7036,6 +7036,7 @@ function RootedFundraiserSection({
   onAdd: (product: Product, customUnitPrice?: number) => void;
 }) {
   const [donationAmount, setDonationAmount] = useState("10");
+  const [stallAmount, setStallAmount] = useState("10");
 
   if (!products.length) {
     return null;
@@ -7057,12 +7058,17 @@ function RootedFundraiserSection({
       "rooted-direct-donation"
   );
 
+  const marketStall = products.find(product => String(product.slug || "").toLowerCase() === "rooted-christmas-market-stall");
+  const stallValue = Number(stallAmount);
+  const stallIsValid = Number.isFinite(stallValue) && stallValue >= 10 && stallValue <= 5000 && Math.round(stallValue * 100) === stallValue * 100;
+
   const drinkProducts = products.filter(isDrinkProduct);
 
   const fixedProducts = products.filter(
     (product) =>
       String(product.slug || "").toLowerCase() !==
         "rooted-direct-donation" &&
+      String(product.slug || "").toLowerCase() !== "rooted-christmas-market-stall" &&
       !isDrinkProduct(product)
   );
 
@@ -7278,6 +7284,27 @@ function RootedFundraiserSection({
               })}
             </div>
           </section>
+        )}
+
+        {marketStall && (
+          <div id="rooted-market-stall" className="mt-6 overflow-hidden rounded-[28px] bg-[#315B45] p-7 text-white sm:p-10">
+            <p className="text-xs font-black uppercase tracking-[.16em] text-[#DDF247]">Saturday 28 November 2026</p>
+            <h4 className="mt-3 text-3xl font-black uppercase tracking-tight sm:text-4xl">Christmas Farmers Market · Book a Stall</h4>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-[#E5EEE8]">Reserve your stall with a minimum £10 donation to Rooted CIC. You're welcome to give more. We'll ask for your business name, what you sell and whether you can contribute a raffle prize during secure checkout.</p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              {[10, 15, 20, 25].map(amount => (
+                <button key={amount} type="button" onClick={() => setStallAmount(String(amount))} aria-pressed={stallValue === amount}
+                  className={`rounded-full border px-5 py-3 text-sm font-black ${stallValue === amount ? "border-[#DDF247] bg-[#DDF247] text-[#173023]" : "border-white/30 text-white"}`}>£{amount}</button>
+              ))}
+            </div>
+            <label htmlFor="rooted-stall-amount" className="mt-6 block text-sm font-bold">Your stall donation (£10 minimum)</label>
+            <input id="rooted-stall-amount" type="number" min="10" max="5000" step="0.01" inputMode="decimal" value={stallAmount} onChange={e => setStallAmount(e.target.value)}
+              className="mt-2 w-full max-w-xs rounded-xl bg-white px-4 py-3 font-bold text-[#173023]" />
+            {!stallIsValid && <p role="alert" className="mt-2 text-sm text-[#F4FAAE]">Enter an amount between £10 and £5,000.</p>}
+            <button type="button" disabled={!stallIsValid} onClick={() => onAdd(marketStall, Number(stallValue.toFixed(2)))}
+              className="mt-5 block rounded-full bg-[#DDF247] px-7 py-4 text-sm font-black uppercase text-[#173023] disabled:opacity-40">Add stall booking to basket · {stallIsValid ? formatCurrency(stallValue) : ""}</button>
+            <p className="mt-3 text-xs text-[#E5EEE8]">One stall per checkout. Your booking is confirmed once payment succeeds.</p>
+          </div>
         )}
 
         {directDonation && (

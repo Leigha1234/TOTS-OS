@@ -131,7 +131,7 @@ export default function TeamSettings({
                   onClick={() =>
                     void onAddContact(contact)
                   }
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-stone-900 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-[#0F3D32] px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {addingContactId === contact.id ? (
                     <Loader2

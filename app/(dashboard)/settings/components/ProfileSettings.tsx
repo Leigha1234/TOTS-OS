@@ -97,6 +97,8 @@ export default function ProfileSettings({
             <input
               value={email}
               disabled
+              title="Email changes are managed through your authentication provider."
+              aria-label="Account email (read-only)"
               className="w-full cursor-not-allowed rounded-2xl border border-stone-200 bg-[#faf9f6] p-5 text-xs font-bold opacity-60"
             />
           </div>

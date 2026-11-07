@@ -18,6 +18,9 @@ import FinanceOverview from "./components/FinanceOverview";
 import FinanceSales from "./components/FinanceSales";
 import InvoiceManagement from "./components/InvoiceManagement";
 import FinanceExpenses from "./components/FinanceExpenses";
+import FinanceTax from "./components/FinanceTax";
+import FinancePayroll from "./components/FinancePayroll";
+import FinanceTimesheets from "./components/FinanceTimesheets";
 
 import InvoiceQuoteModal, {
   type FinanceContact,
@@ -3847,34 +3850,31 @@ export default function PaymentsPage() {
           </div>
         ) : (
           <>
-            {(
-              [
-                "tax",
-                "payroll",
-                "timesheets",
-              ] as FinanceTab[]
-            ).includes(
-              activeTab
-            ) && (
-              <div className="rounded-[1.5rem] border border-dashed border-stone-200 bg-white/80 p-6 text-center shadow-sm">
-                <p className="text-[8px] font-black uppercase tracking-[0.28em] text-[#829473]">
-                  Coming Soon
-                </p>
-
-                <h2 className="mt-2 font-serif text-3xl italic text-stone-900">
-                  {activeTab ===
-                  "tax"
-                    ? "Tax & VAT"
-                    : activeTab ===
-                        "payroll"
-                      ? "Payroll"
-                      : "Timesheets"}
-                </h2>
-
-                <p className="mt-2 text-sm text-stone-500">
-                  This area is in active build and will open with the next finance release.
-                </p>
-              </div>
+            {activeTab === "tax" && (
+              <FinanceTax
+                vatReturns={finance.vatReturns ?? []}
+                selfAssessments={finance.selfAssessments ?? []}
+                metrics={metrics}
+                onFileVat={() => setActiveModal("vat")}
+                onFileTax={() => setActiveModal("tax")}
+                refresh={finance.refresh}
+              />
+            )}
+            {activeTab === "payroll" && (
+              <FinancePayroll
+                employees={finance.payrollEmployees ?? []}
+                payslips={finance.payslips ?? []}
+                onAddEmployee={() => setActiveModal("employee")}
+              />
+            )}
+            {activeTab === "timesheets" && (
+              <FinanceTimesheets
+                timesheets={finance.timesheets ?? []}
+                organisationId={organisationId}
+                userId={userId}
+                refresh={finance.refresh}
+                notify={notify}
+              />
             )}
 
             {activeTab ===

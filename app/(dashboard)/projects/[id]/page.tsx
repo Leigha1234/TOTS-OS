@@ -4580,12 +4580,12 @@ export default function ProjectEngine() {
   // ==========================================================
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#FAF9F6] pb-24 selection:bg-[#0F3D32] selection:text-white">
+    <div className="min-h-screen overflow-x-hidden bg-[#F6F8F5] pb-24 selection:bg-[#0F3D32] selection:text-white">
       {/* ======================================================
           TOP NAV
       ====================================================== */}
 
-      <nav className="sticky top-0 z-40 border-b border-[#DDE8E0] bg-white/95 backdrop-blur-md">
+      <nav className="sticky top-0 z-40 border-b border-[#DDE8E0] bg-[#FDFEFC]/95 shadow-[0_8px_30px_-25px_rgba(15,61,50,0.45)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link
             href="/projects"
@@ -4600,7 +4600,7 @@ export default function ProjectEngine() {
             </div>
 
             <span className="hidden text-[9px] font-black uppercase tracking-[0.18em] sm:block">
-              Clients & Projects
+              Back to all projects
             </span>
           </Link>
 
@@ -4626,7 +4626,13 @@ export default function ProjectEngine() {
           HEADER
       ====================================================== */}
 
-      <header className="mx-auto max-w-[1400px] rounded-b-[2rem] bg-[#0F3D32] px-6 pb-10 pt-10 text-[#F7EFE6] shadow-xl sm:px-8 lg:px-12 lg:pt-14">
+      <header className="relative mx-auto max-w-[1400px] overflow-hidden rounded-b-[2.5rem] bg-[radial-gradient(ellipse_at_90%_5%,#276A54_0%,#164C3D_35%,#0B3028_80%)] px-6 pb-10 pt-10 text-[#F7EFE6] shadow-[0_22px_60px_-35px_rgba(15,61,50,0.7)] sm:px-8 lg:px-12 lg:pt-14">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-40 h-96 w-96 rounded-full border border-white/10" />
+        <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-24 h-72 w-72 rounded-full border border-white/10" />
+        <div className="relative mb-7 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.24em] text-[#BBD5C6]">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-xs font-black text-white">O.</span>
+          ORBI <span className="text-white/30">/</span> Project workspace
+        </div>
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -4662,7 +4668,7 @@ export default function ProjectEngine() {
               </div>
             </div>
 
-            <h1 className="max-w-4xl break-words font-serif text-5xl italic leading-none tracking-tight text-[#F7EFE6] sm:text-6xl lg:text-8xl">
+            <h1 className="max-w-4xl break-words font-serif text-4xl italic leading-[1.08] tracking-tight text-[#F7EFE6] sm:text-6xl lg:text-7xl">
               {
                 project.name
               }
@@ -4693,15 +4699,28 @@ export default function ProjectEngine() {
             />
           </div>
         </div>
+        <div className="relative mt-9 grid gap-4 border-t border-white/15 pt-6 md:grid-cols-[1fr_auto] md:items-end">
+          <div className="max-w-xl">
+            <div className="mb-3 flex items-center justify-between gap-4 text-[10px] font-bold uppercase tracking-[0.15em] text-[#D0E1D7]">
+              <span>Task completion</span><span className="text-white">{completedCount} of {tasks.length} tasks · {progress}%</span>
+            </div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-white/15" role="progressbar" aria-label="Project task completion" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+              <div className="h-full rounded-full bg-[#C5DEB4] transition-all duration-500" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+          <button type="button" onClick={() => setActiveTab("Tasks")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-xs font-semibold text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            <ListTodo size={15} /> View tasks <ArrowUpRight size={14} />
+          </button>
+        </div>
       </header>
 
       {/* ======================================================
           TAB NAV
       ====================================================== */}
 
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
-        <div className="no-scrollbar overflow-x-auto">
-          <div className="flex min-w-max gap-1 rounded-2xl border border-stone-200 bg-white p-1.5">
+      <div className="sticky top-[72px] z-30 mx-auto max-w-[1400px] px-4 pt-4 sm:px-6 lg:px-8">
+        <div className="no-scrollbar overflow-x-auto rounded-2xl shadow-[0_12px_30px_-25px_rgba(15,61,50,0.5)]">
+          <div className="flex min-w-max gap-1 rounded-2xl border border-[#DDE8E0] bg-white/95 p-1.5 backdrop-blur-lg">
             {tabs.map(
               (
                 tab
@@ -4722,8 +4741,8 @@ export default function ProjectEngine() {
                     className={`flex items-center gap-2 rounded-xl px-4 py-3 text-[9px] font-black uppercase tracking-[0.14em] ${
                       activeTab ===
                       tab.label
-                        ? "bg-stone-900 text-white"
-                        : "text-stone-400 hover:bg-stone-50"
+                        ? "bg-[#0F3D32] text-white shadow-sm"
+                        : "text-stone-500 hover:bg-[#EFF5EF] hover:text-[#0F3D32]"
                     }`}
                   >
                     <Icon
@@ -4790,7 +4809,7 @@ export default function ProjectEngine() {
 
                   <div>
                     <SectionEyebrow>
-                      TOTS Project Summary
+                      ORBI Project Brief
                     </SectionEyebrow>
 
                     <p className="mt-2 max-w-4xl text-lg leading-8 text-stone-700">
@@ -5323,7 +5342,7 @@ export default function ProjectEngine() {
                   <summary className="cursor-pointer text-sm font-semibold text-stone-700">Activity history ({timelineEvents.length})</summary>
                   <div className="mt-4 space-y-3">
                     {timelineEvents.map((event) => <div key={event.id} className="rounded-xl bg-stone-50 p-4">
-                      <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase text-[#829473]">{event.type}</p><p className="mt-1 text-sm font-semibold">{event.title}</p>{event.description && <p className="mt-1 text-xs text-stone-500">{event.description}</p>}</div><span className="shrink-0 text-xs text-stone-400">{formatDate(event.date)}</span></div>
+                      <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase text-[#829473]">{event.type}</p><p className="mt-1 text-sm font-semibold text-white">{event.title}</p>{event.description && <p className="mt-1 text-xs text-stone-500">{event.description}</p>}</div><span className="shrink-0 text-xs text-stone-400">{formatDate(event.date)}</span></div>
                     </div>)}
                   </div>
                 </details>
@@ -6456,7 +6475,7 @@ function Panel({
 }) {
   return (
     <div
-      className={`rounded-[2rem] border border-stone-200 bg-white p-6 md:p-8 ${className}`}
+      className={`rounded-[1.75rem] border border-[#E1E9E1] bg-white p-6 shadow-[0_12px_35px_-30px_rgba(15,61,50,0.35)] md:p-8 ${className}`}
     >
       {children}
     </div>
@@ -6487,8 +6506,8 @@ function HeaderStat({
     string;
 }) {
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white px-5 py-3">
-      <p className="text-[8px] font-black uppercase tracking-[0.16em] text-stone-400">
+    <div className="min-w-[115px] rounded-2xl border border-white/20 bg-white/10 px-5 py-3 backdrop-blur-sm">
+      <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#C6DCCF]">
         {label}
       </p>
 

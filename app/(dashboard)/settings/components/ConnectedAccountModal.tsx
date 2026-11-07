@@ -546,7 +546,7 @@ export default function ConnectedAccountModal({
               onClick={
                 onClose
               }
-              className="mt-8 w-full rounded-full bg-stone-900 px-6 py-4 text-[10px] font-black uppercase tracking-wider text-white transition hover:opacity-90"
+              className="mt-8 w-full rounded-full bg-[#0F3D32] px-6 py-4 text-[10px] font-black uppercase tracking-wider text-white transition hover:opacity-90"
             >
               Continue
             </button>

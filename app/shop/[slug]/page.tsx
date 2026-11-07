@@ -2505,6 +2505,9 @@ export default function ShopFrontPage() {
       ]
     );
 
+  const [pendingDonationProduct, setPendingDonationProduct] = useState<Product | null>(null);
+  const [pendingDonationAmount, setPendingDonationAmount] = useState("10");
+
   // ==========================================================
   // CART ACTIONS
   // ==========================================================
@@ -2518,6 +2521,16 @@ export default function ShopFrontPage() {
         product
       )
     ) {
+      return;
+    }
+
+    const specialSlug = String(product.slug || "").toLowerCase();
+    const isSpecialDonation = specialSlug === "rooted-direct-donation" || specialSlug === "rooted-christmas-market-stall";
+    const minimum = specialSlug === "rooted-christmas-market-stall" ? 10 : 1;
+    if (isSpecialDonation && (typeof customUnitPrice !== "number" || !Number.isFinite(customUnitPrice) || customUnitPrice < minimum || customUnitPrice > 5000 || Math.round(customUnitPrice * 100) !== customUnitPrice * 100)) {
+      setPendingDonationProduct(product);
+      setPendingDonationAmount(String(minimum === 10 ? 10 : 5));
+      setCartOpen(false);
       return;
     }
 
@@ -5993,6 +6006,36 @@ export default function ShopFrontPage() {
           </aside>
         </div>
       )}
+
+      {pendingDonationProduct && (() => {
+        const isStall = String(pendingDonationProduct.slug || "").toLowerCase() === "rooted-christmas-market-stall";
+        const minimum = isStall ? 10 : 1;
+        const amount = Number(pendingDonationAmount);
+        const valid = pendingDonationAmount.trim() !== "" && Number.isFinite(amount) && amount >= minimum && amount <= 5000 && Math.round(amount * 100) === amount * 100;
+        return (
+          <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/65 p-4" role="dialog" aria-modal="true" aria-labelledby="rooted-amount-title">
+            <div className="w-full max-w-lg rounded-3xl bg-white p-6 text-[#173023] shadow-2xl sm:p-9">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-[#315B45]">Rooted CIC</p>
+                  <h2 id="rooted-amount-title" className="mt-2 text-2xl font-black">{isStall ? "Book your Christmas market stall" : "Make a donation"}</h2>
+                  <p className="mt-2 text-sm text-stone-600">{isStall ? "Minimum stall donation £10. Choose how much you'd like to contribute." : "Choose how much you'd like to donate (minimum £1)."}</p>
+                </div>
+                <button type="button" onClick={() => setPendingDonationProduct(null)} aria-label="Close" className="rounded-full border px-3 py-2">✕</button>
+              </div>
+              <div className="mt-6 grid grid-cols-4 gap-2">
+                {(isStall ? [10, 15, 20, 25] : [5, 10, 20, 50]).map(value => (
+                  <button key={value} type="button" onClick={() => setPendingDonationAmount(String(value))} className={`rounded-xl border px-2 py-3 font-bold ${amount === value ? "border-[#315B45] bg-[#315B45] text-white" : "border-stone-300"}`}>£{value}</button>
+                ))}
+              </div>
+              <label htmlFor="rooted-selected-amount" className="mt-6 block text-sm font-bold">Or enter your own amount (£)</label>
+              <input id="rooted-selected-amount" type="number" inputMode="decimal" min={minimum} max={5000} step="0.01" value={pendingDonationAmount} onChange={e => setPendingDonationAmount(e.target.value)} className="mt-2 w-full rounded-xl border border-stone-300 p-4 text-lg font-bold" />
+              {!valid && <p role="alert" className="mt-2 text-sm text-red-700">Enter an amount between £{minimum} and £5,000 (maximum two decimal places).</p>}
+              <button type="button" disabled={!valid} onClick={() => { const product = pendingDonationProduct; setPendingDonationProduct(null); addToCart(product, amount); }} className="mt-6 w-full rounded-xl bg-[#315B45] px-5 py-4 font-bold text-white disabled:opacity-40">{isStall ? "Add stall booking" : "Add donation"} · {valid ? formatCurrency(amount) : ""}</button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* =====================================================
           CART DRAWER

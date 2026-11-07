@@ -59,6 +59,7 @@ export async function GET(req: Request) {
       process.env.STRIPE_PRICE_ELITE,
     ].filter((v): v is string => Boolean(v)));
     const rows: Array<Record<string, unknown>> = [];
+    const productNames = new Map<string, string>();
     let cursor: string | undefined;
     let pages = 0;
     do {
@@ -66,7 +67,7 @@ export async function GET(req: Request) {
         limit: 100,
         status: "all",
         ...(cursor ? { starting_after: cursor } : {}),
-        expand: ["data.customer", "data.items.data.price.product"],
+        expand: ["data.customer"],
       });
       for (const sub of page.data) {
         if (!validStatuses.has(sub.status)) continue;
@@ -75,10 +76,19 @@ export async function GET(req: Request) {
         const meta = sub.metadata ?? {};
         const orgId = string(meta.organisation_id);
         const org = (orgId && orgById.get(orgId)) || orgByCustomer.get(customerId) || null;
+        // Stripe disallows deeply nested product expansion in subscription lists.
+        // Fetch distinct product names separately and cache them for this request.
+        const productIds = [...new Set(sub.items.data.map(item =>
+          typeof item.price.product === "string" ? item.price.product : item.price.product?.id
+        ).filter((id): id is string => Boolean(id)))];
+        await Promise.all(productIds.filter(id => !productNames.has(id)).map(async id => {
+          const product = await stripe.products.retrieve(id);
+          productNames.set(id, product.deleted ? "" : product.name);
+        }));
         const items = sub.items.data.map(item => {
           const price = item.price;
           const product = typeof price.product === "string" ? null : price.product;
-          const productName = product && !product.deleted ? product.name : "";
+          const productName = product && !product.deleted ? product.name : productNames.get(typeof price.product === "string" ? price.product : price.product?.id ?? "") ?? "";
           const interval = price.recurring?.interval ?? null;
           const intervalCount = Math.max(1, price.recurring?.interval_count ?? 1);
           const amount = price.unit_amount ?? 0;

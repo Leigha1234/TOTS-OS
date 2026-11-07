@@ -1314,7 +1314,7 @@ export default function ShopFrontPage() {
         : "";
 
   const isOrganisedTypes =
-    slug.toLowerCase() === "the-organised-types";
+    ["the-organised-types", "mor"].includes(slug.toLowerCase());
 
   const isMTC =
     slug.toLowerCase() === "moray-training-club";
@@ -2162,13 +2162,14 @@ export default function ShopFrontPage() {
           }
 
           const order = [
-            "Monthly Services",
+            "Raffles",
             "Websites",
-            "Marketing Services",
             "Branding",
-            "Business Coaching",
-            "ORBI. Services",
-            "Website Add-ons",
+            "Marketing",
+            "Google Ads",
+            "SEO",
+            "Business Consultancy",
+            "Additional Services",
           ];
 
           const firstIndex = order.indexOf(first);
@@ -2184,6 +2185,10 @@ export default function ShopFrontPage() {
         products,
       ]
     );
+
+  const morRaffle = useMemo(() => products.find((product) =>
+    String(product.slug || "").toLowerCase() === "mor-christmas-business-raffle-5-ticket"
+  ), [products]);
 
   // ==========================================================
   // VISIBLE PRODUCTS
@@ -4491,6 +4496,53 @@ export default function ShopFrontPage() {
         </div>
       )}
 
+      {/* MOR. Christmas campaign — full-width feature above the shop hero. */}
+      {isOrganisedTypes && morRaffle && !membershipLayout && (
+        <section aria-labelledby="mor-christmas-title" className="w-full bg-[#380C16] text-[#F7EFE6]">
+          <div className="relative isolate mx-auto grid max-w-[1600px] overflow-hidden lg:min-h-[570px] lg:grid-cols-[1.15fr_.85fr]">
+            <div className="pointer-events-none absolute -left-32 -top-44 h-[420px] w-[420px] rounded-full bg-[#A75D69]/20 blur-[110px]" />
+            <div className="relative z-10 flex flex-col justify-center px-6 py-14 sm:px-12 sm:py-20 lg:px-20 lg:py-24">
+              <div className="mb-8 flex flex-wrap items-center gap-3">
+                <span className="rounded-full border border-[#F7EFE6]/30 px-4 py-2 text-[10px] font-bold uppercase tracking-[.22em] text-[#F7EFE6]">MOR. Christmas 2026</span>
+                <span className="text-[10px] uppercase tracking-[.18em] text-[#E9C7C6]">Three winners · Three business prizes</span>
+              </div>
+              <p className="mb-4 text-xs font-semibold uppercase tracking-[.3em] text-[#E9C7C6]">A little something for your big ideas</p>
+              <h2 id="mor-christmas-title" className="!text-[#F7EFE6] text-[clamp(3.2rem,7vw,7rem)] leading-[.94] tracking-[-.055em]" style={{fontFamily:'Georgia, "Times New Roman", serif'}}>
+                Give your business <span className="italic font-normal text-[#E9C7C6]">more.</span>
+              </h2>
+              <p className="mt-7 max-w-xl text-base leading-8 !text-[#F7EFE6]/85 sm:text-lg">Our Christmas business giveaway features three prizes worth a combined <strong className="text-[#F7EFE6]">£2,240</strong> — a website makeover, a business breakthrough and a brand transformation.</p>
+              <div className="mt-9 flex flex-wrap items-center gap-3">
+                <a href="#mor-raffle-details" className="inline-flex items-center gap-3 rounded-full bg-[#F7EFE6] px-7 py-4 text-xs font-extrabold uppercase tracking-[.13em] !text-[#380C16] no-underline transition hover:-translate-y-1 hover:bg-white">Explore the prizes <ArrowRight size={16}/></a>
+                <a href="#shop" className="inline-flex items-center gap-2 rounded-full border border-[#F7EFE6]/40 px-7 py-4 text-xs font-bold uppercase tracking-[.12em] !text-[#F7EFE6] no-underline transition hover:bg-white/10">Explore MOR. services</a>
+              </div>
+              <p className="mt-7 text-xs !text-[#E9C7C6]">£5 per ticket · Three separate winning businesses · Draw planned for 24 December</p>
+            </div>
+            <div className="relative flex min-h-[340px] items-center justify-center overflow-hidden bg-gradient-to-br from-[#57212B] via-[#380C16] to-[#21070D] px-6 py-12 sm:px-12 lg:min-h-full">
+              <div className="pointer-events-none absolute inset-0 opacity-40" style={{backgroundImage:'radial-gradient(circle at 25% 20%, #d4a7a2 0 1px, transparent 2px), radial-gradient(circle at 80% 65%, #d4a7a2 0 1px, transparent 2px)',backgroundSize:'75px 90px'}} />
+              <div className="relative w-full max-w-[470px] border border-[#E9C7C6]/35 bg-[#F7EFE6] p-5 text-[#380C16] shadow-[0_40px_110px_rgba(0,0,0,.35)] sm:p-8" style={{transform:'rotate(-2deg)'}}>
+                <div className="flex items-center justify-between border-b border-[#380C16]/20 pb-5"><span className="font-serif text-4xl tracking-[-.06em]">MOR.</span><Sparkles size={24}/></div>
+                <p className="mt-7 text-[10px] font-bold uppercase tracking-[.23em]">The Christmas business raffle</p>
+                <p className="mt-3 font-serif text-5xl leading-none sm:text-6xl">3 prizes.<br/><span className="italic">3 winners.</span></p>
+                <div className="mt-8 space-y-4 border-t border-[#380C16]/20 pt-6">
+                  <div className="flex items-center justify-between gap-3"><span className="text-sm font-semibold">01 / Website Makeover</span><span className="font-serif text-xl">£995</span></div>
+                  <div className="flex items-center justify-between gap-3"><span className="text-sm font-semibold">02 / Business Breakthrough</span><span className="font-serif text-xl">£750</span></div>
+                  <div className="flex items-center justify-between gap-3"><span className="text-sm font-semibold">03 / Brand Transformation</span><span className="font-serif text-xl">£495</span></div>
+                </div>
+                <div className="mt-8 flex items-center justify-between border-t border-[#380C16]/20 pt-5"><span className="text-[10px] font-bold uppercase tracking-[.15em]">Total prize value</span><span className="font-serif text-3xl">£2,240</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+      {isOrganisedTypes && morRaffle && !membershipLayout && (
+        <section id="mor-raffle-details" className="scroll-mt-28 border-b border-[#380C16]/10 bg-[#F7EFE6] px-5 py-8 sm:px-8">
+          <div className="mx-auto flex max-w-[1360px] flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div><p className="text-[10px] font-bold uppercase tracking-[.2em] text-[#8A4551]">Christmas business raffle</p><h3 className="mt-2 font-serif text-2xl text-[#380C16] sm:text-3xl">One ticket. A chance at one of three prizes.</h3><p className="mt-2 max-w-2xl text-sm leading-6 text-[#6D4C50]">Entries are £5 each. Ticket sales are planned to close 23 December, with three separate winners announced on Christmas Eve. Terms and eligibility apply.</p></div>
+            <button type="button" onClick={() => requestProduct(morRaffle)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#380C16] px-7 py-4 text-xs font-bold uppercase tracking-[.12em] text-white transition hover:bg-[#5C1A28]">Enquire about the raffle <ArrowRight size={16}/></button>
+          </div>
+        </section>
+      )}
+
       {/* =====================================================
           HERO
       ===================================================== */}
@@ -4702,9 +4754,9 @@ export default function ShopFrontPage() {
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                { title: "Ongoing support", text: "Monthly marketing, social media, website care and business support.", category: "Monthly Services" },
+                { title: "Business consultancy", text: "Clear direction, practical strategy and support for growth.", category: "Business Consultancy" },
                 { title: "Build a website", text: "From focused micro sites to complete business websites and portals.", category: "Websites" },
-                { title: "Marketing", text: "Campaign setup, content creation, ads and email marketing support.", category: "Marketing Services" },
+                { title: "Marketing", text: "Social media, campaigns and ongoing marketing support.", category: "Marketing" },
                 { title: "Build your brand", text: "Brand identity packages designed to give your business a consistent look.", category: "Branding" },
               ].map((item) => (
                 <button
@@ -4714,9 +4766,9 @@ export default function ShopFrontPage() {
                     setSearch("");
                     setCategory("All");
                     const targetId =
-                      item.category === "Monthly Services" ? "tots-monthly-services" :
+                      item.category === "Business Consultancy" ? "tots-business-consultancy" :
                       item.category === "Websites" ? "tots-websites" :
-                      item.category === "Marketing Services" ? "tots-marketing-services" :
+                      item.category === "Marketing" ? "tots-marketing" :
                       item.category === "Branding" ? "tots-branding" : "shop";
                     window.setTimeout(() => {
                       document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -7777,44 +7829,14 @@ function OrganisedTypesServiceSections({
   onRequest: (product: Product) => void;
 }) {
   const sections = [
-    {
-      category: "Monthly Services",
-      eyebrow: "Build recurring support",
-      title: "Ongoing support that grows with you.",
-      description: "Start with one of our core monthly packages, then add specialist support only when you need it.",
-    },
-    {
-      category: "Websites",
-      eyebrow: "Websites",
-      title: "A website built around your business.",
-      description: "Choose the level of website you need now, with room to add functionality as you grow.",
-    },
-    {
-      category: "Marketing Services",
-      eyebrow: "One-off marketing",
-      title: "Get the foundations set up properly.",
-      description: "Focused setup and content services when you need expert help without an ongoing package.",
-    },
-    {
-      category: "Branding",
-      eyebrow: "Branding",
-      title: "Make your business look as good as it is.",
-      description: "From a strong starting point to a complete visual identity and social package.",
-    },
-    {
-      category: "Business Coaching",
-      eyebrow: "Business support",
-      title: "Clarity, structure and a plan forward.",
-      description: "Strategy sessions and longer programmes for business owners who want hands-on direction.",
-    },
-    {
-      category: "ORBI. Services",
-      eyebrow: "ORBI.",
-      title: "Get your workspace set up and working for you.",
-      description: "Done-for-you setup and optional ongoing concierge support for ORBI. customers.",
-    },
+    {category: "Websites", eyebrow: "Digital foundations", title: "Websites designed to move you forward.", description: "From a focused three-page launch to a complete online shop — find the right fit for your business."},
+    {category: "Branding", eyebrow: "Visual identity", title: "Make your first impression count.", description: "Considered brand identities that feel like you and give your business room to grow."},
+    {category: "Marketing", eyebrow: "Get noticed", title: "Marketing with purpose.", description: "From a strong social presence to ongoing campaign support."},
+    {category: "Google Ads", eyebrow: "Paid search", title: "Be found by the right people.", description: "Advertising setup and management, with ad spend always separate."},
+    {category: "SEO", eyebrow: "Organic visibility", title: "Show up where it matters.", description: "Search optimisation, audits and ongoing improvements."},
+    {category: "Business Consultancy", eyebrow: "Business growth", title: "A clearer plan for what comes next.", description: "Practical advice and structured support for ambitious businesses."},
+    {category: "Additional Services", eyebrow: "Finishing touches", title: "The extras that make it work.", description: "Website updates, email marketing and automation support."},
   ];
-
   const addOns = products.filter((product) => product.category === "Website Add-ons");
   const coreMonthlySkus = [
     "MONTHLY-WEB-CARE",

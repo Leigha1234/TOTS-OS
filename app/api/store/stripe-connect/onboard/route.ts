@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { admin, authorisedUser, baseUrl, stripe, syncAccount } from "@/lib/store-stripe-connect";
 
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     if (readError) throw readError;
     let accountId = existing?.stripe_account_id;
     if (!accountId) {
-      const account = await stripe.accounts.create({ type: "express", country: "GB", email: user.email, capabilities: { card_payments: { requested: true }, transfers: { requested: true } }, metadata: { organisation_id: organisationId } }, { idempotencyKey: `store-connect-${organisationId}` });
+      const account = await stripe.accounts.create({ type: "express", country: "GB", email: user.email, capabilities: { card_payments: { requested: true }, transfers: { requested: true } }, metadata: { organisation_id: organisationId } }, { idempotencyKey: `store-connect-${organisationId}-${crypto.randomUUID()}` });
       accountId = account.id;
       await syncAccount(organisationId, accountId);
     }

@@ -232,29 +232,43 @@ export default function FinanceSales({
   // CUSTOMER LOOKUP
   // ==================================================
 
-  const customerMap =
-    useMemo(() => {
-      return new Map<
-        string,
-        string
-      >(
-        customers.map(
-          (
-            customer: any
-          ) => [
-            String(
-              customer?.id ??
-                ""
-            ),
+  const displayClient = (value: any): string => {
+    if (!value || typeof value !== "object") return "";
+    const fullName = [value.first_name, value.last_name].filter(Boolean).join(" ").trim();
+    return String(value.name || value.display_name || value.full_name || value.company_name || value.business_name || value.contact_name || fullName || value.email || "").trim();
+  };
 
-            String(
-              customer?.name ??
-                "Unknown Client"
-            ),
-          ]
-        )
-      );
-    }, [customers]);
+  const customerMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const customer of customers) {
+      const name = displayClient(customer);
+      if (!name) continue;
+      for (const key of [customer?.id, customer?.customer_id, customer?.contact_id, customer?.email]) {
+        if (key != null && String(key).trim()) map.set(String(key).trim().toLowerCase(), name);
+      }
+    }
+    return map;
+  }, [customers]);
+
+  const resolveClient = (doc: any): string => {
+    const direct = [doc?.client_name, doc?.customer_name, doc?.contact_name, doc?.client, doc?.customer, doc?.contact];
+    for (const value of direct) {
+      if (value && typeof value === "object") {
+        const name = displayClient(value);
+        if (name) return name;
+      } else if (typeof value === "string" && value.trim() && !["unknown client", "no client assigned"].includes(value.trim().toLowerCase())) {
+        // A client ID is not a display name.
+        if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value.trim())) return value.trim();
+      }
+    }
+    for (const key of [doc?.customer_id, doc?.client_id, doc?.contact_id, doc?.customer_email, doc?.client_email]) {
+      if (key != null) {
+        const found = customerMap.get(String(key).trim().toLowerCase());
+        if (found) return found;
+      }
+    }
+    return "No client assigned";
+  };
 
   // ==================================================
   // NORMALISE INVOICES + QUOTES INTO LEDGER
@@ -274,7 +288,12 @@ export default function FinanceSales({
         ) &&
         ledger.length > 0
       ) {
-        return ledger;
+        const invoiceById = new Map(invoices.map((item: any) => [String(item?.id), item]));
+        const quoteById = new Map(quotes.map((item: any) => [String(item?.id), item]));
+        return ledger.map((entry) => {
+          const doc = entry.type === "Invoice" ? invoiceById.get(String(entry.id)) : quoteById.get(String(entry.id));
+          return { ...entry, client: doc ? resolveClient(doc) : (entry.client && entry.client !== "Unknown Client" ? entry.client : "No client assigned") };
+        });
       }
 
       const invoiceEntries: LedgerEntry[] =
@@ -296,15 +315,7 @@ export default function FinanceSales({
             type:
               "Invoice",
 
-            client:
-              invoice?.client_name ||
-              customerMap.get(
-                String(
-                  invoice?.customer_id ??
-                    ""
-                )
-              ) ||
-              "Unknown Client",
+            client: resolveClient(invoice),
 
             amount:
               Number(
@@ -347,11 +358,7 @@ export default function FinanceSales({
             type:
               "Quote",
 
-            client:
-              String(
-                quote?.client_name ??
-                  "Unknown Client"
-              ),
+            client: resolveClient(quote),
 
             amount:
               Number(

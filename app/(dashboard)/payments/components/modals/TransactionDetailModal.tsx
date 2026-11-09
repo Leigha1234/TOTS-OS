@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import { CheckCircle2, ExternalLink, Loader2, Plus, Save, Trash2, X } from "lucide-react";
+import { CheckCircle2, ExternalLink, Loader2, Plus, Save, Send, Trash2, X } from "lucide-react";
 
 type Props = {
   open: boolean;
@@ -10,6 +10,7 @@ type Props = {
   customers?: any[];
   onClose: () => void;
   onSaved?: () => void | Promise<void>;
+  onEmailInvoice?: (id: string) => void | Promise<void>;
 };
 
 type Line = { id?: string; description: string; quantity: number; unit_price: number };
@@ -20,12 +21,13 @@ const label = "mb-1.5 block text-[10px] font-black uppercase tracking-[0.16em] t
 function money(n: unknown) { return Number(n || 0).toLocaleString("en-GB", { style: "currency", currency: "GBP" }); }
 function dateValue(v: unknown) { return typeof v === "string" && v ? v.slice(0, 10) : ""; }
 
-export default function TransactionDetailModal({ open, entry, customers = [], onClose, onSaved }: Props) {
+export default function TransactionDetailModal({ open, entry, customers = [], onClose, onSaved, onEmailInvoice }: Props) {
   const supabase = useMemo(() => createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!), []);
   const [record, setRecord] = useState<any>(null);
   const [lines, setLines] = useState<Line[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
 
@@ -58,8 +60,8 @@ export default function TransactionDetailModal({ open, entry, customers = [], on
 
   async function refreshParent() { if (onSaved) await onSaved(); }
 
-  async function save() {
-    if (!entry || !record) return;
+  async function save(): Promise<boolean> {
+    if (!entry || !record) return false;
     setSaving(true); setError(null);
     try {
       if (isInvoice) {
@@ -116,8 +118,25 @@ export default function TransactionDetailModal({ open, entry, customers = [], on
         if (updateError) throw updateError;
       }
       await refreshParent();
-    } catch (e: any) { setError(e?.message || "Could not save changes."); }
+      return true;
+    } catch (e: any) { setError(e?.message || "Could not save changes."); return false; }
     finally { setSaving(false); }
+  }
+
+  async function sendInvoice() {
+    if (!entry || !isInvoice || !onEmailInvoice || sending || saving) return;
+    setSending(true);
+    setError(null);
+    try {
+      // Persist all edits before sending so the recipient sees the current invoice.
+      const saved = await save();
+      if (!saved) return;
+      await onEmailInvoice(entry.id);
+    } catch (e: any) {
+      setError(e?.message || "Unable to send invoice.");
+    } finally {
+      setSending(false);
+    }
   }
 
   async function recordPayment(amount: number) {
@@ -187,7 +206,7 @@ export default function TransactionDetailModal({ open, entry, customers = [], on
 
         {isInvoice && <div className="rounded-2xl border border-[#dfe7d8] bg-[#f4f7f1] p-5 sm:p-6"><h3 className="font-semibold text-stone-900">Payments</h3><p className="mt-1 text-xs text-stone-500">Record bank transfer, cash or another payment received outside the online checkout.</p><div className="mt-4 flex flex-col gap-2 sm:flex-row"><input type="number" min="0" step="0.01" placeholder={`Amount (max ${balance.toFixed(2)})`} className={field} value={paymentAmount} onChange={e=>setPaymentAmount(e.target.value)}/><button type="button" disabled={saving || Number(paymentAmount)<=0} onClick={()=>void recordPayment(Math.min(balance,Number(paymentAmount)))} className="h-11 whitespace-nowrap rounded-xl border border-stone-200 bg-white px-5 text-xs font-bold disabled:opacity-40">Record payment</button>{balance>0 && <button type="button" disabled={saving} onClick={()=>void markPaid()} className="flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-stone-900 px-5 text-xs font-bold text-white disabled:opacity-40"><CheckCircle2 size={15}/> Mark paid</button>}</div></div>}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 pt-5"><div className="flex gap-2">{isInvoice && record.public_token && <a href={`/pay/${record.public_token}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold"><ExternalLink size={14}/> Open invoice</a>}</div><div className="flex gap-2"><button type="button" onClick={onClose} className="rounded-xl border border-stone-200 bg-white px-5 py-2.5 text-xs font-bold">Close</button><button type="button" disabled={saving} onClick={()=>void save()} className="flex items-center gap-2 rounded-xl bg-[#0F3D32] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-50">{saving?<Loader2 size={14} className="animate-spin"/>:<Save size={14}/>} Save changes</button></div></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 pt-5"><div className="flex gap-2">{isInvoice && record.public_token && <a href={`/pay/${record.public_token}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold"><ExternalLink size={14}/> Open invoice</a>}</div><div className="flex gap-2"><button type="button" onClick={onClose} className="rounded-xl border border-stone-200 bg-white px-5 py-2.5 text-xs font-bold">Close</button>{isInvoice && onEmailInvoice && <button type="button" disabled={saving || sending || loading || balance <= 0} onClick={()=>void sendInvoice()} className="flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white disabled:opacity-50">{sending ? <Loader2 size={14} className="animate-spin"/> : <Send size={14}/>} {sending ? "Preparing..." : record.status === "draft" ? "Send invoice" : "Resend invoice"}</button>}<button type="button" disabled={saving || sending} onClick={()=>void save()}' className="flex items-center gap-2 rounded-xl bg-[#0F3D32] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-50">{saving?<Loader2 size={14} className="animate-spin"/>:<Save size={14}/>} Save changes</button></div></div>
       </div> : <div className="p-8 text-sm text-red-600">{error || "Transaction not found."}</div>}
     </div>
   </div>;

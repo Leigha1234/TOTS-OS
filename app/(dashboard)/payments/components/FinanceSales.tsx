@@ -1580,6 +1580,7 @@ export default function FinanceSales({
         customers={customers}
         onClose={() => setSelectedTransaction(null)}
         onSaved={refresh}
+        onEmailInvoice={onEmailInvoice}
       />
 
       {/* ==================================================

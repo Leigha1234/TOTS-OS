@@ -62,7 +62,7 @@ type FinanceSalesProps = {
 
   metrics?: any;
 
-  onEmailInvoice?: (id: string) => void | Promise<void>;
+  onEmailInvoice?: (id: string) => Promise<boolean>;
   onManageInvoices?: () => void;
   onCreateInvoice?: () => void;
   onNewInvoice?: () => void;

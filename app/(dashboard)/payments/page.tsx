@@ -3767,21 +3767,21 @@ export default function PaymentsPage() {
   // Email an existing invoice. The server validates organisation membership.
   const emailExistingInvoice = async (invoiceId: string) => {
     const invoice = (invoices || []).find((row: any) => row.id === invoiceId);
-    if (!invoice) { notify("Invoice not found. Refresh and try again.", "error"); return; }
+    if (!invoice) { notify("Invoice not found. Refresh and try again.", "error"); return false; }
     const customer = (finance.customers || []).find((row: any) => row.id === invoice.customerId);
     const invoiceData = (invoice as any)?.data;
     const suggestedEmail = String(customer?.email || invoiceData?.send_to_email || invoiceData?.customer_email || "");
     const entered = window.prompt("Email invoice to:", suggestedEmail);
-    if (entered === null) return;
+    if (entered === null) return false;
     const recipientEmail = entered.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
-      notify("Enter a valid recipient email address.", "error"); return;
+      notify("Enter a valid recipient email address.", "error"); return false;
     }
-    if (!window.confirm(`Send this invoice to ${recipientEmail}?`)) return;
+    if (!window.confirm(`Send this invoice to ${recipientEmail}?`)) return false;
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
-      if (!token) { notify("Please sign in again before emailing invoices.", "error"); return; }
+      if (!token) { notify("Please sign in again before emailing invoices.", "error"); return false; }
       const response = await fetch("/api/send-invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -3791,8 +3791,10 @@ export default function PaymentsPage() {
       if (!response.ok) throw new Error(result.error || "Unable to send invoice.");
       notify(`Invoice emailed to ${recipientEmail}.`, "success");
       await finance.refresh();
+      return true;
     } catch (error) {
       notify(error instanceof Error ? error.message : "Unable to email invoice.", "error");
+      return false;
     }
   };
 

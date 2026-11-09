@@ -10,7 +10,7 @@ type Props = {
   customers?: any[];
   onClose: () => void;
   onSaved?: () => void | Promise<void>;
-  onEmailInvoice?: (id: string) => void | Promise<void>;
+  onEmailInvoice?: (id: string) => Promise<boolean>;
 };
 
 type Line = { id?: string; description: string; quantity: number; unit_price: number };
@@ -28,19 +28,26 @@ export default function TransactionDetailModal({ open, entry, customers = [], on
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  const [emailedInSession, setEmailedInSession] = useState(false);
+  const [sendNotice, setSendNotice] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
 
   const isInvoice = entry?.type === "Invoice";
-  const total = Number(record?.amount || 0);
+  const editedSubtotal = lines.reduce((sum, line) => sum + Number(line.quantity || 0) * Number(line.unit_price || 0), 0);
+  const total = isInvoice && lines.length ? editedSubtotal + Number(record?.tax || 0) : Number(record?.amount || 0);
   const amountPaid = Number(record?.amount_paid || 0);
-  const balance = record?.balance_due == null ? Math.max(0, total - amountPaid) : Number(record.balance_due || 0);
+  const balance = Math.max(0, total - amountPaid);
+  // Invoice status is not proof of email delivery. Only explicit send evidence counts.
+  const previouslyEmailed = emailedInSession || Boolean(record?.sent_at || record?.emailed_at || record?.last_sent_at || record?.email_sent_at);
+  const selectedCustomer = customers.find((customer: any) => customer.id === record?.customer_id);
+  const recipientHint = String(selectedCustomer?.email || record?.send_to_email || record?.customer_email || "").trim();
 
   useEffect(() => {
     if (!open || !entry) return;
     let alive = true;
     (async () => {
-      setLoading(true); setError(null); setRecord(null); setLines([]); setPaymentAmount("");
+      setLoading(true); setError(null); setRecord(null); setLines([]); setPaymentAmount(""); setEmailedInSession(false); setSendNotice("");
       try {
         const table = entry.type === "Invoice" ? "invoices" : "quotes";
         const { data, error: e } = await supabase.from(table).select("*").eq("id", entry.id).single();
@@ -127,11 +134,20 @@ export default function TransactionDetailModal({ open, entry, customers = [], on
     if (!entry || !isInvoice || !onEmailInvoice || sending || saving) return;
     setSending(true);
     setError(null);
+    setSendNotice("");
     try {
-      // Persist all edits before sending so the recipient sees the current invoice.
+      if (!record.customer_id && !recipientHint) { setError("Select a customer with an email address before sending."); return; }
+      if (!record.invoice_number?.trim()) { setError("Add an invoice number before sending."); return; }
+      if (!lines.some(line => line.description.trim() && Number(line.quantity) > 0)) { setError("Add at least one line item with a description and quantity."); return; }
+      if (lines.some(line => !line.description.trim() || Number(line.quantity) <= 0 || Number(line.unit_price) < 0)) { setError("Check each line item has a description, positive quantity and non-negative price."); return; }
+      // Save before sending, including zero-value invoices. The API is responsible for final validation.
       const saved = await save();
       if (!saved) return;
-      await onEmailInvoice(entry.id);
+      const sent = await onEmailInvoice(entry.id);
+      if (sent) {
+        setEmailedInSession(true);
+        setSendNotice("Invoice email request succeeded. Check the recipient inbox and delivery logs to confirm delivery.");
+      }
     } catch (e: any) {
       setError(e?.message || "Unable to send invoice.");
     } finally {
@@ -182,6 +198,7 @@ export default function TransactionDetailModal({ open, entry, customers = [], on
 
       {loading ? <div className="flex min-h-72 items-center justify-center"><Loader2 className="animate-spin text-[#0F3D32]"/></div> : record ? <div className="space-y-6 p-6 sm:p-8">
         {error && <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
+        {sendNotice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{sendNotice}</div>}
 
         {isInvoice && <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[['Total', money(total)], ['Paid', money(amountPaid)], ['Outstanding', money(balance)], ['Status', String(record.status || 'draft').replaceAll('_',' ')]].map(([a,b]) => <div key={a} className="rounded-2xl border border-stone-100 bg-white p-4"><p className="text-[9px] font-black uppercase tracking-widest text-stone-400">{a}</p><p className="mt-2 text-lg font-bold capitalize text-stone-900">{b}</p></div>)}
@@ -199,14 +216,16 @@ export default function TransactionDetailModal({ open, entry, customers = [], on
 
         {isInvoice && <div className="rounded-2xl border border-stone-100 bg-white p-5 sm:p-6">
           <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">Line items</h3><button type="button" onClick={()=>setLines([...lines,{description:'',quantity:1,unit_price:0}])} className="flex items-center gap-1 rounded-full bg-[#eef2e9] px-3 py-2 text-xs font-bold text-[#657456]"><Plus size={13}/> Add item</button></div>
+          <div className="mb-2 grid grid-cols-[1fr_80px_110px_38px] gap-2 text-[10px] font-bold uppercase tracking-wide text-stone-500"><span>Description</span><span>Qty</span><span>Unit £</span><span/></div>
           <div className="space-y-3">{lines.map((l,i)=><div key={l.id || i} className="grid grid-cols-[1fr_80px_110px_38px] gap-2"><input className={field} placeholder="Description" value={l.description} onChange={e=>setLines(lines.map((x,j)=>j===i?{...x,description:e.target.value}:x))}/><input className={field} type="number" min="0" step="1" value={l.quantity} onChange={e=>setLines(lines.map((x,j)=>j===i?{...x,quantity:Number(e.target.value)}:x))}/><input className={field} type="number" min="0" step="0.01" value={l.unit_price} onChange={e=>setLines(lines.map((x,j)=>j===i?{...x,unit_price:Number(e.target.value)}:x))}/><button type="button" onClick={()=>setLines(lines.filter((_,j)=>j!==i))} className="rounded-xl text-red-400 hover:bg-red-50"><Trash2 size={15}/></button></div>)}</div>
+          <p className="mt-4 text-right text-sm font-semibold text-stone-800">Subtotal: {money(editedSubtotal)} · Tax: {money(record.tax)} · Total: {money(total)}</p>
         </div>}
 
         <div className="rounded-2xl border border-stone-100 bg-white p-5 sm:p-6"><div className="grid gap-4 sm:grid-cols-2"><div><label className={label}>{isInvoice ? 'Notes' : 'Description'}</label><textarea rows={4} className="w-full rounded-xl border border-stone-200 p-3 text-sm outline-none" value={(isInvoice ? record.notes : record.description) || ''} onChange={e=>setRecord({...record,[isInvoice?'notes':'description']:e.target.value})}/></div>{isInvoice && <div><label className={label}>Payment terms</label><textarea rows={4} className="w-full rounded-xl border border-stone-200 p-3 text-sm outline-none" value={record.payment_terms || ''} onChange={e=>setRecord({...record,payment_terms:e.target.value})}/></div>}</div></div>
 
         {isInvoice && <div className="rounded-2xl border border-[#dfe7d8] bg-[#f4f7f1] p-5 sm:p-6"><h3 className="font-semibold text-stone-900">Payments</h3><p className="mt-1 text-xs text-stone-500">Record bank transfer, cash or another payment received outside the online checkout.</p><div className="mt-4 flex flex-col gap-2 sm:flex-row"><input type="number" min="0" step="0.01" placeholder={`Amount (max ${balance.toFixed(2)})`} className={field} value={paymentAmount} onChange={e=>setPaymentAmount(e.target.value)}/><button type="button" disabled={saving || Number(paymentAmount)<=0} onClick={()=>void recordPayment(Math.min(balance,Number(paymentAmount)))} className="h-11 whitespace-nowrap rounded-xl border border-stone-200 bg-white px-5 text-xs font-bold disabled:opacity-40">Record payment</button>{balance>0 && <button type="button" disabled={saving} onClick={()=>void markPaid()} className="flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-stone-900 px-5 text-xs font-bold text-white disabled:opacity-40"><CheckCircle2 size={15}/> Mark paid</button>}</div></div>}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 pt-5"><div className="flex gap-2">{isInvoice && record.public_token && <a href={`/pay/${record.public_token}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold"><ExternalLink size={14}/> Open invoice</a>}</div><div className="flex gap-2"><button type="button" onClick={onClose} className="rounded-xl border border-stone-200 bg-white px-5 py-2.5 text-xs font-bold">Close</button>{isInvoice && onEmailInvoice && <button type="button" disabled={saving || sending || loading || balance <= 0} onClick={()=>void sendInvoice()} className="flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white disabled:opacity-50">{sending ? <Loader2 size={14} className="animate-spin"/> : <Send size={14}/>} {sending ? "Preparing..." : record.status === "draft" ? "Send invoice" : "Resend invoice"}</button>}<button type="button" disabled={saving || sending} onClick={()=>void save()} className="flex items-center gap-2 rounded-xl bg-[#0F3D32] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-50">{saving?<Loader2 size={14} className="animate-spin"/>:<Save size={14}/>} Save changes</button></div></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 pt-5"><div className="flex gap-2">{isInvoice && record.public_token && <a href={`/pay/${record.public_token}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-xs font-bold"><ExternalLink size={14}/> Open invoice</a>}</div><div className="flex gap-2"><button type="button" onClick={onClose} className="rounded-xl border border-stone-200 bg-white px-5 py-2.5 text-xs font-bold">Close</button>{isInvoice && onEmailInvoice && <button type="button" disabled={saving || sending || loading} onClick={()=>void sendInvoice()} className="flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white disabled:opacity-50">{sending ? <Loader2 size={14} className="animate-spin"/> : <Send size={14}/>} {sending ? "Preparing..." : previouslyEmailed ? "Resend invoice" : "Send invoice"}</button>}<button type="button" disabled={saving || sending} onClick={()=>void save()} className="flex items-center gap-2 rounded-xl bg-[#0F3D32] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-50">{saving?<Loader2 size={14} className="animate-spin"/>:<Save size={14}/>} Save changes</button></div></div>
       </div> : <div className="p-8 text-sm text-red-600">{error || "Transaction not found."}</div>}
     </div>
   </div>;

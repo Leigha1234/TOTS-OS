@@ -551,6 +551,7 @@ export default function StoreDashboardPage() {
   const [stripeConnectError, setStripeConnectError] = useState<string | null>(null);
   const [stripeManageAction, setStripeManageAction] = useState<"disconnect" | "switch" | null>(null);
   const [stripeConfirmText, setStripeConfirmText] = useState("");
+  const [stripeTargetAccountId, setStripeTargetAccountId] = useState("");
   const [stripeConnectNotice, setStripeConnectNotice] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
 
@@ -610,8 +611,34 @@ export default function StoreDashboardPage() {
     }
   }
 
+  async function authoriseExistingStripe() {
+    if (!organisation?.id || stripeConnectBusy || stripeConfirmText !== "SWITCH") return;
+    const target = stripeTargetAccountId.trim();
+    if (!/^acct_[A-Za-z0-9]+$/.test(target)) {
+      setStripeConnectError("Enter the destination Stripe account ID (acct_...)."); return;
+    }
+    setStripeConnectBusy(true);
+    setStripeConnectError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw Error("Please sign in again.");
+      const response = await fetch("/api/store/stripe/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ organisationId: organisation.id, expectedAccountId: stripeConnect?.account_id, targetAccountId: target }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw Error(result.error || "Unable to start Stripe authorisation.");
+      if (typeof result.url !== "string" || !result.url.startsWith("https://connect.stripe.com/")) throw Error("Invalid Stripe authorisation URL.");
+      window.location.assign(result.url);
+    } catch (e) {
+      setStripeConnectError(e instanceof Error ? e.message : "Stripe authorisation failed.");
+      setStripeConnectBusy(false);
+    }
+  }
+
   async function changeStripeConnection() {
-    if (!organisation?.id || !stripeManageAction || stripeConnectBusy || stripeConfirmText !== "DISCONNECT") return;
+    if (!organisation?.id || stripeManageAction !== "disconnect" || stripeConnectBusy || stripeConfirmText !== "DISCONNECT") return;
     setStripeConnectBusy(true);
     setStripeConnectError(null);
     setStripeConnectNotice(null);
@@ -626,14 +653,10 @@ export default function StoreDashboardPage() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || (response.status === 404 ? "Stripe disconnect is not configured on the server yet." : "Could not disconnect Stripe."));
-      const wasSwitch = stripeManageAction === "switch";
       setStripeManageAction(null);
       setStripeConfirmText("");
       await refreshStripeConnect();
       setStripeConnectNotice("Stripe connection removed from this organisation. Existing Stripe transactions remain in Stripe.");
-      if (wasSwitch) {
-        await openStripeConnect("onboard");
-      }
     } catch (e) {
       setStripeConnectError(e instanceof Error ? e.message : "Stripe connection change failed.");
     } finally {
@@ -2628,14 +2651,28 @@ export default function StoreDashboardPage() {
                   </div>
                 </div>
               )}
-              {stripeManageAction && (
+              {stripeManageAction === "switch" && (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                  <h3 className="font-semibold text-amber-950">Authorise a different existing Stripe account</h3>
+                  <p className="mt-2 text-sm text-amber-900">Your current account stays connected until Stripe authorises the replacement. Historical orders are not changed. Only an organisation owner can approve this switch.</p>
+                  <label className="mt-4 block text-xs font-semibold text-amber-950">Destination Stripe account ID</label>
+                  <input value={stripeTargetAccountId} onChange={e => setStripeTargetAccountId(e.target.value)} placeholder="acct_..." className="mt-2 w-full max-w-md rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" />
+                  <label className="mt-4 block text-xs font-semibold text-amber-950">Type SWITCH to authorise a change to future payment routing</label>
+                  <input value={stripeConfirmText} onChange={e => setStripeConfirmText(e.target.value)} placeholder="SWITCH" className="mt-2 w-full max-w-xs rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" />
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" disabled={stripeConnectBusy || stripeConfirmText !== "SWITCH" || !/^acct_[A-Za-z0-9]+$/.test(stripeTargetAccountId.trim())} onClick={() => void authoriseExistingStripe()} className="rounded-xl bg-amber-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{stripeConnectBusy ? "Opening Stripe…" : "Authorise existing Stripe account"}</button>
+                    <button type="button" disabled={stripeConnectBusy} onClick={() => { setStripeManageAction(null); setStripeConfirmText(""); }} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold">Cancel</button>
+                  </div>
+                </div>
+              )}
+              {stripeManageAction === "disconnect" && (
                 <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-5">
-                  <h3 className="font-semibold text-red-900">{stripeManageAction === "switch" ? "Change Stripe account" : "Disconnect Stripe account"}</h3>
-                  <p className="mt-2 text-sm text-red-800">This action requires a secure server endpoint and organisation-owner authorisation. Confirm that pending payments, refunds, subscriptions and payouts have been reviewed. This does not close your Stripe account.</p>
+                  <h3 className="font-semibold text-red-900">Disconnect Stripe account</h3>
+                  <p className="mt-2 text-sm text-red-800">This is separate from switching accounts. Disconnection may be blocked when the account has payment history.</p>
                   <label className="mt-4 block text-xs font-semibold text-red-900">Type DISCONNECT to confirm</label>
                   <input value={stripeConfirmText} onChange={e => setStripeConfirmText(e.target.value)} placeholder="DISCONNECT" className="mt-2 w-full max-w-xs rounded-xl border border-red-200 bg-white px-3 py-2 text-sm" />
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" disabled={stripeConnectBusy || stripeConfirmText !== "DISCONNECT"} onClick={() => void changeStripeConnection()} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{stripeConnectBusy ? "Processing…" : stripeManageAction === "switch" ? "Disconnect and connect another" : "Confirm disconnect"}</button>
+                    <button type="button" disabled={stripeConnectBusy || stripeConfirmText !== "DISCONNECT"} onClick={() => void changeStripeConnection()} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Confirm disconnect</button>
                     <button type="button" disabled={stripeConnectBusy} onClick={() => { setStripeManageAction(null); setStripeConfirmText(""); }} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold">Cancel</button>
                   </div>
                 </div>

@@ -4,12 +4,20 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {
     const token = req.headers.get("authorization")?.replace(/^Bearer /i, "") || "";
-    const { organisationId } = await req.json();
+    const { organisationId, expectedAccountId, targetAccountId } = await req.json();
+    if (expectedAccountId && !/^acct_[A-Za-z0-9]+$/.test(expectedAccountId)) throw Error("Invalid current Stripe account ID.");
+    if (targetAccountId && !/^acct_[A-Za-z0-9]+$/.test(targetAccountId)) throw Error("Invalid destination Stripe account ID.");
     if (!organisationId || typeof organisationId !== "string") return NextResponse.json({ error: "Missing organisation." }, { status: 400 });
     const user = await authorisedUser(token, organisationId);
     if (!process.env.STRIPE_CONNECT_CLIENT_ID || !baseUrl() || !process.env.STRIPE_CONNECT_STATE_SECRET)
       throw Error("Stripe Connect environment variables are missing.");
-    const state = signState({ organisationId, userId: user.id, expires: Date.now() + 10 * 60 * 1000 });
+    const { data: current, error: currentError } = await (await import("@/lib/store-stripe-connect")).admin.from("store_stripe_accounts")
+      .select("stripe_account_id").eq("organisation_id", organisationId).maybeSingle();
+    if (currentError) throw currentError;
+    if ((current?.stripe_account_id || null) !== (expectedAccountId || null)) throw Error("Stripe account changed. Refresh and try again.");
+    if (expectedAccountId && !targetAccountId) throw Error("Enter the destination Stripe account ID.");
+    if (targetAccountId && targetAccountId === expectedAccountId) throw Error("Destination account is already connected.");
+    const state = signState({ organisationId, userId: user.id, expectedAccountId: expectedAccountId || null, targetAccountId: targetAccountId || null, expires: Date.now() + 10 * 60 * 1000 });
     const url = new URL("https://connect.stripe.com/oauth/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", process.env.STRIPE_CONNECT_CLIENT_ID);

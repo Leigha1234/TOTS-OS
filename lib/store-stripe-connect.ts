@@ -13,7 +13,7 @@ export function signState(payload: object) {
   const sig = crypto.createHmac("sha256", process.env.STRIPE_CONNECT_STATE_SECRET!).update(body).digest("base64url");
   return `${body}.${sig}`;
 }
-export function verifyState(state: string): { organisationId: string; userId: string; expires: number } {
+export function verifyState(state: string): { organisationId: string; userId: string; expires: number; expectedAccountId?: string | null; targetAccountId?: string | null } {
   const [body, signature] = state.split(".");
   if (!body || !signature) throw Error("Invalid Stripe state.");
   const expected = crypto.createHmac("sha256", process.env.STRIPE_CONNECT_STATE_SECRET!).update(body).digest();

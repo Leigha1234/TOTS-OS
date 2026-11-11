@@ -2510,7 +2510,7 @@ async function fulfilMtcCourseAndWalkInCredits({
 // COMPLETE ORDER
 // ============================================================
 
-async function completeStoreOrder({
+export async function completeStoreOrder({
   session,
   eventStripeAccountId,
 }: {

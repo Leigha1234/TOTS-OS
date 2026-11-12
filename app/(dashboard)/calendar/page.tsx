@@ -575,6 +575,16 @@ function cloneAvailability(
     }
   );
 
+  // Preserve one-off date overrides alongside recurring weekday hours.
+  Object.entries(availability).forEach(([key, windows]) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+      clone[key] = windows.map((window) => ({
+        start: snapTimeStringToTen(window.start),
+        end: snapTimeStringToTen(window.end),
+      }));
+    }
+  });
+
   return clone;
 }
 
@@ -946,6 +956,32 @@ export default function CalendarPage() {
   const [bookingStripeLoading, setBookingStripeLoading] = useState(false);
   const [bookingStripeBusy, setBookingStripeBusy] = useState(false);
   const [bookingStripeError, setBookingStripeError] = useState<string | null>(null);
+
+  const [overrideDate, setOverrideDate] = useState("");
+  const [overrideStart, setOverrideStart] = useState("15:00");
+  const [overrideEnd, setOverrideEnd] = useState("17:00");
+  const [overrideError, setOverrideError] = useState<string | null>(null);
+
+  const saveDateOverride = () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(overrideDate)) {
+      setOverrideError("Choose a date first.");
+      return;
+    }
+    if (timeToMinutes(overrideEnd) <= timeToMinutes(overrideStart)) {
+      setOverrideError("End time must be later than start time.");
+      return;
+    }
+    setBookingPage(previous => ({
+      ...previous,
+      availability: {
+        ...previous.availability,
+        [overrideDate]: [{ start: overrideStart, end: overrideEnd }],
+      },
+    }));
+    setBookingSaved(false);
+    setOverrideError(null);
+    setOverrideDate("");
+  };
 
   // ==========================================================
   // PRIMARY STATE
@@ -3800,6 +3836,21 @@ export default function CalendarPage() {
         }
       }
 
+      for (const [date, windows] of Object.entries(bookingPage.availability)) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+        for (let i = 0; i < windows.length; i++) {
+          if (timeToMinutes(windows[i].end) <= timeToMinutes(windows[i].start)) {
+            return `${date}: end time must be after start time.`;
+          }
+          for (let j = i + 1; j < windows.length; j++) {
+            if (timeToMinutes(windows[i].start) < timeToMinutes(windows[j].end) &&
+                timeToMinutes(windows[j].start) < timeToMinutes(windows[i].end)) {
+              return `${date}: availability windows overlap.`;
+            }
+          }
+        }
+      }
+
       if (
         activeDays ===
         0
@@ -5941,6 +5992,50 @@ export default function CalendarPage() {
                 }
               )}
             </div>
+
+            <section className="rounded-[1.75rem] border border-[#DCE8DF] bg-white p-6 md:p-8 space-y-5">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">One-off changes</p>
+                <h3 className="mt-2 text-2xl font-serif text-[#183E31]">Different hours on a specific date?</h3>
+                <p className="mt-2 text-sm text-[#52665B]">Override your usual weekly hours for one day, or mark it unavailable. For example, 28 November: 3pm–5pm instead of 9am–5pm.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="text-xs font-semibold text-[#183E31]">Date
+                  <input type="date" value={overrideDate} onChange={e => setOverrideDate(e.target.value)} className="mt-2 w-full rounded-xl border border-[#DCE8DF] bg-white p-3" />
+                </label>
+                <label className="text-xs font-semibold text-[#183E31]">From
+                  <select value={overrideStart} onChange={e => setOverrideStart(e.target.value)} className="mt-2 w-full rounded-xl border border-[#DCE8DF] bg-white p-3">{TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}</select>
+                </label>
+                <label className="text-xs font-semibold text-[#183E31]">Until
+                  <select value={overrideEnd} onChange={e => setOverrideEnd(e.target.value)} className="mt-2 w-full rounded-xl border border-[#DCE8DF] bg-white p-3">{TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}</select>
+                </label>
+              </div>
+              {overrideError && <p className="text-xs text-red-600">{overrideError}</p>}
+              <div className="flex flex-wrap gap-3">
+                <button type="button" onClick={saveDateOverride} className="rounded-xl bg-[#103F33] px-5 py-3 text-xs font-bold text-white">Add date override</button>
+                <button type="button" disabled={!overrideDate} onClick={() => {
+                  if (!overrideDate) return;
+                  setBookingPage(previous => ({ ...previous, availability: { ...previous.availability, [overrideDate]: [] } }));
+                  setBookingSaved(false); setOverrideDate(""); setOverrideError(null);
+                }} className="rounded-xl border border-[#DCE8DF] px-5 py-3 text-xs font-bold text-[#183E31] disabled:opacity-50">Block this date</button>
+              </div>
+              <div className="space-y-2">
+                {Object.entries(bookingPage.availability).filter(([key]) => /^\d{4}-\d{2}-\d{2}$/.test(key)).sort(([a], [b]) => a.localeCompare(b)).map(([date, windows]) => (
+                  <div key={date} className="flex items-center justify-between gap-3 rounded-xl bg-stone-50 p-4 text-sm">
+                    <span><strong>{date}</strong> — {windows.length ? windows.map(w => `${w.start}–${w.end}`).join(", ") : "Unavailable all day"}</span>
+                    <button type="button" className="text-xs font-semibold text-red-600" onClick={() => {
+                      setBookingPage(previous => {
+                        const availability = { ...previous.availability };
+                        delete availability[date];
+                        return { ...previous, availability };
+                      });
+                      setBookingSaved(false);
+                    }}>Remove</button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-[#60746A]">Click Save Availability below to save changes. The public booking slot generator must also read date overrides for these hours to affect customer bookings.</p>
+            </section>
 
             {bookingError && (
               <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-xs text-red-600">

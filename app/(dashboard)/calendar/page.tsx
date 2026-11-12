@@ -942,6 +942,11 @@ function cloneWindows(
 // ============================================================
 
 export default function CalendarPage() {
+  const [bookingStripe, setBookingStripe] = useState<{ connected: boolean; account_id: string | null; charges_enabled: boolean; payouts_enabled: boolean } | null>(null);
+  const [bookingStripeLoading, setBookingStripeLoading] = useState(false);
+  const [bookingStripeBusy, setBookingStripeBusy] = useState(false);
+  const [bookingStripeError, setBookingStripeError] = useState<string | null>(null);
+
   // ==========================================================
   // PRIMARY STATE
   // ==========================================================
@@ -1015,6 +1020,57 @@ export default function CalendarPage() {
   // ==========================================================
   // EVENT MODAL
   // ==========================================================
+
+  const refreshBookingStripe = useCallback(async () => {
+    const organisationId = currentProfile?.organisation_id;
+    if (!organisationId) { setBookingStripe(null); return; }
+    setBookingStripeLoading(true);
+    setBookingStripeError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Please sign in again.");
+      const response = await fetch(`/api/store/stripe-connect/status?organisation_id=${encodeURIComponent(organisationId)}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store",
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Could not check Stripe connection.");
+      setBookingStripe({
+        connected: Boolean(result.connected ?? result.account_id ?? result.stripe_account_id),
+        account_id: result.account_id ?? result.stripe_account_id ?? null,
+        charges_enabled: Boolean(result.charges_enabled),
+        payouts_enabled: Boolean(result.payouts_enabled),
+      });
+    } catch (error) {
+      setBookingStripeError(error instanceof Error ? error.message : "Could not check Stripe connection.");
+    } finally { setBookingStripeLoading(false); }
+  }, [currentProfile?.organisation_id]);
+
+  useEffect(() => {
+    if (activeTab === "Booking Page" && currentProfile?.organisation_id) void refreshBookingStripe();
+  }, [activeTab, currentProfile?.organisation_id, refreshBookingStripe]);
+
+  const openBookingStripe = async (action: "onboard" | "dashboard") => {
+    if (!currentProfile?.organisation_id || bookingStripeBusy) return;
+    setBookingStripeBusy(true);
+    setBookingStripeError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Please sign in again.");
+      const response = await fetch(`/api/store/stripe-connect/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ organisation_id: currentProfile.organisation_id }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Could not open Stripe.");
+      const url = result.url ?? result.onboarding_url ?? result.dashboard_url;
+      if (typeof url !== "string" || !url.startsWith("https://")) throw new Error("Stripe did not return a secure redirect URL.");
+      window.location.assign(url);
+    } catch (error) {
+      setBookingStripeError(error instanceof Error ? error.message : "Could not open Stripe.");
+      setBookingStripeBusy(false);
+    }
+  };
 
   const [
     isModalOpen,
@@ -5430,17 +5486,24 @@ export default function CalendarPage() {
                 <section className="rounded-[2rem] border border-[#E1EAE2] bg-white p-6 md:p-8">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">Stripe integration</p>
-                      <h3 className="mt-2 text-2xl font-serif text-[#183E31]">Connect your Stripe account</h3>
-                      <p className="mt-2 max-w-2xl text-sm text-[#52665B]">Manage the organisation’s Stripe connection in Store. The same organisation account can be used for booking payments once booking checkout and payment confirmation are enabled.</p>
+                      <h3 className="text-2xl font-semibold text-stone-900">Stripe Connect</h3>
+                      <p className="mt-2 text-sm text-stone-500">Connect your organisation’s Stripe account to accept payments and receive payouts.</p>
                     </div>
-                    <a href="/store" className="inline-flex items-center gap-2 rounded-xl bg-[#103F33] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0F3D32]">
-                      Manage Stripe in Store <ExternalLink size={15} />
-                    </a>
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${bookingStripe?.charges_enabled && bookingStripe?.payouts_enabled ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
+                      {bookingStripeLoading ? "Checking…" : bookingStripe?.charges_enabled && bookingStripe?.payouts_enabled ? "Ready to take payments" : bookingStripe?.connected ? "Setup incomplete" : "Not connected"}
+                    </span>
                   </div>
-                  <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    Connecting Stripe in Store does not yet activate booking deposits or online appointment payments.
+                  {bookingStripeError && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{bookingStripeError}</p>}
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <button type="button" disabled={bookingStripeBusy || bookingStripeLoading || !currentProfile?.organisation_id} onClick={() => void openBookingStripe("onboard")} className="inline-flex items-center gap-2 rounded-xl bg-[#103F33] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0F3D32] disabled:opacity-50">
+                      {bookingStripeBusy ? <Loader2 size={17} className="animate-spin" /> : <LinkIcon size={17} />}
+                      {!bookingStripe?.connected ? "Connect with Stripe" : bookingStripe.charges_enabled && bookingStripe.payouts_enabled ? "Manage Stripe setup" : "Complete Stripe setup"}
+                    </button>
+                    {bookingStripe?.connected && <button type="button" disabled={bookingStripeBusy} onClick={() => void openBookingStripe("dashboard")} className="inline-flex items-center gap-2 rounded-xl border border-stone-200 px-5 py-3 text-sm font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">Open Stripe Dashboard <ExternalLink size={16} /></button>}
+                    <button type="button" disabled={bookingStripeLoading || !currentProfile?.organisation_id} onClick={() => void refreshBookingStripe()} className="inline-flex items-center gap-2 rounded-xl border border-stone-200 px-5 py-3 text-sm font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50"><RefreshCw size={17} className={bookingStripeLoading ? "animate-spin" : ""} /> Refresh status</button>
                   </div>
+                  {bookingStripe?.connected && <p className="mt-4 text-xs text-stone-500">Connected account: {bookingStripe.account_id || "Unavailable"} · Payments: {bookingStripe.charges_enabled ? "Enabled" : "Pending"} · Payouts: {bookingStripe.payouts_enabled ? "Enabled" : "Pending"}</p>}
+                  <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Stripe connection is shared with Store. Booking deposits and online appointment payments are not enabled until secure booking checkout and webhook confirmation are implemented.</p>
                 </section>
 
                 <section className="rounded-[2rem] border border-[#E1EAE2] bg-white p-6 md:p-8">

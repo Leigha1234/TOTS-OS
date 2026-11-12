@@ -9,7 +9,7 @@ const tabs: { key: FinanceTab; label: string; icon: React.ElementType }[] = [
   { key: "bookingReports", label: "Booking Reports", icon: CalendarDays },
   { key: "stripeReports", label: "Stripe Reports", icon: CreditCard },
   { key: "sales", label: "Invoices & quotes", icon: FileText },
-  { key: "expenses", label: "Expenses", icon: Receipt, ShoppingBag, CalendarDays, CreditCard },
+  { key: "expenses", label: "Expenses", icon: Receipt },
   { key: "tax", label: "Tax & VAT", icon: Landmark },
   { key: "payroll", label: "Payroll", icon: BriefcaseBusiness },
   { key: "timesheets", label: "Timesheets", icon: Clock3 },

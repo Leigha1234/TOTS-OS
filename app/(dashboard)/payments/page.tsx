@@ -1,10 +1,8 @@
 "use client";
 import CommerceReports from "./components/CommerceReports";
-
 import { useCommerceRevenue } from "./hooks/useCommerceRevenue";
 
 import {
-  type ComponentProps,
   useEffect,
   useMemo,
   useState,
@@ -15,7 +13,7 @@ import {
 } from "@supabase/ssr";
 
 import FinanceHeader from "./components/FinanceHeader";
-import FinanceNav from "./components/FinanceNav";
+import FinanceNav, { type FinanceTab } from "./components/FinanceNav";
 import FinanceNotification from "./components/FinanceNotification";
 
 import FinanceOverview from "./components/FinanceOverview";
@@ -70,8 +68,6 @@ import {
 // ============================================================
 // TYPES
 // ============================================================
-
-type FinanceTab = Parameters<ComponentProps<typeof FinanceNav>["onChange"]>[0];
 
 type ModalType =
   | "invoiceQuote"
@@ -333,6 +329,8 @@ export default function PaymentsPage() {
     useState<FinanceTab>(
       "overview"
     );
+
+  const isTab = (tab: FinanceTab) => activeTab === tab;
 
   const [
     activeModal,
@@ -3853,10 +3851,10 @@ export default function PaymentsPage() {
           </div>
         ) : (
           <>
-            {(activeTab === "storeReports" || activeTab === "bookingReports") && (
-              <CommerceReports organisationId={organisationId} kind={activeTab === "storeReports" ? "store" : "bookings"} />
+            {(isTab("storeReports") || isTab("bookingReports")) && (
+              <CommerceReports organisationId={organisationId} kind={isTab("storeReports") ? "store" : "bookings"} />
             )}
-            {activeTab === "stripeReports" && (
+            {isTab("stripeReports") && (
               <section className="rounded-3xl border border-[#E1EAE3] bg-white p-8 text-[#0F3D32]">
                 <h2 className="text-2xl font-semibold">Stripe Reports</h2>
                 <p className="mt-3 max-w-2xl text-sm text-[#52665C]">A full Stripe account ledger requires a server-side integration with the organisation’s connected Stripe account. ORBI Store and Booking payments are shown in their own reports; Stripe balances, fees, payouts, disputes and refunds cannot be safely inferred from those records.</p>

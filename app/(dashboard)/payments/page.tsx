@@ -1,7 +1,10 @@
 "use client";
+import CommerceReports from "./components/CommerceReports";
+
 import { useCommerceRevenue } from "./hooks/useCommerceRevenue";
 
 import {
+  type ComponentProps,
   useEffect,
   useMemo,
   useState,
@@ -68,13 +71,7 @@ import {
 // TYPES
 // ============================================================
 
-type FinanceTab =
-  | "overview"
-  | "sales"
-  | "expenses"
-  | "tax"
-  | "payroll"
-  | "timesheets";
+type FinanceTab = Parameters<ComponentProps<typeof FinanceNav>["onChange"]>[0];
 
 type ModalType =
   | "invoiceQuote"
@@ -3856,6 +3853,16 @@ export default function PaymentsPage() {
           </div>
         ) : (
           <>
+            {(activeTab === "storeReports" || activeTab === "bookingReports") && (
+              <CommerceReports organisationId={organisationId} kind={activeTab === "storeReports" ? "store" : "bookings"} />
+            )}
+            {activeTab === "stripeReports" && (
+              <section className="rounded-3xl border border-[#E1EAE3] bg-white p-8 text-[#0F3D32]">
+                <h2 className="text-2xl font-semibold">Stripe Reports</h2>
+                <p className="mt-3 max-w-2xl text-sm text-[#52665C]">A full Stripe account ledger requires a server-side integration with the organisation’s connected Stripe account. ORBI Store and Booking payments are shown in their own reports; Stripe balances, fees, payouts, disputes and refunds cannot be safely inferred from those records.</p>
+                <p className="mt-3 text-sm font-medium">Connect the server-side Stripe reporting endpoint before displaying live Stripe-wide figures.</p>
+              </section>
+            )}
             {activeTab === "tax" && (
               <FinanceTax
                 vatReturns={finance.vatReturns ?? []}

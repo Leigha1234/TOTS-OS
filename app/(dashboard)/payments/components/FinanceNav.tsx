@@ -1,12 +1,15 @@
 "use client";
 import type React from "react";
-import { BarChart3, BriefcaseBusiness, Clock3, FileText, Landmark, Receipt } from "lucide-react";
-export type FinanceTab = "overview" | "sales" | "expenses" | "tax" | "payroll" | "timesheets";
+import { BarChart3, BriefcaseBusiness, Clock3, FileText, Landmark, Receipt, ShoppingBag, CalendarDays, CreditCard } from "lucide-react";
+export type FinanceTab = "overview" | "storeReports" | "bookingReports" | "stripeReports" | "sales" | "expenses" | "tax" | "payroll" | "timesheets";
 type FinanceNavProps = { activeTab: FinanceTab; onChange: (tab: FinanceTab) => void };
 const tabs: { key: FinanceTab; label: string; icon: React.ElementType }[] = [
   { key: "overview", label: "Overview", icon: BarChart3 },
+  { key: "storeReports", label: "Store Reports", icon: ShoppingBag },
+  { key: "bookingReports", label: "Booking Reports", icon: CalendarDays },
+  { key: "stripeReports", label: "Stripe Reports", icon: CreditCard },
   { key: "sales", label: "Invoices & quotes", icon: FileText },
-  { key: "expenses", label: "Expenses", icon: Receipt },
+  { key: "expenses", label: "Expenses", icon: Receipt, ShoppingBag, CalendarDays, CreditCard },
   { key: "tax", label: "Tax & VAT", icon: Landmark },
   { key: "payroll", label: "Payroll", icon: BriefcaseBusiness },
   { key: "timesheets", label: "Timesheets", icon: Clock3 },

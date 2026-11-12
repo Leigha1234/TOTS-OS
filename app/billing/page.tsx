@@ -15,6 +15,8 @@ import {
   CircleDollarSign,
   CreditCard,
   FolderKanban,
+  CalendarDays,
+  Building2,
   LayoutDashboard,
   Loader2,
   Mail,
@@ -30,6 +32,8 @@ import {
 
 type ModuleKey =
   | "core"
+  | "calendarBookings"
+  | "agencyWorkspace"
   | "clientsProjects"
   | "finance"
   | "social"
@@ -92,6 +96,8 @@ const MODULE_PRICE = 29;
 
 const MODULE_ORDER: ModuleKey[] = [
   "core",
+  "calendarBookings",
+  "agencyWorkspace",
   "clientsProjects",
   "finance",
   "social",
@@ -107,6 +113,8 @@ const MODULE_BUNDLE_PRICES: Record<number, number> = {
   4: 99,
   5: 119,
   6: 139,
+  7: 139,
+  8: 139,
 };
 
 const MODULES: Record<ModuleKey, ModuleInfo> = {
@@ -115,9 +123,25 @@ const MODULES: Record<ModuleKey, ModuleInfo> = {
     name: "ORBI. Core",
     shortName: "Core",
     description:
-      "Your central workspace for dashboards, contacts, tasks, calendar, notes and everyday business organisation.",
+      "Home, CRM & contacts, insights and notes — the essentials for running your business.",
     price: MODULE_PRICE,
     icon: LayoutDashboard,
+  },
+  calendarBookings: {
+    key: "calendarBookings",
+    name: "Calendar & Bookings",
+    shortName: "Calendar & Bookings",
+    description: "Manage your calendar, appointments, public booking pages, weekly hours, one-off availability and booking payments.",
+    price: MODULE_PRICE,
+    icon: CalendarDays,
+  },
+  agencyWorkspace: {
+    key: "agencyWorkspace",
+    name: "Agency Workspace",
+    shortName: "Agency Workspace",
+    description: "Manage your agency's client organisations and switch between client workspaces. Client module access is billed separately.",
+    price: MODULE_PRICE,
+    icon: Building2,
   },
   clientsProjects: {
     key: "clientsProjects",
@@ -1099,18 +1123,20 @@ export default function BillingPage() {
           <InfoCard
             icon={ShieldCheck}
             title="Complete for £139"
-            text="All six modules + Starter"
+            text="All eight modules + Starter"
           />
         </section>
 
-        <section className="mb-7 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <section className="mb-7 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-8">
           {[
             [1, 29, "1 module"],
             [2, 55, "2 modules"],
             [3, 79, "3 modules"],
             [4, 99, "4 modules"],
             [5, 119, "5 modules"],
-            [6, 139, "Complete"],
+            [6, 139, "6 modules"],
+            [7, 139, "7 modules"],
+            [8, 139, "Complete"],
           ].map(([count, price, label]) => {
             const countNumber =
               Number(count);
@@ -1348,7 +1374,7 @@ export default function BillingPage() {
                       ORBI. Complete
                     </h2>
                     <p className="mt-3 max-w-2xl text-sm leading-7 text-white/75">
-                      Get all six main modules plus Clarity AI Starter for one fixed monthly price.
+                      Get all eight modules plus Clarity AI Starter for one fixed monthly price.
                     </p>
                   </div>
 
@@ -1439,7 +1465,7 @@ export default function BillingPage() {
                         </p>
                         <p className="mt-1 text-xs text-[#69645f]">
                           {pricing.isComplete
-                            ? "All six modules"
+                            ? "All eight modules"
                             : "Fixed module bundle price"}
                         </p>
                       </div>

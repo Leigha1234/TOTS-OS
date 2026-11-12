@@ -625,37 +625,63 @@ async function verifyOrderStripeAccount({
     );
   }
 
-  if (eventStripeAccountId) {
-    const {
-      data: connection,
-      error,
-    } =
-      await supabaseAdmin
-        .from(
-          "store_stripe_accounts"
-        )
-        .select(
-          "organisation_id, stripe_account_id"
-        )
-        .eq(
-          "organisation_id",
-          order.organisation_id
-        )
-        .eq(
-          "stripe_account_id",
-          eventStripeAccountId
-        )
-        .maybeSingle();
+  if (!eventStripeAccountId) {
+    return;
+  }
 
-    if (error) {
-      throw error;
-    }
+  // Current checkout destination: one active Stripe account per organisation.
+  const { data: currentConnection, error: currentConnectionError } =
+    await supabaseAdmin
+      .from("store_stripe_accounts")
+      .select("organisation_id, stripe_account_id")
+      .eq("organisation_id", order.organisation_id)
+      .eq("stripe_account_id", eventStripeAccountId)
+      .maybeSingle();
 
-    if (!connection) {
-      throw new Error(
-        `Stripe account ${eventStripeAccountId} is not connected to organisation ${order.organisation_id}.`
-      );
-    }
+  if (currentConnectionError) {
+    throw currentConnectionError;
+  }
+
+  if (currentConnection) {
+    return;
+  }
+
+  // Historical accounts may settle ONLY orders created against that exact
+  // account before the recorded switch. Never use history for new checkouts.
+  if (storedAccountId !== eventStripeAccountId) {
+    throw new Error(
+      `Historical Stripe account mismatch for order ${order.order_number}.`
+    );
+  }
+
+  const { data: historicalSwitches, error: historyError } =
+    await supabaseAdmin
+      .from("store_stripe_account_switches")
+      .select("old_stripe_account_id, switched_at")
+      .eq("organisation_id", order.organisation_id)
+      .eq("old_stripe_account_id", eventStripeAccountId)
+      .order("switched_at", { ascending: false })
+      .limit(1);
+
+  if (historyError) {
+    throw historyError;
+  }
+
+  const historicalSwitch = historicalSwitches?.[0];
+  const orderCreatedAt = Date.parse(order.created_at);
+  const switchedAt = historicalSwitch
+    ? Date.parse(historicalSwitch.switched_at)
+    : NaN;
+
+  if (
+    !historicalSwitch ||
+    !Number.isFinite(orderCreatedAt) ||
+    !Number.isFinite(switchedAt) ||
+    orderCreatedAt > switchedAt
+  ) {
+    throw new Error(
+      `Stripe account ${eventStripeAccountId} is not authorised for order ${order.order_number} in organisation ${order.organisation_id}.`
+    );
   }
 }
 

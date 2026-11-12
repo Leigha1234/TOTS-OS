@@ -1,0 +1,43 @@
+[
+  {
+    "order": "TOTS-40356824-D6GP",
+    "status": "REPLAY_FAILED",
+    "event": "evt_1UaL731LoZ4IqUbK9ngT38AB",
+    "error": "▸ Running in The Organised Types · live (acct_1TJWyi1TJBSxkUlj)\nYou're in live mode. Add --live to run the command, or run 'stripe switch' to select a sandbox.\n"
+  },
+  {
+    "order": "TOTS-27617549-97TR",
+    "status": "REPLAY_FAILED",
+    "event": "evt_1UaHp61LoZ4IqUbKlPVHbdRn",
+    "error": "▸ Running in The Organised Types · live (acct_1TJWyi1TJBSxkUlj)\nYou're in live mode. Add --live to run the command, or run 'stripe switch' to select a sandbox.\n"
+  },
+  {
+    "order": "TOTS-68536942-JE17",
+    "status": "REPLAY_FAILED",
+    "event": "evt_1UZcVh1uaQcmtAhEdEOGPZYH",
+    "error": "▸ Running in The Organised Types · live (acct_1TJWyi1TJBSxkUlj)\nYou're in live mode. Add --live to run the command, or run 'stripe switch' to select a sandbox.\n"
+  },
+  {
+    "order": "TOTS-64269540-DSIE",
+    "status": "REPLAY_FAILED",
+    "event": "evt_1UZbIq1uaQcmtAhELtDkTbEz",
+    "error": "▸ Running in The Organised Types · live (acct_1TJWyi1TJBSxkUlj)\nYou're in live mode. Add --live to run the command, or run 'stripe switch' to select a sandbox.\n"
+  },
+  {
+    "order": "TOTS-76807055-V0SP",
+    "status": "REPLAY_FAILED",
+    "event": "evt_1UZEdT1uaQcmtAhE2cwx1ZqC",
+    "error": "▸ Running in The Organised Types · live (acct_1TJWyi1TJBSxkUlj)\nYou're in live mode. Add --live to run the command, or run 'stripe switch' to select a sandbox.\n"
+  },
+  {
+    "order": "TOTS-24309842-OKVE",
+    "status": "REVIEW_REQUIRED",
+    "error": "Unexpected zero-amount paid status"
+  },
+  {
+    "order": "TOTS-85144083-DE8P",
+    "status": "EVENT_NOT_FOUND",
+    "session": "cs_live_a10MPFddBgSHLxMrBs3h4OF3xDd8pQVMT67e8MgIzq9YzFdvIuiv1Q5V1L",
+    "account": "acct_1ULLnG1LoZ4IqUbK"
+  }
+]

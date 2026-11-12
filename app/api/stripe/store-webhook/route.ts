@@ -2684,18 +2684,18 @@ export async function completeStoreOrder({
   // PaymentIntent flow. Treat the completed £0 subscription checkout as
   // payment-satisfied so the order, subscription and MTC membership can
   // still be finalised and synced.
+  // Never treat a non-zero Checkout amount as paid solely because the
+  // locally stored order total is zero or Stripe reports no payment required.
+  // The Stripe Checkout amount is authoritative for this check.
   const isCompletedZeroValueSubscription =
     session.mode === "subscription" &&
     session.status === "complete" &&
-    (
-      session.amount_total === 0 ||
-      safeNumber(order.total, 0) === 0
-    );
+    session.amount_total === 0 &&
+    session.payment_status === "no_payment_required";
 
   const paymentSatisfied =
-    session.payment_status === "paid" ||
-    session.payment_status === "no_payment_required" ||
-    isCompletedZeroValueSubscription;
+    session.status === "complete" &&
+    (session.payment_status === "paid" || isCompletedZeroValueSubscription);
 
   if (!paymentSatisfied) {
     console.log(

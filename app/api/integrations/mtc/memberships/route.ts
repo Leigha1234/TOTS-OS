@@ -521,6 +521,44 @@ export async function GET(req: Request) {
           subscription.id
       );
 
+    // Resolve payer details from the linked ORBI customer record.
+    // Store subscriptions may not contain a copied customer email.
+    const payerCustomerIds = [
+      ...new Set(
+        subscriptions
+          .map((subscription) => subscription.customer_id)
+          .filter((id): id is string => Boolean(id))
+      ),
+    ];
+
+    const payerCustomersById = new Map<
+      string,
+      { name: string | null; email: string | null; phone: string | null }
+    >();
+
+    if (payerCustomerIds.length > 0) {
+      const { data: payerCustomers, error: payerCustomersError } =
+        await supabaseAdmin
+          .from("customers")
+          .select("id, organisation_id, name, email, phone")
+          .eq("organisation_id", mtcOrganisationId)
+          .in("id", payerCustomerIds);
+
+      if (payerCustomersError) {
+        throw new Error(
+          "Could not load payer customer details for MTC membership sync."
+        );
+      }
+
+      for (const customer of payerCustomers || []) {
+        payerCustomersById.set(customer.id, {
+          name: customer.name,
+          email: customer.email,
+          phone: customer.phone,
+        });
+      }
+    }
+
     // ========================================================
     // LOAD BENEFICIARIES
     // ========================================================
@@ -727,13 +765,25 @@ export async function GET(req: Request) {
 
             payer: {
               name:
-                subscription.customer_name,
+                nullableString(subscription.customer_name) ||
+                (subscription.customer_id
+                  ? payerCustomersById.get(subscription.customer_id)?.name
+                  : null) ||
+                null,
 
               email:
-                subscription.customer_email,
+                nullableString(subscription.customer_email) ||
+                (subscription.customer_id
+                  ? payerCustomersById.get(subscription.customer_id)?.email
+                  : null) ||
+                null,
 
               phone:
-                subscription.customer_phone,
+                nullableString(subscription.customer_phone) ||
+                (subscription.customer_id
+                  ? payerCustomersById.get(subscription.customer_id)?.phone
+                  : null) ||
+                null,
             },
 
             // ----------------------------------------------

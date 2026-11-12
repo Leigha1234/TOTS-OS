@@ -802,7 +802,7 @@ export default function FinanceOverview({
           value={
             revenue
           }
-          sub="Settled invoices"
+          sub="Paid invoices, store, bookings and recorded payments"
           icon={
             <TrendingUp />
           }
@@ -853,6 +853,40 @@ export default function FinanceOverview({
           }
         />
       </section>
+
+      {/* Financial reporting: figures are sourced from the organisation's recorded ledger. */}
+      <SectionShell
+        title="Financial Reports"
+        subtitle="Recorded financial position across invoices, store orders, bookings, expenses and tax records. Estimates are identified separately."
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {[
+            { label: "Total Revenue Received", value: revenue, detail: "Recorded paid income across connected sources" },
+            { label: "Total Expenses Recorded", value: operatingCosts, detail: "All recorded expenses; includes unpaid expenses where recorded" },
+            { label: "Net Operating Position", value: derived.netPosition, detail: "Revenue less recorded operating costs; not an accounting profit statement" },
+            { label: "Unpaid Invoice Value", value: derived.outstandingInvoices, detail: "Open invoices only; excludes pending store checkouts" },
+            { label: "VAT Outstanding (Recorded/Estimated)", value: vatOwed, detail: "Based on available VAT records; verify against HMRC" },
+            { label: "Tax Provision (Estimate)", value: taxExposure, detail: "Indicative only; not a confirmed tax bill" },
+            { label: "Tax Recorded", value: Number(metrics?.taxRecorded ?? 0), detail: "Tax return amounts on record; not necessarily payments" },
+            { label: "VAT Collected (Recorded/Estimated)", value: Number(metrics?.vatCollected ?? 0), detail: "Calculated from available invoice tax fields" },
+            { label: "VAT Filed (Recorded)", value: Number(metrics?.vatFiled ?? 0), detail: "Filed VAT return amounts, not necessarily VAT paid" },
+          ].map((item) => (
+            <div key={item.label} className="rounded-2xl border border-[#E1E9E3] bg-white p-5 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#3E5B4D" }}>{item.label}</p>
+              <p className="mt-3 text-2xl font-bold" style={{ color: "#103D32" }}>£{money(item.value)}</p>
+              <p className="mt-2 text-xs leading-relaxed" style={{ color: "#52665C" }}>{item.detail}</p>
+            </div>
+          ))}
+          <div className="rounded-2xl border border-[#E1E9E3] bg-white p-5 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#3E5B4D" }}>Operating Margin</p>
+            <p className="mt-3 text-2xl font-bold" style={{ color: "#103D32" }}>{revenue > 0 ? ((derived.netPosition / revenue) * 100).toFixed(1) : "—"}{revenue > 0 ? "%" : ""}</p>
+            <p className="mt-2 text-xs" style={{ color: "#52665C" }}>Net operating position as a percentage of received revenue</p>
+          </div>
+        </div>
+        <p className="mt-4 text-xs" style={{ color: "#52665C" }}>
+          Tax and VAT figures depend on the records entered in ORBI. VAT owed, tax paid and tax due cannot be confirmed from store revenue alone; check filed returns and actual tax payments before relying on them.
+        </p>
+      </SectionShell>
 
       <SectionShell
         title="Business Snapshot"

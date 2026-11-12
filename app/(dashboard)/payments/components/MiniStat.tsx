@@ -54,6 +54,7 @@ export default function MiniStat({
       {/* HEADER */}
       <div className="flex items-start justify-between gap-4">
         <p
+          style={{ color: dark ? "#FFFFFF" : "#334B40", opacity: 1 }}
           className={`
             text-[11px]
             font-black
@@ -94,6 +95,7 @@ export default function MiniStat({
       {/* VALUE */}
       <div className="mt-5">
         <p
+          style={{ color: dark ? "#FFFFFF" : "#102F27", opacity: 1, WebkitTextFillColor: dark ? "#FFFFFF" : "#102F27" }}
           className={`
             font-mono
             text-2xl

@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 type FinanceMetricsInput = {
+  additionalPaidRevenue?: number;
   invoices?: any[];
   quotes?: any[];
   expenses?: any[];
@@ -150,7 +151,7 @@ export function useFinanceMetrics(
             invoice?.amount
           ),
         0
-      );
+      ) + safeNumber(input.additionalPaidRevenue);
 
     const outstandingRevenue =
       pendingInvoices.reduce(
@@ -1069,6 +1070,7 @@ export function useFinanceMetrics(
     timesheets,
     subscriptions,
     bankTransactions,
+    input.additionalPaidRevenue,
   ]);
 }
 

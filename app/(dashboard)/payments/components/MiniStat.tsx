@@ -61,8 +61,8 @@ export default function MiniStat({
             tracking-[0.3em]
             ${
               dark
-                ? "text-stone-400"
-                : "text-stone-400"
+                ? "text-white/75"
+                : "text-[#52665C]"
             }
           `}
         >

@@ -677,7 +677,7 @@ export default function FinanceOverview({
         <div className="relative z-10">
           <div className="flex flex-col justify-between gap-8 xl:flex-row xl:items-end">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.4em] text-[#0F3D32]">
+              <p className="text-[11px] font-black uppercase tracking-[0.4em] text-white">
                 Financial
                 Control
                 Centre
@@ -689,7 +689,7 @@ export default function FinanceOverview({
                 a glance
               </h2>
 
-              <p className="mt-3 max-w-2xl text-sm text-stone-400">
+              <p className="mt-3 max-w-2xl text-sm text-white/75">
                 Revenue,
                 costs, cash
                 exposure,
@@ -705,12 +705,12 @@ export default function FinanceOverview({
 
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-[11px] uppercase tracking-[0.3em] text-stone-500">
+                <p className="text-[11px] uppercase tracking-[0.3em] text-white/70">
                   Finance
                   Health
                 </p>
 
-                <p className="mt-1 text-2xl font-mono font-bold text-[#0F3D32]">
+                <p className="mt-1 text-2xl font-mono font-bold text-white">
                   {
                     healthScore
                   }
@@ -723,7 +723,7 @@ export default function FinanceOverview({
                   size={
                     20
                   }
-                  className="text-[#0F3D32]"
+                  className="text-white"
                 />
               </div>
             </div>

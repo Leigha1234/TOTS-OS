@@ -1,4 +1,5 @@
 "use client";
+import { useCommerceRevenue } from "./hooks/useCommerceRevenue";
 
 import {
   useEffect,
@@ -1021,8 +1022,11 @@ export default function PaymentsPage() {
   // METRICS
   // ==========================================================
 
+  const commerceRevenue = useCommerceRevenue(organisationId);
+
   const metrics =
     useFinanceMetrics({
+      additionalPaidRevenue: commerceRevenue.amount,
       invoices,
       quotes,
 

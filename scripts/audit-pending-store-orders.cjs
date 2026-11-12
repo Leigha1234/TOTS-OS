@@ -1,38 +1,166 @@
-/* Read-only Stripe reconciliation. Run from project root with env vars loaded. */
-const fs = require('node:fs');
-const Stripe = require('stripe');
-const { createClient } = require('@supabase/supabase-js');
-for (const k of ['STRIPE_SECRET_KEY','NEXT_PUBLIC_SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY']) if (!process.env[k]) throw Error(`Missing ${k}`);
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {auth:{persistSession:false,autoRefreshToken:false}});
-const csv = x => '"'+String(x??'').replace(/"/g,'""')+'"';
-async function main(){
- let rows=[];
- for(let offset=0;;offset+=500){
-  const {data,error}=await db.from('store_orders').select('id,organisation_id,order_number,stripe_checkout_session_id,stripe_account_id,payment_status,total,created_at').eq('payment_status','pending').order('created_at',{ascending:false}).range(offset,offset+499);
-  if(error)throw error;rows.push(...data);if(data.length<500)break;
- }
- console.log(`Auditing ${rows.length} pending orders (READ ONLY)`);
- const results=[];
- for(const o of rows){
-  const result={order_number:o.order_number,organisation_id:o.organisation_id,account:o.stripe_account_id,amount:o.total,session:o.stripe_checkout_session_id,stripe_status:'',payment_status:'',payment_intent:'',customer_email:'',finding:''};
-  try{
-   if(!o.stripe_checkout_session_id || !o.stripe_account_id){result.finding='NO_SESSION_OR_ACCOUNT';}
-   else{
-    const s=await stripe.checkout.sessions.retrieve(o.stripe_checkout_session_id,{}, {stripeAccount:o.stripe_account_id});
-    result.stripe_status=s.status;result.payment_status=s.payment_status;result.payment_intent=typeof s.payment_intent==='string'?s.payment_intent:'';result.customer_email=s.customer_details?.email||'';
-    const matches=Number.isFinite(Number(o.total)) && s.amount_total===Math.round(Number(o.total)*100) && s.currency==='gbp';
-    const orgMatches=!s.metadata?.organisation_id || s.metadata.organisation_id===o.organisation_id;
-    const orderMatches=!s.metadata?.order_id || s.metadata.order_id===o.id;
-    result.finding=!matches?'AMOUNT_OR_CURRENCY_MISMATCH':!orgMatches||!orderMatches?'METADATA_MISMATCH':s.status==='complete'&&s.payment_status==='paid'?'PAID_NEEDS_WEBHOOK_REPLAY':s.status==='complete'&&s.payment_status==='no_payment_required'?'FREE_CHECKOUT_REVIEW':s.status==='expired'?'EXPIRED_UNPAID':`NOT_CONFIRMED_${s.payment_status||s.status}`;
-   }
-  }catch(e){result.finding='STRIPE_LOOKUP_ERROR';result.error=String(e.message||e).slice(0,220);}
-  results.push(result);console.log(`${result.finding.padEnd(30)} ${o.order_number}`);
- }
- const headers=['order_number','organisation_id','account','amount','session','stripe_status','payment_status','payment_intent','customer_email','finding','error'];
- const file='pending-store-orders-audit.csv';
- fs.writeFileSync(file,[headers.join(','),...results.map(r=>headers.map(h=>csv(r[h])).join(','))].join('\n'));
- console.log('\nSummary:',results.reduce((a,r)=>(a[r.finding]=(a[r.finding]||0)+1,a),{}));
- console.log(`Saved ${file}. No database changes made.`);
+const fs = require("fs");
+const path = require("path");
+const Stripe = require("stripe");
+const { createClient } = require("@supabase/supabase-js");
+
+function loadEnv(file) {
+  const content = fs.readFileSync(file, "utf8");
+
+  for (const line of content.split(/\r?\n/)) {
+    const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+    if (!match) continue;
+
+    let value = match[2].trim();
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    process.env[match[1]] ??= value;
+  }
 }
-main().catch(e=>{console.error(e);process.exitCode=1});
+
+loadEnv(".env.local");
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    }
+  }
+);
+
+function csvEscape(value) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+async function main() {
+  console.log("Fetching pending ORBI Store orders...");
+
+  const orders = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("store_orders")
+      .select(
+        "id,order_number,stripe_account_id,stripe_checkout_session_id,payment_status,total,created_at"
+      )
+      .eq("payment_status", "pending")
+      .not("stripe_checkout_session_id", "is", null)
+      .range(offset, offset + 999);
+
+    if (error) throw error;
+
+    orders.push(...data);
+
+    if (data.length < 1000) break;
+
+    offset += 1000;
+  }
+
+  console.log(`Found ${orders.length} pending Checkout sessions.`);
+
+  const results = [];
+
+  for (const order of orders) {
+    console.log(`Checking ${order.order_number}...`);
+
+    try {
+      if (!order.stripe_account_id) {
+        throw new Error("Missing connected Stripe account");
+      }
+
+      const session = await stripe.checkout.sessions.retrieve(
+        order.stripe_checkout_session_id,
+        {
+          expand: ["payment_intent"]
+        },
+        {
+          stripeAccount: order.stripe_account_id
+        }
+      );
+
+      const stripeAmount = session.amount_total / 100;
+      const orbiAmount = Number(order.total);
+
+      results.push({
+        order_number: order.order_number,
+        order_id: order.id,
+        stripe_account: order.stripe_account_id,
+        orbi_status: order.payment_status,
+        stripe_payment_status: session.payment_status,
+        checkout_status: session.status,
+        orbi_amount: orbiAmount,
+        stripe_amount: stripeAmount,
+        amount_matches: Math.abs(stripeAmount - orbiAmount) < 0.01,
+        payment_intent:
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : session.payment_intent?.id || "",
+        created_at: order.created_at,
+        error: ""
+      });
+    } catch (error) {
+      results.push({
+        order_number: order.order_number,
+        order_id: order.id,
+        stripe_account: order.stripe_account_id,
+        orbi_status: order.payment_status,
+        stripe_payment_status: "ERROR",
+        checkout_status: "",
+        orbi_amount: order.total,
+        stripe_amount: "",
+        amount_matches: "",
+        payment_intent: "",
+        created_at: order.created_at,
+        error: error.message
+      });
+    }
+  }
+
+  const headers = Object.keys(results[0] || {});
+
+  const csv = [
+    headers.join(","),
+    ...results.map(row =>
+      headers.map(key => csvEscape(row[key])).join(",")
+    )
+  ].join("\n");
+
+  const output = path.join(
+    process.env.HOME,
+    "Desktop",
+    "ORBI_Pending_Orders_Audit.csv"
+  );
+
+  fs.writeFileSync(output, csv);
+
+  console.log("\n========== AUDIT RESULTS ==========");
+
+  const counts = {};
+
+  for (const row of results) {
+    const status = row.stripe_payment_status;
+    counts[status] = (counts[status] || 0) + 1;
+  }
+
+  console.table(counts);
+
+  console.log(`\nReport saved to: ${output}`);
+  console.log("No orders or Stripe payments were modified.");
+}
+
+main().catch(error => {
+  console.error("Audit failed:", error.message);
+  process.exitCode = 1;
+});

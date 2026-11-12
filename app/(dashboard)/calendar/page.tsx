@@ -1215,6 +1215,9 @@ export default function CalendarPage() {
       formColor, formLocation, formLink, formGuests, formInternalTeam,
       formTags, formDescription]);
 
+  // Keep the user's typed amount intact (including trailing decimal zeros).
+  const [appointmentPriceInput, setAppointmentPriceInput] = useState<string | null>(null);
+
   // ==========================================================
   // BOOKING STATE
   // ==========================================================
@@ -5425,12 +5428,47 @@ export default function CalendarPage() {
                 {bookingPage.id && <BookingServicesEditor bookingPageId={bookingPage.id} />}
 
                 <section className="rounded-[2rem] border border-[#E1EAE2] bg-white p-6 md:p-8">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">Stripe integration</p>
+                      <h3 className="mt-2 text-2xl font-serif text-[#183E31]">Connect your Stripe account</h3>
+                      <p className="mt-2 max-w-2xl text-sm text-[#52665B]">Manage the organisation’s Stripe connection in Store. The same organisation account can be used for booking payments once booking checkout and payment confirmation are enabled.</p>
+                    </div>
+                    <a href="/store" className="inline-flex items-center gap-2 rounded-xl bg-[#103F33] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0F3D32]">
+                      Manage Stripe in Store <ExternalLink size={15} />
+                    </a>
+                  </div>
+                  <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    Connecting Stripe in Store does not yet activate booking deposits or online appointment payments.
+                  </div>
+                </section>
+
+                <section className="rounded-[2rem] border border-[#E1EAE2] bg-white p-6 md:p-8">
                   <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#446D59]">Payments &amp; deposits</p>
                   <h3 className="mt-2 text-2xl font-serif text-[#183E31]">Set your appointment price</h3>
                   <p className="mt-2 text-sm text-[#52665B]">Prices and booking terms can be saved now. Deposit collection will be enabled after secure Stripe checkout and payment confirmation are installed.</p>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <label className="text-sm font-medium text-stone-700">Appointment price (£)
-                      <input className="form-input mt-2" type="number" min="0" step="0.01" value={(bookingPage.price_pence / 100).toFixed(2)} onChange={e => setBookingPage(p => ({...p, price_pence: Math.max(0, Math.round(Number(e.target.value || 0) * 100))}))} />
+                      <div className="relative mt-2">
+                        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-stone-500">£</span>
+                        <input
+                          className="form-input w-full pl-7"
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          placeholder="0.00"
+                          aria-label="Appointment price in pounds"
+                          value={appointmentPriceInput ?? (bookingPage.price_pence / 100).toFixed(2)}
+                          onChange={e => {
+                            const value = e.target.value.replace(/,/g, ".");
+                            if (!/^\d*(?:\.\d{0,2})?$/.test(value)) return;
+                            setAppointmentPriceInput(value);
+                            const amount = Number(value);
+                            setBookingPage(p => ({ ...p, price_pence: Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : 0 }));
+                          }}
+                          onBlur={() => setAppointmentPriceInput(null)}
+                        />
+                      </div>
                     </label>
                     <label className="text-sm font-medium text-stone-700">Payment at booking
                       <select className="form-input mt-2" value="none" disabled><option value="none">No online payment (currently)</option></select>

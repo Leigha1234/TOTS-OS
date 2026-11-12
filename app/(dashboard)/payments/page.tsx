@@ -3925,6 +3925,7 @@ export default function PaymentsPage() {
             {activeTab ===
               "sales" && (
               <FinanceSales
+                organisationId={finance.orgId}
                 onEmailInvoice={emailExistingInvoice}
                 onManageInvoices={() => setShowInvoiceManagement(true)}
                 invoices={

@@ -3,6 +3,7 @@
 import React, {
   useMemo,
   useState,
+  useEffect,
 } from "react";
 
 import {
@@ -20,6 +21,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 
+import { createBrowserClient } from "@supabase/ssr";
 import SectionShell from "./SectionShell";
 import MetricCard from "./MetricCard";
 import StatusPill from "./StatusPill";
@@ -31,7 +33,10 @@ import TransactionDetailModal from "./modals/TransactionDetailModal";
 
 type DocType =
   | "Invoice"
-  | "Quote";
+  | "Quote"
+  | "Payment"
+  | "Store"
+  | "Booking";
 
 type LedgerEntry = {
   id: string;
@@ -53,6 +58,7 @@ type Subscription = {
 
 type FinanceSalesProps = {
   ledger?: LedgerEntry[];
+  organisationId?: string | null;
 
   invoices?: any[];
   quotes?: any[];
@@ -169,6 +175,7 @@ const formatDate = (
 
 export default function FinanceSales({
   ledger = [],
+  organisationId,
   invoices = [],
   quotes = [],
   customers = [],
@@ -218,6 +225,9 @@ export default function FinanceSales({
       | "all"
       | "invoice"
       | "quote"
+      | "payment"
+      | "store"
+      | "booking"
     >("all");
 
   const [
@@ -227,6 +237,10 @@ export default function FinanceSales({
     useState("all");
 
   const [selectedTransaction, setSelectedTransaction] = useState<LedgerEntry | null>(null);
+  const [externalTransactions, setExternalTransactions] = useState<LedgerEntry[]>([]);
+  const [externalError, setExternalError] = useState<string | null>(null);
+  const [externalLoading, setExternalLoading] = useState(false);
+
 
   // ==================================================
   // CUSTOMER LOOKUP
@@ -249,6 +263,76 @@ export default function FinanceSales({
     }
     return map;
   }, [customers]);
+
+  useEffect(() => {
+    if (!organisationId) { setExternalTransactions([]); return; }
+    let cancelled = false;
+    const db = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    async function fetchAll(table: string, columns: string) {
+      const rows: any[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await db.from(table).select(columns)
+          .eq("organisation_id", organisationId!).range(offset, offset + 999);
+        if (error) throw new Error(`${table}: ${error.message}`);
+        rows.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      return rows;
+    }
+    (async () => {
+      setExternalLoading(true); setExternalError(null);
+      try {
+        const [payments, orders, reservations] = await Promise.all([
+          fetchAll("payments", "id,amount,currency,status,type,paid_at,created_at,description,customer_id,invoice_id,stripe_payment_intent_id,stripe_checkout_session_id,external_reference"),
+          fetchAll("store_orders", "id,order_number,customer_name,customer_email,total,currency,payment_status,paid_at,created_at,stripe_payment_intent_id,stripe_checkout_session_id"),
+          fetchAll("booking_payment_reservations", "id,customer_name,customer_email,total_pence,due_now_pence,currency,status,created_at,updated_at,stripe_payment_intent_id,stripe_checkout_session_id,booking_id"),
+        ]);
+        const result: LedgerEntry[] = [];
+        const seen = new Set<string>();
+        const keys = (row: any) => [row.stripe_payment_intent_id, row.stripe_checkout_session_id]
+          .filter((value): value is string => typeof value === "string" && value.length > 0);
+        const add = (row: any, entry: LedgerEntry) => {
+          const ids = keys(row);
+          if (ids.some(id => seen.has(id))) return;
+          ids.forEach(id => seen.add(id));
+          result.push(entry);
+        };
+        const paidStatuses = new Set(["paid", "succeeded", "completed"]);
+        // Prefer the canonical payment record when a Stripe payment appears in multiple tables.
+        for (const row of payments) {
+          if (row.invoice_id) continue; // Invoice already appears in the invoice ledger.
+          add(row, {
+            id: row.id, type: "Payment",
+            client: row.description || row.external_reference || customerMap.get(String(row.customer_id || "").toLowerCase()) || "Payment",
+            amount: Number(row.amount || 0), status: row.status || "pending",
+            date: row.paid_at || row.created_at || "",
+          });
+        }
+        for (const row of orders) add(row, {
+          id: row.id, type: "Store",
+          client: row.customer_name || row.customer_email || row.order_number || "Store customer",
+          amount: Number(row.total || 0), status: row.payment_status || "pending",
+          date: row.paid_at || row.created_at || "",
+        });
+        for (const row of reservations) {
+          const status = String(row.status || "pending").toLowerCase();
+          add(row, {
+            id: row.id, type: "Booking",
+            client: row.customer_name || row.customer_email || "Booking customer",
+            // A deposit is revenue received now; total_pence may include a future balance.
+            amount: Number(row.due_now_pence || 0) / 100,
+            status: paidStatuses.has(status) ? "paid" : status,
+            date: row.created_at || "",
+          });
+        }
+        if (!cancelled) setExternalTransactions(result);
+      } catch (err: any) {
+        if (!cancelled) { setExternalError(err?.message || "Could not load payment records"); setExternalTransactions([]); }
+      } finally { if (!cancelled) setExternalLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [organisationId, customerMap]);
+
 
   const resolveClient = (doc: any): string => {
     const direct = [doc?.client_name, doc?.customer_name, doc?.contact_name, doc?.client, doc?.customer, doc?.contact];
@@ -419,6 +503,8 @@ export default function FinanceSales({
   // ==================================================
   // DERIVED SALES METRICS
   // ==================================================
+
+  const transactionLedger = useMemo(() => [...combinedLedger, ...externalTransactions].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [combinedLedger, externalTransactions]);
 
   const derivedMetrics =
     useMemo(() => {
@@ -729,7 +815,7 @@ export default function FinanceSales({
     useMemo(() => {
       return Array.from(
         new Set(
-          combinedLedger
+          transactionLedger
             .map(
               (
                 entry
@@ -747,7 +833,7 @@ export default function FinanceSales({
         )
       ).sort();
     }, [
-      combinedLedger,
+      transactionLedger,
     ]);
 
   // ==================================================
@@ -761,7 +847,7 @@ export default function FinanceSales({
           .trim()
           .toLowerCase();
 
-      return combinedLedger.filter(
+      return transactionLedger.filter(
         (
           entry
         ) => {
@@ -821,7 +907,7 @@ export default function FinanceSales({
         }
       );
     }, [
-      combinedLedger,
+      transactionLedger,
       searchQuery,
       typeFilter,
       statusFilter,
@@ -1219,6 +1305,8 @@ export default function FinanceSales({
       ================================================== */}
 
       <section className="overflow-hidden rounded-[2.5rem] border border-[#E6ECE7] bg-white shadow-sm">
+        {externalLoading && <p className="px-6 pt-4 text-xs text-stone-500">Loading store and booking payments…</p>}
+        {externalError && <p role="alert" className="px-6 pt-4 text-xs text-red-700">Some payments could not be loaded: {externalError}</p>}
         <div className="border-b border-[#E6ECE7] p-6 sm:p-8">
           <div className="flex flex-col justify-between gap-6 xl:flex-row xl:items-center">
             <div>
@@ -1228,12 +1316,7 @@ export default function FinanceSales({
               </h3>
 
               <p className="mt-2 text-sm text-stone-500">
-                Invoices,
-                quotes,
-                payments
-                and
-                outstanding
-                revenue.
+                Invoices, quotes, payments, store orders and booking payments.
               </p>
             </div>
 
@@ -1277,6 +1360,9 @@ export default function FinanceSales({
                         | "all"
                         | "invoice"
                         | "quote"
+                        | "payment"
+                        | "store"
+                        | "booking"
                     )
                   }
                   className="rounded-full border border-[#E6ECE7] bg-[#faf9f6] px-4 py-3 text-[9px] font-black uppercase tracking-widest outline-none"
@@ -1289,9 +1375,10 @@ export default function FinanceSales({
                     Invoices
                   </option>
 
-                  <option value="quote">
-                    Quotes
-                  </option>
+                  <option value="quote">Quotes</option>
+                  <option value="payment">Payments</option>
+                  <option value="store">Store</option>
+                  <option value="booking">Bookings</option>
                 </select>
 
                 <select
@@ -1449,15 +1536,12 @@ export default function FinanceSales({
                     return (
                       <tr
                         key={`${entry.type}-${entry.id}`}
-                        onClick={() => setSelectedTransaction(entry)}
+                        onClick={() => { if (entry.type === "Invoice" || entry.type === "Quote") setSelectedTransaction(entry); }}
                         className="group cursor-pointer transition-colors hover:bg-[#faf9f6]/80"
                       >
                         <td className="px-6 py-5">
                           <span className="font-mono text-[9px] font-black text-[#0F3D32]">
-                            {entry.type ===
-                            "Invoice"
-                              ? "INV"
-                              : "QT"}
+                            {entry.type === "Invoice" ? "INV" : entry.type === "Quote" ? "QT" : entry.type === "Store" ? "STR" : entry.type === "Booking" ? "BKG" : "PAY"}
                             -
                             {entry.id
                               .slice(
@@ -1583,7 +1667,7 @@ export default function FinanceSales({
 
       <TransactionDetailModal
         open={Boolean(selectedTransaction)}
-        entry={selectedTransaction ? { id: selectedTransaction.id, type: selectedTransaction.type } : null}
+        entry={selectedTransaction && (selectedTransaction.type === "Invoice" || selectedTransaction.type === "Quote") ? { id: selectedTransaction.id, type: selectedTransaction.type } : null}
         customers={customers}
         onClose={() => setSelectedTransaction(null)}
         onSaved={refresh}

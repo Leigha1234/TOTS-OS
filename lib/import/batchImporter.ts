@@ -191,7 +191,7 @@ async function existingContact(p: Payload, db: any, orgId: string): Promise<DBRe
   const found = candidates.filter(x => phone(x.phone) === ph);
   return singleMatch(found, "contact name and phone");
 }
-async function existingCustomer(p: Payload, db: any, orgId: string): Promise<DBRecord | null> {
+async function existingCustomer(p: Payload, db: any, orgId: string, allowInvoiceNameMatch = false): Promise<DBRecord | null> {
   const e = email(p.email);
   if (e) {
     const found = singleMatch(await matches("customers", { email: e }, db, orgId), "customer email");
@@ -203,9 +203,23 @@ async function existingCustomer(p: Payload, db: any, orgId: string): Promise<DBR
     }
   }
   const n = str(p.name), ph = phone(p.phone);
-  if (!n || ph.length < 7) return null;
+  if (!n) return null;
   const candidates = await matches("customers", { name: n }, db, orgId, 1000);
-  return singleMatch(candidates.filter(x => phone(x.phone) === ph), "customer name and phone");
+  if (ph.length >= 7) {
+    const phoneMatches = candidates.filter(x => phone(x.phone) === ph);
+    if (phoneMatches.length) return singleMatch(phoneMatches, "customer name and phone");
+  }
+  // Invoice exports often omit contact email and phone. Reuse a uniquely named
+  // customer only if no supplied email/phone conflicts with stored information.
+  // Multiple matching customers require manual merge, never an arbitrary pick.
+  if (allowInvoiceNameMatch) {
+    const compatible = candidates.filter(x =>
+      (!e || !email(x.email) || email(x.email) === e) &&
+      (!ph || !phone(x.phone) || phone(x.phone) === ph)
+    );
+    return singleMatch(compatible, "invoice customer name (merge existing duplicates first)");
+  }
+  return null;
 }
 async function customerById(id: unknown, db: any, orgId: string): Promise<DBRecord | null> {
   if (!str(id)) return null;
@@ -345,7 +359,7 @@ async function processInvoice(row: ProcessedRow, db: any, orgId: string, strateg
   const customerSource = invoiceCustomerPayload(row);
   let resolution: CustomerResolution | null = null;
   if (customerSource.name || customerSource.email || customerSource.phone) {
-    const existing = await existingCustomer(customerSource, db, orgId);
+    const existing = await existingCustomer(customerSource, db, orgId, true);
     resolution = existing ? { customer: existing, created: false } :
       { customer: await insert("customers", newCustomerPayload(customerSource, orgId), db), created: true };
     p.customer_id = resolution.customer.id;

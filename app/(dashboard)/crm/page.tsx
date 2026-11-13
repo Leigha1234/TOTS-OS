@@ -439,6 +439,43 @@ export default function CRMDirectory() {
       false
     );
 
+  const [merging, setMerging] = useState(false);
+  const [mergePrimaryId, setMergePrimaryId] = useState<string | null>(null);
+  const [mergeError, setMergeError] = useState<string | null>(null);
+
+  const duplicateGroups = useMemo(() => {
+    const groups = new Map<string, Customer[]>();
+    for (const customer of customers) {
+      const key = (customer.email || "").trim().toLowerCase();
+      const nameKey = (customer.name || "").trim().toLowerCase().replace(/\s+/g, " ");
+      const matchKey = key ? `email:${key}` : nameKey ? `name:${nameKey}` : "";
+      if (matchKey) groups.set(matchKey, [...(groups.get(matchKey) || []), customer]);
+    }
+    return [...groups.values()].filter(group => group.length > 1);
+  }, [customers]);
+
+  const mergeSelected = async () => {
+    if (!mergePrimaryId || selectedCustomerIds.length < 2) return;
+    if (!window.confirm(`Merge ${selectedCustomerIds.length} customers into the selected primary record? All linked invoices and payments will be reassigned. This cannot be undone from the CRM.`)) return;
+    setMerging(true);
+    setMergeError(null);
+    try {
+      const { error: mergeFailure } = await supabase.rpc("merge_customers", {
+        p_primary_id: mergePrimaryId,
+        p_source_ids: selectedCustomerIds.filter(id => id !== mergePrimaryId),
+      });
+      if (mergeFailure) throw mergeFailure;
+      setCustomers(previous => previous.filter(customer => !selectedCustomerIds.includes(customer.id) || customer.id === mergePrimaryId));
+      setSelectedCustomerIds([]);
+      setMergePrimaryId(null);
+      window.location.reload();
+    } catch (err: unknown) {
+      setMergeError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMerging(false);
+    }
+  };
+
   // ==========================================================
   // SEARCH / FILTER
   // ==========================================================
@@ -1854,6 +1891,40 @@ export default function CRMDirectory() {
         </div>
 
       </section>
+
+      <section className="mx-auto mt-4 max-w-[1440px] px-4 sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><strong>Potential duplicates</strong><p className="text-xs text-stone-500">Matches by email, or by name when no email exists. Review carefully before merging.</p></div>
+            <span className="font-semibold">{duplicateGroups.length} groups</span>
+          </div>
+          {duplicateGroups.slice(0, 8).map(group => (
+            <div key={group[0].id} className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-stone-100 pt-3">
+              <span>{group[0].name || group[0].email || "Unnamed"} · {group.length} records</span>
+              <button type="button" className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold" onClick={() => setSelectedCustomerIds(group.map(c => c.id))}>Select group</button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {mergePrimaryId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+          <div role="dialog" aria-modal="true" aria-label="Merge contacts" className="w-full max-w-lg rounded-2xl bg-white p-6 text-stone-900 shadow-xl">
+            <h2 className="text-xl font-bold">Merge contacts</h2>
+            <p className="mt-2 text-sm text-stone-600">Choose the contact to keep. All selected customers must belong to your organisation. Existing invoices, payments and linked records will be reassigned without changing their amounts or statuses.</p>
+            <label className="mt-4 block text-sm font-semibold" htmlFor="merge-primary">Keep this contact</label>
+            <select id="merge-primary" className="mt-2 w-full rounded-lg border border-stone-300 p-3" value={mergePrimaryId} onChange={e => setMergePrimaryId(e.target.value)}>
+              {customers.filter(c => selectedCustomerIds.includes(c.id)).map(c => <option key={c.id} value={c.id}>{c.name || "Unnamed"} — {c.email || "No email"} ({c.id.slice(0,8)})</option>)}
+            </select>
+            <p className="mt-3 text-xs text-amber-700">The primary contact's details are retained. Check duplicate names carefully. The database will cancel the merge if linked records cannot be safely reassigned.</p>
+            {mergeError && <p role="alert" className="mt-3 text-sm text-red-600">{mergeError}</p>}
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" disabled={merging} onClick={() => setMergePrimaryId(null)} className="rounded-lg border px-4 py-2">Cancel</button>
+              <button type="button" disabled={merging} onClick={() => void mergeSelected()} className="rounded-lg bg-[#0F3D32] px-4 py-2 font-semibold text-white disabled:opacity-50">{merging ? "Merging…" : "Confirm merge"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* =====================================================
           CUSTOMERS

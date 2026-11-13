@@ -1851,6 +1851,20 @@ export default function CRMDirectory() {
 
                 </div>
 
+                {selectedCount >= 2 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMergeError(null);
+                      setMergePrimaryId(selectedCustomerIds[0]);
+                    }}
+                    disabled={merging || deleting}
+                    className="inline-flex items-center justify-center rounded-xl bg-[#0F3D32] px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-white transition hover:bg-[#155747] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Merge {selectedCount} selected
+                  </button>
+                )}
+
                 {selectedCount >
                   0 && (
                   <button

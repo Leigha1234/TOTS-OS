@@ -597,8 +597,22 @@ export async function POST(req: Request) {
     else sessionParams.payment_intent_data = {metadata};
     if (appliedDiscount && discountAmount > 0) {
       const discountValue = safeNumber(appliedDiscount.value, 0);
+      // Recurring membership discounts remain active on future invoices.
+      // Introductory offers apply only to the first invoice.
+      const recurringDiscountCodes = new Set([
+        "COURSE10",
+        "GRAD10",
+      ]);
+
+      const couponDuration: Stripe.CouponCreateParams["duration"] =
+        isSubscriptionCheckout &&
+        recurringDiscountCodes.has(normalisedAppliedDiscountCode)
+          ? "forever"
+          : "once";
+
       const couponParams: Stripe.CouponCreateParams = {
-        duration: "once", name: appliedDiscount.code,
+        duration: couponDuration,
+        name: appliedDiscount.code,
         metadata: {tots_discount_id: appliedDiscount.id, tots_discount_code: appliedDiscount.code, organisation_id: organisationId, order_id: orderData.id, tots_source: "store"},
       };
       if (isPercentageDiscount(appliedDiscount.discount_type)) couponParams.percent_off = discountValue;

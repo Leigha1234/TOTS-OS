@@ -203,6 +203,12 @@ export default function Sidebar() {
       requiresVerifiedAccess: true,
     },
     {
+      href: "/growth",
+      label: "Growth Studio",
+      icon: BarChart3,
+      requiredModule: "core",
+    },
+    {
       href: "/crm",
       label: "Contacts",
       icon: Users,
@@ -626,6 +632,12 @@ export default function Sidebar() {
     {
       title: "Core",
       links: [
+        {
+          href: "/growth",
+          label: "Growth Studio",
+          icon: BarChart3,
+          requiredModule: "core",
+        },
         {
           href: "/crm",
           label: "Contacts",

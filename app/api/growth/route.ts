@@ -34,13 +34,38 @@ export async function GET(req:NextRequest){
   a.db.from('growth_activities').select('id,lead_id,event_type,details,created_at').eq('organisation_id',org).order('created_at',{ascending:false}).limit(100)
  ]);
  if(leads.error||workflows.error||activities.error)return fail('Growth tables unavailable. Apply the supplied SQL migration.',500);
+ const [tasks,campaigns,forms]=await Promise.all([
+  a.db.from('growth_tasks').select('*').eq('organisation_id',org).order('due_at',{ascending:true}).limit(300),
+  a.db.from('growth_campaigns').select('*').eq('organisation_id',org).order('created_at',{ascending:false}).limit(100),
+  a.db.from('growth_forms').select('id,name,slug,enabled,created_at').eq('organisation_id',org).order('created_at',{ascending:false}).limit(100)
+ ]);
+ if(tasks.error||campaigns.error||forms.error)return fail('Apply the Growth integration migration.',500);
  const rows=leads.data||[];
  const summary={total:rows.length,open:rows.filter(x=>!['won','lost'].includes(x.stage)).length,won:rows.filter(x=>x.stage==='won').length,pipelinePence:rows.filter(x=>!['won','lost'].includes(x.stage)).reduce((n,x)=>n+x.value_pence,0),wonPence:rows.filter(x=>x.stage==='won').reduce((n,x)=>n+x.value_pence,0)};
- return NextResponse.json({leads:rows,workflows:workflows.data||[],activities:activities.data||[],summary},{headers:{'Cache-Control':'no-store'}});
+ return NextResponse.json({leads:rows,workflows:workflows.data||[],activities:activities.data||[],tasks:tasks.data||[],campaigns:campaigns.data||[],forms:forms.data||[],summary},{headers:{'Cache-Control':'no-store'}});
 }
 export async function POST(req:NextRequest){
  try{
   const b=await req.json();const org=clean(b.organisationId,50);const a=await access(req,org);if(a.error)return reject(a);
+  if(b.kind==='task'){
+   if(!uuid.test(clean(b.lead_id,50)))return fail('Valid lead required');
+   const title=clean(b.title,160);if(!title||!b.due_at||!Number.isFinite(Date.parse(b.due_at)))return fail('Task title and due date required');
+   const {data:lead}=await a.db.from('growth_leads').select('id').eq('organisation_id',org).eq('id',b.lead_id).maybeSingle();if(!lead)return fail('Lead not found',404);
+   const {data,error}=await a.db.from('growth_tasks').insert({organisation_id:org,lead_id:lead.id,title,due_at:b.due_at,created_by:a.user.id}).select().single();
+   return error?fail('Unable to create task',500):NextResponse.json({task:data},{status:201});
+  }
+  if(b.kind==='campaign'){
+   const name=clean(b.name,160),subject=clean(b.subject,200),content=clean(b.content,12000);
+   if(!name||!subject||!content)return fail('Name, subject and content required');
+   const {data,error}=await a.db.from('growth_campaigns').insert({organisation_id:org,name,subject,content,channel:'email',status:'draft',created_by:a.user.id}).select().single();
+   return error?fail('Unable to save campaign',500):NextResponse.json({campaign:data},{status:201});
+  }
+  if(b.kind==='form'){
+   const name=clean(b.name,120),slug=clean(b.slug,80).toLowerCase();
+   if(!name||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))return fail('Valid form name and slug required');
+   const {data,error}=await a.db.from('growth_forms').insert({organisation_id:org,name,slug,created_by:a.user.id}).select('id,name,slug,enabled').single();
+   return error?fail('Form slug already used or could not be saved',409):NextResponse.json({form:data},{status:201});
+  }
   if(b.kind==='workflow'){
    if(!stages.includes(b.trigger_stage)||!['suggest_follow_up','create_task'].includes(b.action_type)||!Number.isInteger(b.delay_hours)||b.delay_hours<0||b.delay_hours>720)return fail('Invalid workflow');
    const name=clean(b.name,100);if(!name)return fail('Workflow name required');
@@ -60,6 +85,16 @@ export async function PATCH(req:NextRequest){
  try{
   const b=await req.json(),org=clean(b.organisationId,50),id=clean(b.id,50);
   const a=await access(req,org);if(a.error)return reject(a);if(!uuid.test(id))return fail('Invalid id');
+  if(b.kind==='task'){
+   if(typeof b.completed!=='boolean')return fail('Completed must be boolean');
+   const {data,error}=await a.db.from('growth_tasks').update({completed_at:b.completed?new Date().toISOString():null}).eq('organisation_id',org).eq('id',id).select().maybeSingle();
+   return error?fail('Unable to update task',500):!data?fail('Task not found',404):NextResponse.json({task:data});
+  }
+  if(b.kind==='form'){
+   if(typeof b.enabled!=='boolean')return fail('Enabled must be boolean');
+   const {data,error}=await a.db.from('growth_forms').update({enabled:b.enabled}).eq('organisation_id',org).eq('id',id).select('id,name,slug,enabled').maybeSingle();
+   return error?fail('Unable to update form',500):!data?fail('Form not found',404):NextResponse.json({form:data});
+  }
   if(b.kind==='workflow'){
    if(typeof b.enabled!=='boolean')return fail('Enabled must be boolean');
    const {data,error}=await a.db.from('growth_workflows').update({enabled:b.enabled}).eq('organisation_id',org).eq('id',id).select().maybeSingle();
@@ -80,6 +115,10 @@ export async function PATCH(req:NextRequest){
   if(error||!data)return fail('Unable to update lead',500);
   const event_type=b.stage!==undefined&&b.stage!==before.stage?'stage_changed':b.next_follow_up_at!==undefined?'follow_up_set':'note';
   await a.db.from('growth_activities').insert({organisation_id:org,lead_id:id,event_type,details:{from:before.stage,to:data.stage},actor_id:a.user.id});
+  if(b.stage!==undefined&&b.stage!==before.stage){
+   const {data:rules}=await a.db.from('growth_workflows').select('id,name,delay_hours').eq('organisation_id',org).eq('trigger_stage',b.stage).eq('enabled',true);
+   if(rules?.length){await a.db.from('growth_tasks').upsert(rules.map(w=>({organisation_id:org,lead_id:id,workflow_id:w.id,title:w.name,due_at:new Date(Date.now()+w.delay_hours*3600000).toISOString(),created_by:a.user.id})),{onConflict:'lead_id,workflow_id'});}
+  }
   return NextResponse.json({lead:data});
  }catch{return fail('Invalid request');}
 }

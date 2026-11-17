@@ -161,6 +161,8 @@ type Subscription = {
   updated_at?: string | null;
 };
 
+type DiscountDuration = "once" | "forever" | "repeating";
+
 type Discount = {
   id: string;
   organisation_id: string;
@@ -171,6 +173,8 @@ type Discount = {
   maximum_discount_amount?: number | string | null;
   usage_limit?: number | null;
   times_used?: number | null;
+  duration?: DiscountDuration | null;
+  duration_in_months?: number | null;
   starts_at?: string | null;
   expires_at?: string | null;
   is_active?: boolean | null;
@@ -184,6 +188,8 @@ type DiscountDraft = {
   minimum_order_amount: string;
   maximum_discount_amount: string;
   usage_limit: string;
+  duration: DiscountDuration;
+  duration_in_months: string;
   starts_at: string;
   expires_at: string;
   is_active: boolean;
@@ -196,6 +202,8 @@ const blankDiscount: DiscountDraft = {
   minimum_order_amount: "",
   maximum_discount_amount: "",
   usage_limit: "",
+  duration: "once",
+  duration_in_months: "",
   starts_at: "",
   expires_at: "",
   is_active: true,
@@ -1532,6 +1540,8 @@ export default function StoreDashboardPage() {
       minimum_order_amount: discount.minimum_order_amount != null ? String(discount.minimum_order_amount) : "",
       maximum_discount_amount: discount.maximum_discount_amount != null ? String(discount.maximum_discount_amount) : "",
       usage_limit: discount.usage_limit != null ? String(discount.usage_limit) : "",
+      duration: discount.duration === "forever" || discount.duration === "repeating" ? discount.duration : "once",
+      duration_in_months: discount.duration_in_months != null ? String(discount.duration_in_months) : "",
       starts_at: toLocalInput(discount.starts_at),
       expires_at: toLocalInput(discount.expires_at),
       is_active: discount.is_active !== false,
@@ -1547,6 +1557,7 @@ export default function StoreDashboardPage() {
     if (!code) return setError("Enter a discount code.");
     if (!Number.isFinite(value) || value <= 0) return setError("Enter a valid discount value.");
     if (discountDraft.discount_type === "percentage" && value > 100) return setError("Percentage discounts cannot be more than 100%.");
+    if (discountDraft.duration === "repeating" && (!Number.isInteger(Number(discountDraft.duration_in_months)) || Number(discountDraft.duration_in_months) < 1 || Number(discountDraft.duration_in_months) > 36)) return setError("Enter a duration between 1 and 36 months.");
     setSavingDiscount(true);
     setError(null);
     try {
@@ -1558,6 +1569,8 @@ export default function StoreDashboardPage() {
         minimum_order_amount: discountDraft.minimum_order_amount ? Number(discountDraft.minimum_order_amount) : null,
         maximum_discount_amount: discountDraft.discount_type === "percentage" && discountDraft.maximum_discount_amount ? Number(discountDraft.maximum_discount_amount) : null,
         usage_limit: discountDraft.usage_limit ? Math.max(1, Number.parseInt(discountDraft.usage_limit, 10)) : null,
+        duration: discountDraft.duration,
+        duration_in_months: discountDraft.duration === "repeating" ? Number(discountDraft.duration_in_months) : null,
         starts_at: discountDraft.starts_at ? new Date(discountDraft.starts_at).toISOString() : null,
         expires_at: discountDraft.expires_at ? new Date(discountDraft.expires_at).toISOString() : null,
         is_active: discountDraft.is_active,
@@ -2477,6 +2490,7 @@ export default function StoreDashboardPage() {
                     </div>
                     <p className="mt-5 font-mono text-lg font-bold text-stone-950">{discount.code}</p>
                     <p className="mt-2 text-sm text-stone-500">{discount.discount_type === "percentage" ? `${toNumber(discount.value)}% off` : `${formatMoney(discount.value)} off`}</p>
+                    <p className="mt-1 text-xs font-medium text-[#0F3D32]">{discount.duration === "forever" ? "Every billing cycle (forever)" : discount.duration === "repeating" ? `First ${discount.duration_in_months ?? "?"} month(s)` : "First payment only"}</p>
                     {discount.minimum_order_amount ? <p className="mt-1 text-xs text-stone-400">Minimum spend {formatMoney(discount.minimum_order_amount)}</p> : null}
                     <div className="mt-5 flex items-center justify-between border-t border-stone-100 pt-4 text-xs text-stone-400">
                       <span>Used {discount.times_used ?? 0}{discount.usage_limit ? ` / ${discount.usage_limit}` : ""}</span>
@@ -3089,6 +3103,9 @@ export default function StoreDashboardPage() {
               <Field label={discountDraft.discount_type === "percentage" ? "Percentage off" : "Amount off"} required><div className="relative">{discountDraft.discount_type === "fixed" ? <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">£</span> : null}<input type="number" min="0" max={discountDraft.discount_type === "percentage" ? 100 : undefined} step="0.01" className={`${inputClass} ${discountDraft.discount_type === "fixed" ? "pl-8" : "pr-8"}`} value={discountDraft.value} onChange={(e) => setDiscountDraft((d) => ({...d, value:e.target.value}))} required />{discountDraft.discount_type === "percentage" ? <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">%</span> : null}</div></Field>
               <Field label="Minimum spend"><div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">£</span><input type="number" min="0" step="0.01" className={`${inputClass} pl-8`} value={discountDraft.minimum_order_amount} onChange={(e) => setDiscountDraft((d) => ({...d, minimum_order_amount:e.target.value}))} placeholder="Optional" /></div></Field>
               {discountDraft.discount_type === "percentage" ? <Field label="Maximum discount"><div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400">£</span><input type="number" min="0" step="0.01" className={`${inputClass} pl-8`} value={discountDraft.maximum_discount_amount} onChange={(e) => setDiscountDraft((d) => ({...d, maximum_discount_amount:e.target.value}))} placeholder="Optional" /></div></Field> : null}
+              <Field label="Subscription discount duration"><select className={inputClass} value={discountDraft.duration} onChange={(e) => setDiscountDraft((d) => ({...d, duration: e.target.value as DiscountDuration, duration_in_months: e.target.value === "repeating" ? d.duration_in_months : ""}))}><option value="once">Once — first payment only</option><option value="forever">Forever — every billing cycle</option><option value="repeating">Multiple months — limited duration</option></select></Field>
+              {discountDraft.duration === "repeating" ? <Field label="Number of months"><input type="number" min="1" max="36" step="1" required className={inputClass} value={discountDraft.duration_in_months} onChange={(e) => setDiscountDraft((d) => ({...d, duration_in_months: e.target.value}))} placeholder="e.g. 3" /></Field> : null}
+              <p className="text-xs text-stone-500 md:col-span-2">Duration applies to subscription invoices. One-off purchases receive the discount once. This does not change existing subscriptions.</p>
               <Field label="Usage limit"><input type="number" min="1" step="1" className={inputClass} value={discountDraft.usage_limit} onChange={(e) => setDiscountDraft((d) => ({...d, usage_limit:e.target.value}))} placeholder="Unlimited" /></Field>
               <Field label="Starts"><input type="datetime-local" className={inputClass} value={discountDraft.starts_at} onChange={(e) => setDiscountDraft((d) => ({...d, starts_at:e.target.value}))} /></Field>
               <Field label="Expires"><input type="datetime-local" className={inputClass} value={discountDraft.expires_at} onChange={(e) => setDiscountDraft((d) => ({...d, expires_at:e.target.value}))} /></Field>

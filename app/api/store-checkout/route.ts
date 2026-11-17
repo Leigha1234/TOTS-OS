@@ -70,6 +70,7 @@ type StoreDiscountRow = {
   value: number | string; minimum_order_amount: number | string | null;
   maximum_discount_amount: number | string | null;
   usage_limit: number | null; times_used: number | null;
+  duration: "once" | "forever" | "repeating" | null; duration_in_months: number | null;
   starts_at: string | null; expires_at: string | null; is_active: boolean | null;
   created_at: string | null; updated_at: string | null;
 };
@@ -244,7 +245,7 @@ async function validateDiscount({organisationId, code, subtotal}: {organisationI
   const normalisedCode = cleanString(code).toUpperCase();
   if (!normalisedCode) throw new Error("Enter a discount code.");
   const {data, error} = await supabaseAdmin.from("store_discounts")
-    .select("id,organisation_id,code,discount_type,value,minimum_order_amount,maximum_discount_amount,usage_limit,times_used,starts_at,expires_at,is_active,created_at,updated_at")
+    .select("id,organisation_id,code,discount_type,value,minimum_order_amount,maximum_discount_amount,usage_limit,times_used,duration,duration_in_months,starts_at,expires_at,is_active,created_at,updated_at")
     .eq("organisation_id", organisationId).ilike("code", normalisedCode).limit(1).maybeSingle();
   if (error) { console.error("[TOTS STORE] Discount lookup failed:", error); throw new Error("The discount code could not be checked."); }
   if (!data) throw new Error("This discount code is invalid.");
@@ -597,21 +598,19 @@ export async function POST(req: Request) {
     else sessionParams.payment_intent_data = {metadata};
     if (appliedDiscount && discountAmount > 0) {
       const discountValue = safeNumber(appliedDiscount.value, 0);
-      // Recurring membership discounts remain active on future invoices.
-      // Introductory offers apply only to the first invoice.
-      const recurringDiscountCodes = new Set([
-        "COURSE10",
-        "GRAD10",
-      ]);
-
+      // Duration comes from the organisation's saved discount settings.
+      // One-off checkouts always apply a coupon once.
       const couponDuration: Stripe.CouponCreateParams["duration"] =
-        isSubscriptionCheckout &&
-        recurringDiscountCodes.has(normalisedAppliedDiscountCode)
-          ? "forever"
+        isSubscriptionCheckout && (appliedDiscount.duration === "forever" || appliedDiscount.duration === "repeating")
+          ? appliedDiscount.duration
           : "once";
-
+      const months = appliedDiscount.duration_in_months;
+      if (couponDuration === "repeating" && (!Number.isInteger(months) || months === null || months < 1 || months > 36)) {
+        throw new Error("This discount has an invalid recurring duration. Please contact the store.");
+      }
       const couponParams: Stripe.CouponCreateParams = {
         duration: couponDuration,
+        ...(couponDuration === "repeating" ? {duration_in_months: months!} : {}),
         name: appliedDiscount.code,
         metadata: {tots_discount_id: appliedDiscount.id, tots_discount_code: appliedDiscount.code, organisation_id: organisationId, order_id: orderData.id, tots_source: "store"},
       };

@@ -608,10 +608,21 @@ export async function POST(req: Request) {
       if (couponDuration === "repeating" && (!Number.isInteger(months) || months === null || months < 1 || months > 36)) {
         throw new Error("This discount has an invalid recurring duration. Please contact the store.");
       }
+      // Stripe Checkout displays the coupon name beside the saving. Make the
+      // billing cadence explicit without changing the coupon's actual value.
+      const discountLabel = isPercentageDiscount(appliedDiscount.discount_type)
+        ? `${discountValue}% off`
+        : `${new Intl.NumberFormat("en-GB", { style: "currency", currency: checkoutCurrency.toUpperCase() }).format(discountAmount)} off`;
+      const discountDurationLabel = !isSubscriptionCheckout || couponDuration === "once"
+        ? "first payment only"
+        : couponDuration === "forever"
+          ? `every ${getBillingInterval(subscriptionLines[0].product) === "year" ? "year" : getBillingInterval(subscriptionLines[0].product) === "week" ? "week" : "month"}`
+          : `for ${months} ${months === 1 ? "month" : "months"}`;
+      const couponDisplayName = `${appliedDiscount.code} — ${discountLabel} ${discountDurationLabel}`;
       const couponParams: Stripe.CouponCreateParams = {
         duration: couponDuration,
         ...(couponDuration === "repeating" ? {duration_in_months: months!} : {}),
-        name: appliedDiscount.code,
+        name: couponDisplayName,
         metadata: {tots_discount_id: appliedDiscount.id, tots_discount_code: appliedDiscount.code, organisation_id: organisationId, order_id: orderData.id, tots_source: "store"},
       };
       if (isPercentageDiscount(appliedDiscount.discount_type)) couponParams.percent_off = discountValue;

@@ -41,12 +41,34 @@ export async function GET(req:NextRequest){
  ]);
  if(tasks.error||campaigns.error||forms.error)return fail('Apply the Growth integration migration.',500);
  const rows=leads.data||[];
+ const sources=Object.entries(rows.reduce((acc:Record<string,number>,lead)=>{acc[lead.source]=(acc[lead.source]||0)+1;return acc;},{})).map(([source,count])=>({source,count})).sort((a,b)=>b.count-a.count);
+ const stageCounts=stages.map(stage=>({stage,count:rows.filter(l=>l.stage===stage).length,value_pence:rows.filter(l=>l.stage===stage).reduce((total,l)=>total+l.value_pence,0)}));
+ const openTasks=(tasks.data||[]).filter(t=>!t.completed_at);
+ const analytics={sources,stageCounts,conversionRate:rows.length?Math.round(rows.filter(l=>l.stage==='won').length/rows.length*1000)/10:0,overdueTasks:openTasks.filter(t=>Date.parse(t.due_at)<Date.now()).length,openTasks:openTasks.length,upcomingFollowUps:rows.filter(l=>l.next_follow_up_at&&!['won','lost'].includes(l.stage)).length};
  const summary={total:rows.length,open:rows.filter(x=>!['won','lost'].includes(x.stage)).length,won:rows.filter(x=>x.stage==='won').length,pipelinePence:rows.filter(x=>!['won','lost'].includes(x.stage)).reduce((n,x)=>n+x.value_pence,0),wonPence:rows.filter(x=>x.stage==='won').reduce((n,x)=>n+x.value_pence,0)};
- return NextResponse.json({leads:rows,workflows:workflows.data||[],activities:activities.data||[],tasks:tasks.data||[],campaigns:campaigns.data||[],forms:forms.data||[],summary},{headers:{'Cache-Control':'no-store'}});
+ return NextResponse.json({leads:rows,workflows:workflows.data||[],activities:activities.data||[],tasks:tasks.data||[],campaigns:campaigns.data||[],forms:forms.data||[],summary,analytics},{headers:{'Cache-Control':'no-store'}});
 }
 export async function POST(req:NextRequest){
  try{
   const b=await req.json();const org=clean(b.organisationId,50);const a=await access(req,org);if(a.error)return reject(a);
+  if(b.kind==='import'){
+   if(!Array.isArray(b.rows)||b.rows.length===0||b.rows.length>200)return fail('Import 1–200 leads at a time');
+   const existing=await a.db.from('growth_leads').select('email,phone').eq('organisation_id',org).limit(10000);
+   if(existing.error)return fail('Could not check duplicates',500);
+   const seen=new Set((existing.data||[]).flatMap(x=>[x.email?`e:${x.email.toLowerCase()}`:'',x.phone?`p:${x.phone}`:'']).filter(Boolean));
+   const accepted:Record<string,unknown>[]=[];let skipped=0;
+   for(const row of b.rows){if(!row||typeof row!=='object'){skipped++;continue;}
+    const name=clean(row.name,150),email=clean(row.email,254).toLowerCase(),phone=clean(row.phone,40);
+    if(!name||(!email&&!phone)||(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))||seen.has(`e:${email}`)&&!!email||seen.has(`p:${phone}`)&&!!phone){skipped++;continue;}
+    const stage=stages.includes(row.stage)?row.stage:'new';const amount=Number(row.value_pence||0);
+    if(!Number.isSafeInteger(amount)||amount<0||amount>100000000000){skipped++;continue;}
+    accepted.push({organisation_id:org,name,email:email||null,phone:phone||null,stage,source:clean(row.source,80)||'csv',value_pence:amount,notes:clean(row.notes,4000),consent_email:false,consent_sms:false,created_by:a.user.id});
+    if(email)seen.add(`e:${email}`);if(phone)seen.add(`p:${phone}`);
+   }
+   if(!accepted.length)return NextResponse.json({imported:0,skipped});
+   const {error}=await a.db.from('growth_leads').insert(accepted);
+   return error?fail('Import failed',500):NextResponse.json({imported:accepted.length,skipped});
+  }
   if(b.kind==='task'){
    if(!uuid.test(clean(b.lead_id,50)))return fail('Valid lead required');
    const title=clean(b.title,160);if(!title||!b.due_at||!Number.isFinite(Date.parse(b.due_at)))return fail('Task title and due date required');

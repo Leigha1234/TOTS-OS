@@ -7576,6 +7576,8 @@ function MembershipShopSections({
   const classify = (product: Product) => {
     const value = `${product.name || ""} ${product.sku || ""} ${(product as any).external_plan_code || ""}`.toLowerCase();
     if (/kid|child/.test(value)) return "kids";
+    if (/student/.test(value)) return "student";
+    if (String(product.external_plan_code || "").toUpperCase() === "OPEN_GYM_ONLY" || /open gym only/.test(value)) return "opengym";
     if (/couple|joint|partner/.test(value)) return "joint";
     if (product.purchase_type === "one_off" || /walk[ -]?in|drop[ -]?in|day pass|single session|one[ -]?off/.test(value)) return "dropin";
     return "adult";
@@ -7587,6 +7589,18 @@ function MembershipShopSections({
       eyebrow: "For you",
       title: "Adult memberships",
       description: "Choose your weekly allowance or go unlimited.",
+    },
+    {
+      key: "opengym",
+      eyebrow: "Train your way",
+      title: "Open Gym membership",
+      description: "Independent Open Gym training, up to 13 sessions per month for £39. Coached classes are not included.",
+    },
+    {
+      key: "student",
+      eyebrow: "Student savings",
+      title: "Student memberships",
+      description: "Save 10% on our standard 13-class and Unlimited memberships. Valid student identification required.",
     },
     {
       key: "joint",
@@ -7670,8 +7684,16 @@ function MembershipCard({
   const couple = !oneOff && /couple/i.test(name);
   const kids = !oneOff && /kid/i.test(name);
   const openGym = /open gym/i.test(name);
+  const openGymOnly = String(product.external_plan_code || "").toUpperCase() === "OPEN_GYM_ONLY";
+  const student = /^STUDENT_/.test(String(product.external_plan_code || "").toUpperCase());
+  const monthlyLimit = Number(product.monthly_limit);
+  const standardPrice = Number(product.compare_at_price || 0);
 
-  const frequency = oneOff
+  const frequency = openGymOnly
+    ? "13 Open Gym sessions per month"
+    : student && !unlimited && monthlyLimit === 13
+      ? "13 classes per month"
+    : oneOff
     ? "One session"
     : unlimited
       ? "Unlimited training"
@@ -7679,6 +7701,8 @@ function MembershipCard({
 
   const audience = oneOff
     ? "One-off"
+    : student
+      ? "Student"
     : kids
       ? "Kids"
       : couple
@@ -7757,7 +7781,21 @@ function MembershipCard({
           </div>
         )}
 
-        {openGym && !oneOff && (
+        {student && !oneOff && (
+          <div className="flex items-center gap-3">
+            <Check size={16} style={{ color: primary }} />
+            <span>10% student discount · student ID required</span>
+          </div>
+        )}
+
+        {openGymOnly && (
+          <div className="flex items-center gap-3">
+            <Check size={16} style={{ color: primary }} />
+            <span>Open Gym only · no coached classes</span>
+          </div>
+        )}
+
+        {openGym && !openGymOnly && !oneOff && (
           <div className="flex items-center gap-3">
             <Check size={16} style={{ color: primary }} />
             <span>Includes adult open gym access</span>
@@ -7787,6 +7825,12 @@ function MembershipCard({
             </span>
           )}
         </div>
+
+        {student && standardPrice > price && (
+          <p className="mt-2 text-xs font-semibold" style={{ color: "var(--store-muted)" }}>
+            <span className="line-through">{formatCurrency(standardPrice)}</span> standard price · save 10%
+          </p>
+        )}
 
         {oneOff && (
           <p

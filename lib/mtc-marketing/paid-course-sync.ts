@@ -15,7 +15,18 @@ export async function syncPaidMtcCoursesSafely(orderId: string): Promise<void> {
     const lookupUrl = process.env.MTC_COURSE_CUSTOMER_LOOKUP_URL;
     const receiverUrl = process.env.MTC_COURSE_PURCHASE_RECEIVER_URL;
     const secret = process.env.TOTS_MTC_INTEGRATION_SECRET;
-    if (!lookupUrl || !receiverUrl || !secret || ![lookupUrl, receiverUrl].every(url => url.startsWith('https://'))) throw new Error('Course sync configuration incomplete');
+    const safeEndpoint = (value: string | undefined): boolean => {
+      if (!value) return false;
+      try {
+        const parsed = new URL(value);
+        return parsed.protocol === 'https:' ||
+          (process.env.NODE_ENV !== 'production' && parsed.protocol === 'http:' &&
+            ['localhost', '127.0.0.1'].includes(parsed.hostname));
+      } catch { return false; }
+    };
+    if (!secret || !safeEndpoint(lookupUrl) || !safeEndpoint(receiverUrl)) {
+      throw new Error('Course sync configuration incomplete');
+    }
     const { data: order, error: orderError } = await db.from('store_orders')
       .select('id,organisation_id,customer_email,customer_name,payment_status,paid_at').eq('id', orderId).maybeSingle();
     if (orderError) throw orderError;
@@ -35,7 +46,7 @@ export async function syncPaidMtcCoursesSafely(orderId: string): Promise<void> {
     // Mixed-course baskets must be reviewed rather than silently attributing to one course.
     if (courses.size !== 1) { console.warn('[MTC COURSE SYNC] Mixed-course basket needs manual review', orderId); return; }
     const headers = { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' };
-    const lookup = await fetch(lookupUrl, { method: 'POST', headers, body: JSON.stringify({ email, invite: true }), cache: 'no-store', signal: AbortSignal.timeout(8000) });
+    const lookup = await fetch(lookupUrl!, { method: 'POST', headers, body: JSON.stringify({ email, invite: false }), cache: 'no-store', signal: AbortSignal.timeout(8000) });
     if (!lookup.ok) throw new Error(`MTC customer lookup returned ${lookup.status}`);
     const customer = await lookup.json() as { status?: string; mtc_user_id?: string; marketing_opt_in?: boolean };
     if (customer.status === 'invited' || customer.status === 'not_found') {
@@ -43,7 +54,7 @@ export async function syncPaidMtcCoursesSafely(orderId: string): Promise<void> {
       return;
     }
     if (customer.status !== 'existing' || !customer.mtc_user_id) throw new Error('Customer could not be resolved');
-    const response = await fetch(receiverUrl, { method: 'POST', headers, cache: 'no-store', signal: AbortSignal.timeout(8000), body: JSON.stringify({
+    const response = await fetch(receiverUrl!, { method: 'POST', headers, cache: 'no-store', signal: AbortSignal.timeout(8000), body: JSON.stringify({
       order_id: orderId, mtc_user_id: customer.mtc_user_id, email,
       name: order.customer_name ?? '', course_type: [...courses][0],
       paid_at: order.paid_at ?? new Date().toISOString(), marketing_opt_in: customer.marketing_opt_in === true,

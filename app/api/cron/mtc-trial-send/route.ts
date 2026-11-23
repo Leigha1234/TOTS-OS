@@ -93,6 +93,7 @@ export async function GET(req: NextRequest) {
     blocked: 0,
     suppressed: 0,
     eligible: 0,
+    converted: 0,
     sent: 0,
     failed: 0,
   };
@@ -209,6 +210,15 @@ export async function GET(req: NextRequest) {
 
       if (result.ok) {
         const payload = await result.json();
+        if (payload?.active_membership === true) {
+          const { error: conversionError } = await db.from("mtc_trial_marketing_lifecycle")
+            .update({ paid_membership_confirmed: true, sending_enabled: false, status: "converted", updated_at: new Date().toISOString() })
+            .eq("organisation_id", org).eq("mtc_user_id", delivery.mtc_user_id)
+            .eq("status", "staged");
+          if (conversionError) { counts.failed++; continue; }
+          counts.converted++;
+          continue;
+        }
         eligible = payload?.eligible === true;
       }
     } catch {
@@ -274,10 +284,19 @@ export async function GET(req: NextRequest) {
         body: JSON.stringify({ mtc_user_id: delivery.mtc_user_id }),
         cache: "no-store", signal: AbortSignal.timeout(8000),
       });
-      if (!freshEligibility.ok || (await freshEligibility.json())?.eligible !== true) {
-        counts.blocked++;
+      if (!freshEligibility.ok) { counts.blocked++; continue; }
+      const freshEvidence = await freshEligibility.json();
+      if (freshEvidence?.active_membership === true) {
+        const { error: conversionError } = await db.from("mtc_trial_marketing_lifecycle")
+          .update({ paid_membership_confirmed: true, sending_enabled: false, status: "converted", updated_at: new Date().toISOString() })
+          .eq("organisation_id", org).eq("mtc_user_id", delivery.mtc_user_id)
+          .eq("status", "staged");
+        if (conversionError) counts.failed++;
+        else counts.converted++;
+        // The delivery was claimed already; leave it for manual review, never retry blindly.
         continue;
       }
+      if (freshEvidence?.eligible !== true) { counts.blocked++; continue; }
       const resendKey = process.env.RESEND_API_KEY;
       const fromEmail = process.env.MTC_RESEND_FROM_EMAIL;
       const bookingUrl = bookingUrlConfigured;

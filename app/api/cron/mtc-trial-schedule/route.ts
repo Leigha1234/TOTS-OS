@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
   if (error) return respond({ error: 'Lifecycle query failed' }, 500);
   const now = Date.now();
-  const counts = { inspected: 0, disabled: 0, historical: 0, blocked: 0, unavailable: 0, eligible: 0, steps_due: 0, scheduled: 0, already_scheduled: 0, failed: 0 };
+  const counts = { inspected: 0, disabled: 0, historical: 0, blocked: 0, converted: 0, unavailable: 0, eligible: 0, steps_due: 0, scheduled: 0, already_scheduled: 0, failed: 0 };
   for (const row of data ?? []) {
     counts.inspected++;
     if (!row.sending_enabled || row.status !== 'staged' || row.paid_membership_confirmed) { counts.disabled++; continue; }
@@ -87,7 +87,18 @@ export async function GET(req: NextRequest) {
       });
       if (!res.ok) { counts.unavailable++; continue; }
       const result: unknown = await res.json();
-      eligible = !!result && typeof result === 'object' && 'eligible' in result && (result as { eligible: unknown }).eligible === true;
+      const evidence = result as { eligible?: unknown; active_membership?: unknown } | null;
+      if (evidence?.active_membership === true) {
+        // Only explicit membership evidence can permanently mark a trial converted.
+        const { error: conversionError } = await db.from('mtc_trial_marketing_lifecycle')
+          .update({ paid_membership_confirmed: true, sending_enabled: false, status: 'converted', updated_at: new Date().toISOString() })
+          .eq('organisation_id', org).eq('mtc_user_id', row.mtc_user_id)
+          .eq('status', 'staged');
+        if (conversionError) { counts.failed++; continue; }
+        counts.converted++;
+        continue;
+      }
+      eligible = evidence?.eligible === true;
     } catch { counts.unavailable++; continue; }
     if (!eligible) { counts.blocked++; continue; }
     counts.eligible++;

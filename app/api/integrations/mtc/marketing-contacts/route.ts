@@ -88,6 +88,12 @@ export async function POST(req: NextRequest) {
     return json({ error: "Missing valid trial_claimed_at" }, 400);
   }
 
+  // Require an explicit permission state. Missing/invalid values must never
+  // be interpreted as an affirmative opt-in or silently change consent.
+  if (typeof payload.marketing_opt_in !== "boolean") {
+    return json({ error: "marketing_opt_in must be a boolean" }, 400);
+  }
+
   const db = createClient(url, key, {
     auth: {
       persistSession: false,
@@ -323,14 +329,32 @@ export async function POST(req: NextRequest) {
     }
 
     if (mapped?.contact_id) {
-      const { error: updateError } = await db
+      // A profile email can change in MTC. Never overwrite the linked contact
+      // with an email already owned by another ORBI contact: that would create
+      // duplicate recipients and make consent/unsubscribe state ambiguous.
+      const { data: collisions, error: collisionError } = await db
+        .from("contacts")
+        .select("id")
+        .eq("organisation_id", org)
+        .ilike("email", email)
+        .neq("id", mapped.contact_id)
+        .limit(1);
+      if (collisionError) {
+        return json({ error: "Contact uniqueness check failed" }, 500);
+      }
+      if (collisions?.length) {
+        return json({ error: "Email already belongs to another contact; manual reconciliation required" }, 409);
+      }
+
+      const { data: updated, error: updateError } = await db
         .from("contacts")
         .update({ name: name || null, email })
         .eq("id", mapped.contact_id)
-        .eq("organisation_id", org);
+        .eq("organisation_id", org)
+        .select("id");
 
-      if (updateError) {
-        return json({ error: "Contact update failed" }, 500);
+      if (updateError || updated?.length !== 1) {
+        return json({ error: "Linked contact update failed; reconciliation required" }, 409);
       }
 
       const trialAction = await processTrial(mapped.contact_id);

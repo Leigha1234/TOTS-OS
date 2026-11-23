@@ -1,4 +1,5 @@
 import { MTC_CREDIT_ORGANISATION_ID, resolveMtcCreditSku, expectedMtcCredits } from "@/lib/integrations/mtc/credit-products";
+import { sendMtcPurchaseOnboardingSafely } from "@/lib/mtcPurchaseOnboarding";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
@@ -3856,6 +3857,10 @@ export async function POST(
           );
         }
 
+        if (session.metadata?.order_id) {
+          await sendMtcPurchaseOnboardingSafely(session.metadata.order_id);
+        }
+
         break;
       }
 
@@ -3883,6 +3888,10 @@ export async function POST(
           await syncMtcStoreSubscription(subscriptionSynced,
             "payment_succeeded"
           );
+        }
+
+        if (session.metadata?.order_id) {
+          await sendMtcPurchaseOnboardingSafely(session.metadata.order_id);
         }
 
         break;

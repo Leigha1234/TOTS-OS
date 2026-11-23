@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/mtc-trial-send",
       "schedule": "45 8 * * *"
+    },
+    {
+      "path": "/api/cron/mtc-course-contact-sync",
+      "schedule": "0 9 * * *"
     }
   ]
 }

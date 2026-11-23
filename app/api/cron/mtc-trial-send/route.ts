@@ -224,6 +224,22 @@ export async function GET(req: NextRequest) {
 
     if (!enabled) continue;
 
+    // Validate all URLs before claiming a delivery, so a missing or incorrect
+    // configuration cannot leave an unsent message stuck in `sending`.
+    const appOrigin = process.env.ORBI_APP_URL;
+    const bookingUrlConfigured = process.env.MTC_BOOKING_URL;
+    const membershipUrlConfigured = process.env.MTC_MEMBERSHIP_URL;
+    const validHttps = (value: string | undefined) => {
+      if (!value) return false;
+      try { return new URL(value).protocol === "https:"; } catch { return false; }
+    };
+    if (!validHttps(appOrigin) || !validHttps(bookingUrlConfigured) ||
+        !validHttps(membershipUrlConfigured) || !process.env.RESEND_API_KEY ||
+        !process.env.MTC_RESEND_FROM_EMAIL) {
+      counts.blocked++;
+      continue;
+    }
+
     const { data: claimed, error: claimError } = await db.rpc(
       "claim_mtc_trial_email",
       {
@@ -264,7 +280,7 @@ export async function GET(req: NextRequest) {
       }
       const resendKey = process.env.RESEND_API_KEY;
       const fromEmail = process.env.MTC_RESEND_FROM_EMAIL;
-      const bookingUrl = process.env.MTC_BOOKING_URL;
+      const bookingUrl = bookingUrlConfigured;
 
       if (!resendKey || !fromEmail || !bookingUrl) {
         throw new Error("MTC email configuration missing");
@@ -283,13 +299,16 @@ export async function GET(req: NextRequest) {
         recipientId: delivery.mtc_user_id,
       });
 
-      const unsubscribeUrl =
-        `https://www.tots-os.co.uk/api/campaigns/unsubscribe?token=${encodeURIComponent(token)}`;
+      const unsubscribeUrl = new URL(
+        `/api/campaigns/unsubscribe?token=${encodeURIComponent(token)}`,
+        appOrigin
+      ).toString();
 
       const content = buildEmail(
         delivery.email_step,
         unsubscribeUrl,
-        bookingUrl
+        bookingUrl!,
+        membershipUrlConfigured!
       );
 
       const { data, error } = await resend.emails.send(

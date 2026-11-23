@@ -30,17 +30,17 @@ const emailContent: Record<
     button: "EXPLORE MEMBERSHIPS",
   },
   day_7: {
-    subject: "Your MTC trial is ending — here's £10 off 💛",
+    subject: "Your MTC trial is ending — keep going 💛",
     heading: "THIS IS JUST THE BEGINNING.",
     message:
-      "Your free trial is coming to an end. We'd love you to stay! Use code WELCOME10 to get £10 off your monthly membership, subject to the offer's terms and eligibility.",
+      "Your free trial is coming to an end, but your progress doesn't have to stop. Explore our membership options and find the right fit for you.",
     button: "BECOME A MEMBER",
   },
   day_10: {
     subject: "We'd love to see you back at MTC!",
     heading: "YOUR PLACE IS WAITING.",
     message:
-      "Your trial has finished, but your journey doesn't have to. Join the MTC community and use WELCOME10 for £10 off your monthly membership, subject to the offer's terms and eligibility.",
+      "Your trial has finished, but your journey doesn't have to. We'd love to welcome you back. Explore memberships and find your next session.",
     button: "JOIN THE CLUB",
   },
 };
@@ -48,13 +48,14 @@ const emailContent: Record<
 export function buildEmail(
   step: string,
   unsubscribeUrl: string,
-  bookingUrl: string
+  bookingUrl: string,
+  membershipUrl?: string
 ) {
   const content = emailContent[step];
 
   if (!content) throw new Error("Unknown email step");
 
-  const safeUrl = escapeHtml(bookingUrl);
+  const safeUrl = escapeHtml(step === "welcome" ? bookingUrl : (membershipUrl || bookingUrl));
   const safeUnsubscribe = escapeHtml(unsubscribeUrl);
 
   return {

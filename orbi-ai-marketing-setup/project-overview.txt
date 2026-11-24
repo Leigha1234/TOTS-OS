@@ -1,0 +1,416 @@
+===== PROJECT STRUCTURE =====
+app/(dashboard)/agency/approvals/page.tsx
+app/(dashboard)/agency/page.tsx
+app/(dashboard)/calendar/page.tsx
+app/(dashboard)/campaigns/AgencyCampaignDesigner.tsx
+app/(dashboard)/campaigns/OriginalEmailCampaigns.tsx
+app/(dashboard)/campaigns/page.tsx
+app/(dashboard)/clarity/page.tsx
+app/(dashboard)/claritytour/ClarityTourCard.tsx
+app/(dashboard)/claritytour/ClarityTourOverlay.tsx
+app/(dashboard)/claritytour/ClarityTourProvider.tsx
+app/(dashboard)/claritytour/tourRegistry.ts
+app/(dashboard)/claritytour/types.ts
+app/(dashboard)/crm/[id]/page.tsx
+app/(dashboard)/crm/page.tsx
+app/(dashboard)/dashboard/page.tsx
+app/(dashboard)/finance-reports/page.tsx
+app/(dashboard)/growth/page.tsx
+app/(dashboard)/insights/DetailedReports.tsx
+app/(dashboard)/insights/page.tsx
+app/(dashboard)/layout.tsx
+app/(dashboard)/manage-subscription/page.tsx
+app/(dashboard)/notes/page.tsx
+app/(dashboard)/payments/components/CommerceReports.tsx
+app/(dashboard)/payments/components/EmptyState.tsx
+app/(dashboard)/payments/components/FinanceBanking.tsx
+app/(dashboard)/payments/components/FinanceExpenses.tsx
+app/(dashboard)/payments/components/FinanceHeader.tsx
+app/(dashboard)/payments/components/FinanceNav.tsx
+app/(dashboard)/payments/components/FinanceNotification.tsx
+app/(dashboard)/payments/components/FinanceOverview.tsx
+app/(dashboard)/payments/components/FinancePayroll.tsx
+app/(dashboard)/payments/components/FinanceSales.tsx
+app/(dashboard)/payments/components/FinanceTax.tsx
+app/(dashboard)/payments/components/FinanceTimesheets.tsx
+app/(dashboard)/payments/components/InvoiceManagement.tsx
+app/(dashboard)/payments/components/MetricCard.tsx
+app/(dashboard)/payments/components/MiniStat.tsx
+app/(dashboard)/payments/components/SectionShell.tsx
+app/(dashboard)/payments/components/StatusPill.tsx
+app/(dashboard)/payments/hooks/useCommerceRevenue.ts
+app/(dashboard)/payments/hooks/useFinanceContext.ts
+app/(dashboard)/payments/hooks/useFinanceData.ts
+app/(dashboard)/payments/hooks/useFinanceMetrics.ts
+app/(dashboard)/payments/lib/financeActions.ts
+app/(dashboard)/payments/lib/financeHelpers.ts
+app/(dashboard)/payments/page.tsx
+app/(dashboard)/payments/types.ts
+app/(dashboard)/projects/[id]/page.tsx
+app/(dashboard)/projects/page.tsx
+app/(dashboard)/reports/page.tsx
+app/(dashboard)/settings/components/ConnectedAccountModal.tsx
+app/(dashboard)/settings/components/ProfileSettings.tsx
+app/(dashboard)/settings/components/SettingsHeader.tsx
+app/(dashboard)/settings/components/SocialSettings.tsx
+app/(dashboard)/settings/components/TeamSettings.tsx
+app/(dashboard)/settings/hooks/useSettingsProfile.ts
+app/(dashboard)/settings/hooks/useSocialConnections.ts
+app/(dashboard)/settings/hooks/useTikTokOAuthResult.ts
+app/(dashboard)/settings/import/page.tsx
+app/(dashboard)/settings/page.tsx
+app/(dashboard)/settings/team/page.tsx
+app/(dashboard)/settings/types.ts
+app/(dashboard)/social/OriginalSocialStudio.tsx
+app/(dashboard)/social/page.tsx
+app/(dashboard)/store/page.tsx
+app/(dashboard)/timesheets/page.tsx
+app/(dashboard)/tots-admin/page.tsx
+app/(dashboard)/vault/page.tsx
+app/access-denied/page.tsx
+app/access-ended/page.tsx
+app/activity/page.tsx
+app/api/account/access/route.ts
+app/api/admin/stripe-audit/route.ts
+app/api/admin/stripe-check-mtc/route.ts
+app/api/agency/approvals/route.ts
+app/api/agency/contexts/route.ts
+app/api/agency/route.ts
+app/api/agency/social/route.ts
+app/api/ai/reply/route.ts
+app/api/auth/accept-invite/route.ts
+app/api/auth/check-registration/route.ts
+app/api/auth/deletion/route.ts
+app/api/auth/finalise-registration/route.ts
+app/api/auth/meta/route.ts
+app/api/auth/tiktok/route.ts
+app/api/auth/user/route.ts
+app/api/beta/extend/route.ts
+app/api/bookings/cancel/route.ts
+app/api/bookings/checkout/route.ts
+app/api/bookings/confirmation/route.ts
+app/api/bookings/create/route.ts
+app/api/bookings/maintenance/route.ts
+app/api/bookings/notify/route.ts
+app/api/bookings/stripe-webhook/route.ts
+app/api/campaigns/ai-generate/route.ts
+app/api/campaigns/click/route.ts
+app/api/campaigns/open/route.ts
+app/api/campaigns/process/route.ts
+app/api/campaigns/send-test/route.ts
+app/api/campaigns/send/route.ts
+app/api/campaigns/unsubscribe/route.ts
+app/api/checkout/create-seat-session/route.ts
+app/api/checkout/route.ts
+app/api/clarity-generate/route.ts
+app/api/clarity/brief/route.ts
+app/api/clarity/chat/route.ts
+app/api/clarity/context/route.ts
+app/api/clarity/conversations/route.ts
+app/api/clarity/run/route.ts
+app/api/create-checkout-session/route.ts
+app/api/create-invoice/route.ts
+app/api/cron/campaigns/route.ts
+app/api/cron/clarity/route.ts
+app/api/cron/mtc-course-contact-sync/route.ts
+app/api/cron/mtc-course-email-preview/route.ts
+app/api/cron/mtc-marketing-monitor/route.ts
+app/api/cron/mtc-marketing-readiness/route.ts
+app/api/cron/mtc-trial-health/route.ts
+app/api/cron/mtc-trial-schedule/route.ts
+app/api/cron/mtc-trial-send/route.ts
+app/api/cron/notifications/route.ts
+app/api/cron/orbi-lifecycle/route.ts
+app/api/cron/orbi-waitlist/route.ts
+app/api/cron/process-posts/route.ts
+app/api/cron/publish/route.ts
+app/api/cron/reminders/route.ts
+app/api/cron/subscriptions/route.ts
+app/api/cron/trial-emails/route.ts
+app/api/early-access/route.ts
+app/api/early-access/unsubscribe/route.ts
+app/api/growth/booking/route.ts
+app/api/growth/capture/route.ts
+app/api/growth/marketing/route.ts
+app/api/growth/route.ts
+app/api/growth/sequences/route.ts
+app/api/insights/route.ts
+app/api/invitations/send/route.ts
+app/api/invoices/checkout/route.ts
+app/api/note-attachments/route.ts
+app/api/notes/route.ts
+app/api/notifications/email/route.ts
+app/api/oauth/exchange/route.ts
+app/api/oauth/linkedin/route.ts
+app/api/oauth/meta/route.ts
+app/api/oauth/refresh/route.ts
+app/api/oauth/tiktok/route.ts
+app/api/orbi-lifecycle/unsubscribe/route.ts
+app/api/pdf/route.ts
+app/api/post/route.ts
+app/api/push/subscribe/route.ts
+app/api/push/test/route.ts
+app/api/send-email/route.ts
+app/api/send-invoices/route.ts
+app/api/send-payslip/route.ts
+app/api/send-reset/route.ts
+app/api/settings/logo-upload/route.ts
+app/api/social/generate-caption/route.ts
+app/api/social/media/route.ts
+app/api/social/post/route.ts
+app/api/store-checkout/confirm/route.ts
+app/api/store-checkout/route.ts
+app/api/store-contact/route.ts
+app/api/store/ai/route.ts
+app/api/storefront/[slug]/route.ts
+app/api/stripe/invoice-webhook/route.ts
+app/api/stripe/store-webhook/route.ts
+app/api/stripe/webhook/route.ts
+app/api/tots-admin/activity/route.ts
+app/api/tots-admin/billing/route.ts
+app/api/tots-admin/organisations/route.ts
+app/api/tots-admin/overview/route.ts
+app/api/tots-admin/revenue/route.ts
+app/api/tots-admin/users/route.ts
+app/api/webhooks/gocardless/renewal.ts
+app/api/webhooks/gocardless/route.ts
+app/beta/leave/page.tsx
+app/beta/one-more-week/page.tsx
+app/billing/page.tsx
+app/book/[slug]/BookingClient.tsx
+app/book/[slug]/page.tsx
+app/book/layout.tsx
+app/client-approvals/page.tsx
+app/components/ActivityFeed.tsx
+app/components/AdminPermissionToggle.tsx
+app/components/AgencyContextPicker.tsx
+app/components/AuthGuard.tsx
+app/components/BookingServicesEditor.tsx
+app/components/Button.tsx
+app/components/Card.tsx
+app/components/Clarity.tsx
+app/components/ClientApprovals.tsx
+app/components/ClientSocialStudio.tsx
+app/components/DashboardDraftSafety.tsx
+app/components/ErrorBoundary.tsx
+app/components/FileUploader.tsx
+app/components/Footer.tsx
+app/components/GlobalOrganisationSwitcher.tsx
+app/components/GlobalProviders.tsx
+app/components/growth/GrowthBookingHandoffs.tsx
+app/components/growth/GrowthCRMBulkSync.tsx
+app/components/growth/GrowthEmailMarketing.tsx
+app/components/growth/GrowthSequences.tsx
+app/components/Input.tsx
+app/components/InvoiceLedger.tsx
+app/components/LegalHub.tsx
+app/components/NotificationBell.tsx
+app/components/OrbiRebrandWelcome.tsx
+app/components/Page.tsx
+app/components/PasswordSection.tsx
+app/components/ServiceWorkerRegister.tsx
+app/components/SetupTeam.tsx
+app/components/Sidebar.tsx
+app/components/Skeleton.tsx
+app/components/SocialComposer.tsx
+app/components/SocialConnections.tsx
+app/components/SystemNavigator.tsx
+app/components/TeamOnboard.tsx
+app/components/ThemeToggle.tsx
+app/components/TopLoader.tsx
+app/context/SettingsContext.tsx
+app/customers/[id]/page.tsx
+app/demoforopen/page.tsx
+app/docs/aipolicy/page.tsx
+app/docs/betaterms/page.tsx
+app/docs/cancellationpolicy/page.tsx
+app/docs/communityguidelines/page.tsx
+app/docs/cookies/page.tsx
+app/docs/dataterms/page.tsx
+app/docs/privacypolicy/page.tsx
+app/docs/propertynotice/page.tsx
+app/docs/securitypolicy/page.tsx
+app/docs/servicepolicy/page.tsx
+app/docs/termsconditions/page.tsx
+app/error.tsx
+app/find-your-setup/page.tsx
+app/hooks/useFormDraft.ts
+app/hooks/useNotifications.ts
+app/hooks/useSocialConnections.ts
+app/join/page.tsx
+app/layout.tsx
+app/login/page.tsx
+app/manifest.ts
+app/notifications/page.tsx
+app/onboarding/success/page.tsx
+app/page.tsx
+app/pay/[token]/page.tsx
+app/pay/[token]/PayInvoiceClient.tsx
+app/payroll/page.tsx
+app/portal/[token]/page.tsx
+app/portal/page.tsx
+app/privacy/page.tsx
+app/q/[slug]/route.ts
+app/reset-password/page.tsx
+app/set-password/page.tsx
+app/shop/[slug]/page.tsx
+app/shop/[slug]/success/page.tsx
+app/terms/page.tsx
+app/unsubscribe/route.ts
+lib/agency-campaign-client.ts
+lib/agency-email-access.ts
+lib/agency-social-access.ts
+lib/auth.ts
+lib/auth/completeRegistration.ts
+lib/billing-config.ts
+lib/campaign-schedule-dispatch.ts
+lib/campaign-sender.ts
+lib/campaign-unsubscribe-token.ts
+lib/clarity/chat.ts
+lib/clarity/context.ts
+lib/clarity/database.ts
+lib/clarity/index.ts
+lib/clarity/prompts.ts
+lib/createNotification.ts
+lib/getBranding.ts
+lib/getLimits.ts
+lib/getUserPlan.ts
+lib/getUserTeam.ts
+lib/import/batchImporter.ts
+lib/import/constants.ts
+lib/import/duplicateChecker.ts
+lib/import/fieldMapper.ts
+lib/import/fileParser.ts
+lib/import/progressTracker.ts
+lib/import/recordDetector.ts
+lib/import/relationshipResolver.ts
+lib/import/reportGenerator.ts
+lib/import/types.ts
+lib/import/validator.ts
+lib/integrations/mtc/credit-products.ts
+lib/integrations/mtc/mtc.ts
+lib/middleware.ts
+lib/monthly-support-checkout.ts
+lib/mtc-marketing/course-email.ts
+lib/mtc-marketing/paid-course-sync.ts
+lib/mtc-marketing/trial-email.ts
+lib/mtcPurchaseOnboarding.ts
+lib/oauth/storeToken.ts
+lib/orbi-approval-gate.ts
+lib/pdf.ts
+lib/pdf/PayslipPDF.tsx
+lib/permissions.ts
+lib/posting-worker.ts
+lib/pushNotifications.ts
+lib/sendPushNotification.ts
+lib/store-stripe-connect.ts
+lib/storeSubscriptions.ts
+lib/stripe-plans.ts
+lib/stripe.ts
+lib/supabase-admin.ts
+lib/supabase-server.ts
+lib/supabase.ts
+lib/use-active-agency-context.ts
+lib/useNotifications.ts
+
+===== PACKAGE.JSON =====
+{
+  "name": "tots-os",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build --webpack",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
+    "@dnd-kit/core": "^6.3.1",
+    "@google/generative-ai": "^0.24.1",
+    "@hello-pangea/dnd": "^18.0.1",
+    "@react-pdf/renderer": "^4.4.0",
+    "@stripe/stripe-js": "^9.5.0",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.105.4",
+    "@vercel/analytics": "^1.4.1",
+    "autoprefixer": "^10.4.20",
+    "axios": "^1.7.9",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^5.37.1",
+    "date-fns": "^4.1.0",
+    "framer-motion": "^12.4.3",
+    "html2canvas": "^1.4.1",
+    "ioredis": "^5.4.2",
+    "jspdf": "^2.5.2",
+    "lucide-react": "^0.474.0",
+    "next": "^16.2.4",
+    "openai": "^4.83.0",
+    "papaparse": "^5.5.4",
+    "pdfkit": "^0.16.0",
+    "qrcode": "^1.5.4",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-grid-layout": "^1.5.0",
+    "react-hot-toast": "^2.6.0",
+    "react-resizable": "^3.0.5",
+    "recharts": "^2.15.4",
+    "resend": "^4.8.0",
+    "sonner": "^1.7.4",
+    "stripe": "^17.7.0",
+    "web-push": "^3.6.7",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.4",
+    "@types/node": "^20.17.17",
+    "@types/papaparse": "^5.5.2",
+    "@types/pdfkit": "^0.13.7",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.5",
+    "@types/web-push": "^3.6.4",
+    "eslint": "8.57.0",
+    "eslint-config-next": "14.2.0",
+    "postcss": "^8.5.12",
+    "tailwindcss": "^4.2.4",
+    "typescript": "^5.7.3"
+  }
+}
+
+===== EXISTING MARKETING / AI / CRM FILES =====
+./app/(dashboard)/campaigns/AgencyCampaignDesigner.tsx
+./app/(dashboard)/campaigns/OriginalEmailCampaigns.tsx
+./app/(dashboard)/settings/components/SocialSettings.tsx
+./app/(dashboard)/settings/hooks/useSocialConnections.ts
+./app/(dashboard)/social/OriginalSocialStudio.tsx
+./app/components/ClientSocialStudio.tsx
+./app/components/growth/GrowthCRMBulkSync.tsx
+./app/components/growth/GrowthEmailMarketing.tsx
+./app/components/SocialComposer.tsx
+./app/components/SocialConnections.tsx
+./app/hooks/useSocialConnections.ts
+./lib/agency-campaign-client.ts
+./lib/agency-social-access.ts
+./lib/campaign-schedule-dispatch.ts
+./lib/campaign-sender.ts
+./lib/campaign-unsubscribe-token.ts
+./orbi-ai-marketing-setup.zip
+./public/images/tots-services/branding/premium-brand-social-kit.png
+./public/images/tots-services/marketing/email-marketing-setup.png
+./public/images/tots-services/marketing/marketing-strategy.png
+./public/images/tots-services/marketing/social-media-setup.png
+./public/images/tots-services/monthly-services/email-marketing-management.png
+./public/images/tots-services/monthly-services/marketing-partner.png
+./public/images/tots-services/monthly-services/social-media-essentials.png
+./public/images/tots-services/monthly-services/social-media-growth.png
+./public/images/tots-services/website-addons/crm-email-integration.png
+
+===== SUPABASE / AUTH / API FILES =====
+app/(dashboard)/settings/hooks/useTikTokOAuthResult.ts
+app/components/AuthGuard.tsx
+lib/auth.ts
+lib/middleware.ts
+lib/supabase-admin.ts
+lib/supabase-server.ts
+lib/supabase.ts
